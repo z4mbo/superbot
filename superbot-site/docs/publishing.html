@@ -103,9 +103,10 @@ superbot-plugin set-grants INSTALLATION_ID BOT_ID summary tracker</code></pre>
       <h2 id="update">Updating and uninstalling</h2>
       <ol>
         <li>Publish a higher version number and have it approved.</li>
-        <li>Uninstall the pinned installation: <code>superbot-plugin uninstall INSTALLATION_ID</code>. This removes every grant in that Space at once.</li>
-        <li>Install the new version and grant its parts again. Keeping part ids stable across versions makes this easy to follow.</li>
+        <li>Open the installation in the store, choose an approved version and confirm the switch. On the command line use <code>superbot-plugin switch-version INSTALLATION_ID CURRENT_VERSION_ID TARGET_VERSION_ID</code>.</li>
+        <li>Choose which agents can use the new release. Switching clears the previous grants in the same transaction. If the switch fails, the current release and grants stay in place.</li>
       </ol>
+      <p>To remove the installation and its grants, use <code>superbot-plugin uninstall INSTALLATION_ID</code>.</p>
 
       <nav class="pager" aria-label="Pages">
         <a href="manifest.html"><small>Previous</small><span>Manifest reference</span></a>

@@ -50,7 +50,7 @@
 
       <div class="note" role="note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-        <div><p>The store works on self-hosted Superbot servers today, from the command line and the <a href="api.html">registry API</a>. The desktop app's store is being built, and its plugin creator is planned; it will open the same <code>plugin.json</code> you write here.</p></div>
+        <div><p>In the desktop app, open <b>Plugins</b> and choose <b>Create plugin</b> to define a skill or connector and submit a version. Under <b>Yours</b> you can follow its review status. The CLI and <a href="api.html">registry API</a> use the same manifest format.</p></div>
       </div>
 
       <h2 id="what">What a plugin can add</h2>
@@ -105,7 +105,7 @@ superbot-plugin init release-notes --name "Release notes"</code></pre>
   ]
 }</code></pre>
           </figure>
-          The endpoint is a placeholder: host your MCP server first and use its address, without keys, tokens, a query string or a fragment. Every field is in the <a href="manifest.html">manifest reference</a>.
+          For a working tool example, run <code>superbot-plugin init temperature-tool --template mcp-app</code> in an empty directory, then start <code>node server.ts</code>. Its README includes a local tool call and public HTTPS deployment steps. Set your manifest endpoint to your deployed address. Every field is in the <a href="manifest.html">manifest reference</a>.
         </li>
         <li>
           <b>Validate it.</b> <code>superbot-plugin validate</code> checks the schema locally without contacting the server. The registry checks the endpoint's safety during review.

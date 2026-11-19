@@ -64,7 +64,7 @@
         <table>
           <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
           <tbody>
-            <tr><td><code>init SLUG [--name NAME] [--manifest FILE]</code></td><td class="muted">Writes a starter manifest with one skill part, <code>summary</code>. Alias <code>scaffold</code>. The file defaults to <code>plugin.json</code>.</td></tr>
+            <tr><td><code>init SLUG [--template skill|mcp-app] [--name NAME] [--manifest FILE]</code></td><td class="muted">The default skill starter writes <code>plugin.json</code> with one part, <code>summary</code>. The <code>mcp-app</code> starter also writes a runnable TypeScript tool server and its README alongside the manifest. Alias <code>scaffold</code>.</td></tr>
             <tr><td><code>validate [FILE]</code></td><td class="muted">Checks the manifest against schema 1 locally, without contacting the server.</td></tr>
             <tr><td><code>publish SLUG VERSION [--manifest FILE]</code></td><td class="muted">Submits a version for review. <code>VERSION</code> is a whole number from 1. Alias <code>submit</code>.</td></tr>
             <tr><td><code>status VERSION_ID</code></td><td class="muted">Shows one of your versions, its status and any rejection reason.</td></tr>
@@ -78,7 +78,7 @@
         <table>
           <thead><tr><th scope="col">Scope</th><th scope="col">Lists</th></tr></thead>
           <tbody>
-            <tr><td><code>discover</code></td><td class="muted">Approved versions. The default. Filter with <code>--slug SLUG</code>.</td></tr>
+            <tr><td><code>discover</code></td><td class="muted">Approved versions. The default. Search by name, description or ID with <code>--query "release notes"</code>, or filter by exact ID with <code>--slug SLUG</code>.</td></tr>
             <tr><td><code>mine</code></td><td class="muted">Your own submissions, with their status.</td></tr>
             <tr><td><code>installations</code></td><td class="muted">Your installations in the selected Space, with their grants.</td></tr>
             <tr><td><code>submissions</code></td><td class="muted">The review queue, for deployment admins. Filter with <code>--status pending|approved|rejected</code>.</td></tr>
@@ -93,6 +93,7 @@
           <tbody>
             <tr><td><code>agents</code></td><td class="muted">Lists the selected Space's bots and their ids, for grants.</td></tr>
             <tr><td><code>install VERSION_ID</code></td><td class="muted">Installs an approved version into the selected Space.</td></tr>
+            <tr><td><code>switch-version INSTALLATION_ID CURRENT_VERSION_ID TARGET_VERSION_ID</code></td><td class="muted">Switches to another approved version of this plugin and clears the old grants. A failed switch leaves the current state intact.</td></tr>
             <tr><td><code>set-grants INSTALLATION_ID BOT_ID [PART_ID...]</code></td><td class="muted">Replaces that bot's parts for the installation. No part ids revokes them all. Alias <code>grant</code>.</td></tr>
             <tr><td><code>uninstall INSTALLATION_ID</code></td><td class="muted">Removes the installation and every grant it has.</td></tr>
           </tbody>

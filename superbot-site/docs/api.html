@@ -57,8 +57,9 @@
             <tr><td><code>mine</code></td><td class="muted"><code>{ after?, limit? }</code></td><td class="muted">Your versions, any status</td></tr>
             <tr><td><code>submissions</code></td><td class="muted"><code>{ status?, after?, limit? }</code></td><td class="muted">Review queue; status defaults to <code>pending</code>. Admins only</td></tr>
             <tr><td><code>review</code></td><td class="muted"><code>{ versionId, decision: "approved" }</code> or <code>{ versionId, decision: "rejected", reason }</code></td><td class="muted">The decided version. Admins only</td></tr>
-            <tr><td><code>discover</code></td><td class="muted"><code>{ slug?, after?, limit? }</code></td><td class="muted">Approved versions only</td></tr>
+            <tr><td><code>discover</code></td><td class="muted"><code>{ slug?, query?, after?, limit? }</code></td><td class="muted">Approved versions. Search by name, ID or description.</td></tr>
             <tr><td><code>install</code></td><td class="muted"><code>{ versionId }</code></td><td class="muted">The installation, pinned to that version</td></tr>
+            <tr><td><code>switchVersion</code></td><td class="muted"><code>{ installationId, expectedVersionId, versionId }</code></td><td class="muted">Same installation with a new approved version and zero grants.</td></tr>
             <tr><td><code>installations</code></td><td class="muted"><code>{ after?, limit? }</code></td><td class="muted">Your installations in the Space</td></tr>
             <tr><td><code>setGrants</code></td><td class="muted"><code>{ installationId, botId, partIds }</code></td><td class="muted">The installation with its current grants</td></tr>
             <tr><td><code>uninstall</code></td><td class="muted"><code>{ installationId }</code></td><td class="muted"><code>{ ok: true }</code></td></tr>
@@ -98,7 +99,7 @@
         <li><code>slug</code> and part ids: 1 to 64 characters matching <code>^[a-z0-9]+(?:-[a-z0-9]+)*$</code>. <code>version</code>: a whole number from 1.</li>
         <li>The first submission reserves a slug for its publisher. Rejected versions keep it reserved. Each new version is a separate submission and review.</li>
         <li>A version is decided once. Rejecting needs a <code>reason</code> of 1 to 2,000 characters.</li>
-        <li>Installing the same version again returns the existing installation. To change versions, uninstall and install explicitly.</li>
+        <li>Installing the same version again returns the existing installation. To change versions, pass its current <code>plugin.id</code> as <code>expectedVersionId</code> to <code>switchVersion</code>. A successful switch clears old grants. Repeating a completed switch preserves any new grants. On a conflict, read the current installation before retrying.</li>
         <li>New installations have no grants. <code>setGrants</code> replaces one bot's parts; an empty <code>partIds</code> revokes them. <code>uninstall</code> removes every grant at once.</li>
         <li>The registry never contacts tool servers or runs anything from a manifest.</li>
       </ul>
