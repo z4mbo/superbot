@@ -15,17 +15,23 @@ impl Desktop {
         let matches = |name: &str| query.is_empty() || name.to_lowercase().contains(&query);
         let open = self.chat.as_ref().filter(|_| self.view == View::Chat).map(|chat| chat.target.clone());
 
-        let agents: Vec<AgentSummary> = self.agents().iter().filter(|agent| matches(&agent.name)).cloned().collect();
         let groups: Vec<GroupSummary> = self.groups().iter().filter(|group| matches(&group.name)).cloned().collect();
-        let (pinned, listed): (Vec<_>, Vec<_>) = agents.into_iter().partition(|agent| agent.pinned && query.is_empty());
+        let mut pinned = Vec::new();
+        let mut listed = Vec::new();
+        for agent in self.agents().iter().filter(|agent| matches(&agent.name)) {
+            let primary = superbot_avatars::primary_tile(&agent.name, cx);
+            if query.is_empty() && (primary || agent.pinned) {
+                pinned.push((primary, agent.clone()));
+            } else {
+                listed.push(agent.clone());
+            }
+        }
         let nothing = pinned.is_empty() && listed.is_empty() && groups.is_empty();
 
         let tiles = (!pinned.is_empty()).then(|| {
-            let mut tiles: Vec<_> =
-                pinned.into_iter().map(|agent| (superbot_avatars::primary_tile(&agent.name, cx), agent)).collect();
-            tiles.sort_by_key(|(primary, _)| !*primary);
+            pinned.sort_by_key(|(primary, _)| !*primary);
             div().flex().flex_wrap().justify_center().gap_1().pt_3p5().pb_4().children(
-                tiles.into_iter().map(|(primary, agent)| self.render_tile(agent, primary, open.as_ref(), &theme, cx)),
+                pinned.into_iter().map(|(primary, agent)| self.render_tile(agent, primary, open.as_ref(), &theme, cx)),
             )
         });
         let rows = div()

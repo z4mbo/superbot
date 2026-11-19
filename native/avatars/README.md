@@ -52,7 +52,7 @@ and so is a shape whose frames file cannot be read. The pack is read once at sta
   anything left is picked from `fallback` by the bot's id, so it never changes.
 - **Colours.** `palette` colours draw as they are, `inkColors` in the skin's text colour,
   `gradients` top to bottom.
-- **Primary tile.** Set `"primaryTile": true` in a named bot's entry to show its pinned tile first, 92px wide with a 16px crown badge. Pinning still belongs to the Space. This setting affects only the way the tile is drawn.
+- **Primary tile.** Set `"primaryTile": true` in a named bot's entry to reserve the first tile for it, 92px wide with a 16px crown badge. It appears on each device that has the pack as soon as the bot is in the Space. Other pinned bots follow it. Search lists matching bots as rows. The setting affects only the local sidebar.
 - **Size.** The mark is drawn in a square `markScale` times the avatar slot (or the size
   `markBoxes` pins for that slot), centred on it, so it may reach past the slot. Squares
   smaller than `compactBelow` use the compact working frames.
