@@ -61,7 +61,8 @@ Asks from design to the client/runtime owners (UI code must not invent these):
 - **Use**: OpenMausBot's own tokens (Midnight, Daylight, `identity-*`), its type table,
   radius scale, layout numbers and its app icon (the round bot face on a black tile).
 - **Fonts**: Geist and Geist Mono (SIL OFL 1.1). Bundle the `.ttf`/`.otf` files with their
-  licence in the app.
+  licence in the app. A person may use their own faces on their own computer through a
+  private typography pack (§3.3); the app never bundles or downloads one.
 - **Never ship** anything from `OpenMausBot/src/grok-study/`: the `XVF` fonts, the `--gk-*`
   palette, `roster.json` and the engine chunks are another product's assets copied "for
   local study only". Do not copy third-party product marks (Grok, Claude, Codex, Gemini
@@ -167,6 +168,19 @@ Until `Agent.color` exists: `palette[fnv1a(agent.id) % 10]`, stable per bot.
 Geist for text, Geist Mono for code, keys, slugs and JSON. Weights 400 / 500 / 600 only.
 Sentence case everywhere.
 
+**Private typography pack.** At start the desktop reads `typography.json` from the
+appearance folder (`SUPERBOT_APPEARANCE`, else `%LOCALAPPDATA%\Superbot\appearance` on
+Windows and `~/Library/Application Support/Superbot/appearance` on macOS):
+`{"sans": {"families": [...], "file": "fonts/…"}, "mono": {...}}`. Files are TrueType or
+OpenType, relative to that folder; the first family name this computer's text system knows
+wins, and a role whose file or family does not load falls back to Geist. DirectWrite names
+the faces of a variable font with an optical-size axis after its cut (`Name Text`,
+`Name Display`), CoreText by its typographic family, so a pack lists both. GPUI draws
+variable fonts through their named instances and never applies optical sizing, while
+browsers set `opsz` to the font size; a pack pins its instances to one `opsz` (14 for the
+13–15px body sizes, within 0.2px of the browser over a 22-character line). The pack and its
+setup script live only in that folder, never in this repository or a build.
+
 | Use                                      | Size / line height              | Weight           | Ink                                 |
 | ---------------------------------------- | ------------------------------- | ---------------- | ----------------------------------- |
 | Page title (Marketplace, Plugin creator) | 26 / 32, letter-spacing −0.01em | 600              | ink                                 |
@@ -174,8 +188,9 @@ Sentence case everywhere.
 | Section title                            | 17 / 24                         | 600              | ink                                 |
 | Chat bubble                              | 15 / 22                         | 400              | ink                                 |
 | Menu item                                | 14 / 18                         | 400              | ink                                 |
-| Body, rows                               | 13 / 18                         | 400              | ink or ink_secondary                |
-| Names in lists                           | 13 / 18                         | 500              | ink                                 |
+| Body, row previews, day stamps           | 13 / 18                         | 400              | ink or ink_secondary                |
+| Names in lists and the header pill       | 14 / 20                         | 500              | ink                                 |
+| Composer field                           | 14 / 20                         | 400              | ink, placeholder ink at 36%         |
 | Speaker names (multiplayer)              | 13 / 18                         | 600              | identity colour, else ink_secondary |
 | Meta, hints, group labels                | 12 / 16                         | 400 (labels 500) | ink_tertiary                        |
 | Keycaps, tiny badges                     | 11 / 14                         | 400              | ink_secondary                       |
@@ -318,10 +333,10 @@ On launch: `CredentialStore::load`; if a client comes back, skip this screen. An
 
 Top row (60px tall, 12px top padding): traffic-light space, then at the end two 36px round
 icon buttons 8px apart, each a charcoal "elevated control": `composer` fill (`#1f1f1f`
-Midnight, `#ffffff` Daylight), a 1px inset ring of `ink` at 6%, icon 16px in `ink` at 90%,
-hover fill = `composer` mixed 7% toward `ink`. They are **Search** (`search`,
-`Cmd/Ctrl+K`) and **New** (`plus`, `Cmd/Ctrl+N`, opens
-a menu: "New bot…", "New group…", "Join a space…"; "New plugin…" only once §10 ships).
+Midnight, `#ffffff` Daylight), a 1px inset ring of `ink` at 6%, icon in `ink` at 90%
+(Lucide `search` at 18px, `plus` at 20px, stroke 1.5), hover fill = `composer` mixed 7%
+toward `ink`. They are **Search** (`search`, `Cmd/Ctrl+K`) and **New** (`plus`,
+`Cmd/Ctrl+N`, opens a menu: "New bot…", "New group…", "Join a space…"; "New plugin…" only once §10 ships).
 
 - **Space switcher**: only when `list_spaces` returns more than one. A 32px row
   under the top row: space name 13/500 + `chevrons-up-down` 14px; opens a menu of spaces
@@ -329,10 +344,12 @@ a menu: "New bot…", "New group…", "Join a space…"; "New plugin…" only on
 - **Inbox row** (Planned): 48px row, `inbox` icon in a 36px circle. Hidden until it exists.
 - **Main bot tile**: the first bot in the list, centred, 92×92, avatar 56 with its name
   12/500 under it.
-- **Bot rows**: 54px tall, radius 8, 8px inline padding, 10px gap. Avatar 40 (identity
-  plate with the bot's initial in 15/600 `#fff`, or its image). Name 13/500 `ink`, under it
-  the last-message preview 13/400 `ink_secondary`, one line each. Selected row `raised`;
-  hover `ink` 6%. A 24px `ellipsis` button appears at the row's end on hover, keyboard focus
+- **Bot rows**: 54px tall, radius 8, 8px inline padding, 10px gap. Avatar 42 with a −3px
+  margin, so it takes 36px and names start 66px from the sidebar's edge. Name 14/20/500
+  `ink`, 3px above the last-message preview 13/18/400 `ink_secondary`, one line each, the
+  pair centred (GPUI rounds that half pixel down; the text column starts 1px lower to land on
+  the browser's pixel rows). Selected row `raised`; hover `raised` at 50%. A 24px `ellipsis`
+  button appears at the row's end on hover, keyboard focus
   and touch: Rename…, New conversation, Open details, Remove. Right-click opens the same
   menu. Status marks sit on the avatar's bottom-end corner: working (pulsing 8px
   `success` dot, the only loop), needs you (8px `accent` dot).
@@ -347,15 +364,17 @@ a menu: "New bot…", "New group…", "Join a space…"; "New plugin…" only on
 
 ### 7.1 Header pill
 
-Centred, 36px tall, `panel` fill (Daylight: `menu`), 1px `hairline`, full radius, 6px
-start padding. Contents: avatar 24, bot name 14/500, a 1px × 16px `hairline` divider, the
+Centred 10px from the top, 41px tall, `composer` fill, 1px ring of `ink` at 6%, full
+radius, padding 9.5px block, 10px start, 12px end. Contents 8px apart: avatar 22, bot name
+14/20/500, a 1px × 16px `hairline` divider, the
 model name 13/400 `ink_secondary` + `chevron-down` 14 when a model can be chosen (Planned),
 else omitted. Clicking the name opens the side panel with the bot's details.
 No other header buttons.
 
 ### 7.2 Transcript
 
-- Column max 960, bubbles max `min(560, 80% column, column − 82)`.
+- Column max 960 inside 20px padding plus the reference's 8px scrollbar gutter at the end
+  (28px), bubbles max `min(560, 80% column, column − 82)`.
 - Bot bubbles start-aligned, `card` fill, `ink` text. The person's bubbles end-aligned,
   `bubble_user` fill and ink (neutral grey in Midnight, near-black in Daylight).
 - Bubble: radius 18, padding 7px block / 12px inline, text 15/22, min width 36.
@@ -386,13 +405,16 @@ under reduced motion). It replaces no content and reserves its slot so nothing j
 
 ### 7.4 Composer
 
-- Floating pill, column width, `composer` fill, 1px `composer_ring`, radius 22 (18 once
-  it wraps to two lines), padding 7px top / 9px sides and bottom, shadow
-  `0 2 8 −1 rgba(0,0,0,0.05)`. Ring goes to `ink` 22% on hover and focus.
-- Contents: `+` (28px round, `ink` 4% fill, `ink_tertiary` icon; opens Attach file…
-  [`artifacts/create` is Live; screen To build]); multi-line field 15/22, `dir` auto, placeholder
-  "Message {bot name}" in `ink_tertiary`, grows to 40% of window height then scrolls; a mic
-  28px (Planned, hidden); the round 32px **Send** button in the bot's identity colour with
+- Floating pill, column width, 44px tall on one line, `composer` fill, 1px ring of `ink`
+  at 10%, radius 22 (18 once it wraps to two lines), padding 7px top / 9px sides and bottom
+  inside the ring, shadows `0 2 8 −1 rgba(0,0,0,0.05)`, `0 1 2 rgba(0,0,0,0.03)` and
+  `0 0 0 1 rgba(228,228,228,0.04)` (GPUI's `blur_radius` is the CSS blur halved). Ring goes
+  to `ink` 22% when the pointer is over the composer or the text field has focus.
+- Contents: `+` (28px round, `ink` 4% fill and ring, a 20px plus of stroke 2 in
+  `ink_tertiary`; opens Attach file… [`artifacts/create` is Live; screen To build]);
+  multi-line field 14/20 with 4px block and 2px inline padding, 6px after the `+`, `dir`
+  auto, placeholder "Message {bot name}" in `ink` at 36%, grows to 40% of window height then scrolls; a mic
+  28px (Planned, hidden); the round 28px **Send** button in the bot's identity colour with
   `arrow-up` in its ink.
 - Send is disabled (50% opacity) when the field is blank or over 100,000 UTF-16 units
   (`InvalidMessage`); over the limit, a 12px `danger` count shows at the field's end.

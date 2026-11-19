@@ -60,7 +60,7 @@ impl Desktop {
             .flex_col()
             .child(self.render_chat_header(&target, &theme, cx))
             .child(div().flex_1().min_h_0().child(transcript))
-            .child(self.render_composer(&target, &theme, cx))
+            .child(self.render_composer(&target, &theme, window, cx))
             .into_any_element()
     }
 
@@ -110,9 +110,10 @@ impl Desktop {
                         .flex()
                         .items_center()
                         .gap_2()
-                        .py(px(8.5))
-                        .pl_2p5()
-                        .pr_3p5()
+                        .pt(px(9.))
+                        .pb(px(8.))
+                        .pl(px(9.))
+                        .pr(px(11.))
                         .rounded_full()
                         .bg(theme.composer)
                         .border_1()
@@ -171,7 +172,8 @@ impl Desktop {
             .w_full()
             .flex()
             .justify_center()
-            .px_5()
+            .pl_5()
+            .pr(px(28.))
             .child(div().w_full().max_w(CHAT_COLUMN).child(content))
             .into_any_element()
     }
@@ -498,7 +500,7 @@ impl Desktop {
             .into_any_element()
     }
 
-    fn render_composer(&mut self, target: &Target, theme: &Theme, cx: &mut Context<Self>) -> Div {
+    fn render_composer(&mut self, target: &Target, theme: &Theme, window: &Window, cx: &mut Context<Self>) -> Div {
         let chat = self.chat.as_ref();
         let working = chat.is_some_and(|chat| chat.working);
         let loading = chat.is_some_and(|chat| chat.loading);
@@ -506,8 +508,11 @@ impl Desktop {
         let sending = outbox.is_some_and(|outbox| outbox.sending);
         let attachments: Vec<Attachment> = outbox.map(|outbox| outbox.attachments.clone()).unwrap_or_default();
         let problem = outbox.and_then(|outbox| outbox.problem.clone());
-        let has_text = !self.composer.read(cx).value().trim().is_empty();
-        let multiline = self.composer.read(cx).value().contains('\n');
+        let editor = self.composer.read(cx);
+        let focused = editor.focus_handle(cx).is_focused(window);
+        let text = editor.value();
+        let has_text = !text.trim().is_empty();
+        let multiline = text.contains('\n');
         let needs_model = self.me.as_ref().is_some_and(|me| me.needs_model);
         let identity = match target {
             Target::Agent(id) => {
@@ -530,6 +535,7 @@ impl Desktop {
         };
         let pressed = mix(fill, theme.app, 0.14);
         let ring = theme.ink_at(0.1);
+        let ring_hover = theme.ink_at(0.22);
         let quiet_hover = theme.ink_at(0.08);
         let mentions = self.mention_list(cx);
 
@@ -579,13 +585,14 @@ impl Desktop {
         let attach = div()
             .id("attach")
             .size_7()
-            .mb(px(2.))
             .flex_shrink_0()
             .rounded_full()
             .flex()
             .items_center()
             .justify_center()
             .bg(theme.ink_at(0.04))
+            .border_1()
+            .border_color(theme.ink_at(0.04))
             .tooltip(|window, cx| Tooltip::new("Attach files").build(window, cx))
             .when(sending, |attach| attach.opacity(0.5))
             .when(!sending, |attach| {
@@ -594,11 +601,11 @@ impl Desktop {
                     .hover(move |style| style.bg(quiet_hover))
                     .on_click(cx.listener(|this, _, window, cx| this.attach_files(window, cx)))
             })
-            .child(icon("plus", px(16.), theme.ink_tertiary));
+            .child(icon("composer-plus", px(20.), theme.ink_tertiary));
 
         let send = div()
             .id("send")
-            .size_8()
+            .size_7()
             .flex_shrink_0()
             .rounded_full()
             .flex()
@@ -624,18 +631,51 @@ impl Desktop {
                 icon("arrow-up", px(16.), ink).into_any_element()
             });
 
-        let field = Textarea::new(&self.composer).small().appearance(false).bordered(false).disabled(sending);
+        let name = self.target_name(target);
+        let label = match target {
+            Target::Agent(_) => format!("Message {name}"),
+            Target::Group(_) => format!("Message {name}, @ to ask one bot"),
+        };
+        let field = Textarea::new(&self.composer)
+            .small()
+            .appearance(false)
+            .bordered(false)
+            .disabled(sending)
+            .aria_label(label.clone());
+        let input = div()
+            .relative()
+            .flex_1()
+            .min_w_0()
+            .py(px(2.))
+            .mx(px(-6.))
+            .when(text.is_empty(), |slot| {
+                slot.child(
+                    div()
+                        .absolute()
+                        .top(px(4.))
+                        .left(px(8.))
+                        .right(px(8.))
+                        .whitespace_nowrap()
+                        .overflow_hidden()
+                        .item()
+                        .text_color(theme.ink_at(if sending { 0.18 } else { 0.36 }))
+                        .child(label),
+                )
+            })
+            .child(field);
         let pill = div()
             .flex()
             .flex_col()
             .gap_2()
-            .px(px(9.))
-            .pt(px(7.))
-            .pb(px(9.))
+            .px(px(8.))
+            .pt(px(6.))
+            .pb(px(8.))
             .rounded(if multiline || tray.is_some() { radius::BUBBLE } else { radius::COMPOSER })
             .bg(theme.composer)
             .border_1()
-            .border_color(ring)
+            .border_color(if focused { ring_hover } else { ring })
+            .hover(move |style| style.border_color(ring_hover))
+            .shadow(composer_shadow())
             .children(tray)
             .child(
                 div()
@@ -643,7 +683,7 @@ impl Desktop {
                     .items_end()
                     .gap_1p5()
                     .child(attach)
-                    .child(div().flex_1().min_w_0().py(px(2.)).child(field))
+                    .child(input)
                     .child(send),
             );
 
@@ -749,6 +789,23 @@ impl Desktop {
                     .child(div().flex_1().min_w_0().truncate().child(member.name.clone()))
             }))
     }
+}
+
+/// The composer's lift, in CSS `box-shadow` terms.
+fn composer_shadow() -> Vec<BoxShadow> {
+    // GPUI (gpui-pre 0.3.12) takes `blur_radius` as the Gaussian sigma; CSS blur is twice it.
+    let shadow = |alpha: f32, y: f32, blur: f32, spread: f32| BoxShadow {
+        color: hsla(0., 0., 0., alpha),
+        offset: point(px(0.), px(y)),
+        blur_radius: px(blur / 2.),
+        spread_radius: px(spread),
+        inset: false,
+    };
+    vec![
+        shadow(0.05, 2., 8., -1.),
+        shadow(0.03, 1., 2., 0.),
+        BoxShadow { color: rgba(0xe4e4e40a).into(), ..shadow(0., 0., 0., 1.) },
+    ]
 }
 
 pub(crate) fn card(theme: &Theme) -> Div {

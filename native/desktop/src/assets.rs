@@ -8,6 +8,7 @@ const OWN: &[(&str, &[u8])] = &[
     ("icons/corner-search.svg", include_bytes!("../assets/icons/corner-search.svg")),
     ("icons/corner-plus.svg", include_bytes!("../assets/icons/corner-plus.svg")),
     ("icons/apps.svg", include_bytes!("../assets/icons/apps.svg")),
+    ("icons/composer-plus.svg", include_bytes!("../assets/icons/composer-plus.svg")),
 ];
 
 pub struct Assets;

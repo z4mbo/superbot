@@ -119,16 +119,8 @@ impl Desktop {
             cx.notify();
             return;
         }
-        let name = self.target_name(&target);
-        let placeholder = match target {
-            Target::Agent(_) => format!("Message {name}"),
-            Target::Group(_) => format!("Message {name}, @ to ask one bot"),
-        };
         self.keep_draft(window, cx);
-        self.composer.update(cx, |composer, cx| {
-            composer.set_placeholder(placeholder, window, cx);
-            composer.focus(window, cx);
-        });
+        self.composer.update(cx, |composer, cx| composer.focus(window, cx));
         self.chat = Some(Chat {
             target: target.clone(),
             entries: Vec::new(),

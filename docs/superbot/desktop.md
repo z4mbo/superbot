@@ -42,6 +42,15 @@ Sign in with your existing account on each device. Desktop and the CLI share the
 
 Keep your appearance pack in `~/Library/Application Support/Superbot/appearance` on macOS or `%LOCALAPPDATA%\Superbot\appearance` on Windows. To transfer it, quit Superbot, copy only your own appearance files through a private channel you control, and put them in the destination's appearance folder with their relative paths intact. Create the folder if needed and reopen Superbot. Keep these files outside the source checkout and app bundle. Sign in separately on the destination device.
 
+To use the same type on both clients, copy `typography.json` and its `fonts/` directory together. Each optional role, `sans` or `mono`, takes a relative OpenType or TrueType file path and a list of family names. Supply the names from the font itself. Windows and macOS can report different names for the same face. The first available family wins. A missing role uses the bundled Geist family for that role.
+
+```json
+{
+  "sans": { "file": "fonts/ExampleSans.ttf", "families": ["Example Sans Text", "Example Sans"] },
+  "mono": { "file": "fonts/ExampleMono.otf", "families": ["Example Mono"] }
+}
+```
+
 ## Conversations and shared Spaces
 
 At sign-in, desktop opens a Space you already share when one is available. Otherwise it opens the server's default Space. The upper-left menu selects a different Space, and your choice stays active while you work. The sidebar shows its agents and groups. Select a conversation to load the server history and follow live replies. Search filters the sidebar. The plus button creates an agent. The composer sends messages to the selected conversation.

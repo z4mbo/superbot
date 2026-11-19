@@ -104,7 +104,7 @@ impl Corner {
 
     fn glyph(self) -> (&'static str, Pixels) {
         match self {
-            Self::Search => ("icons/corner-search.svg", px(16.)),
+            Self::Search => ("icons/corner-search.svg", px(18.)),
             Self::New => ("icons/corner-plus.svg", px(20.)),
             Self::Plugins => ("icons/apps.svg", px(16.)),
             Self::Workspace => ("icons/settings.svg", px(16.)),

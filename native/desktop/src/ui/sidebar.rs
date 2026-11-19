@@ -85,7 +85,7 @@ impl Desktop {
             .flex_shrink_0()
             .flex()
             .items_start()
-            .gap_2p5()
+            .gap_2()
             .pl_2()
             .pr_4()
             .pt_3()
@@ -336,9 +336,9 @@ fn row(
         .cursor_pointer()
         .when(selected, |row| row.bg(theme.raised))
         .hover(move |style| style.bg(hover))
-        .child(face)
+        .child(face.m(px(-3.)))
         .child(div().flex_1().min_w_0().child(div().name().truncate().child(name)).when(!preview.is_empty(), |text| {
-            text.child(div().mt(px(3.)).body().text_color(preview_ink).truncate().child(preview))
+            text.pt(px(1.)).child(div().mt(px(2.)).body().text_color(preview_ink).truncate().child(preview))
         }))
         .when(unread, |row| row.child(div().size_2().flex_shrink_0().rounded_full().bg(theme.accent)))
 }
