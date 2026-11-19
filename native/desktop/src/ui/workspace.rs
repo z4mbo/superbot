@@ -19,6 +19,8 @@ impl Desktop {
             return;
         };
         let panel = WorkspacePanel::build(api.client.clone(), space, Some(Section::People), window, cx);
+        #[cfg(not(target_os = "macos"))]
+        panel.update(cx, |panel, _| panel.set_caption_width(crate::theme::CAPTION_WIDTH));
         let events = cx.subscribe_in(&panel, window, |this, _, event: &PanelEvent, window, cx| match event {
             PanelEvent::OpenBot { bot_id } => this.open(Target::Agent(bot_id.clone()), window, cx),
             PanelEvent::OpenGroup { group_id } => this.open(Target::Group(group_id.clone()), window, cx),
@@ -34,5 +36,11 @@ impl Desktop {
 
     pub fn render_workspace(&self, _: &mut Window, _: &mut Context<Self>) -> AnyElement {
         div().size_full().children(self.workspace.panel.clone()).into_any_element()
+    }
+
+    pub(crate) fn set_workspace_visible(&mut self, visible: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(panel) = &self.workspace.panel {
+            panel.update(cx, |panel, cx| panel.set_visible(visible, window, cx));
+        }
     }
 }

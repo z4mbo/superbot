@@ -184,6 +184,8 @@ pub struct WorkspacePanel {
     section: Section,
     focus: FocusHandle,
     compact: bool,
+    pub(crate) visible: bool,
+    caption_width: Pixels,
     toast: Option<Toast>,
     toasts_shown: u64,
     pub(crate) access: Access,
@@ -232,6 +234,8 @@ impl WorkspacePanel {
                 section: initial.unwrap_or_default(),
                 focus: cx.focus_handle(),
                 compact: false,
+                visible: true,
+                caption_width: px(0.),
                 toast: None,
                 toasts_shown: 0,
                 access: Access::Open,
@@ -267,6 +271,25 @@ impl WorkspacePanel {
     /// The space this panel manages.
     pub fn space_id(&self) -> &str {
         self.remote.space_id()
+    }
+
+    /// Width covered by the host's window buttons at the top right of this panel.
+    pub fn set_caption_width(&mut self, width: Pixels) {
+        self.caption_width = width;
+    }
+
+    /// Suspends the board subscription while the host shows another page and catches
+    /// up when the panel returns, preserving open editors.
+    pub fn set_visible(&mut self, visible: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.visible == visible {
+            return;
+        }
+        self.visible = visible;
+        if visible {
+            self.refresh(window, cx);
+        } else {
+            self.board.stop_live();
+        }
     }
 
     /// Switches to `section`, leaving any open editor in the old one.
@@ -314,7 +337,7 @@ impl WorkspacePanel {
     /// live stream signals a change in the space; the panel also does it when
     /// its window becomes active.
     pub fn refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.access != Access::Open {
+        if !self.visible || self.access != Access::Open {
             return;
         }
         self.load_bots(window, cx);
@@ -551,6 +574,7 @@ impl WorkspacePanel {
                 .flex_shrink_0()
                 .gap_1()
                 .px_3()
+                .when(self.caption_width > px(0.), |bar| bar.pr(self.caption_width + px(16.)))
                 .py_2()
                 .border_b_1()
                 .border_color(t.edge)
@@ -559,6 +583,8 @@ impl WorkspacePanel {
                     div()
                         .id("sections")
                         .flex()
+                        .min_w_0()
+                        .flex_1()
                         .gap_1()
                         .overflow_x_scroll()
                         .children(rows),

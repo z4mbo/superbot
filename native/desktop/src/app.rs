@@ -673,6 +673,7 @@ impl Desktop {
 
     pub fn show(&mut self, view: View, window: &mut Window, cx: &mut Context<Self>) {
         self.view = view;
+        self.set_workspace_visible(view == View::Workspace, window, cx);
         self.menu = None;
         match view {
             View::Store => self.load_store(window, cx),
