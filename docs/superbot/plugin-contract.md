@@ -10,8 +10,17 @@ The typed Rakazo RPC namespace is `pluginRegistry` under `/rpc/pluginRegistry/<p
   "name": "Release notes",
   "description": "Draft release notes from issue summaries.",
   "parts": [
-    { "id": "notes", "kind": "skill", "instructions": "Summarize the provided issue descriptions." },
-    { "id": "tracker", "kind": "mcp", "transport": "streamable_http", "endpoint": "https://tracker.example.com/mcp" }
+    {
+      "id": "notes",
+      "kind": "skill",
+      "instructions": "Summarize the provided issue descriptions."
+    },
+    {
+      "id": "tracker",
+      "kind": "mcp",
+      "transport": "streamable_http",
+      "endpoint": "https://tracker.example.com/mcp"
+    }
   ]
 }
 ```
@@ -20,18 +29,18 @@ Parts have unique lowercase identifiers. A skill carries Markdown instructions. 
 
 ## Procedures
 
-| Procedure | Input | Result |
-| --- | --- | --- |
-| `submit` | `{slug, version, manifest}` | Version with status `pending` |
-| `mine` | `{after?, limit?}` | Publisher's versions, including review status |
-| `submissions` | `{status?, after?, limit?}` | Deployment admin review queue, defaults to pending |
-| `review` | `{versionId, decision: "approved" \| "rejected", reason?}` | Decided version |
-| `discover` | `{slug?, query?, after?, limit?}` | Approved versions only |
-| `install` | `{versionId}` | Installation with exact version and current grants |
-| `installations` | `{after?, limit?}` | Actor's installations in the selected Space |
-| `setGrants` | `{installationId, botId, partIds}` | Installation with current grants |
-| `switchVersion` | `{installationId, expectedVersionId, versionId}` | Installation pinned to the requested version |
-| `uninstall` | `{installationId}` | `{ok: true}` |
+| Procedure       | Input                                                      | Result                                             |
+| --------------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| `submit`        | `{slug, version, manifest}`                                | Version with status `pending`                      |
+| `mine`          | `{after?, limit?}`                                         | Publisher's versions, including review status      |
+| `submissions`   | `{status?, after?, limit?}`                                | Deployment admin review queue, defaults to pending |
+| `review`        | `{versionId, decision: "approved" \| "rejected", reason?}` | Decided version                                    |
+| `discover`      | `{slug?, query?, after?, limit?}`                          | Approved versions only                             |
+| `install`       | `{versionId}`                                              | Installation with exact version and current grants |
+| `installations` | `{after?, limit?}`                                         | Actor's installations in the selected Space        |
+| `setGrants`     | `{installationId, botId, partIds}`                         | Installation with current grants                   |
+| `switchVersion` | `{installationId, expectedVersionId, versionId}`           | Installation pinned to the requested version       |
+| `uninstall`     | `{installationId}`                                         | `{ok: true}`                                       |
 
 Lists return `{items, nextAfter}` using opaque string cursors. The default limit is 20 and the maximum is 50. Rejection requires a reason. Installation changes emit the `pluginRegistry` Space change frame on `notifications.subscribe`. A version contains `id, slug, version, manifest, status, reason, createdAt, reviewedAt`. An installation contains `id, plugin, grants, createdAt`, where `plugin` is the full approved version and each grant is `{botId, partId}`.
 
@@ -39,7 +48,7 @@ Lists return `{items, nextAfter}` using opaque string cursors. The default limit
 
 Discover searches each approved version's slug, manifest name and description for a case-insensitive literal substring. The optional `query` must contain 1 to 120 characters after trimming. Keep the same slug and query filters when following a cursor.
 
-The first submission reserves the slug for its publisher. Rejected versions remain reserved. If the publisher account is deleted, the slug remains reserved and already approved versions stay available. A new version requires a separate submission and review. Only verified deployment admins may review. A version can be decided once. Approval checks declared MCP endpoints using the existing public endpoint policy. Install is idempotent for an identical version. An existing installation pins its version and a switch requires uninstalling and installing explicitly. New installations start with zero grants. Setting grants replaces one bot's selected parts and an empty list revokes them. Uninstall or loss of Space membership removes the installation and its grants atomically. Revoking and regranting a part issues a fresh grant ID.
+The first submission reserves the slug for its publisher. Rejected versions remain reserved. If the publisher account is deleted, the slug remains reserved and already approved versions stay available. A new version requires a separate submission and review. Only verified deployment admins may review. A version can be decided once. Approval checks declared MCP endpoints using the existing public endpoint policy. Install is idempotent for an identical version. An existing installation pins its version until a member confirms a change through `switchVersion`. New installations start with zero grants. Setting grants replaces one bot's selected parts and an empty list revokes them. Uninstall or loss of Space membership removes the installation and its grants atomically. Revoking and regranting a part issues a fresh grant ID.
 
 ## Configure a deployment reviewer
 

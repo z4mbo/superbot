@@ -1,6 +1,6 @@
 # Superbot hosting
 
-Superbot starts with Rakazo's multi-account authentication, shared Spaces and live updates. Each person signs in separately. A new account's **Personal** Space starts with the account holder as its only member. The owner can invite people into it or create a separate Space for team work. Each invite grants access to its selected Space, and link invites work with mail disabled. The base stack needs no model credentials for signup, sharing or membership. Bot inference requires a model connection. This stack leaves optional computer sandboxes disabled.
+Superbot starts with Rakazo's multi-account authentication, shared Spaces and live updates. Each person signs in separately. A new account's **Personal** Space starts with the account holder as its only member. The owner can invite people into it or create a separate Space for team work. Each invite grants access to its selected Space, and link invites work with mail disabled. The base stack needs no model credentials for signup, sharing or membership. Bot inference requires a model connection. This stack starts with computer sandboxes disabled. To host agents with their own computers, use this Superbot checkout and follow the Docker and sandbox steps in the [full source setup](../../README.rakazo.md#local-development-source-checkout). Point the native desktop and CLI at that server's web origin.
 
 ## Start on your machine
 
@@ -16,7 +16,7 @@ Open `http://127.0.0.1:5173`. The first run builds the API, worker and web app f
 
 The initializer writes `.env.superbot.local` once with separate random credentials. Keep it private and back it up with the project-scoped database and application data volumes. `node infra/superbot/host.mjs down` stops the stack and keeps its volumes. Use `init --port 55783` for a different loopback port. For a second stack, pass a unique `--project NAME` and a separate `--env FILE` to every command, and choose an unused port at initialization.
 
-Sign up in two separate browser profiles to try multiplayer on one machine. In the Space's settings, choose **Invite ? Copy invite link** and open the link in the other profile. Each link can bring in one account and expires after seven days. For teammates on other machines, use a shared HTTPS origin.
+Sign up in two separate browser profiles to try multiplayer on one machine. In the Space's settings, choose **Invite** and then **Copy invite link** and open the link in the other profile. Each link can bring in one account and expires after seven days. For teammates on other machines, use a shared HTTPS origin.
 
 ## Host on another machine
 
@@ -42,6 +42,10 @@ The remote HTTPS configuration closes signup by default. With mail, set `SIGNUPS
 
 For an existing stack, edit `WEB_ORIGIN`, `BETTER_AUTH_URL` and `RAKAZO_HOST` together to move to a new origin, then rerun `up`. Keep database credentials and the encryption key. People may need to sign in again and owners should reissue links carrying the old origin.
 
+## Enable community plugin review
+
+Choose a verified account on the deployment to moderate submissions. In the environment file created by `init`, set `RAKAZO_ADMIN_EMAILS` to its email address. Separate multiple reviewers with commas. Run `node infra/superbot/host.mjs up` to apply the setting. In **Plugins**, the reviewer can open **Review** to inspect and approve a publisher's version. An approved version appears in **Discover** on this server. The [plugin toolkit](plugin-toolkit.md) also supports review from the terminal.
+
 ## Optional private access with Tailscale
 
 Use the host's MagicDNS HTTPS origin at initialization, for example `--origin https://superbot.example-tailnet.ts.net`. Start the loopback stack, then run these commands on the connected host.
@@ -65,7 +69,7 @@ EMAIL_FROM=superbot@example.com
 
 Use a sender authorized by your SMTP server. For a STARTTLS server, use `smtp://` with its SMTP submission port. The existing account-mail adapter requires TLS and validates the server certificate. The SMTP server must be reachable from the API container.
 
-In Space settings, choose **Invite ? Invite by email**. The recipient opens the link and signs in or registers under the server's account policy. A Space invitation grants membership once used. Treat the single-use link as a secret because it can be forwarded. To bind an invitation to a specific verified mailbox and grant organization membership, use the separate organization invitation. With email disabled or unavailable, use the copy-link flow and share the link privately.
+In Space settings, choose **Invite** and then **Invite by email**. The recipient opens the link and signs in or registers under the server's account policy. A Space invitation grants membership once used. Treat the single-use link as a secret because it can be forwarded. To bind an invitation to a specific verified mailbox and grant organization membership, use the separate organization invitation. With email disabled or unavailable, use the copy-link flow and share the link privately.
 
 ## Isolated verification
 

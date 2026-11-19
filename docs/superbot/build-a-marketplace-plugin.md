@@ -59,13 +59,13 @@ their own grants. Uninstalling removes the grants for all bots in that Space.
 
 ## Manifest and endpoint reference
 
-| Field or part | What to provide |
-| --- | --- |
-| `schemaVersion` | The integer `1`. |
-| `name` and `description` | A short display name and a description of the job the plugin does. |
-| `parts` | One to sixteen entries, each with a unique lowercase, hyphen-separated `id`. |
-| `kind: "skill"` | An `instructions` string containing Markdown. The bot can read it as tool output when granted. |
-| `kind: "mcp"` | Set `transport` to `streamable_http` and `endpoint` to a public HTTPS URL without credentials, query parameters or a fragment. |
+| Field or part            | What to provide                                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `schemaVersion`          | The integer `1`.                                                                                                               |
+| `name` and `description` | A short display name and a description of the job the plugin does.                                                             |
+| `parts`                  | One to sixteen entries, each with a unique lowercase, hyphen-separated `id`.                                                   |
+| `kind: "skill"`          | An `instructions` string containing Markdown. The bot can read it as tool output when granted.                                 |
+| `kind: "mcp"`            | Set `transport` to `streamable_http` and `endpoint` to a public HTTPS URL without credentials, query parameters or a fragment. |
 
 Use a short description and a JSON object input schema for each MCP tool. Define
 the required fields and validate the arguments again on your server. Use

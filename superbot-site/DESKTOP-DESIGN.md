@@ -23,27 +23,27 @@ Two columns matter: whether the **server and CLIs** do it today, and whether the
 as a teaser, a disabled button or "coming soon" copy; it is designed now so the layout
 leaves room for it.
 
-| Tag | Meaning |
-|---|---|
-| **Live** | Implemented and verified against a real or isolated fixture server (`docs/superbot/*.md`). |
-| **To build** | The data and operations exist; the GPUI screen does not yet (`native/desktop` is a smoke window). Build it from this spec. |
-| **Planned** | No server contract. Design only. |
+| Tag          | Meaning                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| **Live**     | Implemented and verified against a real or isolated fixture server (`docs/superbot/*.md`). |
+| **To build** | The backing operation exists and the desktop control is pending.                           |
+| **Planned**  | No server contract. Design only.                                                           |
 
-| Surface | Server / CLI | Desktop | Backed by |
-|---|---|---|---|
-| Sign in (password or email code), saved session | Live (`superbot login`) | To build | `superbot-client`: `sign_in`, email OTP, `CredentialStore` |
-| Space switcher | Live | To build | `spaces/list` |
-| Bot list, history, send, live replies | Live (`superbot chat`) | To build | `bots/list`, `threads/{messages,send,subscribe}` |
-| Group conversations (several bots), stop, mark read | Live | To build | `groups/*`, `threads/{send,stop,markRead}` via `superbot-features` |
-| Space members and invites (multiplayer) | Live, cross-account verified | To build | `spaces/members/{list,add,remove,leave}`, `spaces/invites/{create,preview,accept,cancel}` |
-| Marketplace: discover, install, per-bot grants, uninstall | Live, full lifecycle verified locally | To build | `pluginRegistry.*` |
-| Remote tools from plugins, approved per call | Live | To build (approval card, §9.2) | marketplace runtime; `threads/answer` |
-| Plugin authoring and submission | Live (`superbot-plugin`) | Planned (§10) | `pluginRegistry.submit/mine`; `docs/superbot/plugin-toolkit.md` |
-| Review queue (deployment admins) | Live (`superbot-plugin review`) | To build (§11) | `pluginRegistry.submissions/review`; admins via `RAKAZO_ADMIN_EMAILS` |
-| Presence ("who is here") and typing | Planned | Planned | no contract |
-| Bot colour, avatar, preview line in the sidebar | Partly: `bots/get` has bot settings; `Agent` in `superbot-client` exposes `id`, `name` | To build with the fallback in §3.2 | |
-| Routines, approvals rules, run activity | Live (native service) | Planned for v1 screens | `routines/*`, `approvalRules/*`, `runs/list` |
-| Bot computer, voice, calls | Live in the web app only | Planned | retained app/API |
+| Surface                                                   | Server / CLI                                    | Desktop                                                                                                    | Backed by                                                                                 |
+| --------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Sign in (password or email code), saved session           | Live (`superbot login`)                         | Password, signup, email-code entry and saved-session screens implemented. Windows saved sessions verified. | `superbot-client`: `sign_in`, email OTP, `CredentialStore`                                |
+| Space switcher                                            | Live                                            | Live                                                                                                       | `spaces/list`                                                                             |
+| Bot list, history, send, live replies                     | Live (`superbot <agentname>`)                   | Live. The Windows build reads the same conversation and reply as the CLI.                                  | `bots/list`, `threads/{messages,send,subscribe}`                                          |
+| Group conversations (several bots), stop, mark read       | Live                                            | Chat, stop and read controls implemented. Group conversation verified on Windows.                          | `groups/*`, `threads/{send,stop,markRead}`                                                |
+| Space members and invites (multiplayer)                   | Live, cross-account verified                    | People lists members, creates invites and accepts links. Two-account roster verified on Windows.           | `spaces/members/{list,add,remove,leave}`, `spaces/invites/{create,preview,accept,cancel}` |
+| Marketplace: discover, install, per-bot grants, uninstall | Live, full lifecycle verified locally           | Live. Review, discovery, installation and independent grants verified on Windows.                          | `pluginRegistry.*`                                                                        |
+| Remote tools from plugins, approved per call              | Live                                            | Generic action cards supported. The specialized presentation in §9.2 is a design target.                   | marketplace runtime and `threads/answer`                                                  |
+| Plugin authoring and submission                           | Live (`superbot-plugin`)                        | Live (§10), store form, plugin.json open and save, review status                                           | `pluginRegistry.submit/mine`; `docs/superbot/plugin-toolkit.md`                           |
+| Review queue (deployment admins)                          | Live (`superbot-plugin review`)                 | Live. A verified deployment reviewer approved a different publisher's version in the native queue.         | `pluginRegistry.submissions/review`, admins via `RAKAZO_ADMIN_EMAILS`                     |
+| Presence ("who is here") and typing                       | Planned                                         | Planned                                                                                                    | no contract                                                                               |
+| Bot colour, avatar, preview line in the sidebar           | The navigation response includes bot summaries. | Live. The sidebar shows a face, identity colour, preview line and unread state.                            | `spaces/list`                                                                             |
+| Routines, approval rules, run activity                    | Live (native service)                           | Available in the workspace management panel with Bots, Groups, People and Files.                           | `routines/*`, `approvalRules/*`, `runs/list`                                              |
+| Bot computer, voice, calls                                | Live in the web app only                        | Native views Planned. The web app opens in the workspace window (§4.1); it is not GPUI.                    | retained app/API                                                                          |
 
 Asks from design to the client/runtime owners (UI code must not invent these):
 
@@ -96,32 +96,32 @@ Implement one `Theme` struct (a GPUI `Global`) with these fields; components rea
 
 ### 3.1 Colour
 
-| Token | Job | Midnight (dark) | Daylight (light) |
-|---|---|---|---|
-| `app` | chat ground | `#121212` | `#fcfcfc` |
-| `panel` | sidebar, title bar | `#0e0e0e` | `#f5f5f5` |
-| `raised` | selected sidebar row | `#202020` | `#e4e4e4` |
-| `raised_hover` | | `#2c2c2c` | `#d8d8d8` |
-| `card` | bot bubble, cards | `#1f1f1f` | `#efefef` |
-| `inset` | search field | `#1b1b1b` | `#e9e9e9` |
-| `control` | chip on a card | `#282828` | `#e3e3e3` |
-| `composer` | composer pill | `#1f1f1f` | `#ffffff` |
-| `composer_ring` | its 1px ring | `#2a2a2a` | `#1c1c1c1f` |
-| `menu` | menus, popovers | `#1f1f1f` | `#ffffff` |
-| `menu_hover` | | `#f5f5f50f` | `#1c1c1c0f` |
-| `menu_active` | | `#f5f5f514` | `#1c1c1c14` |
-| `hairline` | borders, dividers | `#383838` | `#1c1c1c3d` |
-| `edge` | where panes meet (0.5px) | `#f5f5f50f` | `#1c1c1c1f` |
-| `ink` | primary text | `#f5f5f5` | `#1c1c1c` |
-| `ink_secondary` | supporting text | `#f5f5f5a8` | `#1c1c1cad` |
-| `ink_tertiary` | meta, placeholders | `#f5f5f591` | `#1c1c1ca6` |
-| `accent` | links, selection | `#1084fe` | `#126fd4` |
-| `accent_text` | accent-coloured text | `#7fc0ff` | `#0b69cc` |
-| `accent_ink` | text on accent | `#ffffff` | `#ffffff` |
-| `focus` | keyboard ring | `#459ffe` | `#0b6dd3` |
-| `success` / `_ink` | | `#38d591` / `#072114` | `#007a44` / `#ffffff` |
-| `warning` | | `#ff9800` | `#9c5b00` |
-| `danger` / `_ink` | destructive, errors | `#ff5667` / `#ffffff` | `#cd2834` / `#ffffff` |
+| Token                  | Job                      | Midnight (dark)       | Daylight (light)      |
+| ---------------------- | ------------------------ | --------------------- | --------------------- |
+| `app`                  | chat ground              | `#121212`             | `#fcfcfc`             |
+| `panel`                | sidebar, title bar       | `#0e0e0e`             | `#f5f5f5`             |
+| `raised`               | selected sidebar row     | `#202020`             | `#e4e4e4`             |
+| `raised_hover`         |                          | `#2c2c2c`             | `#d8d8d8`             |
+| `card`                 | bot bubble, cards        | `#1f1f1f`             | `#efefef`             |
+| `inset`                | search field             | `#1b1b1b`             | `#e9e9e9`             |
+| `control`              | chip on a card           | `#282828`             | `#e3e3e3`             |
+| `composer`             | composer pill            | `#1f1f1f`             | `#ffffff`             |
+| `composer_ring`        | its 1px ring             | `#2a2a2a`             | `#1c1c1c1f`           |
+| `menu`                 | menus, popovers          | `#1f1f1f`             | `#ffffff`             |
+| `menu_hover`           |                          | `#f5f5f50f`           | `#1c1c1c0f`           |
+| `menu_active`          |                          | `#f5f5f514`           | `#1c1c1c14`           |
+| `hairline`             | borders, dividers        | `#383838`             | `#1c1c1c3d`           |
+| `edge`                 | where panes meet (0.5px) | `#f5f5f50f`           | `#1c1c1c1f`           |
+| `ink`                  | primary text             | `#f5f5f5`             | `#1c1c1c`             |
+| `ink_secondary`        | supporting text          | `#f5f5f5a8`           | `#1c1c1cad`           |
+| `ink_tertiary`         | meta, placeholders       | `#f5f5f591`           | `#1c1c1ca6`           |
+| `accent`               | links, selection         | `#1084fe`             | `#126fd4`             |
+| `accent_text`          | accent-coloured text     | `#7fc0ff`             | `#0b69cc`             |
+| `accent_ink`           | text on accent           | `#ffffff`             | `#ffffff`             |
+| `focus`                | keyboard ring            | `#459ffe`             | `#0b6dd3`             |
+| `success` / `_ink`     |                          | `#38d591` / `#072114` | `#007a44` / `#ffffff` |
+| `warning`              |                          | `#ff9800`             | `#9c5b00`             |
+| `danger` / `_ink`      | destructive, errors      | `#ff5667` / `#ffffff` | `#cd2834` / `#ffffff` |
 | `bubble_user` / `_ink` | the person's own bubbles | `#5a5a5a` / `#f5f5f5` | `#1c1c1c` / `#fcfcfc` |
 
 Hover fill = `ink` at 6% alpha, pressed = 8%, on every surface. Hierarchy comes from the
@@ -141,18 +141,18 @@ radius 318; two eyes 62 × 150, radius 31, at x 428 and x 566, y 400, filled wit
 colour (the slight rightward glance is part of the mark). Source: `assets/logo.svg`
 (notice in `NOTICE.txt`). A bot with its own image shows the image instead. No initials.
 
-| Name | Midnight | Daylight |
-|---|---|---|
-| green | `#009957` | `#007f48` |
-| blue | `#377fe6` | `#1b6adc` |
-| red | `#d94b52` | `#d12c34` |
+| Name   | Midnight  | Daylight  |
+| ------ | --------- | --------- |
+| green  | `#009957` | `#007f48` |
+| blue   | `#377fe6` | `#1b6adc` |
+| red    | `#d94b52` | `#d12c34` |
 | orange | `#e78531` | `#a95914` |
 | purple | `#8d69ce` | `#8057c8` |
-| cyan | `#0ea5c6` | `#0a7891` |
-| pink | `#d84f8b` | `#ca2d72` |
+| cyan   | `#0ea5c6` | `#0a7891` |
+| pink   | `#d84f8b` | `#ca2d72` |
 | yellow | `#d8a729` | `#896a19` |
-| teal | `#01a492` | `#017c6f` |
-| coral | `#e5634e` | `#cd361e` |
+| teal   | `#01a492` | `#017c6f` |
+| coral  | `#e5634e` | `#cd361e` |
 
 Filled surfaces (own bubble, Send button) follow OpenMausBot `src/lib/user-bubble-tone.ts`:
 keep the colour if white text clears 4.5:1 on it; otherwise take the brightest OKLCH tone
@@ -166,34 +166,34 @@ Until `Agent.color` exists: `palette[fnv1a(agent.id) % 10]`, stable per bot.
 Geist for text, Geist Mono for code, keys, slugs and JSON. Weights 400 / 500 / 600 only.
 Sentence case everywhere.
 
-| Use | Size / line height | Weight | Ink |
-|---|---|---|---|
-| Page title (Marketplace, Plugin creator) | 26 / 32, letter-spacing −0.01em | 600 | ink |
-| Dialog or sheet title | 20 / 28 | 600 | ink |
-| Section title | 17 / 24 | 600 | ink |
-| Chat bubble | 15 / 22 | 400 | ink |
-| Menu item | 14 / 18 | 400 | ink |
-| Body, rows | 13 / 18 | 400 | ink or ink_secondary |
-| Names in lists | 13 / 18 | 500 | ink |
-| Speaker names (multiplayer) | 13 / 18 | 600 | identity colour, else ink_secondary |
-| Meta, hints, group labels | 12 / 16 | 400 (labels 500) | ink_tertiary |
-| Keycaps, tiny badges | 11 / 14 | 400 | ink_secondary |
+| Use                                      | Size / line height              | Weight           | Ink                                 |
+| ---------------------------------------- | ------------------------------- | ---------------- | ----------------------------------- |
+| Page title (Marketplace, Plugin creator) | 26 / 32, letter-spacing −0.01em | 600              | ink                                 |
+| Dialog or sheet title                    | 20 / 28                         | 600              | ink                                 |
+| Section title                            | 17 / 24                         | 600              | ink                                 |
+| Chat bubble                              | 15 / 22                         | 400              | ink                                 |
+| Menu item                                | 14 / 18                         | 400              | ink                                 |
+| Body, rows                               | 13 / 18                         | 400              | ink or ink_secondary                |
+| Names in lists                           | 13 / 18                         | 500              | ink                                 |
+| Speaker names (multiplayer)              | 13 / 18                         | 600              | identity colour, else ink_secondary |
+| Meta, hints, group labels                | 12 / 16                         | 400 (labels 500) | ink_tertiary                        |
+| Keycaps, tiny badges                     | 11 / 14                         | 400              | ink_secondary                       |
 
 Truncate titles and rows to one line with an ellipsis and a tooltip with the full text.
 Counters, timers and versions use tabular figures (`font_features: tnum`).
 
 ### 3.4 Shape, space, depth
 
-| Element | Radius |
-|---|---|
-| Buttons, pills, chips, avatars | full |
-| Menu rows | 6 |
-| Fields, controls, sidebar rows | 8 |
-| Cards, menus, popovers | 12 |
-| Dialogs | 14 |
-| Bubbles, cards in the transcript | 18 (6 on joined corners) |
-| Composer | 22 single line, 18 once it wraps |
-| Window panes | 0 |
+| Element                          | Radius                           |
+| -------------------------------- | -------------------------------- |
+| Buttons, pills, chips, avatars   | full                             |
+| Menu rows                        | 6                                |
+| Fields, controls, sidebar rows   | 8                                |
+| Cards, menus, popovers           | 12                               |
+| Dialogs                          | 14                               |
+| Bubbles, cards in the transcript | 18 (6 on joined corners)         |
+| Composer                         | 22 single line, 18 once it wraps |
+| Window panes                     | 0                                |
 
 - 4px grid. Control heights 24 / 28 / 32 / 36; menu rows 30.
 - Borders 1px `hairline`; panes meet on a 0.5px `edge` line.
@@ -205,13 +205,13 @@ Counters, timers and versions use tabular figures (`font_features: tnum`).
 
 ### 3.5 Motion
 
-| Name | Use | Duration | Curve |
-|---|---|---|---|
-| `pop` | menus, popovers: 96% → 100% scale + fade | 200ms | cubic-bezier(0.22, 1, 0.36, 1) |
-| `panel` | side panel and pages slide 16px + fade | 240ms | same |
-| `msg` | new bubble: 4px rise + fade | 180ms | same |
-| `fade` | | 150ms | ease-out |
-| hover | colour/opacity only | 120ms | linear |
+| Name    | Use                                      | Duration | Curve                                                 |
+| ------- | ---------------------------------------- | -------- | ----------------------------------------------------- |
+| `pop`   | menus, popovers: 96% → 100% scale + fade | 200ms    | cubic-bezier(0.22, 1, 0.36, 1)                        |
+| `panel` | side panel and pages slide 16px + fade   | 240ms    | same                                                  |
+| `msg`   | new bubble: 4px rise + fade              | 180ms    | same                                                  |
+| `fade`  |                                          | 150ms    | ease-out                                              |
+| hover   | colour/opacity only                      | 120ms    | cubic-bezier(0.4, 0, 0.2, 1), as in the reference CSS |
 
 300ms ceiling. Nothing scales from zero. The only loop is the live working mark while a
 bot is really working. If the OS asks for reduced motion, every duration becomes 0.
@@ -249,6 +249,25 @@ Use GPUI `with_animation(id, Animation::new(duration).with_easing(...), ...)`.
 - **Pages** (Marketplace, Plugin creator, Review queue): fill the chat area, content max
   1240 wide, 32px side padding, 56px top padding, with a back chevron before the title.
   Opening a bot or conversation closes the page.
+
+### 4.1 Workspace window (Windows)
+
+The server's own web client, for the surfaces this app does not draw (meetings, boards, the
+bot's computer, voice). **Open web workspace** in the account menu, and a transcript card
+this app does not draw, open it on the conversation on screen. **Open in browser** sits
+beside it in the menu.
+
+- A separate window, 1240×840 by default, minimum 640×480, transparent title bar with our
+  caption buttons. A 52px toolbar in `app` fill above a 0.5px `hairline`: the page title
+  (`name`), then **Reload** and **Open in browser** (16px glyph and label, `ink_secondary`,
+  hover `ink` 6%). The rest is the web page in WebView2. It is never presented as GPUI.
+- On another site during a sign-in, the toolbar shows a globe and that host in `meta`, and a
+  quiet **Back to workspace** pill.
+- Without the WebView2 Runtime, the page area shows one line saying so and a primary
+  **Open in browser** pill. On macOS and Linux the menu item opens the browser.
+- One WebView2 profile per desktop account per server. Signing out of desktop closes that
+  account's workspace windows.
+- Profile, cookie and link rules: `docs/superbot/desktop.md`, _Open the web workspace_.
 
 ## 5. Sign in (server Live, desktop To build)
 
@@ -381,6 +400,7 @@ already shown: key rows by `id`, order by `seq`.
 ## 8. Side panel: bot details (desktop To build)
 
 Tabs (segmented control, 28px, full radius) at the top: **Details**, **Plugins**.
+
 - Details: avatar 72 with the name 20/600 under it; rows (`NavRow` pattern: 44px, label
   13/400 start, value 13/400 `ink_secondary` end, chevron) for Model, Instructions,
   Memory (Planned rows are omitted, not disabled).
@@ -423,8 +443,8 @@ Opened from the sidebar Store button or `Cmd/Ctrl+Shift+P`. Uses the page frame 
 - Paging: `discover` with `limit: 50` (the maximum); load the next page when the last row nears view.
 - Card click opens the plugin in the side panel (§9.1). The Store page stays behind it.
 - Empty search: "No plugins match “{query}”." Empty registry: "No plugins published yet."
-  + "Publish a plugin". Error: inline "Couldn't load the store." + "Try again". Signed-out
-  or expired session (HTTP 401): back to sign in (§5).
+  - "Publish a plugin". Error: inline "Couldn't load the store." + "Try again". Signed-out
+    or expired session (HTTP 401): back to sign in (§5).
 
 ### 9.1 Plugin details (side panel)
 
@@ -446,10 +466,10 @@ Opened from the sidebar Store button or `Cmd/Ctrl+Shift+P`. Uses the page frame 
   6s (Undo installs the same `versionId` again and re-sends each bot's previous grants).
   Undo creates fresh grants: approvals that were waiting on the old ones stay void, by
   design of the runtime (a re-added grant gets a new identity).
-- Newer version available (`discover` returns a higher version than the installed pin):
-  one line "Version {n} is available." + "Switch to version {n}" text button (uninstall +
-  install, restoring grants by matching part ids; parts that vanished are listed in the
-  toast).
+- When multiple releases are approved, show a version selector. Switching an installation
+  asks for confirmation that its previous bot grants will be cleared. Submit the selected
+  release and current pin together through `pluginRegistry.switchVersion`. A failed switch
+  preserves the pin and grants. After a successful switch the member chooses new grants.
 - Install, grants and uninstall act on the selected Space. With more than one Space,
   the panel's header shows "In {space name}" 12 `ink_tertiary`.
 
@@ -489,14 +509,13 @@ answered with `threads/answer`.
 - Never ask Space: no card; the bot's reply explains the refusal in its own words.
 - Several pending at once stack in arrival order; each answers independently.
 
-## 10. Plugin creator page (Planned; authors use `superbot-plugin` today)
+## 10. Plugin creator page
 
-Authoring works today through the `superbot-plugin` CLI (`init`, `validate`, `publish`,
-`list mine`, `status`; see `docs/superbot/plugin-toolkit.md`). The desktop creator below
-is the planned visual front end to the same file: it opens and saves a folder's
-`plugin.json`, so an author can switch between the app and the CLI at any time. Its
-validation must match `superbot-plugin validate` (local schema only); endpoint safety is
-checked by the registry during approval, so the creator's endpoint check is advisory.
+The desktop store opens a native form for skills and connectors. It submits a version
+and displays the result in Yours. The CLI operates on a local `plugin.json` with the
+same schema, and the form opens and saves that file ("File round trip", Live). The
+preview column, footer bar and slug availability check below are planned.
+The registry checks MCP endpoint safety during approval.
 
 Opened from "New plugin…" or "My plugins" → a plugin → "New version…". Two columns at
 ≥ 1100px content width (form 1fr, preview 420px); stacked below.
@@ -519,6 +538,7 @@ Opened from "New plugin…" or "My plugins" → a plugin → "New version…". T
 3. Version: a read-only value "Version {n}" (next integer for this slug).
 
 Inline validation, each message under its field, in `danger` 12px:
+
 - part ids not unique, or not matching the slug pattern (parts share it);
 - endpoint not `https`, or carrying credentials, a query string or a fragment, or a
   localhost/private address: "Use a public HTTPS address without keys, tokens or a ?query.";
@@ -530,7 +550,27 @@ Inline validation, each message under its field, in `danger` 12px:
 12/18, `inset` fill, radius 12, with Copy. It updates as the form changes. Under it an
 "Open plugin.json…" text button that fills the form from a file (validated the same way).
 
-**Footer bar** (sticky, 64px, 1px `hairline` on top, `app` fill): start: the file path
+**File round trip** (Live). The header carries two quiet pills before Submit for review:
+"Open file…" and "Save file…", both through the system file dialogs. Validation is the
+shared `superbot_features::plugin_manifest` module that `superbot-plugin` also uses, so
+limits, trimming and endpoint rules match the registry, and saved bytes match the CLI.
+
+- Open reads the whole file before touching the form. Another schema version, a part
+  kind other than skill or mcp, another transport, or any extra field is refused with
+  one line naming it (secrets and commands use the copy above); the form is unchanged.
+  Values over the limits load, with "Fix this before submitting: …" in the error line.
+  Name, description and parts are replaced; identifier and version never are, so a new
+  version keeps its locked slug. With unsaved edits, an inline row asks "Replace this
+  form with {file}? Your edits here aren't saved." with Replace and Keep editing.
+- Save offers `plugin.json` beside the last file, and the system dialog confirms any
+  overwrite. The bytes go to a temporary file in the same folder that is then moved
+  over the target, so a failed write never leaves half a manifest. A ready manifest is
+  written exactly as the CLI writes it; an unfinished one is written as typed, with
+  "Saved as a draft. Fix this before submitting: …".
+- Under the header, 12 `ink_tertiary`: a file glyph, the path, and "· Opened", "· Saved"
+  or "· Edited". Hidden until a file is attached.
+
+**Footer bar** (planned; sticky, 64px, 1px `hairline` on top, `app` fill): start: the file path
 12 `ink_tertiary` and "Saved" once written (drafts are local files, never sent until
 submit); end:
 **Submit for review** (ink pill). After submit the page shows the version in **My plugins**
@@ -612,16 +652,16 @@ selected. An `superbot://` link handler is Planned; do not register one yet.
 Actions), 36px rows, `ShortcutHint` keycaps at row end. Arrow keys, Home/End, Enter,
 Escape, type-ahead.
 
-| Action | macOS | Windows/Linux |
-|---|---|---|
-| Search / palette | ⌘K | Ctrl+K |
-| New… menu | ⌘N | Ctrl+N |
-| Toggle sidebar | ⌘\ | Ctrl+\ |
-| Store | ⇧⌘P | Ctrl+Shift+P |
-| Next / previous bot | ⌥⌘↓ / ⌥⌘↑ | Ctrl+Alt+↓ / ↑ |
-| Focus composer | ⌘L | Ctrl+L |
-| Close page, panel or menu | Esc | Esc |
-| Settings | ⌘, | Ctrl+, |
+| Action                    | macOS     | Windows/Linux  |
+| ------------------------- | --------- | -------------- |
+| Search / palette          | ⌘K        | Ctrl+K         |
+| New… menu                 | ⌘N        | Ctrl+N         |
+| Toggle sidebar            | ⌘\        | Ctrl+\         |
+| Store                     | ⇧⌘P       | Ctrl+Shift+P   |
+| Next / previous bot       | ⌥⌘↓ / ⌥⌘↑ | Ctrl+Alt+↓ / ↑ |
+| Focus composer            | ⌘L        | Ctrl+L         |
+| Close page, panel or menu | Esc       | Esc            |
+| Settings                  | ⌘,        | Ctrl+,         |
 
 Define them with GPUI `actions!` and `KeyBinding::new` in a single keymap module so the
 palette can list them.
