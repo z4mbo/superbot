@@ -95,3 +95,9 @@ member the same ticket and assignee.
 Switch from Board to chat, change a ticket from the other account, then reopen the
 workspace. A loopback proxy recorded the Board stream closing on exit and opening
 again on return, and the client displayed the change made while the board was closed.
+
+### Typography and composer on Windows
+
+Capture the same fixture conversation at a client size of 1280 × 820 and 100% display scale in Midnight and Daylight. Open sidebar search to take focus away from the composer. Move the pointer over the composer, then click in it and move the pointer back to the transcript. The border brightens for hover and stays bright for keyboard input. Typing a draft hides the hint. Clearing it restores the hint, and the editable field keeps its accessible name in both states.
+
+In the Windows release, the empty hint matched the reference at its strongest pixels in both themes (green channel 108 in Midnight and 173 in Daylight). The top edge of the composer had the same position and its rest colour differed by one level. To check the code font separately, display the same fenced Markdown reply in two fixture clients with the same sans face, one with a private mono face and one using the bundled mono face. The glyphs in the rendered reply changed when only the mono face changed.
