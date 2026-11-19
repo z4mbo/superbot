@@ -1,0 +1,657 @@
+# Superbot desktop design (GPUI)
+
+Owner: design. Status: v1, 2026-11-19. Implementing agents follow this file; if a rule
+blocks the right thing, change the rule here first and say why in the same change.
+
+The visual source of truth is the OpenMausBot fork `z4mbo/bot`, branch `simple-only`,
+revision `49b44777d`: its `DESIGN.md`, the Midnight/Daylight tokens in `src/styles.css`,
+the Simple-mode components in `src/components/`, and its app icon `public/app-icon.svg`.
+Superbot is a native port of that look to GPUI, not a new look. OpenMausBot is Apache-2.0
+(Copyright 2026 Milind Soni and OpenMausBot contributors); `NOTICE.txt` in this folder
+carries the notices for everything adapted from it and from Lucide.
+
+The desktop crate is `native/desktop` on `gpui-kit 0.10.0`. GPUI API names in this file
+(`uniform_list`, `with_animation`, `TitlebarOptions`, `actions!`, `KeyBinding`) are the
+upstream GPUI names; check each against what `gpui-kit 0.10.0` re-exports before use.
+
+---
+
+## 0. What is live and what is not
+
+Two columns matter: whether the **server and CLIs** do it today, and whether the
+**desktop app** has the screen. Nothing marked **Planned** may appear in the shipped app
+as a teaser, a disabled button or "coming soon" copy; it is designed now so the layout
+leaves room for it.
+
+| Tag | Meaning |
+|---|---|
+| **Live** | Implemented and verified against a real or isolated fixture server (`docs/superbot/*.md`). |
+| **To build** | The data and operations exist; the GPUI screen does not yet (`native/desktop` is a smoke window). Build it from this spec. |
+| **Planned** | No server contract. Design only. |
+
+| Surface | Server / CLI | Desktop | Backed by |
+|---|---|---|---|
+| Sign in (password or email code), saved session | Live (`superbot login`) | To build | `superbot-client`: `sign_in`, email OTP, `CredentialStore` |
+| Space switcher | Live | To build | `spaces/list` |
+| Bot list, history, send, live replies | Live (`superbot chat`) | To build | `bots/list`, `threads/{messages,send,subscribe}` |
+| Group conversations (several bots), stop, mark read | Live | To build | `groups/*`, `threads/{send,stop,markRead}` via `superbot-features` |
+| Space members and invites (multiplayer) | Live, cross-account verified | To build | `spaces/members/{list,add,remove,leave}`, `spaces/invites/{create,preview,accept,cancel}` |
+| Marketplace: discover, install, per-bot grants, uninstall | Live, full lifecycle verified locally | To build | `pluginRegistry.*` |
+| Remote tools from plugins, approved per call | Live | To build (approval card, §9.2) | marketplace runtime; `threads/answer` |
+| Plugin authoring and submission | Live (`superbot-plugin`) | Planned (§10) | `pluginRegistry.submit/mine`; `docs/superbot/plugin-toolkit.md` |
+| Review queue (deployment admins) | Live (`superbot-plugin review`) | To build (§11) | `pluginRegistry.submissions/review`; admins via `RAKAZO_ADMIN_EMAILS` |
+| Presence ("who is here") and typing | Planned | Planned | no contract |
+| Bot colour, avatar, preview line in the sidebar | Partly: `bots/get` has bot settings; `Agent` in `superbot-client` exposes `id`, `name` | To build with the fallback in §3.2 | |
+| Routines, approvals rules, run activity | Live (native service) | Planned for v1 screens | `routines/*`, `approvalRules/*`, `runs/list` |
+| Bot computer, voice, calls | Live in the web app only | Planned | retained app/API |
+
+Asks from design to the client/runtime owners (UI code must not invent these):
+
+1. `Agent { color, avatar_url, last_message_preview, last_activity_at, unread }` in
+   `superbot-client`, or a documented `superbot-features` call that returns them.
+2. A typed `ThreadEvent.kind` catalogue (message created/completed, run started/finished/
+   failed, approval requested/answered, member joined/left).
+3. The registry client that `superbot-plugin` uses, moved into `superbot-features` so the
+   desktop store and the CLI share one implementation.
+4. Presence and typing events, if multiplayer presence is wanted.
+
+## 1. Provenance rules (security and licensing)
+
+- **Use**: OpenMausBot's own tokens (Midnight, Daylight, `identity-*`), its type table,
+  radius scale, layout numbers and its app icon (the round bot face on a black tile).
+- **Fonts**: Geist and Geist Mono (SIL OFL 1.1). Bundle the `.ttf`/`.otf` files with their
+  licence in the app.
+- **Never ship** anything from `OpenMausBot/src/grok-study/`: the `XVF` fonts, the `--gk-*`
+  palette, `roster.json` and the engine chunks are another product's assets copied "for
+  local study only". Do not copy third-party product marks (Grok, Claude, Codex, Gemini
+  logos in `AgentMarks.tsx`) unless a feature truly names that provider and the licence
+  allows it.
+- **Screenshots**: screenshots of a real OpenMausBot install contain real names and
+  conversations. Keep them outside the repository (never committed, never in this
+  folder); every image that ships uses invented test data. The landing page mock is HTML
+  with invented data for this reason.
+- **Local avatar override**: an OpenMausBot checkout may load a git-excluded
+  `src/grok-study/BotAvatarOverride.tsx` that draws bots as another product's shapes.
+  Superbot's reference is the default Simple mode without it (neutral own bubbles, face
+  glyph avatars, charcoal header buttons).
+
+## 2. Principles (carried over from OpenMausBot `DESIGN.md` §1–2)
+
+1. Calm by default: no blinking, counting or competing unless the person must act.
+2. Three places only: **sidebar** (spaces, bots, conversations), **chat**, **side panel**
+   (one bot's details, or a plugin's details). Full-width **pages** (Marketplace, Plugin
+   creator) temporarily replace the chat area; they are not a fourth place.
+3. No new header buttons, no count badges above lists, no confirm dialogs; reversible
+   actions offer **Undo** in a toast instead. The one kept ask is the per-call tool
+   approval (§9.2), which the runtime requires.
+4. Name it, don't explain it. One primary action per view.
+5. Every state designed: empty, loading, error, offline, long text, narrow window, both skins.
+6. Keyboard first, reduced motion respected, right-to-left mirrors.
+
+## 3. Tokens
+
+Implement one `Theme` struct (a GPUI `Global`) with these fields; components read
+`cx.global::<Theme>()` and never hard-code a colour. Values are sRGB hex with alpha last
+(`0xRRGGBBAA`, pass to `gpui::rgba`).
+
+### 3.1 Colour
+
+| Token | Job | Midnight (dark) | Daylight (light) |
+|---|---|---|---|
+| `app` | chat ground | `#121212` | `#fcfcfc` |
+| `panel` | sidebar, title bar | `#0e0e0e` | `#f5f5f5` |
+| `raised` | selected sidebar row | `#202020` | `#e4e4e4` |
+| `raised_hover` | | `#2c2c2c` | `#d8d8d8` |
+| `card` | bot bubble, cards | `#1f1f1f` | `#efefef` |
+| `inset` | search field | `#1b1b1b` | `#e9e9e9` |
+| `control` | chip on a card | `#282828` | `#e3e3e3` |
+| `composer` | composer pill | `#1f1f1f` | `#ffffff` |
+| `composer_ring` | its 1px ring | `#2a2a2a` | `#1c1c1c1f` |
+| `menu` | menus, popovers | `#1f1f1f` | `#ffffff` |
+| `menu_hover` | | `#f5f5f50f` | `#1c1c1c0f` |
+| `menu_active` | | `#f5f5f514` | `#1c1c1c14` |
+| `hairline` | borders, dividers | `#383838` | `#1c1c1c3d` |
+| `edge` | where panes meet (0.5px) | `#f5f5f50f` | `#1c1c1c1f` |
+| `ink` | primary text | `#f5f5f5` | `#1c1c1c` |
+| `ink_secondary` | supporting text | `#f5f5f5a8` | `#1c1c1cad` |
+| `ink_tertiary` | meta, placeholders | `#f5f5f591` | `#1c1c1ca6` |
+| `accent` | links, selection | `#1084fe` | `#126fd4` |
+| `accent_text` | accent-coloured text | `#7fc0ff` | `#0b69cc` |
+| `accent_ink` | text on accent | `#ffffff` | `#ffffff` |
+| `focus` | keyboard ring | `#459ffe` | `#0b6dd3` |
+| `success` / `_ink` | | `#38d591` / `#072114` | `#007a44` / `#ffffff` |
+| `warning` | | `#ff9800` | `#9c5b00` |
+| `danger` / `_ink` | destructive, errors | `#ff5667` / `#ffffff` | `#cd2834` / `#ffffff` |
+| `bubble_user` / `_ink` | the person's own bubbles | `#5a5a5a` / `#f5f5f5` | `#1c1c1c` / `#fcfcfc` |
+
+Hover fill = `ink` at 6% alpha, pressed = 8%, on every surface. Hierarchy comes from the
+three ink levels, never from a fourth grey. Accent is rare; the primary button is a neutral
+ink pill (`ink` fill, `app` text). Skin follows the OS appearance
+(`window.appearance()`), with a manual override in Settings.
+
+### 3.2 Bot identity colours
+
+Used only for things owned by one bot: its avatar plate, that chat's Send button, and the
+Allow once button on its approval cards. The person's own bubbles stay neutral
+(`bubble_user`), as in OpenMausBot's default Simple mode.
+
+**Bot avatar**: a full circle in the identity colour with the app icon's face in white,
+scaled so the disc is 62% of the plate. In the icon's 1024 units: disc centre (512, 530),
+radius 318; two eyes 62 × 150, radius 31, at x 428 and x 566, y 400, filled with the plate
+colour (the slight rightward glance is part of the mark). Source: `assets/logo.svg`
+(notice in `NOTICE.txt`). A bot with its own image shows the image instead. No initials.
+
+| Name | Midnight | Daylight |
+|---|---|---|
+| green | `#009957` | `#007f48` |
+| blue | `#377fe6` | `#1b6adc` |
+| red | `#d94b52` | `#d12c34` |
+| orange | `#e78531` | `#a95914` |
+| purple | `#8d69ce` | `#8057c8` |
+| cyan | `#0ea5c6` | `#0a7891` |
+| pink | `#d84f8b` | `#ca2d72` |
+| yellow | `#d8a729` | `#896a19` |
+| teal | `#01a492` | `#017c6f` |
+| coral | `#e5634e` | `#cd361e` |
+
+Filled surfaces (own bubble, Send button) follow OpenMausBot `src/lib/user-bubble-tone.ts`:
+keep the colour if white text clears 4.5:1 on it; otherwise take the brightest OKLCH tone
+at the same hue and chroma that does. Yellow-family hues (OKLCH 65–115°) use dark ink
+`#101410` instead. Precompute the 10 × 2 fills at build time into the `Theme`; do not run
+contrast maths per frame. Hover moves the fill 12% away from its ink, pressed 22%.
+Until `Agent.color` exists: `palette[fnv1a(agent.id) % 10]`, stable per bot.
+
+### 3.3 Type
+
+Geist for text, Geist Mono for code, keys, slugs and JSON. Weights 400 / 500 / 600 only.
+Sentence case everywhere.
+
+| Use | Size / line height | Weight | Ink |
+|---|---|---|---|
+| Page title (Marketplace, Plugin creator) | 26 / 32, letter-spacing −0.01em | 600 | ink |
+| Dialog or sheet title | 20 / 28 | 600 | ink |
+| Section title | 17 / 24 | 600 | ink |
+| Chat bubble | 15 / 22 | 400 | ink |
+| Menu item | 14 / 18 | 400 | ink |
+| Body, rows | 13 / 18 | 400 | ink or ink_secondary |
+| Names in lists | 13 / 18 | 500 | ink |
+| Speaker names (multiplayer) | 13 / 18 | 600 | identity colour, else ink_secondary |
+| Meta, hints, group labels | 12 / 16 | 400 (labels 500) | ink_tertiary |
+| Keycaps, tiny badges | 11 / 14 | 400 | ink_secondary |
+
+Truncate titles and rows to one line with an ellipsis and a tooltip with the full text.
+Counters, timers and versions use tabular figures (`font_features: tnum`).
+
+### 3.4 Shape, space, depth
+
+| Element | Radius |
+|---|---|
+| Buttons, pills, chips, avatars | full |
+| Menu rows | 6 |
+| Fields, controls, sidebar rows | 8 |
+| Cards, menus, popovers | 12 |
+| Dialogs | 14 |
+| Bubbles, cards in the transcript | 18 (6 on joined corners) |
+| Composer | 22 single line, 18 once it wraps |
+| Window panes | 0 |
+
+- 4px grid. Control heights 24 / 28 / 32 / 36; menu rows 30.
+- Borders 1px `hairline`; panes meet on a 0.5px `edge` line.
+- Only floating things cast shadows (menus, popovers, dialogs, toasts):
+  Midnight `0 8 24 rgba(0,0,0,0.5)` + 1px `hairline`; Daylight `0 8 24 rgba(0,0,0,0.12)`.
+- Dialog scrim: `#000000` at 50% (Midnight), 25% (Daylight). Nothing else dims the app.
+- Icons: Lucide, 16px in rows and toolbars, 14px next to 12–13px text, stroke 1.75.
+  Bare icons, never in tinted squares. Embed the SVGs you use (Lucide is ISC).
+
+### 3.5 Motion
+
+| Name | Use | Duration | Curve |
+|---|---|---|---|
+| `pop` | menus, popovers: 96% → 100% scale + fade | 200ms | cubic-bezier(0.22, 1, 0.36, 1) |
+| `panel` | side panel and pages slide 16px + fade | 240ms | same |
+| `msg` | new bubble: 4px rise + fade | 180ms | same |
+| `fade` | | 150ms | ease-out |
+| hover | colour/opacity only | 120ms | linear |
+
+300ms ceiling. Nothing scales from zero. The only loop is the live working mark while a
+bot is really working. If the OS asks for reduced motion, every duration becomes 0.
+Use GPUI `with_animation(id, Animation::new(duration).with_easing(...), ...)`.
+
+## 4. Window shell
+
+```
+┌──────────────── sidebar ────────────────┬──────────────── chat area ───────────────────┬── side panel ──┐
+│ [traffic lights / 72px]     (⌕)  (+)    │            ( ● Bot name · model ▾ )          │  optional      │
+│ ▢ Inbox                                 │                                              │  400 default   │
+│              ◉ main bot tile             │      transcript column, max 960, centred     │  320–960       │
+│ ◉ Bot row  name / preview          ⋯    │                                              │                │
+│ ◉ Bot row                               │                                              │                │
+│ …                                       │   ╭ (+)  Message Bot name…        (🎙)(➤) ╮   │                │
+│ (◯ You)                        (⊞ Store)│   ╰──────────────────────────────────────╯   │                │
+└─────────────────────────────────────────┴──────────────────────────────────────────────┴────────────────┘
+```
+
+- Default window 1440×900, minimum 760×520. Remember size and position per display.
+- **Title bar**: transparent (`TitlebarOptions { appears_transparent: true,
+  traffic_light_position: Some(point(px(16.), px(18.))) }`). On macOS reserve 72px at the
+  sidebar's start for the traffic lights. On Windows/Linux draw our own caption buttons
+  (minimise, maximise, close; 46×32 each, hover `ink` 6%, close hover `danger` with
+  `danger_ink`) at the window's top end, over the chat area. The top 52px is a drag region
+  except over controls.
+- **Sidebar**: `panel` fill, default width 354, drag its end edge (12px hit area) between
+  92 (avatar rail) and 400; snaps to the rail below 200. Maximum 280 while the side panel is
+  open. `Cmd/Ctrl+\` toggles it; below 960px window width it overlays the chat with a scrim.
+- **Chat area**: `app` fill. Header pill floats 10px from the top, centred. Transcript
+  column max 960 wide, 24px side padding. Composer floats at the bottom, same column width,
+  16px from the bottom edge.
+- **Side panel**: `panel` fill, 0.5px `edge` on its start side, default 400, resizable
+  320–960, enters with `panel` motion. One panel at a time.
+- **Pages** (Marketplace, Plugin creator, Review queue): fill the chat area, content max
+  1240 wide, 32px side padding, 56px top padding, with a back chevron before the title.
+  Opening a bot or conversation closes the page.
+
+## 5. Sign in (server Live, desktop To build)
+
+Centred card, 400 wide, `card` fill, radius 14, 32px padding, app icon 56px above.
+
+1. Title "Sign in to Superbot".
+2. Field "Server" (default `https://` + last used; Geist Mono 13). Validate on blur with
+   `Client::new`: an `InvalidServer` error shows inline under the field:
+   "Use an HTTPS address, or a local address such as http://127.0.0.1:3000."
+3. Fields "Email", "Password" (36px, radius 8, `inset` fill, 1px `hairline`; focus colours
+   the border `focus`).
+4. Primary ink pill "Sign in" (36px, full width). While pending: "Signing in…", fields
+   read-only, layout unchanged. Under it a text button "Email me a code instead" swaps
+   the password field for a 6-box code field (Geist Mono 20, tabular) after sending the
+   code; "Send a new code" appears after 30s. Same flow as `superbot login --code`.
+5. Errors inline above the button: 401 → "That email and password don't match.";
+   transport → "Couldn't reach the server. Check the address and that you're online.";
+   `CredentialStore` → "Signed in, but couldn't save the session to your system keychain.
+   You'll need to sign in again next time." (non-blocking).
+
+On launch: `CredentialStore::load`; if a client comes back, skip this screen. Any later
+`is_unauthorized()` returns here with the server and email prefilled and a one-line note
+"Your session ended. Sign in again." Sign out lives in the profile menu.
+
+## 6. Sidebar (server Live, desktop To build)
+
+Top row (60px tall, 12px top padding): traffic-light space, then at the end two 36px round
+icon buttons 8px apart, each a charcoal "elevated control": `composer` fill (`#1f1f1f`
+Midnight, `#ffffff` Daylight), a 1px inset ring of `ink` at 6%, icon 16px in `ink` at 90%,
+hover fill = `composer` mixed 7% toward `ink`. They are **Search** (`search`,
+`Cmd/Ctrl+K`) and **New** (`plus`, `Cmd/Ctrl+N`, opens
+a menu: "New bot…", "New group…", "Join a space…"; "New plugin…" only once §10 ships).
+
+- **Space switcher**: only when `list_spaces` returns more than one. A 32px row
+  under the top row: space name 13/500 + `chevrons-up-down` 14px; opens a menu of spaces
+  (30px rows, check mark on the current one). The selection persists per server.
+- **Inbox row** (Planned): 48px row, `inbox` icon in a 36px circle. Hidden until it exists.
+- **Main bot tile**: the first bot in the list, centred, 92×92, avatar 56 with its name
+  12/500 under it.
+- **Bot rows**: 54px tall, radius 8, 8px inline padding, 10px gap. Avatar 40 (identity
+  plate with the bot's initial in 15/600 `#fff`, or its image). Name 13/500 `ink`, under it
+  the last-message preview 13/400 `ink_secondary`, one line each. Selected row `raised`;
+  hover `ink` 6%. A 24px `ellipsis` button appears at the row's end on hover, keyboard focus
+  and touch: Rename…, New conversation, Open details, Remove. Right-click opens the same
+  menu. Status marks sit on the avatar's bottom-end corner: working (pulsing 8px
+  `success` dot, the only loop), needs you (8px `accent` dot).
+- Render the list with `uniform_list` (fixed 54px rows); 2,000 bots must scroll at 120fps.
+- **Footer** (56px): profile button (32px avatar + "You" 13/500) at the start; **Store**
+  icon button (`layout-grid`, 36px) at the end, opening the Marketplace page.
+- Empty (no bots): one line "No bots in this space yet." and a pill "New bot…".
+- Loading: keep the header; reserve rows; show a spinner only after 300ms.
+- Error: inline row "Couldn't load bots." + text button "Try again".
+
+## 7. Chat (server Live, desktop To build)
+
+### 7.1 Header pill
+
+Centred, 36px tall, `panel` fill (Daylight: `menu`), 1px `hairline`, full radius, 6px
+start padding. Contents: avatar 24, bot name 14/500, a 1px × 16px `hairline` divider, the
+model name 13/400 `ink_secondary` + `chevron-down` 14 when a model can be chosen (Planned),
+else omitted. Clicking the name opens the side panel with the bot's details.
+No other header buttons.
+
+### 7.2 Transcript
+
+- Column max 960, bubbles max `min(560, 80% column, column − 82)`.
+- Bot bubbles start-aligned, `card` fill, `ink` text. The person's bubbles end-aligned,
+  `bubble_user` fill and ink (neutral grey in Midnight, near-black in Daylight).
+- Bubble: radius 18, padding 7px block / 12px inline, text 15/22, min width 36.
+- Rows 16px apart. Consecutive bubbles from the same side join: 4px apart, and the joined
+  corners on the speaker's side tighten to 6.
+- Markdown in bot bubbles: paragraphs 8px apart; inline code Geist Mono 13 on `ink` 8%,
+  radius 4; code blocks, tables and quotes are drawn with no fill of their own: 1px
+  `hairline`, `ink` 3% tint, radius 12, horizontal scroll inside, a Copy icon button at the
+  top end on hover/focus. Links `accent_text`, underline on hover.
+- Long person messages (over 12 lines) clamp with a fade and "Show full message".
+- Day separators: centred 12/400 `ink_tertiary` ("Today", "Yesterday", "Mon 17 Nov").
+- Hover on a bubble (also on focus) shows a 28px action strip under it: Copy, and for bot
+  messages Retry (Planned).
+- `Message.role` values other than `user` and `bot`/`assistant` render as a centred 12px
+  `ink_tertiary` line, never as a bubble.
+- Scrolling: stick to the bottom while the person is at the bottom; otherwise show a 32px
+  round "Jump to latest" button (`arrow-down`) 12px above the composer.
+- Use GPUI `list` (variable heights) with `ListState`; never re-layout the whole
+  transcript on a streaming event.
+
+### 7.3 Working row
+
+While a run is active (from `run.started` until `run.finished`/`run.failed`; until the
+event catalogue exists: between a `send_message` receipt and the next bot message for its
+`run_id`), a 38px row sits directly above the composer clearance: the bot's 20px avatar
+and "Working…" 13/400 `ink_secondary` with a soft left-to-right shimmer (1.6s loop; static
+under reduced motion). It replaces no content and reserves its slot so nothing jumps.
+
+### 7.4 Composer
+
+- Floating pill, column width, `composer` fill, 1px `composer_ring`, radius 22 (18 once
+  it wraps to two lines), padding 7px top / 9px sides and bottom, shadow
+  `0 2 8 −1 rgba(0,0,0,0.05)`. Ring goes to `ink` 22% on hover and focus.
+- Contents: `+` (28px round, `ink` 4% fill, `ink_tertiary` icon; opens Attach file…
+  [`artifacts/create` is Live; screen To build]); multi-line field 15/22, `dir` auto, placeholder
+  "Message {bot name}" in `ink_tertiary`, grows to 40% of window height then scrolls; a mic
+  28px (Planned, hidden); the round 32px **Send** button in the bot's identity colour with
+  `arrow-up` in its ink.
+- Send is disabled (50% opacity) when the field is blank or over 100,000 UTF-16 units
+  (`InvalidMessage`); over the limit, a 12px `danger` count shows at the field's end.
+- Enter sends, Shift+Enter breaks a line, IME composition never sends. Up arrow in an
+  empty field recalls the last message for editing (local only).
+- On send: insert the person's bubble at once (optimistic, 60% opacity until the receipt
+  arrives); on error the bubble gets a 14px `danger` `circle-alert` and "Couldn't send.
+  Retry" text button under it. Draft text survives switching bots (per bot, in memory).
+- Bottom clearance: transcript bottom padding = composer height + 54px.
+
+### 7.5 Live connection
+
+`subscribe(space, agent, cursor)` from the last `seq` seen. Retry with backoff
+(1s, 2s, 5s, 10s, then every 30s) on `is_retryable()`. After 5s offline, a 28px pill
+appears above the composer: "Reconnecting…" (`wifi-off` 14px); it disappears on resume
+without a "back online" toast. `is_unauthorized()` → sign in. Never duplicate a message
+already shown: key rows by `id`, order by `seq`.
+
+### 7.6 Empty and error states
+
+- New conversation: the bot's 56px avatar, its name 20/600 and one line 15/22
+  `ink_secondary` "What should {name} do?", centred 30% from the top; the composer stays
+  where it always is.
+- History failed: inline card in the column, "Couldn't load this conversation." + "Try
+  again".
+
+## 8. Side panel: bot details (desktop To build)
+
+Tabs (segmented control, 28px, full radius) at the top: **Details**, **Plugins**.
+- Details: avatar 72 with the name 20/600 under it; rows (`NavRow` pattern: 44px, label
+  13/400 start, value 13/400 `ink_secondary` end, chevron) for Model, Instructions,
+  Memory (Planned rows are omitted, not disabled).
+- Plugins: every installed plugin's parts with a switch per part for this bot
+  (`setGrants` with this bot's full list). Empty: "No plugins installed." + "Open store".
+
+## 9. Marketplace page (server Live, desktop To build)
+
+Opened from the sidebar Store button or `Cmd/Ctrl+Shift+P`. Uses the page frame (§4).
+
+```
+‹  Store                                                      [ My plugins ]  [ New plugin… ]
+   ( ⌕  Search plugins                                   )
+   (All) (Skills) (Tools) (Installed)
+
+   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+   │ ▣ Release…   │ │ ▣ Tracker    │ │ ▣ …          │
+   │ release-notes│ │ tracker · v3 │ │              │
+   │ Draft rele…  │ │ …            │ │              │
+   │ [Skill][Tool]│ │ [Tool]       │ │              │
+   │        Install│ │   Installed ✓│ │              │
+   └──────────────┘ └──────────────┘ └──────────────┘
+```
+
+- Title "Store" 26/600. Header end: "My plugins" (pill: the `mine` list from §10, which
+  ships read-only before the creator) and, once §10 ships, "New plugin…" (ink primary
+  pill). Until then the slot holds a quiet "Publish a plugin" link that opens the
+  developer docs in the browser.
+- Search field: 36px, full radius, `control` at 70%, `search` 15px, text 14. Filters as
+  32px pills; the selected pill is `ink` fill with `app` text, others 1px `hairline`.
+  "Skills" = has a `skill` part, "Tools" = has an `mcp` part, "Installed" = from
+  `installations`.
+- Grid: 3 columns at ≥ 960px content width, 2 at ≥ 600, 1 below; 16px gaps. Card: `card`
+  fill, radius 12, 16px padding, no border, no shadow, hover `raised`. Inside: a 40px
+  monogram tile (radius 8, `control` fill, first letter of the name 17/600 `ink`; the only
+  plate allowed besides avatars because plugins have no image), name 13/500, `slug · v{n}`
+  12/400 Geist Mono `ink_tertiary`, description 13/18 `ink_secondary` clamped to 2 lines,
+  part chips (24px, full radius, `control`, 12/400: "Skill", "Tool"), and at the bottom end
+  "Install" (28px pill, 1px `hairline`) or "Installed" with `check` 14 in `ink_secondary`.
+- Paging: `discover` with `limit: 50` (the maximum); load the next page when the last row nears view.
+- Card click opens the plugin in the side panel (§9.1). The Store page stays behind it.
+- Empty search: "No plugins match “{query}”." Empty registry: "No plugins published yet."
+  + "Publish a plugin". Error: inline "Couldn't load the store." + "Try again". Signed-out
+  or expired session (HTTP 401): back to sign in (§5).
+
+### 9.1 Plugin details (side panel)
+
+- Header: monogram 56, name 20/600, `slug · v{n} · approved {date}` 12 Geist Mono.
+- Description 13/18 `ink`.
+- "What it adds" group label, then one row per part: `book-open` (skill) or `plug` (tool)
+  16px, part id in Geist Mono 13, and for tools the endpoint host 12 `ink_tertiary`.
+  "Show instructions" disclosure reveals skill Markdown read-only (max 320px, scrolls).
+- Trust line, 12 `ink_tertiary`, always shown: "Skills are instructions a bot reads. Tools
+  run on {host}, not on this computer." (Security invariant: skills are untrusted input and
+  tools are remote; the UI must never imply otherwise.)
+- Primary: **Install** (ink pill, 32px). Idempotent; while pending "Installing…".
+- After install, the panel shows **Give to bots**: one row per bot (avatar 24, name), and
+  under it a switch per part. Toggling calls `setGrants(installationId, botId, partIds)`
+  with that bot's whole selection. New installs start with zero grants: the list is open
+  by default so the person sees nothing runs until they switch it on. No dialog.
+- **Uninstall** is a text button in `danger` at the panel's bottom. It removes every
+  grant in the Space at once, then shows a toast "Uninstalled {name}." with **Undo** for
+  6s (Undo installs the same `versionId` again and re-sends each bot's previous grants).
+  Undo creates fresh grants: approvals that were waiting on the old ones stay void, by
+  design of the runtime (a re-added grant gets a new identity).
+- Newer version available (`discover` returns a higher version than the installed pin):
+  one line "Version {n} is available." + "Switch to version {n}" text button (uninstall +
+  install, restoring grants by matching part ids; parts that vanished are listed in the
+  toast).
+- Install, grants and uninstall act on the selected Space. With more than one Space,
+  the panel's header shows "In {space name}" 12 `ink_tertiary`.
+
+### 9.2 Tool approval card (in the chat)
+
+The runtime asks a person before **every** call to a plugin's remote tool, and refuses
+new calls in a Space set to **Never ask**. This is a security invariant, so it is the one
+ask the design keeps. It arrives as a pending approval in the bot's conversation and is
+answered with `threads/answer`.
+
+```
+ ╭──────────────────────────────────────────────────────────╮
+ │ ⊙ Scout wants to use convert_temperature                  │
+ │   Unit converter · units.example.com                      │
+ │   ┌──────────────────────────────────────────────────┐    │
+ │   │ { "value": 100, "from": "celsius", ... }          │    │
+ │   └──────────────────────────────────────────────────┘    │
+ │                                   ( Deny )  ( Allow once )│
+ ╰──────────────────────────────────────────────────────────╯
+```
+
+- Start-aligned like a bot bubble, `card` fill, radius 18, 14px padding, max width
+  `min(560, 88% column)`. Not a dialog; it never blocks the composer.
+- Line 1: the bot's 20px avatar, "{Bot} wants to use {tool name}" 14/500.
+- Line 2: plugin name, a middot, the endpoint **host** in Geist Mono 12 `ink_tertiary`.
+  The full endpoint is in the tooltip. Always shown: a person must see where data goes.
+- Arguments: the exact JSON the runtime will send, Geist Mono 12/18 on `inset`, radius 12,
+  clamped to 8 lines with "Show all" (never truncated silently; the card scrolls inside
+  past 320px).
+- Buttons at the end: **Deny** (quiet pill, 28px) and **Allow once** (28px pill in the
+  bot's identity colour). Keyboard: focus lands on Deny when the card is reached by Tab,
+  so a stray Enter never sends data. No "Always allow" (the runtime has none).
+- After an answer the card collapses to one 12px `ink_tertiary` line: "Allowed
+  convert_temperature · 14:02" or "Denied … · 14:02".
+- Grant removed while waiting: the card dims to 60% and reads "This tool is no longer
+  granted to {Bot}." with no buttons (the runtime would refuse it).
+- Never ask Space: no card; the bot's reply explains the refusal in its own words.
+- Several pending at once stack in arrival order; each answers independently.
+
+## 10. Plugin creator page (Planned; authors use `superbot-plugin` today)
+
+Authoring works today through the `superbot-plugin` CLI (`init`, `validate`, `publish`,
+`list mine`, `status`; see `docs/superbot/plugin-toolkit.md`). The desktop creator below
+is the planned visual front end to the same file: it opens and saves a folder's
+`plugin.json`, so an author can switch between the app and the CLI at any time. Its
+validation must match `superbot-plugin validate` (local schema only); endpoint safety is
+checked by the registry during approval, so the creator's endpoint check is advisory.
+
+Opened from "New plugin…" or "My plugins" → a plugin → "New version…". Two columns at
+≥ 1100px content width (form 1fr, preview 420px); stacked below.
+
+**Form column**
+
+1. Name (field, 1–120 chars), Slug (Geist Mono, auto-derived from the name until edited;
+   1–64 chars matching `^[a-z0-9]+(-[a-z0-9]+)*$`; check availability against `mine`/`discover` on
+   blur; a reserved slug says "That name is taken. Try another."), Description (multi-line,
+   3 rows, 1–1,000 chars).
+2. "Parts" group label with an "Add part" pill menu: **Skill** / **Tool (MCP)**.
+   1–16 parts; at 16 the pill is disabled with the tooltip "A plugin can have 16 parts."
+   Each part is a card (`card`, radius 12, 16px padding; no nested cards):
+   - Header row: kind icon, editable part id (Geist Mono, lowercase, unique), a
+     `trash-2` icon button at the end (removal offers Undo).
+   - Skill: Markdown editor, Geist Mono 13/20, min 8 rows, `inset` fill, radius 8;
+     1–16,000 chars, a 12px tabular count appears from 90%.
+   - Tool: Endpoint field (`https://…`), transport fixed to "Streamable HTTP" shown as a
+     value, not a control.
+3. Version: a read-only value "Version {n}" (next integer for this slug).
+
+Inline validation, each message under its field, in `danger` 12px:
+- part ids not unique, or not matching the slug pattern (parts share it);
+- endpoint not `https`, or carrying credentials, a query string or a fragment, or a
+  localhost/private address: "Use a public HTTPS address without keys, tokens or a ?query.";
+- the manifest accepts no credentials, headers, commands, packages or hooks, so the
+  creator offers no fields for them; pasting JSON that contains them shows
+  "Superbot plugins can't carry secrets or commands. Remove “{field}”."
+
+**Preview column** (sticky): "Manifest" label, read-only JSON (schema 1) in Geist Mono
+12/18, `inset` fill, radius 12, with Copy. It updates as the form changes. Under it an
+"Open plugin.json…" text button that fills the form from a file (validated the same way).
+
+**Footer bar** (sticky, 64px, 1px `hairline` on top, `app` fill): start: the file path
+12 `ink_tertiary` and "Saved" once written (drafts are local files, never sent until
+submit); end:
+**Submit for review** (ink pill). After submit the page shows the version in **My plugins**
+with status.
+
+**My plugins** list (a section of the creator page, from `mine`): 48px rows with name,
+`v{n}`, and a status chip: Pending (`ink_secondary` on `control`), Approved (`success`
+text), Rejected (`danger` text) with the reviewer's reason under the row in 12
+`ink_secondary`. Rejected slugs stay reserved: "New version…" is offered, never
+"Delete". Versions are immutable: no edit on a submitted version.
+
+## 11. Review queue page (server Live, desktop To build; deployment admins only)
+
+Today: `superbot-plugin list submissions` and `superbot-plugin review`. In the app: only
+listed in the profile menu when the account is a deployment admin (an account in the
+server's `RAKAZO_ADMIN_EMAILS`). The server enforces it with HTTP 403; the UI hides the
+entry but never relies on hiding. Show the server's reason inline if a review returns 403. A list of pending
+submissions (`submissions`), 56px rows: name, `slug · v{n}`, publisher, submitted date.
+Selecting one opens it in the side panel with the same Plugin details layout plus the full
+manifest JSON and two buttons: **Approve** (ink pill) and **Reject…** which reveals an
+inline reason field (required, 1–2,000 chars) and **Reject** in `danger`. A version can be
+decided once; afterwards the row leaves the queue and a toast confirms. No Undo here
+(the server has none); this is the one place that says so: "Decisions can't be changed."
+
+## 12. Multiplayer (server Live; presence and typing Planned)
+
+What is live: several accounts share a Space. The owner invites people by single-use
+link (always) or by email (when the server has SMTP); a link brings in one account and
+expires after 7 days. Members see the Space's bots and conversations; only owners manage
+members and create invites (a member creating an invite gets HTTP 403). Removing a member
+revokes access at once. Group conversations hold several bots.
+
+### 12.1 Space menu and members panel
+
+- The Space switcher (§6) shows a 14px `users` mark after a shared Space's name. Its menu
+  ends with "Members" and, for owners, "Invite people…"; then "Leave space" for members.
+- **Members** opens the side panel: 44px rows with avatar 28, name 13/500, email 12
+  `ink_tertiary`, role meta at the end ("Owner", "Member"). Owners get a row `⋯` menu
+  with "Remove from space". Removal cannot be undone by the server, so the toast offers
+  "Copy new invite link" instead of Undo. The person's own row reads "You".
+- **Invite people…** (owners only; hidden otherwise, enforced by the server) opens a
+  sheet in the panel: "Copy invite link" (ink pill; creates the link, copies it with the
+  system clipboard, then shows "Link copied. It works once and expires in 7 days.") and
+  an email field + "Send invite" only once the client can tell that the server has mail
+  set up (ask the client owners for that flag; until then show the link flow only). Pending
+  invites list under it (12px, created date) with "Cancel" text buttons. Invite links
+  are secrets: never show them in full in the UI, never log them.
+
+### 12.2 Joining
+
+"Join a space…" (New menu) opens a small dialog (420 wide) with one field "Invite link".
+On paste: preview with `spaces/invites/preview` and show the Space name and who invited
+("Join Design team, invited by Ada"). **Join space** accepts; errors inline: used or
+cancelled link → "This invite was already used or cancelled. Ask for a new one.";
+expired → "This invite expired. Ask for a new one." After joining, the new Space is
+selected. An `superbot://` link handler is Planned; do not register one yet.
+
+### 12.3 Conversation with people and bots
+
+- **Transcript**: every bubble not from me is start-aligned. Above the first bubble of a
+  run: speaker name 13/600 in the bot's identity colour (bots) or `ink_secondary`
+  (people), with a 20px avatar at the bubble's start. My bubbles stay end-aligned with no
+  name. A member joining or leaving is a centred 12px `ink_tertiary` line.
+- **Group conversations**: the header pill shows up to 3 overlapping 24px bot avatars
+  (2px `panel` ring) and the group's name. `@` in the composer opens a 30px-row menu of
+  the group's bots (avatar 20, name); the mention renders as a 13/500 inline token in
+  `accent_text`. Placeholder: "Message {group}, @ to ask one bot".
+- **Approvals in shared Spaces**: the approval card (§9.2) shows to whoever is in the
+  conversation; after an answer the collapsed line adds who answered ("Allowed by Ada")
+  when the answer event carries the person (part of §0 ask 2).
+- **Presence and typing** (Planned, needs §0 ask 4): up to 3 overlapping 20px avatars of
+  people currently viewing at the end of the header pill; "{Name} is typing…" in the
+  working-row slot. Not shipped until the events exist.
+
+## 13. Command palette and keys
+
+`Cmd/Ctrl+K` opens a 640-wide palette 15% from the top (`menu` surface, radius 12,
+`pop` motion): a 44px search field, then grouped results (Bots, Conversations, Plugins,
+Actions), 36px rows, `ShortcutHint` keycaps at row end. Arrow keys, Home/End, Enter,
+Escape, type-ahead.
+
+| Action | macOS | Windows/Linux |
+|---|---|---|
+| Search / palette | ⌘K | Ctrl+K |
+| New… menu | ⌘N | Ctrl+N |
+| Toggle sidebar | ⌘\ | Ctrl+\ |
+| Store | ⇧⌘P | Ctrl+Shift+P |
+| Next / previous bot | ⌥⌘↓ / ⌥⌘↑ | Ctrl+Alt+↓ / ↑ |
+| Focus composer | ⌘L | Ctrl+L |
+| Close page, panel or menu | Esc | Esc |
+| Settings | ⌘, | Ctrl+, |
+
+Define them with GPUI `actions!` and `KeyBinding::new` in a single keymap module so the
+palette can list them.
+
+## 14. Settings (dialog)
+
+A 680×560 dialog (radius 14, `menu` surface) with a 180px start nav: General (Theme ·
+System/Midnight/Daylight; Language), Account (server, email, Sign out), About (version,
+licences: the OpenMausBot Apache-2.0 notice for the icon and tokens, Lucide ISC,
+Geist OFL 1.1, bundled with the app as in `NOTICE.txt`). Rows 44px, value-first ("Theme · System").
+No new toggles.
+
+## 15. Accessibility (GPUI)
+
+- Focus: every interactive element has a `FocusHandle`, a visible 2px `focus` ring
+  offset 2px (menu rows show focus as their hover fill), and is reachable with Tab in
+  reading order. Never trap Tab except in dialogs; Escape returns focus to the opener.
+- Hover-only controls (row `⋯`, bubble actions, Copy) also show on keyboard focus.
+- Contrast: text 4.5:1, focus ring and control edges 3:1 on every surface, both skins.
+- Right-to-left: mirror the shell (sidebar on the end side) and directional icons.
+- **Open risk**: GPUI's screen-reader support is limited; verify what the pinned GPUI
+  version exposes to the OS accessibility tree before claiming screen-reader support,
+  and track the gap.
+
+## 16. Acceptance checklist per screen
+
+- [ ] Only `Theme` tokens, this type table, this radius scale.
+- [ ] Midnight and Daylight; 1440×900 and 760×520; long names (60 chars), emoji, Arabic.
+- [ ] Default, hover, focus, pressed, disabled, loading, empty, error, offline.
+- [ ] Keyboard-only path through the whole flow.
+- [ ] Reduced motion: no animation.
+- [ ] Planned features absent, not teased.
+- [ ] Screenshots use invented data.

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Superbot</title>
+  <meta name="description" content="Superbot is an open-source home for AI teammates: a self-hosted server, a native desktop app and a reviewed plugin store.">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="assets/site.css">
+  <script src="assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="./"><img src="assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="#plugins" class="hide-sm">Plugins</a>
+        <a href="#status" class="hide-sm">Status</a>
+        <a href="docs/">Docs</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero wrap">
+      <div class="eyebrow"><span class="chip"><span class="status building">Desktop app in development</span></span></div>
+      <h1>Your bots, on your server, in a fast native app.</h1>
+      <p class="lede">Superbot is an open-source home for AI teammates. Run the server yourself, talk to your bots from a native desktop app, and give them new skills and tools from a reviewed plugin store.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="docs/">Build a plugin</a>
+        <a class="btn btn-quiet" href="#status">See what works today</a>
+      </div>
+
+      <div class="mock" role="img" aria-label="Design of the Superbot desktop app: a sidebar of bots and a conversation with a bot named Scout. Example data.">
+        <div class="mock-side" aria-hidden="true">
+          <div class="mock-top">
+            <div class="lights"><i></i><i></i><i></i></div>
+            <div class="space">
+              <span class="round"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+              <span class="round"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
+            </div>
+          </div>
+          <div class="tile"><span class="av lg ink"><svg viewBox="0 0 24 24"><circle cx="12" cy="12.4" r="7.4" fill="#fff"/><rect class="eye" x="10.05" y="9.38" width="1.44" height="3.49" rx="0.72"/><rect class="eye" x="13.26" y="9.38" width="1.44" height="3.49" rx="0.72"/></svg></span>Atlas</div>
+          <div class="row on"><span class="av blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12.4" r="7.4" fill="#fff"/><rect class="eye" x="10.05" y="9.38" width="1.44" height="3.49" rx="0.72"/><rect class="eye" x="13.26" y="9.38" width="1.44" height="3.49" rx="0.72"/></svg></span><div class="t"><b>Scout</b><span>Here are three venues that fit</span></div></div>
+          <div class="row"><span class="av green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12.4" r="7.4" fill="#fff"/><rect class="eye" x="10.05" y="9.38" width="1.44" height="3.49" rx="0.72"/><rect class="eye" x="13.26" y="9.38" width="1.44" height="3.49" rx="0.72"/></svg></span><div class="t"><b>Ledger</b><span>Reconciled 42 invoices for October</span></div></div>
+          <div class="row"><span class="av purple"><svg viewBox="0 0 24 24"><circle cx="12" cy="12.4" r="7.4" fill="#fff"/><rect class="eye" x="10.05" y="9.38" width="1.44" height="3.49" rx="0.72"/><rect class="eye" x="13.26" y="9.38" width="1.44" height="3.49" rx="0.72"/></svg></span><div class="t"><b>Quill</b><span>The second draft is in your files</span></div></div>
+          <div class="row"><span class="av coral"><svg viewBox="0 0 24 24"><circle cx="12" cy="12.4" r="7.4" fill="#fff"/><rect class="eye" x="10.05" y="9.38" width="1.44" height="3.49" rx="0.72"/><rect class="eye" x="13.26" y="9.38" width="1.44" height="3.49" rx="0.72"/></svg></span><div class="t"><b>Harbor</b><span>Deploy finished, all checks green</span></div></div>
+          <div class="row"><span class="av yellow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12.4" r="7.4" fill="#fff"/><rect class="eye" x="10.05" y="9.38" width="1.44" height="3.49" rx="0.72"/><rect class="eye" x="13.26" y="9.38" width="1.44" height="3.49" rx="0.72"/></svg></span><div class="t"><b>Mint</b><span>Next invoice run is Friday at 9:00</span></div></div>
+          <div class="mock-foot">
+            <span class="av sm me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="width:62%;height:62%"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>You
+            <span class="round"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+          </div>
+        </div>
+        <div class="mock-main" aria-hidden="true">
+          <div class="pill-head"><span class="av sm blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12.4" r="7.4" fill="#fff"/><rect class="eye" x="10.05" y="9.38" width="1.44" height="3.49" rx="0.72"/><rect class="eye" x="13.26" y="9.38" width="1.44" height="3.49" rx="0.72"/></svg></span>Scout<span class="sep"></span><small>Your model</small></div>
+          <div class="transcript">
+            <div class="b me">Find three venues in Lisbon for a 20-person offsite in December.</div>
+            <div class="b bot">Here are three that fit 20 people and have dates open in the second week of December.</div>
+            <div class="b bot join-top">I put prices, travel times and photos in <code>offsite-venues.md</code>. The second one includes catering.</div>
+            <div class="b me">Ask the second one for a quote for the 10th and 11th.</div>
+          </div>
+          <div class="working"><span class="av xs blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12.4" r="7.4" fill="#fff"/><rect class="eye" x="10.05" y="9.38" width="1.44" height="3.49" rx="0.72"/><rect class="eye" x="13.26" y="9.38" width="1.44" height="3.49" rx="0.72"/></svg></span><span class="shimmer">Working…</span></div>
+          <div class="composer">
+            <span class="ctl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
+            <span class="field">Message Scout</span>
+            <span class="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap" aria-labelledby="why">
+      <div class="section-head">
+        <h2 id="why">A durable place for AI teammates</h2>
+        <p>Each bot keeps one conversation, its own memory and its own work. You decide where it runs, which model it uses and what it can reach.</p>
+      </div>
+      <div class="grid3">
+        <article class="card">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/></svg>
+          <h3>Yours to run</h3>
+          <p>Self-host the server with your own models and keys. Conversations, memory and routines stay on infrastructure you control.</p>
+          <p style="margin-top:14px"><span class="status live">Works today</span></p>
+        </article>
+        <article class="card">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <h3>Shared with your team</h3>
+          <p>Invite people into a Space by link or email. Everyone signs in with their own account, and your other Spaces stay private.</p>
+          <p style="margin-top:14px"><span class="status live">Works today</span></p>
+        </article>
+        <article class="card">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+          <h3>Plugins with a review step</h3>
+          <p>Every plugin version is reviewed before anyone can install it, nothing reaches a bot until you switch it on, and each remote tool call asks first.</p>
+          <p style="margin-top:14px"><span class="status live">Works today</span></p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap" id="plugins" aria-labelledby="plugins-title">
+      <div class="split">
+        <div>
+          <div class="section-head" style="margin-bottom:28px">
+            <h2 id="plugins-title">A plugin is one small manifest</h2>
+            <p>No packages, no install scripts, no secrets. A plugin describes what it adds; the server checks it and a reviewer approves it.</p>
+          </div>
+          <ul class="list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+              <div><b>Skills</b><span>Markdown instructions that teach a bot how to do something. Bots treat them as untrusted input.</span></div>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>
+              <div><b>Tools</b><span>A remote MCP server on a public HTTPS address. Before every call, a person sees the destination and the arguments and chooses Allow once.</span></div>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="12" x="2" y="6" rx="6"/><circle cx="16" cy="12" r="2"/></svg>
+              <div><b>Grants per bot</b><span>Installing adds nothing to any bot. People switch on each part for each bot they choose.</span></div>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <div><b>Pinned versions</b><span>Approved versions never change. An installation stays on its version until someone switches it.</span></div>
+            </li>
+          </ul>
+        </div>
+        <figure class="code" style="margin:0">
+          <div class="code-head"><span>plugin.json</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>,
+  <span class="tok-k">"name"</span>: <span class="tok-s">"Release notes"</span>,
+  <span class="tok-k">"description"</span>: <span class="tok-s">"Draft release notes from issue summaries."</span>,
+  <span class="tok-k">"parts"</span>: [
+    {
+      <span class="tok-k">"id"</span>: <span class="tok-s">"notes"</span>,
+      <span class="tok-k">"kind"</span>: <span class="tok-s">"skill"</span>,
+      <span class="tok-k">"instructions"</span>: <span class="tok-s">"Summarize the provided issue descriptions."</span>
+    },
+    {
+      <span class="tok-k">"id"</span>: <span class="tok-s">"tracker"</span>,
+      <span class="tok-k">"kind"</span>: <span class="tok-s">"mcp"</span>,
+      <span class="tok-k">"transport"</span>: <span class="tok-s">"streamable_http"</span>,
+      <span class="tok-k">"endpoint"</span>: <span class="tok-s">"https://tracker.example.com/mcp"</span>
+    }
+  ]
+}</code></pre>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section wrap" id="status" aria-labelledby="status-title">
+      <div class="section-head">
+        <h2 id="status-title">What works today</h2>
+        <p>Superbot is early. This table is the honest state of each piece, updated as work lands.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th scope="col">Piece</th><th scope="col">State</th><th scope="col">Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Self-hosted server</td><td><span class="status live">Works today</span></td><td class="muted">Bots, conversations, memory and routines, with one command to start it on your machine using Docker.</td></tr>
+            <tr><td>Shared Spaces</td><td><span class="status live">Works today</span></td><td class="muted">Separate accounts, invites by single-use link or by email, owner and member roles. Group conversations with several bots.</td></tr>
+            <tr><td>Plugin store</td><td><span class="status live">Works today</span></td><td class="muted">Submit, review, discover, install, per-bot grants and uninstall, through the <a href="docs/api.html">registry API</a> and the command line.</td></tr>
+            <tr><td>Bots using plugins</td><td><span class="status live">Works today</span></td><td class="muted">Granted skills reach the bot as instructions. Each remote tool call needs a person's approval; Spaces set to Never ask refuse them.</td></tr>
+            <tr><td>Command-line tools</td><td><span class="status live">Works today</span></td><td class="muted"><code>superbot</code> to sign in and chat, <code>superbot-plugin</code> to write, publish, review and install plugins. Built from source with Cargo.</td></tr>
+            <tr><td>Desktop app</td><td><span class="status building">Being built</span></td><td class="muted">Sign in, the bot sidebar, chat, the store and Space members come first. No downloads yet.</td></tr>
+            <tr><td>Plugin creator in the app</td><td><span class="status planned">Planned</span></td><td class="muted">Use <code>superbot-plugin</code> today; the app will open the same <code>plugin.json</code>.</td></tr>
+            <tr><td>Presence and typing</td><td><span class="status planned">Planned</span></td><td class="muted">Seeing who else is in a conversation right now.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <div class="cta-band">
+        <div>
+          <h2>Write your first plugin</h2>
+          <p>Start with one skill. Add a tool when you have a server to point at.</p>
+        </div>
+        <a class="btn btn-primary" href="docs/">Read the guide</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer">
+        <a href="docs/">Docs</a>
+        <a href="docs/manifest.html">Manifest</a>
+        <a href="docs/api.html">Registry API</a>
+        <a href="NOTICE.txt">Notices</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
