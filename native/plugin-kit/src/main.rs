@@ -9,13 +9,13 @@ use anyhow::{bail, ensure, Context, Result};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde::Deserialize;
 use serde_json::{json, Value};
-use superbot_client::{Client, CredentialStore, Error, Space, DEFAULT_SERVER};
+use superbot_client::{selected_server, Client, CredentialStore, Error, Space};
 
 #[derive(Parser)]
 #[command(version, about = "Develop plugins for the Superbot registry")]
 struct Cli {
-    #[arg(long, env = "SUPERBOT_SERVER", default_value = DEFAULT_SERVER, global = true)]
-    server: String,
+    #[arg(long, env = "SUPERBOT_SERVER", global = true)]
+    server: Option<String>,
     #[arg(long, global = true, help = "Select a Space by exact name or ID")]
     space: Option<String>,
     #[command(subcommand)]
@@ -152,7 +152,7 @@ async fn run(cli: Cli) -> Result<()> {
         }
         command => command.request()?,
     };
-    let client = Client::new(&cli.server)?;
+    let client = Client::new(&selected_server(cli.server.as_deref()))?;
     let client = CredentialStore::load(&client)
         .await?
         .context("No saved session for this server. Run superbot login for the same server")?;

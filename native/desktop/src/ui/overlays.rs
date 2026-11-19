@@ -285,6 +285,7 @@ impl Desktop {
 }
 
 /// The caption buttons, in the shape and size of Windows 11's own.
+#[cfg(not(target_os = "macos"))]
 pub fn caption_buttons(window: &Window, theme: &Theme) -> Div {
     use crate::theme::{CAPTION_HEIGHT, CAPTION_WIDTH};
     let button = |id: &'static str, glyph: &'static str, area: WindowControlArea, close: bool| {

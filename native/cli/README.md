@@ -20,9 +20,11 @@ superbot login
 superbot login --code
 ```
 
-Pass `--server https://rakazo.example.com` for self-hosted Rakazo, or set
-`SUPERBOT_SERVER` to use that server on each invocation. The URL must be an HTTPS
-origin. A local development server can use a loopback HTTP origin such as
+Use `superbot server https://rakazo.example.com` to save the default for the
+desktop app and both commands on this device. `superbot server` prints the
+effective origin. For a single invocation, `--server URL` takes precedence over
+`SUPERBOT_SERVER` and the saved origin. The URL must be an HTTPS origin. A local
+development server can use a loopback HTTP origin such as
 `http://127.0.0.1:3000`.
 
 The signed session is saved per server in Windows Credential Manager, macOS
@@ -45,6 +47,23 @@ to reach an agent whose name matches a command.
 
 In chat, press Enter to send a line. Superbot prints message text and agent run
 errors. `/back` returns to the picker, or exits a directly opened chat.
+
+### Import bot names into a shared Space
+
+Create a private UTF-8 JSON file such as `{"names":["Ada","Scout"]}`. A member with
+permission to create bots in the destination Space can preview and apply the list.
+Run the import once on either client. Every member sees the same bots on the server.
+
+```sh
+superbot --space Personal import-bots roster.json --dry-run
+superbot --space Personal import-bots roster.json
+```
+
+Use a Space ID if several Spaces share a name. The importer creates missing names with
+the server defaults. It preserves existing and archived bots, checks the whole file
+before creating any bots, and can resume after a network interruption. Name matching
+ignores case and surrounding whitespace. The file contains names only. Conversation
+history, model credentials, permissions and instructions stay with their source.
 `/quit` exits from either mode.
 
 For a supported tool approval, Superbot prints the server's card, including any

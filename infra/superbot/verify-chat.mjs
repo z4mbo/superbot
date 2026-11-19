@@ -15,14 +15,14 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const exec = promisify(execFile);
 const {
   positionals: [postgresBin, executable, desktopExecutable],
-  values: { "notifications-probe": notificationProbe, marketplace },
+  values: { "notifications-probe": notificationProbe, marketplace, roster },
 } = parseArgs({
   allowPositionals: true,
-  options: { "notifications-probe": { type: "string" }, marketplace: { type: "boolean" } },
+  options: { "notifications-probe": { type: "string" }, marketplace: { type: "boolean" }, roster: { type: "boolean" } },
 });
 assert(
   process.platform === "win32" && postgresBin && executable,
-  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace]",
+  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--roster]",
 );
 const cli = resolve(executable);
 const pg = (file) => resolve(postgresBin, `${file}.exe`);
@@ -573,13 +573,35 @@ try {
     await copyFile(resolve(desktopExecutable), fixtureDesktop);
     const desktop = spawn(fixtureDesktop, [], {
       cwd: root,
-      env: { ...env, SUPERBOT_SERVER: origin, SUPERBOT_SKIN: "midnight" },
+      env: { ...env, SUPERBOT_CONFIG_DIR: directory, SUPERBOT_SERVER: origin, SUPERBOT_SKIN: "midnight" },
       stdio: "ignore",
       windowsHide: false,
     });
     console.log(`Desktop comparison fixture PID ${desktop.pid}. Close its window to finish.`);
     const code = await new Promise((done, fail) => desktop.once("error", fail).once("close", done));
     assert.equal(code, 0, "Fixture desktop exited successfully");
+  }
+  if (roster) {
+    const existing = await rpc("bots/create", { name: "Roster One" }, scopedOwner);
+    const archived = await rpc("bots/create", { name: "Roster Archived" }, scopedOwner);
+    await rpc("bots/archive", { botId: archived.id }, scopedOwner);
+    const rosterFile = join(directory, "roster.json");
+    await writeFile(rosterFile, JSON.stringify({ names: ["roster one", "Roster Two", " Roster Two ", "Roster Archived"] }));
+    const args = ["--server", origin, "--space", space, "import-bots", rosterFile];
+    const preview = await command(cli, [...args, "--dry-run"], "Preview roster");
+    assert.match(preview.stdout, /2 existing, 1 to import/);
+    const active = () => rpc("bots/list", {}, scopedObserver);
+    assert.ok(!(await active()).some((bot) => bot.name === "Roster Two"));
+    await Promise.all([command(cli, args, "First roster import"), command(cli, args, "Concurrent roster import")]);
+    const replay = await command(cli, args, "Repeat roster import");
+    assert.match(replay.stdout, /3 existing, 0 to import/);
+    const visible = await active();
+    assert.equal(visible.filter((bot) => bot.name === "Roster Two").length, 1);
+    assert.ok(visible.some((bot) => bot.id === existing.id && bot.name === "Roster One"));
+    assert.ok(!visible.some((bot) => bot.id === archived.id));
+    const stillArchived = await rpc("bots/listArchived", {}, scopedOwner);
+    assert.ok(stillArchived.some((bot) => bot.id === archived.id));
+    console.log("PASS two concurrent imports and a retry produced one shared bot and preserved the archived bot");
   }
   const logout = await command(cli, ["--server", origin, "logout"], "Fixture CLI logout");
   assert.equal(logout.stdout.trim(), "Signed out.");

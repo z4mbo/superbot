@@ -1,5 +1,6 @@
 mod credentials;
 mod protocol;
+mod server_selection;
 
 use std::pin::Pin;
 use std::time::Duration;
@@ -12,6 +13,7 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 pub use credentials::CredentialStore;
+pub use server_selection::{remember_server, selected_server};
 pub use protocol::{
     Agent, Error, Message, MessageAuthor, SendReceipt, Space, ThreadEvent, ThreadSnapshot,
     ThreadTarget,
@@ -58,30 +60,35 @@ pub struct Client {
     authorization: Option<header::HeaderValue>,
 }
 
+fn server_origin(server: &str) -> Result<(Url, bool), Error> {
+    let server = Url::parse(server).map_err(|_| Error::InvalidServer)?;
+    let loopback = match server.host() {
+        Some(url_host) => match url_host.to_string().as_str() {
+            "localhost" => true,
+            host => host
+                .trim_matches(['[', ']'])
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|address| address.is_loopback()),
+        },
+        None => false,
+    };
+    if (server.scheme() != "https" && !(server.scheme() == "http" && loopback))
+        || server.host().is_none()
+        || !server.username().is_empty()
+        || server.password().is_some()
+        || server.query().is_some()
+        || server.fragment().is_some()
+        || server.path() != "/"
+    {
+        return Err(Error::InvalidServer);
+    }
+    Ok((server, loopback))
+}
+
 impl Client {
     /// Accepts an HTTPS origin, or HTTP on loopback for local Rakazo deployments.
     pub fn new(server: &str) -> Result<Self, Error> {
-        let server = Url::parse(server).map_err(|_| Error::InvalidServer)?;
-        let loopback = match server.host() {
-            Some(url_host) => match url_host.to_string().as_str() {
-                "localhost" => true,
-                host => host
-                    .trim_matches(['[', ']'])
-                    .parse::<std::net::IpAddr>()
-                    .is_ok_and(|address| address.is_loopback()),
-            },
-            None => false,
-        };
-        if (server.scheme() != "https" && !(server.scheme() == "http" && loopback))
-            || server.host().is_none()
-            || !server.username().is_empty()
-            || server.password().is_some()
-            || server.query().is_some()
-            || server.fragment().is_some()
-            || server.path() != "/"
-        {
-            return Err(Error::InvalidServer);
-        }
+        let (server, loopback) = server_origin(server)?;
         let mut http = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))

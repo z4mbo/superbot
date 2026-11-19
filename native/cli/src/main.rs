@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod approval_tests;
 mod approvals;
+mod roster;
 
 use std::{
     io::{self, IsTerminal, Write},
@@ -12,8 +13,8 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use futures_util::StreamExt;
 use superbot_client::{
-    Agent, Client, CredentialStore, Error, MessageAuthor, SendReceipt, SignUpResult, Space,
-    DEFAULT_SERVER,
+    remember_server, selected_server, Agent, Client, CredentialStore, Error, MessageAuthor, SendReceipt, SignUpResult,
+    Space,
 };
 use superbot_features::{Features, SpaceFeatures, ThreadSnapshot, ThreadTarget};
 use uuid::Uuid;
@@ -21,8 +22,8 @@ use uuid::Uuid;
 #[derive(Parser)]
 #[command(version, about = "Chat with your Superbot agents")]
 struct Args {
-    #[arg(long, env = "SUPERBOT_SERVER", default_value = DEFAULT_SERVER, global = true)]
-    server: String,
+    #[arg(long, env = "SUPERBOT_SERVER", global = true)]
+    server: Option<String>,
     #[arg(long, help = "Select a space by name", global = true)]
     space: Option<String>,
     #[command(subcommand)]
@@ -33,6 +34,8 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Show the current server or save a default for the app and both commands
+    Server { url: Option<String> },
     /// Create an account on the selected server
     Signup,
     /// Sign in and save the session to your system credential store
@@ -46,6 +49,12 @@ enum Command {
     Logout,
     /// List available spaces and agents
     List,
+    /// Import agent names from a local JSON file into the selected Space
+    ImportBots {
+        file: std::path::PathBuf,
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Open a chat with any agent, including agents named after commands
     Chat { agent: String },
 }
@@ -68,8 +77,19 @@ async fn main() -> ExitCode {
 }
 
 async fn run(args: Args) -> Result<()> {
-    let client = Client::new(&args.server)?;
+    let server = match &args.command {
+        Some(Command::Server { url: Some(url) }) => url.trim().to_owned(),
+        _ => selected_server(args.server.as_deref()),
+    };
+    let client = Client::new(&server)?;
     let agent_name = match args.command {
+        Some(Command::Server { url }) => {
+            if url.is_some() {
+                remember_server(&client).context("Could not save the Superbot server address")?;
+            }
+            println!("{}", terminal_text(client.server()));
+            return Ok(());
+        }
         Some(Command::Signup) => return signup(&client).await,
         Some(Command::Login { email, code }) => return login(&client, email, code).await,
         Some(Command::Logout) => return logout(&client).await,
@@ -82,6 +102,11 @@ async fn run(args: Args) -> Result<()> {
                 }
             }
             return Ok(());
+        }
+        Some(Command::ImportBots { file, dry_run }) => {
+            let destination = args.space.as_deref().context("Choose the destination with --space NAME or --space ID")?;
+            let names = roster::read(&file)?;
+            return roster::import(connect(&client).await?, destination, names, dry_run).await;
         }
         Some(Command::Chat { agent }) => Some(agent),
         None => args.agent,

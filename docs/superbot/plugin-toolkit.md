@@ -8,7 +8,7 @@ cargo install --path native/plugin-kit --locked
 superbot login
 ```
 
-Both programs use the same system credential store entry for the server origin. For a self-hosted deployment, pass the same `--server` to both programs or set `SUPERBOT_SERVER`. Commands use your only Space automatically. If you belong to several, pass `--space` with an exact Space name or ID.
+Both programs use the same system credential store entry for the server origin. Set the default for a self-hosted deployment with `superbot server https://superbot.example.com` before signing in. You can override the default with `SUPERBOT_SERVER` or `--server URL`. Commands use your only Space automatically. If you belong to several, pass `--space` with an exact Space name or ID.
 
 Create a starter skill in a new working directory, then edit `plugin.json` and validate it.
 
