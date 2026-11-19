@@ -248,7 +248,10 @@ impl WebWorkspace {
                 )
             })
             .when(self.webview.is_some(), |bar| {
-                bar.child(tool("web-reload", "rotate-cw", "Reload", theme).on_click(cx.listener(|this, _, _, _| this.reload())))
+                bar.child(
+                    tool("web-reload", "rotate-cw", "Reload", theme)
+                        .on_click(cx.listener(|this, _, _, _| this.reload())),
+                )
             })
             .child(
                 tool("web-browser", "external-link", "Open in browser", theme)
@@ -323,8 +326,11 @@ fn content(viewport: Size<Pixels>) -> Rect {
     let top = f32::from(CAPTION_HEIGHT);
     Rect {
         position: LogicalPosition::new(0.0, f64::from(top)).into(),
-        size: LogicalSize::new(f64::from(f32::from(viewport.width)), f64::from((f32::from(viewport.height) - top).max(0.0)))
-            .into(),
+        size: LogicalSize::new(
+            f64::from(f32::from(viewport.width)),
+            f64::from((f32::from(viewport.height) - top).max(0.0)),
+        )
+        .into(),
     }
 }
 

@@ -32,7 +32,9 @@ impl Desktop {
                 ("to-code", "Email me a code instead", Switch::RequestCode),
                 ("to-create", "Create an account", Switch::Mode(SignInMode::CreateAccount)),
             ],
-            SignInMode::CreateAccount => vec![("to-sign-in", "I already have an account", Switch::Mode(SignInMode::Password))],
+            SignInMode::CreateAccount => {
+                vec![("to-sign-in", "I already have an account", Switch::Mode(SignInMode::Password))]
+            }
             SignInMode::Code => vec![
                 ("resend", "Send a new code", Switch::RequestCode),
                 ("to-password", "Use a password instead", Switch::Mode(SignInMode::Password)),
@@ -65,10 +67,16 @@ impl Desktop {
                     .children(form.status.clone().map(|status| status_line(status, &theme)))
                     .child(fields)
                     .child(
-                        pill_button("submit-sign-in", if form.busy { working } else { action }, Tone::Primary, !form.busy, &theme)
-                            .h_9()
-                            .w_full()
-                            .on_click(cx.listener(|this, _, window, cx| this.submit_sign_in(window, cx))),
+                        pill_button(
+                            "submit-sign-in",
+                            if form.busy { working } else { action },
+                            Tone::Primary,
+                            !form.busy,
+                            &theme,
+                        )
+                        .h_9()
+                        .w_full()
+                        .on_click(cx.listener(|this, _, window, cx| this.submit_sign_in(window, cx))),
                     )
                     .child(div().flex().flex_col().items_center().gap_2().children(switches.into_iter().map(
                         |(id, label, switch)| {
@@ -110,12 +118,5 @@ enum Switch {
 }
 
 fn status_line(text: String, theme: &Theme) -> Div {
-    div()
-        .px_3()
-        .py_2()
-        .rounded(radius::CARD)
-        .bg(theme.ink_at(0.05))
-        .body()
-        .text_color(theme.ink_secondary)
-        .child(text)
+    div().px_3().py_2().rounded(radius::CARD).bg(theme.ink_at(0.05)).body().text_color(theme.ink_secondary).child(text)
 }

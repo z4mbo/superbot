@@ -24,6 +24,8 @@ The isolated fixture served web and auth at `http://127.0.0.1:5360` and RPC at `
 
 The checkout-built CLI also verified a marketplace skill through the complete registry and worker path. A verified reviewer approved its release, installed it and granted it to a bot. During a CLI conversation the worker returned the exact published instructions to the local model. The [marketplace chat fixture](chat-verification.md#marketplace-skill-through-the-cli) reproduces this flow. All 33 product authorization and resource-isolation tests passed against fresh PostgreSQL, including the test that rejects anonymous calls to all ten registry methods.
 
+The Windows release also opened a CLI-generated skill manifest through the system Open dialog and wrote a second copy through Save As. Their SHA-256 hashes matched, and the release CLI validated the saved copy.
+
 ## Rerun
 
 Launch the isolated Superbot fixture with private PostgreSQL and fake email on the ports above. Configure its API process to allowlist a dedicated synthetic reviewer through `RAKAZO_ADMIN_EMAILS`. Use `bootstrap-owner` against the same fixture database to provision three distinct `@example.test` accounts. Set `SMOKE_OWNER`, `SMOKE_GUEST`, and `SMOKE_REVIEWER` to their email addresses and set `SMOKE_PASSWORD` to the password they share for that run. Keep credentials in the invoking shell.

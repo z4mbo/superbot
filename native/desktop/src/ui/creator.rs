@@ -144,10 +144,8 @@ impl Draft {
         self.baseline = fingerprint(manifest);
         self.file = Some((path, Filed::Opened));
         self.replacing = None;
-        self.error = manifest
-            .normalized()
-            .err()
-            .map(|problem| format!("Fix this before submitting: {}", problem.message));
+        self.error =
+            manifest.normalized().err().map(|problem| format!("Fix this before submitting: {}", problem.message));
     }
 }
 
@@ -214,9 +212,8 @@ fn read_plugin_file(path: &Path) -> Result<PluginManifest, String> {
 fn write_whole(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let directory = path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."));
     let name = path.file_name().ok_or_else(|| io::Error::other("Choose a file name."))?;
-    let nonce = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_nanos());
+    let nonce =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_nanos());
     let temporary = directory.join(format!(".{}.{nonce}.tmp", name.to_string_lossy()));
     let written = (|| {
         let mut file = File::create_new(&temporary)?;
@@ -227,7 +224,11 @@ fn write_whole(path: &Path, bytes: &[u8]) -> io::Result<()> {
     })();
     if written.is_err() && temporary.exists() {
         if let Err(cleanup) = fs::remove_file(&temporary) {
-            return Err(io::Error::other(format!("{} Also couldn't remove {}: {cleanup}", written.unwrap_err(), temporary.display())));
+            return Err(io::Error::other(format!(
+                "{} Also couldn't remove {}: {cleanup}",
+                written.unwrap_err(),
+                temporary.display()
+            )));
         }
     }
     written
@@ -330,8 +331,9 @@ impl Desktop {
                     (Some(path), Some(Ok(()))) => {
                         draft.baseline = fingerprint(&typed);
                         draft.file = Some((path, Filed::Saved));
-                        draft.error =
-                            ready.err().map(|problem| format!("Saved as a draft. Fix this before submitting: {}", problem.message));
+                        draft.error = ready.err().map(|problem| {
+                            format!("Saved as a draft. Fix this before submitting: {}", problem.message)
+                        });
                     }
                     (Some(path), Some(Err(error))) => {
                         draft.error = Some(format!("{} wasn't saved. {error}", file_label(&path)));
@@ -391,23 +393,23 @@ impl Desktop {
                     .items_center()
                     .gap_2()
                     .child(
-                        div()
-                            .body()
-                            .text_color(theme.ink_secondary)
-                            .child(format!("Replace this form with {}? Your edits here aren't saved.", file_label(path))),
+                        div().body().text_color(theme.ink_secondary).child(format!(
+                            "Replace this form with {}? Your edits here aren't saved.",
+                            file_label(path)
+                        )),
                     )
                     .child(
                         pill_button("replace-from-file", "Replace", Tone::Primary, true, theme)
                             .on_click(cx.listener(|this, _, window, cx| this.replace_from_file(window, cx))),
                     )
-                    .child(pill_button("keep-editing", "Keep editing", Tone::Quiet, true, theme).on_click(cx.listener(
-                        |this, _, _, cx| {
+                    .child(pill_button("keep-editing", "Keep editing", Tone::Quiet, true, theme).on_click(
+                        cx.listener(|this, _, _, cx| {
                             if let Some(draft) = this.store.draft.as_mut() {
                                 draft.replacing = None;
                                 cx.notify();
                             }
-                        },
-                    ))),
+                        }),
+                    )),
             );
         }
         let (path, filed) = draft.file.as_ref()?;
@@ -497,7 +499,11 @@ impl Desktop {
                                 this.store.draft = None;
                                 cx.notify();
                             })))
-                            .child(div().title().flex_1().min_w_0().truncate().child(if revising { "New version" } else { "Create plugin" }))
+                            .child(div().title().flex_1().min_w_0().truncate().child(if revising {
+                                "New version"
+                            } else {
+                                "Create plugin"
+                            }))
                             .child(
                                 pill_button("open-plugin-file", "Open file…", Tone::Quiet, idle, &theme)
                                     .on_click(cx.listener(|this, _, window, cx| this.open_plugin_file(window, cx))),
@@ -534,40 +540,38 @@ impl Desktop {
                     })
                     .child(field("Version", &draft.version, &theme).w(px(96.))),
             )
-            .child(labelled("Description", &theme).child(text_box(&theme).child(Textarea::new(&draft.description).appearance(false).bordered(false))))
             .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_3()
-                    .child(div().section().child("What it adds"))
-                    .children(parts)
-                    .when(room, |section| {
-                        section.child(
-                            div()
-                                .flex()
-                                .gap_2()
-                                .child(pill_button("add-skill", "Add skill", Tone::Quiet, true, &theme).on_click(cx.listener(
-                                    |this, _, window, cx| {
-                                        let part = PartDraft::skill("", "", window, cx);
-                                        if let Some(draft) = this.store.draft.as_mut() {
-                                            draft.parts.push(part);
-                                            cx.notify();
-                                        }
-                                    },
-                                )))
-                                .child(pill_button("add-connector", "Add connector", Tone::Quiet, true, &theme).on_click(cx.listener(
-                                    |this, _, window, cx| {
-                                        let part = PartDraft::connector("", "", window, cx);
-                                        if let Some(draft) = this.store.draft.as_mut() {
-                                            draft.parts.push(part);
-                                            cx.notify();
-                                        }
-                                    },
-                                ))),
-                        )
-                    }),
+                labelled("Description", &theme)
+                    .child(text_box(&theme).child(Textarea::new(&draft.description).appearance(false).bordered(false))),
             )
+            .child(div().flex().flex_col().gap_3().child(div().section().child("What it adds")).children(parts).when(
+                room,
+                |section| {
+                    section.child(
+                        div()
+                            .flex()
+                            .gap_2()
+                            .child(pill_button("add-skill", "Add skill", Tone::Quiet, true, &theme).on_click(
+                                cx.listener(|this, _, window, cx| {
+                                    let part = PartDraft::skill("", "", window, cx);
+                                    if let Some(draft) = this.store.draft.as_mut() {
+                                        draft.parts.push(part);
+                                        cx.notify();
+                                    }
+                                }),
+                            ))
+                            .child(pill_button("add-connector", "Add connector", Tone::Quiet, true, &theme).on_click(
+                                cx.listener(|this, _, window, cx| {
+                                    let part = PartDraft::connector("", "", window, cx);
+                                    if let Some(draft) = this.store.draft.as_mut() {
+                                        draft.parts.push(part);
+                                        cx.notify();
+                                    }
+                                }),
+                            )),
+                    )
+                },
+            ))
             .into_any_element()
     }
 }

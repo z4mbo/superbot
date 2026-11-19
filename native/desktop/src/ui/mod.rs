@@ -16,11 +16,7 @@ use gpui_kit::*;
 use crate::theme::{radius, Theme};
 
 pub fn icon(name: &str, size: Pixels, color: Hsla) -> Svg {
-    svg()
-        .path(SharedString::from(format!("icons/{name}.svg")))
-        .size(size)
-        .flex_shrink_0()
-        .text_color(color)
+    svg().path(SharedString::from(format!("icons/{name}.svg"))).size(size).flex_shrink_0().text_color(color)
 }
 
 /// The type table: one call per row, so no view invents a size.
@@ -89,10 +85,8 @@ pub fn agent_face(color: Hsla, size: Pixels) -> Div {
 }
 
 pub fn initials(name: &str) -> String {
-    let mut letters = name
-        .split_whitespace()
-        .filter_map(|word| word.chars().next())
-        .filter(|letter| letter.is_alphanumeric());
+    let mut letters =
+        name.split_whitespace().filter_map(|word| word.chars().next()).filter(|letter| letter.is_alphanumeric());
     let first = letters.next();
     let last = letters.last();
     first.into_iter().chain(last).flat_map(char::to_uppercase).collect()
@@ -172,9 +166,7 @@ pub fn chip(id: impl Into<ElementId>, label: impl Into<SharedString>, chosen: bo
             if chosen {
                 chip.bg(theme.ink).text_color(theme.app)
             } else {
-                chip.bg(theme.control.opacity(0.7))
-                    .text_color(theme.ink)
-                    .hover(move |style| style.bg(hover))
+                chip.bg(theme.control.opacity(0.7)).text_color(theme.ink).hover(move |style| style.bg(hover))
             }
         })
         .child(label.into())

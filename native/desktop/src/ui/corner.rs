@@ -156,7 +156,9 @@ fn shrink(fine: &[u8], width: usize, factor: usize) -> Vec<u8> {
     for row in 0..rows {
         for column in 0..columns {
             let (mut colour, mut coverage) = ([0_usize; 3], 0_usize);
-            for texel in (0..factor * factor).map(|at| ((row * factor + at / factor) * width + column * factor + at % factor) * 4) {
+            for texel in (0..factor * factor)
+                .map(|at| ((row * factor + at / factor) * width + column * factor + at % factor) * 4)
+            {
                 let alpha = fine[texel + 3] as usize;
                 coverage += alpha;
                 for channel in 0..3 {
@@ -180,20 +182,23 @@ fn shrink(fine: &[u8], width: usize, factor: usize) -> Vec<u8> {
 fn glyph(path: &'static str, size: Pixels, color: Hsla, window: &Window, cx: &mut App) -> AnyElement {
     let rgba = color.to_rgb();
     let channel = |value: f32| (value * 255.0).round() as u8;
-    let key = (path, [channel(rgba.r), channel(rgba.g), channel(rgba.b), channel(rgba.a)], window.scale_factor().to_bits());
+    let key =
+        (path, [channel(rgba.r), channel(rgba.g), channel(rgba.b), channel(rgba.a)], window.scale_factor().to_bits());
     let cached = cx.default_global::<Glyphs>().0.get(&key).cloned();
     let image = cached.or_else(|| {
         let source = cx.asset_source().load(path).ok().flatten()?;
-        let paint = format!(
-            r##"stroke="#{:02x}{:02x}{:02x}" stroke-opacity="{}""##,
-            key.1[0], key.1[1], key.1[2], rgba.a
-        );
+        let paint =
+            format!(r##"stroke="#{:02x}{:02x}{:02x}" stroke-opacity="{}""##, key.1[0], key.1[1], key.1[2], rgba.a);
         let drawn = String::from_utf8_lossy(&source).replace(r#"stroke="currentColor""#, &paint);
         let scale = window.scale_factor() * OVERSAMPLE as f32 / SMOOTH_SVG_SCALE_FACTOR;
         let fine = cx.svg_renderer().render_single_frame(drawn.as_bytes(), scale).ok()?;
         let width = i32::from(fine.size(0).width) as usize;
         let coarse = shrink(fine.as_bytes(0)?, width, OVERSAMPLE);
-        let buffer = image::RgbaImage::from_raw((width / OVERSAMPLE) as u32, (coarse.len() * OVERSAMPLE / 4 / width) as u32, coarse)?;
+        let buffer = image::RgbaImage::from_raw(
+            (width / OVERSAMPLE) as u32,
+            (coarse.len() * OVERSAMPLE / 4 / width) as u32,
+            coarse,
+        )?;
         let image = Arc::new(RenderImage::new(vec![image::Frame::new(buffer)]));
         cx.default_global::<Glyphs>().0.insert(key, image.clone());
         Some(image)

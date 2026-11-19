@@ -43,10 +43,9 @@ fn main() {
             }),
             ..Default::default()
         };
-        let (window, desktop) = gpui_kit::open_window(options, cx, |window, cx| {
-            cx.new(|cx| Desktop::new(server, window, cx))
-        })
-        .expect("the main window opens");
+        let (window, desktop) =
+            gpui_kit::open_window(options, cx, |window, cx| cx.new(|cx| Desktop::new(server, window, cx)))
+                .expect("the main window opens");
 
         if chosen_skin.is_none() {
             window

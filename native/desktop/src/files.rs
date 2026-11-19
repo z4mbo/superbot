@@ -181,7 +181,9 @@ pub fn safe_name(name: &str) -> String {
     let cleaned = cleaned.trim().trim_end_matches(['.', ' ']).trim_start_matches('.');
     let stem = cleaned.split('.').next().unwrap_or_default().to_ascii_uppercase();
     let device = matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-        || (stem.len() == 4 && (stem.starts_with("COM") || stem.starts_with("LPT")) && stem.ends_with(|last: char| last.is_ascii_digit()));
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.ends_with(|last: char| last.is_ascii_digit()));
     match cleaned {
         "" => "file".into(),
         cleaned if device => format!("_{cleaned}"),
