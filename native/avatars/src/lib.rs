@@ -110,7 +110,7 @@ pub fn look(bot: Bot, cx: &App) -> Option<Look> {
     avatars.frames(&look.shape).map(|_| look)
 }
 
-/// Whether a pinned bot uses the appearance pack's primary tile.
+/// Whether this bot occupies the appearance pack's primary tile.
 pub fn primary_tile(name: &str, cx: &App) -> bool {
     cx.try_global::<Avatars>().and_then(|avatars| avatars.pack.as_ref()).is_some_and(|pack| pack.primary_tile(name))
 }
