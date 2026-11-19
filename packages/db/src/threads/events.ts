@@ -632,7 +632,7 @@ export async function sendUserMessage(
     // The event is durable; subscribers recover it from their persisted cursor.
     getLogger().error("user message realtime notification", error);
   });
-  if (committed.run) await publishSpaceChange(realtime, input.spaceId, "runs");
+  if (committed.run || committed.busy) await publishSpaceChange(realtime, input.spaceId, "runs");
   return {
     messageId: committed.message.id,
     seq: committed.message.seq,
