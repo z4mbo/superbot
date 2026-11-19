@@ -36,6 +36,14 @@ Lists return `{items, nextAfter}` using opaque string cursors. The default limit
 
 The first submission reserves the slug for its publisher. Rejected versions remain reserved. If the publisher account is deleted, the slug remains reserved and already approved versions stay available. A new version requires a separate submission and review. Only verified deployment admins may review. A version can be decided once. Approval checks declared MCP endpoints using the existing public endpoint policy. Install is idempotent for an identical version. An existing installation pins its version and a switch requires uninstalling and installing explicitly. New installations start with zero grants. Setting grants replaces one bot's selected parts and an empty list revokes them. Uninstall or loss of Space membership removes the installation and its grants atomically. Revoking and regranting a part issues a fresh grant ID.
 
-## Runtime boundary
+## Configure a deployment reviewer
+
+Set `RAKAZO_ADMIN_EMAILS` in the private Superbot deployment environment file to a comma-separated list of reviewer email addresses and run `node infra/superbot/host.mjs up` to apply it. This grants each named, verified account deployment administrator access, including review of plugin releases. An empty list leaves the review queue restricted. Each reviewer signs in with their own account.
+
+With SMTP configured, the reviewer verifies their address using the server's verification email. For a private instance without mail, the operator can provision a verified account with the documented `host.mjs account` command. [Private account bootstrap and SMTP setup](hosting.md)
+
+Run `superbot-plugin list submissions` from the reviewer's session, inspect the proposed manifest, and use `superbot-plugin review VERSION_ID approved` or `superbot-plugin review VERSION_ID rejected --reason "Explain the required change"`. The decision applies to that exact version. [Author and reviewer command reference](plugin-toolkit.md)
+
+## Resolve agent capabilities
 
 Use `resolvePluginGrants(prisma, {spaceId, userId, botId})` from `@rakazo/db` on each capability load. It returns explicitly granted parts with a stable grant ID plus installation and version IDs. Supply the running bot's authoritative scope. Bind tool approvals to the grant ID and check the grant again before invocation. Skills are untrusted instructions. MCP handling must use the existing guarded remote transport and tool approval controls, including runtime endpoint validation and redirect policy. Registry operations never contact MCP tools or execute package content. Runtime materialization is owned by the runtime integration.
