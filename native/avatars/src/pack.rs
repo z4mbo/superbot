@@ -74,9 +74,12 @@ pub struct Fallback {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Choice {
     pub shape: Option<String>,
     pub color: Option<String>,
+    #[serde(default)]
+    pub primary_tile: bool,
 }
 
 fn default_mark_scale() -> f32 {
@@ -180,6 +183,10 @@ impl Pack {
 
     pub fn shape_path(&self, shape: &str) -> Option<PathBuf> {
         self.file.shapes.get(shape).map(|relative| self.folder.join(relative))
+    }
+
+    pub fn primary_tile(&self, name: &str) -> bool {
+        self.bots.get(&fold(name)).is_some_and(|choice| choice.primary_tile)
     }
 
     /// The look of a bot: the pack's own choice for its name, otherwise its server colour
@@ -311,6 +318,14 @@ mod tests {
             file[key] = value.clone();
         }
         Pack::new(PathBuf::from("pack"), serde_json::from_value(file).unwrap())
+    }
+
+    #[test]
+    fn primary_tile_is_an_optional_name_match() {
+        let pack = pack(json!({ "bots": { "Guide": { "primaryTile": true }, "Peer": { "color": "lime" } } })).unwrap();
+        assert!(pack.primary_tile(" guide "));
+        assert!(!pack.primary_tile("Peer"));
+        assert!(!pack.primary_tile("Unknown"));
     }
 
     #[test]
