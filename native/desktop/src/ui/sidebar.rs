@@ -210,14 +210,21 @@ impl Desktop {
                                 .bottom(px(-3.))
                                 .size(px(20.))
                                 .rounded_full()
-                                .border_2()
-                                .border_color(fill)
-                                .group_hover("bot-tile", move |style| style.border_color(hover))
-                                .bg(rgb(0xe8993a))
+                                .bg(fill)
+                                .group_hover("bot-tile", move |style| style.bg(hover))
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .child(icon("tile-crown", px(10.), white())),
+                                .child(
+                                    div()
+                                        .size_4()
+                                        .rounded_full()
+                                        .bg(rgb(0xe8993a))
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .child(icon("tile-crown", px(10.), white())),
+                                ),
                         )
                     })
                     .children(status_dot(&agent, fill, theme).map(|dot| dot.absolute().top(px(-2.)).right(px(-2.)))),
