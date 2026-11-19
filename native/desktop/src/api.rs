@@ -160,7 +160,10 @@ pub struct Author {
 #[serde(rename_all = "camelCase")]
 pub struct WireMessage {
     pub id: String,
-    pub seq: i64,
+    /// The message's place in its conversation. History always states it; the live stream
+    /// states it for some messages only.
+    #[serde(default)]
+    pub seq: Option<i64>,
     pub role: String,
     #[serde(default)]
     pub blocks: Vec<Value>,
@@ -253,7 +256,7 @@ pub fn message_from_event(event: &ThreadEvent) -> Option<WireMessage> {
     let speaking_bot = if role == "bot" { event.bot_id.clone() } else { None };
     Some(WireMessage {
         id: payload.message_id,
-        seq: payload.seq.unwrap_or(event.seq),
+        seq: payload.seq,
         role,
         blocks: payload.blocks,
         bot_id: payload.bot_id.or(speaking_bot),

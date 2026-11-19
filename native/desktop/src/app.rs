@@ -509,7 +509,7 @@ impl Desktop {
         let selection = self.space_selection;
         let mut live = follow_space(api.client, space_id.clone());
         self.sidebar.stream = Some(cx.spawn_in(window, async move |this, cx| {
-            while let Some(update) = live.updates.recv().await {
+            while let Some(update) = live.recv().await {
                 let current = this.update_in(cx, |this, window, cx| {
                     if !this.active_space(selection, &space_id) {
                         return false;

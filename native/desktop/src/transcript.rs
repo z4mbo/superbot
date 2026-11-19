@@ -74,7 +74,7 @@ impl Entry {
         }
         Some(Self {
             id: message.id,
-            seq: message.seq,
+            seq: message.seq.unwrap_or_default(),
             speaker: match message.role.as_str() {
                 "user" => Speaker::Person,
                 "bot" => Speaker::Agent,
@@ -211,15 +211,19 @@ pub enum Placed {
 /// Places a message read from history or the live stream, replacing an earlier copy of itself.
 /// The live stream carries no time for a message, so a new one takes `now` and an updated one
 /// keeps the time it had.
-pub fn upsert(entries: &mut Vec<Entry>, mut entry: Entry, now: Instant) -> Placed {
+pub fn upsert(entries: &mut Vec<Entry>, mut entry: Entry, seq: Option<i64>, now: Instant) -> Placed {
     match entries.iter().position(|existing| existing.id == entry.id) {
         Some(index) => {
             entry.at = entry.at.or(entries[index].at);
+            entry.seq = seq.unwrap_or(entries[index].seq);
             entries[index] = entry;
             Placed::Replaced(index)
         }
         None => {
             entry.at = entry.at.or(Some(now));
+            // The stream gives some messages their place in the conversation and others none.
+            // One without a place is the newest, so it goes after everything already here.
+            entry.seq = seq.unwrap_or_else(|| entries.last().map_or(0, |last| last.seq + 1));
             let index = entries.partition_point(|existing| existing.seq <= entry.seq);
             entries.insert(index, entry);
             Placed::Inserted(index)
@@ -339,14 +343,29 @@ mod tests {
     fn an_updated_message_replaces_itself_and_a_new_one_lands_in_order() {
         let draft = said_at(words("c", 5, "bot", "draft"), "2026-11-19T09:00:00Z");
         let mut entries = vec![words("a", 1, "user", "hi"), draft];
-        assert_eq!(upsert(&mut entries, words("c", 5, "bot", "final"), 99), Placed::Replaced(1));
-        assert_eq!(upsert(&mut entries, words("b", 3, "user", "between"), 99), Placed::Inserted(1));
+        assert_eq!(upsert(&mut entries, words("c", 5, "bot", "final"), Some(5), 99), Placed::Replaced(1));
+        assert_eq!(upsert(&mut entries, words("b", 3, "user", "between"), Some(3), 99), Placed::Inserted(1));
         let ids: Vec<_> = entries.iter().map(|entry| entry.id.as_str()).collect();
         assert_eq!(ids, ["a", "b", "c"]);
         assert_eq!(entries[2].parts, [Part::Text("final".into())]);
         // The update keeps the stored time; the new arrival takes the moment it arrived.
         assert_eq!(entries[2].at, clock::instant("2026-11-19T09:00:00Z"));
         assert_eq!(entries[1].at, Some(99));
+    }
+
+    #[test]
+    fn a_live_message_without_a_place_goes_last_and_later_ones_follow_it() {
+        let mut entries = vec![words("m235", 235, "bot", "earlier")];
+        assert_eq!(upsert(&mut entries, words("m236", 0, "user", "fourth"), Some(236), 1), Placed::Inserted(1));
+        // The reply names no place of its own; the next message names its real one.
+        assert_eq!(upsert(&mut entries, words("reply", 0, "bot", "heard"), None, 2), Placed::Inserted(2));
+        assert_eq!(upsert(&mut entries, words("m238", 0, "user", "keep"), Some(238), 3), Placed::Inserted(3));
+        assert_eq!(upsert(&mut entries, words("reply-2", 0, "bot", "heard"), None, 4), Placed::Inserted(4));
+        let ids: Vec<_> = entries.iter().map(|entry| entry.id.as_str()).collect();
+        assert_eq!(ids, ["m235", "m236", "reply", "m238", "reply-2"]);
+        // The same reply arriving again, as it does after a reconnect, stays where it is.
+        assert_eq!(upsert(&mut entries, words("reply", 0, "bot", "heard"), None, 5), Placed::Replaced(2));
+        assert_eq!(entries[2].at, Some(2));
     }
 
     #[test]

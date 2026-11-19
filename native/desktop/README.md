@@ -17,16 +17,20 @@ the system.
 
 ## Layout
 
-| File                | Holds                                                                         |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `src/theme.rs`      | The two skins as semantic tokens, the radius scale, the fixed measures        |
-| `src/api.rs`        | Every server call and its wire types                                          |
-| `src/runtime.rs`    | The Tokio runtime the client needs, and the live thread stream with reconnect |
-| `src/transcript.rs` | Message blocks turned into what the transcript draws                          |
-| `src/app.rs`        | The one `Desktop` entity: session, Space, open conversation, menus, dialogs   |
-| `src/ui/`           | One file per surface; each adds `render_*` methods to `Desktop`               |
-| `src/web/`          | The workspace window: the web client in WebView2, its profile and link policy |
-| `assets/icons/`     | Glyphs drawn for this app, served beside the Lucide set                       |
+| File                      | Holds                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| `src/theme.rs`            | The two skins as semantic tokens, the radius scale, the fixed measures         |
+| `src/api.rs`              | Every server call and its wire types                                           |
+| `src/runtime.rs`          | The Tokio runtime the client needs, and the live thread stream with reconnect  |
+| `src/transcript.rs`       | Message blocks turned into what the transcript draws, their order and stamps   |
+| `src/clock.rs`            | Message times: read from the server, shown in the person's own time            |
+| `src/outbox.rs`           | What is about to be sent: attachments, the attempt in flight, drafts, mentions |
+| `src/files.rs`            | Files in and out: accepted kinds, size checks, safe names, what may be opened  |
+| `src/app.rs`              | The one `Desktop` entity: session, Space, menus, dialogs                       |
+| `src/app/conversation.rs` | The open conversation: history, live events, sending, files, mentions          |
+| `src/ui/`                 | One file per surface; each adds `render_*` methods to `Desktop`                |
+| `src/web/`                | The workspace window: the web client in WebView2, its profile and link policy  |
+| `assets/icons/`           | Glyphs drawn for this app, served beside the Lucide set                        |
 
 Views never write a colour, a radius or a text size of their own: colours come from `Theme`,
 radii from `theme::radius`, text sizes from the `Type` trait in `src/ui/mod.rs`.
@@ -41,9 +45,15 @@ radii from `theme::radius`, text sizes from the `Type` trait in `src/ui/mod.rs`.
   archive with Undo), the account menu, and the Plugins and workspace buttons.
 - **Chat.** History, sending, live replies as they are written, the working line, stop,
   joined bubbles, speaker names in groups, Markdown in replies, approval cards answered in
-  place, facts cards and file chips. The composer accepts files with or without a caption.
-  Scroll up for older messages, use the timestamps to find an exchange, and type `@` in
-  a group to select a member bot. A conversation on screen is marked read as replies arrive.
+  place and facts cards. Scrolling up reads older pages and leaves the view where it was;
+  the time is stamped above the first message, each new day and after fifteen quiet minutes,
+  and a message's tooltip has its full date. The `+` in the composer attaches files through
+  the system's chooser, with or without words. What is typed and attached stays in the
+  composer until the server takes the message, and is still there if it does not; sending
+  the same message again cannot store it twice. Each conversation keeps its own draft. A
+  file in a message can be saved, and opened when it is a kind the system's viewer shows
+  without running anything. In a group, `@` lists its bots and the ones named are the ones
+  asked. A conversation on screen is marked read as replies arrive.
 - **Plugins.** Discover with a search the server runs across the whole registry, Installed,
   Yours, and Review for deployment reviewers. A plugin's page installs and uninstalls it,
   pins it to another approved version after a confirmation, and grants each of its parts to
@@ -65,6 +75,12 @@ transcript says what it is and links there.
 - Provider OAuth sign-in, live voice, calls, meetings and a bot's computer. Compatible-endpoint and API-key model setup use **Manage workspace → Models**.
 - Typed and secret answers to ask cards, choice cards, charts, pages and embedded apps.
 - Reactions, reply quotes and message search.
+- In chat: pictures show as file cards, not previews; files are attached with the chooser
+  only, not by dragging or pasting; a mention is plain text in the composer and bold once
+  sent; a message that has just arrived shows the time it arrived until history is read
+  again, because the live stream names no time; times are always written the English
+  12-hour way; one conversation keeps at most 3,000 messages in memory and points to the
+  web for what is older.
 - Groups can be opened and written to, but are created and edited in the workspace panel.
 - The sidebar's four round controls ease their hover tint over 120ms (`src/ui/corner.rs`).
   Every other hover fill still changes at once.
@@ -72,7 +88,9 @@ transcript says what it is and links there.
 
 ## Checking a change
 
-Unit tests cover the transcript model, manifest identifiers and the web link. Everything on
-screen is checked by running the app against a disposable server and reading captures in
-both skins; [the comparison fixture](../../docs/superbot/chat-verification.md) starts one.
-Captures use synthetic accounts only.
+Unit tests cover the transcript model, message times, the outbox and its drafts, mention
+matching, file checks, manifest identifiers and the web link. Everything on screen is
+checked by running the app against a disposable server and reading captures in both skins;
+[the comparison fixture](../../docs/superbot/chat-verification.md) starts one, and
+[the chat fixture](fixture/README.md) starts one with a long conversation, a group and file
+messages, and records what was checked against it. Captures use synthetic accounts only.
