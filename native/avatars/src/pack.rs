@@ -1,0 +1,397 @@
+use std::collections::{BTreeMap, HashMap};
+use std::path::{Component, Path, PathBuf};
+
+use gpui_kit::{Hsla, Rgba};
+use serde::Deserialize;
+
+/// `avatars/pack.json` in the appearance folder. Every path in it is relative to the folder
+/// that holds it, so a pack can be copied between computers.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackFile {
+    /// Format version; this build reads 1.
+    pub version: u32,
+    /// The mark is drawn in a square this many times the avatar's size, centred on it.
+    #[serde(default = "default_mark_scale")]
+    pub mark_scale: f32,
+    /// Exact mark squares for particular avatar sizes, overriding `markScale`.
+    #[serde(default)]
+    pub mark_boxes: HashMap<String, f32>,
+    /// Marks drawn in a smaller square than this use the compact working frames.
+    #[serde(default = "default_compact_below")]
+    pub compact_below: f32,
+    /// Colour name to `#rgb`, `#rrggbb` or `#rrggbbaa`.
+    pub palette: BTreeMap<String, String>,
+    /// A bot colour the server sends, to the palette colour that stands for it.
+    #[serde(default)]
+    pub aliases: HashMap<String, String>,
+    /// Palette colours drawn in the skin's text colour instead of their own.
+    #[serde(default)]
+    pub ink_colors: Vec<String>,
+    /// Colours drawn as a top-to-bottom gradient of these stops.
+    #[serde(default)]
+    pub gradients: HashMap<String, Vec<String>>,
+    /// Colour name to the `tint` hue its chat uses; a colour not listed uses its own name.
+    #[serde(default)]
+    pub hues: HashMap<String, String>,
+    /// The chat colours of each hue, per skin. Without it chats keep the app's own colours.
+    #[serde(default)]
+    pub tint: Option<Tints>,
+    /// Shape name to the frames file that draws it.
+    pub shapes: BTreeMap<String, String>,
+    /// How a bot the pack does not name is drawn: picked by its id, so it never changes.
+    pub fallback: Fallback,
+    /// Bot name (any case) to its look; either field may be left out.
+    #[serde(default)]
+    pub bots: HashMap<String, Choice>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Tints {
+    pub light: HashMap<String, Tone>,
+    pub dark: HashMap<String, Tone>,
+}
+
+/// One hue's chat colours.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tone {
+    /// The person's own bubbles.
+    pub bubble: String,
+    /// Text on those bubbles.
+    pub ink: String,
+    /// The Send button.
+    pub fill: String,
+    pub hover: String,
+    /// Text and glyphs on the Send button.
+    pub fill_ink: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Fallback {
+    pub shapes: Vec<String>,
+    pub colors: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct Choice {
+    pub shape: Option<String>,
+    pub color: Option<String>,
+}
+
+fn default_mark_scale() -> f32 {
+    1.55
+}
+
+fn default_compact_below() -> f32 {
+    48.
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Paint {
+    Color(Hsla),
+    /// The skin's text colour.
+    Ink,
+    Gradient(Vec<Hsla>),
+}
+
+/// How one bot is drawn.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Look {
+    pub shape: String,
+    pub paint: Paint,
+    pub hue: String,
+    /// Where this bot starts in a shared animation loop, from 0 to 1, so bots at work move
+    /// out of step with each other.
+    pub phase: f32,
+}
+
+#[derive(Debug)]
+pub enum PackError {
+    Read(PathBuf, std::io::Error),
+    Parse(PathBuf, serde_json::Error),
+    Invalid(String),
+}
+
+impl std::fmt::Display for PackError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PackError::Read(path, error) => write!(f, "cannot read {}: {error}", path.display()),
+            PackError::Parse(path, error) => write!(f, "cannot parse {}: {error}", path.display()),
+            PackError::Invalid(why) => write!(f, "{why}"),
+        }
+    }
+}
+
+/// A checked pack: every colour parsed, every shape file inside the pack folder.
+#[derive(Debug)]
+pub struct Pack {
+    pub folder: PathBuf,
+    pub file: PackFile,
+    colors: HashMap<String, Paint>,
+    bots: HashMap<String, Choice>,
+}
+
+impl Pack {
+    pub fn read(folder: &Path) -> Result<Pack, PackError> {
+        let path = folder.join("pack.json");
+        let bytes = std::fs::read(&path).map_err(|error| PackError::Read(path.clone(), error))?;
+        let file: PackFile = serde_json::from_slice(&bytes).map_err(|error| PackError::Parse(path, error))?;
+        Pack::new(folder.to_path_buf(), file)
+    }
+
+    pub fn new(folder: PathBuf, file: PackFile) -> Result<Pack, PackError> {
+        if file.version != 1 {
+            return Err(PackError::Invalid(format!("pack version {} is not supported", file.version)));
+        }
+        for (shape, relative) in &file.shapes {
+            if !stays_inside(relative) {
+                return Err(PackError::Invalid(format!("shape {shape} points outside the pack folder")));
+            }
+        }
+        let mut colors = HashMap::new();
+        for (name, hex) in &file.palette {
+            let paint = if file.ink_colors.contains(name) { Paint::Ink } else { Paint::Color(parse_hex(hex)?) };
+            colors.insert(name.clone(), paint);
+        }
+        for (name, stops) in &file.gradients {
+            let stops = stops.iter().map(|hex| parse_hex(hex)).collect::<Result<Vec<_>, _>>()?;
+            if stops.len() < 2 {
+                return Err(PackError::Invalid(format!("gradient {name} needs two stops")));
+            }
+            colors.insert(name.clone(), Paint::Gradient(stops));
+        }
+        let fallback_shapes: Vec<_> =
+            file.fallback.shapes.iter().filter(|shape| file.shapes.contains_key(*shape)).collect();
+        let fallback_colors: Vec<_> = file.fallback.colors.iter().filter(|color| colors.contains_key(*color)).collect();
+        if fallback_shapes.is_empty() || fallback_colors.is_empty() {
+            return Err(PackError::Invalid("the fallback needs a shape and a colour the pack draws".into()));
+        }
+        if let Some(tints) = &file.tint {
+            for tone in tints.light.values().chain(tints.dark.values()) {
+                for hex in [&tone.bubble, &tone.ink, &tone.fill, &tone.hover, &tone.fill_ink] {
+                    parse_hex(hex)?;
+                }
+            }
+        }
+        let bots = file.bots.iter().map(|(name, choice)| (fold(name), choice.clone())).collect();
+        Ok(Pack { folder, file, colors, bots })
+    }
+
+    pub fn shape_path(&self, shape: &str) -> Option<PathBuf> {
+        self.file.shapes.get(shape).map(|relative| self.folder.join(relative))
+    }
+
+    /// The look of a bot: the pack's own choice for its name, otherwise its server colour
+    /// when the pack has it, and a shape and colour picked by its id.
+    pub fn look(&self, id: &str, name: &str, color: &str) -> Look {
+        let hash = fnv1a(id.as_bytes());
+        let chosen = self.bots.get(&fold(name));
+        let fallback = &self.file.fallback;
+        let shape = chosen
+            .and_then(|choice| choice.shape.clone())
+            .filter(|shape| self.file.shapes.contains_key(shape))
+            .unwrap_or_else(|| {
+                let shapes: Vec<_> = fallback.shapes.iter().filter(|s| self.file.shapes.contains_key(*s)).collect();
+                shapes[hash as usize % shapes.len()].clone()
+            });
+        let server = self.file.aliases.get(color).map(String::as_str).unwrap_or(color);
+        let color = chosen
+            .and_then(|choice| choice.color.clone())
+            .filter(|color| self.colors.contains_key(color))
+            .or_else(|| self.colors.contains_key(server).then(|| server.to_owned()))
+            .or_else(|| self.nearest(server))
+            .unwrap_or_else(|| {
+                let colors: Vec<_> = fallback.colors.iter().filter(|c| self.colors.contains_key(*c)).collect();
+                colors[(hash >> 8) as usize % colors.len()].clone()
+            });
+        let hue = self.file.hues.get(&color).cloned().unwrap_or_else(|| color.clone());
+        Look { shape, paint: self.colors[&color].clone(), hue, phase: (hash >> 16) as f32 / 65536. }
+    }
+
+    /// The fallback colour closest to a server colour sent as `#rrggbb`.
+    fn nearest(&self, server: &str) -> Option<String> {
+        let wanted = Rgba::from(parse_hex(server).ok()?);
+        let distance = |color: &Hsla| {
+            let color = Rgba::from(*color);
+            (color.r - wanted.r).powi(2) + (color.g - wanted.g).powi(2) + (color.b - wanted.b).powi(2)
+        };
+        self.file
+            .fallback
+            .colors
+            .iter()
+            .filter_map(|name| match self.colors.get(name) {
+                Some(Paint::Color(color)) => Some((name, distance(color))),
+                _ => None,
+            })
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(name, _)| name.clone())
+    }
+
+    pub fn tone(&self, hue: &str, dark: bool) -> Option<ChatTone> {
+        let tints = self.file.tint.as_ref()?;
+        let tone = if dark { tints.dark.get(hue) } else { tints.light.get(hue) }?;
+        let hex = |hex: &str| parse_hex(hex).expect("checked when the pack was read");
+        Some(ChatTone {
+            bubble: hex(&tone.bubble),
+            bubble_ink: hex(&tone.ink),
+            fill: hex(&tone.fill),
+            fill_hover: hex(&tone.hover),
+            fill_ink: hex(&tone.fill_ink),
+        })
+    }
+
+    /// The side of the square the mark is drawn in, for an avatar of `size` pixels.
+    pub fn mark_box(&self, size: f32) -> f32 {
+        let key = format!("{}", size.round() as i64);
+        self.file.mark_boxes.get(&key).copied().unwrap_or_else(|| (size * self.file.mark_scale).round())
+    }
+}
+
+/// A chat recoloured for its bot.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ChatTone {
+    pub bubble: Hsla,
+    pub bubble_ink: Hsla,
+    pub fill: Hsla,
+    pub fill_hover: Hsla,
+    pub fill_ink: Hsla,
+}
+
+fn fold(name: &str) -> String {
+    name.trim().to_lowercase()
+}
+
+/// Security invariant: a pack names files only inside its own folder.
+fn stays_inside(relative: &str) -> bool {
+    let path = Path::new(relative);
+    !relative.is_empty() && path.components().all(|component| matches!(component, Component::Normal(_)))
+}
+
+pub(crate) fn fnv1a(bytes: &[u8]) -> u32 {
+    bytes.iter().fold(0x811c9dc5u32, |hash, byte| (hash ^ *byte as u32).wrapping_mul(0x01000193))
+}
+
+pub fn parse_hex(hex: &str) -> Result<Hsla, PackError> {
+    let invalid = || PackError::Invalid(format!("{hex} is not a colour"));
+    let digits = hex.strip_prefix('#').ok_or_else(invalid)?;
+    let expanded: String = match digits.len() {
+        3 | 4 => digits.chars().flat_map(|c| [c, c]).collect(),
+        6 | 8 => digits.to_owned(),
+        _ => return Err(invalid()),
+    };
+    let value = u32::from_str_radix(&expanded, 16).map_err(|_| invalid())?;
+    let rgba = if expanded.len() == 6 { (value << 8) | 0xff } else { value };
+    Ok(Hsla::from(Rgba {
+        r: ((rgba >> 24) & 0xff) as f32 / 255.,
+        g: ((rgba >> 16) & 0xff) as f32 / 255.,
+        b: ((rgba >> 8) & 0xff) as f32 / 255.,
+        a: (rgba & 0xff) as f32 / 255.,
+    }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn pack(extra: serde_json::Value) -> Result<Pack, PackError> {
+        let mut file = json!({
+            "version": 1,
+            "palette": { "ink": "#000", "lime": "#00ff00", "plum": "#8e4585" },
+            "inkColors": ["ink"],
+            "gradients": { "steel": ["#ffffff", "#808080", "#000000"] },
+            "aliases": { "green": "lime" },
+            "hues": { "ink": "neutral", "steel": "neutral" },
+            "shapes": { "round": "shapes/round.json", "drop": "shapes/drop.json" },
+            "fallback": { "shapes": ["round", "drop"], "colors": ["lime", "plum"] },
+            "bots": { "Captain Example": { "shape": "drop", "color": "steel" }, "only shape": { "shape": "round" } }
+        });
+        for (key, value) in extra.as_object().unwrap() {
+            file[key] = value.clone();
+        }
+        Pack::new(PathBuf::from("pack"), serde_json::from_value(file).unwrap())
+    }
+
+    #[test]
+    fn a_named_bot_takes_the_pack_choice_in_any_case_and_spacing() {
+        let pack = pack(json!({})).unwrap();
+        let look = pack.look("id-1", "  captain EXAMPLE ", "green");
+        assert_eq!(look.shape, "drop");
+        assert!(matches!(look.paint, Paint::Gradient(ref stops) if stops.len() == 3));
+        assert_eq!(look.hue, "neutral");
+    }
+
+    #[test]
+    fn a_partial_choice_keeps_the_server_colour_through_its_alias() {
+        let pack = pack(json!({})).unwrap();
+        let look = pack.look("id-2", "Only Shape", "green");
+        assert_eq!(look.shape, "round");
+        assert_eq!(look.paint, Paint::Color(parse_hex("#00ff00").unwrap()));
+        assert_eq!(look.hue, "lime");
+    }
+
+    #[test]
+    fn an_unknown_bot_is_drawn_the_same_way_every_time_from_its_id() {
+        let pack = pack(json!({})).unwrap();
+        let first = pack.look("4f1c", "Somebody New", "no-such-colour");
+        assert_eq!(first, pack.look("4f1c", "Renamed Later", "no-such-colour"));
+        assert!(["round", "drop"].contains(&first.shape.as_str()));
+        assert!(matches!(first.paint, Paint::Color(_)));
+        let spread: std::collections::HashSet<_> =
+            (0..64).map(|n| pack.look(&format!("bot-{n}"), "x", "").shape).collect();
+        assert_eq!(spread.len(), 2);
+    }
+
+    #[test]
+    fn a_server_colour_sent_as_hex_keeps_its_nearest_pack_colour() {
+        let pack = pack(json!({})).unwrap();
+        assert_eq!(pack.look("a", "New", "#20e020").paint, Paint::Color(parse_hex("#00ff00").unwrap()));
+        assert_eq!(pack.look("b", "New", "#9a3d8a").hue, "plum");
+    }
+
+    #[test]
+    fn ink_colours_follow_the_skin() {
+        let pack = pack(json!({ "bots": { "night": { "color": "ink" } } })).unwrap();
+        assert_eq!(pack.look("id", "Night", "").paint, Paint::Ink);
+    }
+
+    #[test]
+    fn mark_boxes_scale_the_avatar_unless_a_size_is_pinned() {
+        let pack = pack(json!({ "markBoxes": { "42": 56 } })).unwrap();
+        assert_eq!(pack.mark_box(42.), 56.);
+        assert_eq!(pack.mark_box(56.), 87.);
+        assert_eq!(pack.mark_box(22.), 34.);
+    }
+
+    #[test]
+    fn shape_files_must_stay_inside_the_pack() {
+        for escape in ["../outside.json", "/etc/shape.json", "C:\\shape.json", ""] {
+            let error = pack(json!({ "shapes": { "round": escape, "drop": "shapes/drop.json" } })).unwrap_err();
+            assert!(matches!(error, PackError::Invalid(_)), "{escape} was accepted");
+        }
+    }
+
+    #[test]
+    fn a_pack_without_a_drawable_fallback_is_refused() {
+        assert!(pack(json!({ "fallback": { "shapes": ["missing"], "colors": ["lime"] } })).is_err());
+        assert!(pack(json!({ "fallback": { "shapes": ["round"], "colors": ["missing"] } })).is_err());
+    }
+
+    #[test]
+    fn tints_are_read_per_skin_with_translucent_colours() {
+        let tone =
+            json!({ "bubble": "#f5f5f52e", "ink": "#fff", "fill": "#123456", "hover": "#234567", "fillInk": "#000" });
+        let pack = pack(json!({ "tint": { "light": { "lime": tone }, "dark": { "lime": tone } } })).unwrap();
+        let chat = pack.tone("lime", true).unwrap();
+        assert!((chat.bubble.a - 0x2e as f32 / 255.).abs() < 1e-3);
+        assert!(pack.tone("plum", false).is_none());
+    }
+
+    #[test]
+    fn hex_colours_accept_short_and_alpha_forms() {
+        assert_eq!(parse_hex("#fff").unwrap(), parse_hex("#ffffff").unwrap());
+        assert!(parse_hex("ffffff").is_err());
+        assert!(parse_hex("#ggg").is_err());
+    }
+}

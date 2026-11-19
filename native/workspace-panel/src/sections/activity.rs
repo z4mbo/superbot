@@ -213,7 +213,13 @@ impl WorkspacePanel {
             .and_then(|bots| bots.iter().find(|bot| bot.id == run.bot_id))
             .map(|bot| bot.color.clone())
             .unwrap_or_default();
-        let face = ui::bot_face(t.identity_for(&color), 40.);
+        let working = matches!(run.status.as_str(), "running" | "queued" | "leased");
+        let bot = superbot_avatars::Bot {
+            id: &run.bot_id,
+            name: &run.bot_name,
+            color: &color,
+        };
+        let face = ui::bot_avatar(bot, 40., working, t, cx);
         let title = match &run.group_name {
             Some(group) => format!("{} in {group}", run.bot_name),
             None => run.bot_name.clone(),

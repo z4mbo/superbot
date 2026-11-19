@@ -12,6 +12,8 @@ use gpui_kit::{
     FontWeight, Hsla, Role, SharedString, Stateful, ViewElement, Window,
 };
 
+use superbot_avatars::{Bot, Mark};
+
 use crate::icons::{icon, Glyph};
 use crate::theme::{
     mono_font, tokens, Tokens, RADIUS_CARD, RADIUS_FIELD, RADIUS_FULL, RADIUS_MENU_ROW,
@@ -457,21 +459,38 @@ pub(crate) fn bot_face(color: Hsla, size: f32) -> Div {
         }))
 }
 
+/// A bot's avatar: the local avatar pack's mark when one is installed, otherwise [`bot_face`].
+pub(crate) fn bot_avatar(bot: Bot, size: f32, working: bool, t: &Tokens, cx: &App) -> AnyElement {
+    match superbot_avatars::look(bot, cx) {
+        Some(look) => Mark::new(
+            SharedString::from(format!("avatar-{}", bot.id)),
+            look,
+            px(size),
+            t.ink,
+        )
+        .working(working)
+        .into_any_element(),
+        None => bot_face(t.identity_for(bot.color), size).into_any_element(),
+    }
+}
+
 /// A group's face: its first two bots, overlapping.
-pub(crate) fn group_face(colors: impl IntoIterator<Item = Hsla>, size: f32) -> Div {
+pub(crate) fn group_face<'a>(
+    bots: impl IntoIterator<Item = Bot<'a>>,
+    size: f32,
+    t: &Tokens,
+    cx: &App,
+) -> Div {
     let face = size * 0.68;
     div().size(px(size)).flex_shrink_0().relative().children(
-        colors
-            .into_iter()
-            .take(2)
-            .enumerate()
-            .map(|(index, color)| {
-                let offset = if index == 0 { 0. } else { size - face };
-                bot_face(color, face)
-                    .absolute()
-                    .left(px(offset))
-                    .top(px(offset))
-            }),
+        bots.into_iter().take(2).enumerate().map(|(index, bot)| {
+            let offset = if index == 0 { 0. } else { size - face };
+            div()
+                .absolute()
+                .left(px(offset))
+                .top(px(offset))
+                .child(bot_avatar(bot, face, false, t, cx))
+        }),
     )
 }
 

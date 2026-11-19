@@ -73,9 +73,12 @@ Asks from design to the client/runtime owners (UI code must not invent these):
   folder); every image that ships uses invented test data. The landing page mock is HTML
   with invented data for this reason.
 - **Local avatar override**: an OpenMausBot checkout may load a git-excluded
-  `src/grok-study/BotAvatarOverride.tsx` that draws bots as another product's shapes.
-  Superbot's reference is the default Simple mode without it (neutral own bubbles, face
-  glyph avatars, charcoal header buttons).
+  `src/grok-study/BotAvatarOverride.tsx` that draws bots as another product's shapes and
+  tints their chats. Superbot's shipped reference stays the default Simple mode without it
+  (neutral own bubbles, face glyph avatars). The override's look reaches Superbot only as a
+  **local avatar pack** the person exports on their own computer into the appearance folder
+  (§3.2); the pack, the exporter and anything they read stay out of the repository and
+  every build.
 
 ## 2. Principles (carried over from OpenMausBot `DESIGN.md` §1–2)
 
@@ -142,6 +145,23 @@ scaled so the disc is 62% of the plate. In the icon's 1024 units: disc centre (5
 radius 318; two eyes 62 × 150, radius 31, at x 428 and x 566, y 400, filled with the plate
 colour (the slight rightward glance is part of the mark). Source: `assets/logo.svg`
 (notice in `NOTICE.txt`). A bot with its own image shows the image instead. No initials.
+
+**Local avatar pack** (`native/avatars/README.md`): when the appearance folder holds
+`avatars/pack.json`, every bot avatar is the pack's mark instead of the face, matched by
+bot name, then by server colour, then by id. The mark is drawn in a square 1.55 × the slot
+(56 for the 42 row slot), centred and allowed past the slot, so slot sizes and layout do
+not change: tile 56, row 42 (36 of layout), header pill 22, new conversation 64, working
+line 28, plugin page 28, workspace panel 40 and 32, mention list 20, group pair 0.68 ×.
+
+- Rest: the still pose. Over a sidebar row, a tile or the header pill the mark turns toward
+  the pointer (about 0.75 s), follows it, and turns back when the pointer leaves or presses.
+  A bot at work (its sidebar status, the open chat, an activity run) loops its working
+  motion at 30 fps, each bot at its own place in the loop; the working line shows the
+  moving mark instead of the green dot. Status dots stay as they are.
+- Chat tint: in a one-bot chat the person's bubbles and the Send and Stop button take the
+  pack's colours for that bot, per skin; groups and every other surface keep the tokens
+  above. Group speaker names take the mark's colour.
+- No pack, a broken pack, or a shape whose frames fail to load: the face above, unchanged.
 
 | Name   | Midnight  | Daylight  |
 | ------ | --------- | --------- |
@@ -460,7 +480,7 @@ Start-aligned, `composer` fill, radius 18, 440px wide. Answered with `threads/an
 
 ### 7.7 Empty and error states
 
-- New conversation: the bot's 56px avatar, its name 20/600 and one line 15/22
+- New conversation: the bot's 64px avatar, its name 20/600 and one line 15/22
   `ink_secondary` "What should {name} do?", centred 30% from the top; the composer stays
   where it always is.
 - History failed: inline card in the column, "Couldn't load this conversation." + "Try

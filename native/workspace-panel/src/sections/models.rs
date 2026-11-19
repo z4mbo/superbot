@@ -507,7 +507,7 @@ impl WorkspacePanel {
             SharedString::from(format!("agent-model-{}", bot.id)),
             bot.name.clone(),
         )
-        .leading(ui::bot_face(t.identity_for(&bot.color), 32.))
+        .leading(ui::bot_avatar(super::bots::avatar(bot), 32., false, t, cx))
         .detail(detail)
         .trailing(
             Action::new(

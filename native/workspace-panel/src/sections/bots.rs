@@ -32,6 +32,14 @@ const THINKING: [(&str, Option<ThinkingLevel>); 5] = [
     ("High", Some(ThinkingLevel::High)),
 ];
 
+pub(crate) fn avatar(bot: &Bot) -> superbot_avatars::Bot<'_> {
+    superbot_avatars::Bot {
+        id: &bot.id,
+        name: &bot.name,
+        color: &bot.color,
+    }
+}
+
 fn same_thinking(a: Option<ThinkingLevel>, b: Option<ThinkingLevel>) -> bool {
     match (a, b) {
         (None, None) => true,
@@ -521,7 +529,7 @@ impl WorkspacePanel {
                             SharedString::from(format!("bot-{}", bot.id)),
                             bot.name.clone(),
                         )
-                        .leading(ui::bot_face(t.identity_for(&bot.color), 40.))
+                        .leading(ui::bot_avatar(avatar(bot), 40., false, t, cx))
                         .detail(detail)
                         .when(bot.pinned, |row| {
                             row.trailing(icon(Glyph::Pin, 14., t.ink_tertiary))
@@ -576,9 +584,13 @@ impl WorkspacePanel {
                                         SharedString::from(format!("archived-bot-{}", bot.id)),
                                         bot.name.clone(),
                                     )
-                                    .leading(
-                                        ui::bot_face(t.identity_for(&bot.color), 40.).opacity(0.6),
-                                    )
+                                    .leading(div().opacity(0.6).child(ui::bot_avatar(
+                                        avatar(bot),
+                                        40.,
+                                        false,
+                                        t,
+                                        cx,
+                                    )))
                                     .detail(bot.description.clone())
                                     .trailing(
                                         Action::new(

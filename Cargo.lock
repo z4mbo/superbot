@@ -6741,6 +6741,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
+name = "superbot-avatars"
+version = "0.1.0"
+dependencies = [
+ "gpui-kit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "superbot-cli"
 version = "0.1.0"
 dependencies = [
@@ -6785,6 +6794,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "superbot-avatars",
  "superbot-client",
  "superbot-features",
  "superbot-workspace-panel",
@@ -6829,6 +6839,7 @@ dependencies = [
  "futures-util",
  "gpui-kit",
  "serde_json",
+ "superbot-avatars",
  "superbot-client",
  "superbot-features",
  "tokio",
