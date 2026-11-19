@@ -139,13 +139,7 @@ export function readEnvAssignment(contents: string, key: string): string | null 
     const line = raw.trim();
     if (line === "" || line.startsWith("#")) continue;
     const separator = line.indexOf("=");
-    if (separator <= 0) continue;
-    // Compose accepts `export KEY=value`; the writer strips the same prefix before matching.
-    const assigned = line
-      .slice(0, separator)
-      .trim()
-      .replace(/^export\s+/, "");
-    if (assigned !== key) continue;
+    if (separator <= 0 || line.slice(0, separator).trim() !== key) continue;
     const value = line.slice(separator + 1);
     const quoted =
       value.trim().match(/^"((?:\\.|[^"\\])*)"\s*(?:#.*)?$/) ??

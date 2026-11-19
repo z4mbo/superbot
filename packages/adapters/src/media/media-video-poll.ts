@@ -28,7 +28,7 @@ const VIDEO_JOB = { kind: MEDIA_JOB_KIND, request: { path: ["tool"], equals: "ge
 export interface MediaVideoDeps {
   prisma: PrismaClient;
   jobs: JobPublisher;
-  events: Pick<ThreadEvents, "notify" | "publishSpaceChange">;
+  events: Pick<ThreadEvents, "notify">;
   artifacts?: ArtifactStore;
   maxUploadSizeBytes?: number;
   mediaGeneration?: MediaGenerationProvider;
@@ -82,7 +82,6 @@ export function mediaDelivery(
           prisma: deps.prisma,
           artifacts: deps.artifacts,
           maxUploadSizeBytes: deps.maxUploadSizeBytes,
-          events: deps.events,
         },
         {
           spaceId: run.spaceId,

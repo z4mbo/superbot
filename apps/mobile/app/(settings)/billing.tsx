@@ -6,6 +6,7 @@ import {
   ByokTierSchema,
   byokTierChangeOffered,
   byokYearlySwitchSavings,
+  COMPUTER_SIZE_SPECS,
   creditAmountChoices,
   DEFAULT_MONTHLY_CREDIT_AMOUNT,
   HeldCreditAmountSchema,
@@ -14,7 +15,7 @@ import {
   ModelCreditAmountSchema,
 } from "@rakazo/contracts";
 import { writeSaved } from "@rakazo/core/query";
-import { computerUsageDetails, tierComputerDescription } from "@rakazo/i18n/computer-usage";
+import { computerUsageDetails } from "@rakazo/i18n/computer-usage";
 import { useIsFocused, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, Share, StyleSheet } from "react-native";
@@ -80,24 +81,22 @@ export default function BillingScreen() {
   useEffect(() => {
     if (readError && focused.current) Alert.alert(t`Could not load billing`);
   }, [readError, errorUpdatedAt, t]);
-  type BillingChange = (send: SaveSend) => Promise<BillingStatus | undefined>;
   const change = useSave({
     target,
     stale: [usageRead.queryKey],
-    save: async ({ work }: { work: BillingChange; failure?: string }, send) => {
+    save: async (work: (send: SaveSend) => Promise<BillingStatus | undefined>, send) => {
       const next = await work(send);
       if (next) await writeSaved(queryClient, statusRead.queryKey, () => next);
     },
-    onFailed: (error, { failure }) =>
+    onFailed: (error) =>
       Alert.alert(
-        failure ??
-          ((error as { status?: number }).status === 402
-            ? t`Your card was not charged`
-            : t`Could not update billing`),
+        (error as { status?: number }).status === 402
+          ? t`Your card was not charged`
+          : t`Could not update billing`,
       ),
   });
   const pending = change.pending;
-  const action = (work: BillingChange, failure?: string) => change.run({ work, failure });
+  const action = change.run;
   if (!status) return null;
   const usageDetails =
     status.canManage && showComputerUsage
@@ -131,11 +130,13 @@ export default function BillingScreen() {
     const price = `$${cents / 100}`;
     return interval === "year" ? t`${price} / year` : t`${price} / month`;
   };
+  const tierComputer = (offer: TierOffer) =>
+    t`${ph({ vcpus: COMPUTER_SIZE_SPECS[offer.computerSize].vcpus })} vCPU, ${ph({ memoryGb: COMPUTER_SIZE_SPECS[offer.computerSize].memoryGb })} GB, ${ph({ hours: offer.computerHours })} computer hours a month`;
   const changeTier = (offer: TierOffer, cents: number) =>
     Alert.alert(
       t`Switch to ${ph({ name: offer.name })}?`,
       // What the tier gives, then how the change bills.
-      `${tierComputerDescription(offer)}\n\n${
+      `${tierComputer(offer)}\n\n${
         status.state === "trialing"
           ? t`Your plan becomes ${ph({ price: tierPrice(cents) })} when your trial ends.`
           : cents > (ownKeyCents ?? 0)
@@ -153,7 +154,7 @@ export default function BillingScreen() {
   const tierRow = currentTier ? (
     <SettingsRow
       title={currentTier.name}
-      detail={tierComputerDescription(currentTier)}
+      detail={tierComputer(currentTier)}
       chevron={tierChange ? "down" : undefined}
       disabled={pending}
     />
@@ -264,9 +265,7 @@ export default function BillingScreen() {
           ) : null}
           {status.canManage ? (
             <SettingsRow
-              title={
-                status.standardComputerHours ? t`Standard hours by computer` : t`Hours by computer`
-              }
+              title={t`Hours by computer`}
               chevron={showComputerUsage ? "down" : "right"}
               accessibilityState={{ expanded: showComputerUsage }}
               onPress={() => setShowComputerUsage((open) => !open)}

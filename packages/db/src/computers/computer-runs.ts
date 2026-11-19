@@ -40,8 +40,6 @@ export async function recordComputerRunStart(
     userId: string;
     kind: string;
     providerRef: string | null;
-    runningSize?: string | null;
-    runningSizeSince?: Date | null;
   },
   startedAt: Date,
   previousEnd: ComputerRunEnd = "reconciled",
@@ -62,9 +60,6 @@ export async function recordComputerRunStart(
           userId: computer.userId,
           kind: computer.kind,
           providerRef: computer.providerRef,
-          ...(computer.runningSizeSince?.getTime() === startedAt.getTime() && {
-            size: computer.runningSize,
-          }),
           startedAt,
         },
       ],
@@ -169,9 +164,8 @@ export async function reconcileComputerRuns(
   // A booting computer may still carry the start of its previous stretch, so only rows that
   // finished starting count. The start is the one time it was seen; this pass reads only the row. Host computers are never recorded (see recordComputerRunStart).
   await prisma.$executeRaw`
-    INSERT INTO "computer_runs" ("id", "computerId", "spaceId", "userId", "kind", "providerRef", "startedAt", "lastSeenAt", "size")
-    SELECT gen_random_uuid()::text, c."id", c."spaceId", c."userId", c."kind", c."providerRef", c."runningSince", c."runningSince",
-      CASE WHEN c."runningSizeSince" = c."runningSince" THEN c."runningSize" END
+    INSERT INTO "computer_runs" ("id", "computerId", "spaceId", "userId", "kind", "providerRef", "startedAt", "lastSeenAt")
+    SELECT gen_random_uuid()::text, c."id", c."spaceId", c."userId", c."kind", c."providerRef", c."runningSince", c."runningSince"
     FROM "computers" AS c
     WHERE c."state" IN ('running', 'suspending')
       AND c."runningSince" IS NOT NULL

@@ -1,8 +1,4 @@
-import {
-  continuedSenderMessageIds,
-  resolvePersonaColorDef,
-  shouldShowBotSenderName,
-} from "@rakazo/core";
+import { resolvePersonaColorDef, shouldShowBotSenderName } from "@rakazo/core";
 import { botColors, darkTokens } from "@rakazo/ui-tokens";
 import type { ComponentProps } from "react";
 import { createContext } from "react";
@@ -70,43 +66,9 @@ vi.mock("../cards/McpApprovalCard", () => ({ McpApprovalCard: () => null }));
 vi.mock("../native/native-symbol", () => ({ NativeSymbol: () => null }));
 vi.mock("../native/native-action-button", () => ({ NativeActionButton: () => null }));
 
-import { hasSenderLabelContent, MessageBubble } from "./message-bubble";
+import { MessageBubble } from "./message-bubble";
 
 type BubbleProps = ComponentProps<typeof MessageBubble>;
-
-it("keeps the sender label on a reply after an unlabeled question card", () => {
-  const reply: BubbleProps["message"] = {
-    id: "reply",
-    role: "bot",
-    botId: "bot-a",
-    blocks: [{ kind: "text", text: "Here is the answer." }],
-  };
-  const questionBlocks: BubbleProps["message"]["blocks"] = [
-    { kind: "ask", text: "Which one?" },
-    { kind: "choice", question: "Which one?", options: [{ id: "yes", letter: "A", label: "Yes" }] },
-  ];
-  for (const block of questionBlocks) {
-    const question = { ...reply, id: "question", blocks: [block] };
-    const hidden = continuedSenderMessageIds(
-      [
-        { kind: "message", message: question },
-        { kind: "message", message: reply },
-      ],
-      new Set(),
-      null,
-      hasSenderLabelContent,
-    );
-    const html = renderToStaticMarkup(
-      <Bubble
-        message={reply}
-        botName="Sender"
-        showBotSenderName
-        hideSenderLabel={hidden.has(reply.id)}
-      />,
-    );
-    expect(html).toContain(">Sender</span>");
-  }
-});
 
 function Bubble(props: Partial<BubbleProps> & Pick<BubbleProps, "message">) {
   return (
@@ -231,13 +193,12 @@ it("keeps the bot name when opening a computer without a sender label", () => {
 it.each(["text", "image"] as const)(
   "shows another person's %s message as received with their name",
   (kind) => {
-    const render = (authorName?: string, hideSenderLabel = false) =>
+    const render = (authorName?: string) =>
       renderToStaticMarkup(
         <Bubble
           botId="bot-a"
           bots={[]}
           showBotSenderName={false}
-          hideSenderLabel={hideSenderLabel}
           authorName={authorName}
           message={{
             id: "message",
@@ -255,11 +216,6 @@ it.each(["text", "image"] as const)(
     expect(theirs).toContain(">Ana</span>");
     expect(theirs).toContain(`background-color:${darkTokens.muted}`);
     expect(theirs).not.toContain(`background-color:${darkTokens.chatUser}`);
-
-    const followUp = render("Ana", true);
-    expect(followUp).not.toContain(">Ana</span>");
-    if (kind === "text") expect(followUp).toContain(`background-color:${darkTokens.muted}`);
-    expect(followUp).not.toContain(`background-color:${darkTokens.chatUser}`);
 
     const mine = render();
     expect(mine).not.toContain("Ana");

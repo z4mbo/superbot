@@ -1,6 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
 import {
+  compatibleEndpointPresets,
   ModelHeaderRowsSchema,
+  matchCompatibleEndpointPreset,
   modelHeadersInput,
   modelRoutingInput,
   OPENAI_COMPATIBLE_PROVIDER_ID,
@@ -71,8 +73,6 @@ export function useOnboardingModel({
     apiProtocol,
     baseUrl,
     connectionErrorText,
-    compatibleKeyRequired,
-    endpointPreset,
     routingReady,
     gatewayId,
     projectId,
@@ -119,12 +119,16 @@ export function useOnboardingModel({
   const subscriptionSignIn = selected?.signIn !== undefined && providerAuth !== "key";
   const acceptsKey = selected?.auth !== "oauth" && providerAuth !== "sign-in";
   const signInLabel = selected?.oauthLabel ?? t`Sign in`;
+  const endpointPresets = useMemo(() => compatibleEndpointPresets(catalog), [catalog]);
+  const endpointPreset = isOpenAiCompatible
+    ? matchCompatibleEndpointPreset(endpointPresets, baseUrl)
+    : undefined;
   const openAiCompatibleReady = openAiCompatibleConnectReady({
     apiKey,
     baseUrl,
     modelId:
       headerRows !== null && !ModelHeaderRowsSchema.safeParse(headerRows).success ? "" : modelId,
-    keyRequired: compatibleKeyRequired,
+    keyRequired: Boolean(endpointPreset),
   });
   const canSaveModel = Boolean(
     selected &&
@@ -222,7 +226,6 @@ export function useOnboardingModel({
         modelId: nextModelId,
         presetBaseUrl,
       }),
-      presetBaseUrl,
     );
   }
 

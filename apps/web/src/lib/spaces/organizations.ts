@@ -128,13 +128,11 @@ export function organizationMembersQuery(userId: string | null, organizationId: 
 }
 
 /**
- * Refreshes organization lists, billing settings and computer sizes on screens showing them.
+ * Reads again the organization list and members the server says may have changed; only screens
+ * showing them refetch.
  */
 export function organizationsChanged(client = queryClient): Promise<void> {
   return client.invalidateQueries({
-    predicate: ({ queryKey }) =>
-      queryKey[1] === ORGANIZATIONS_KEY ||
-      (Array.isArray(queryKey[0]) &&
-        ["billing.status", "cloudComputers.list"].includes(queryKey[0].slice(-2).join("."))),
+    predicate: ({ queryKey }) => queryKey[1] === ORGANIZATIONS_KEY,
   });
 }

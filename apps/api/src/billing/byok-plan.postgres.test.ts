@@ -221,13 +221,6 @@ dbTests("own-key plan", () => {
         { tier: "standard", monthlyPriceCents: 1500, computerSize: "standard", computerHours: 25 },
         { tier: "pro", monthlyPriceCents: 4900, computerSize: "large", computerHours: 100 },
         { tier: "max", monthlyPriceCents: 9900, computerSize: "xlarge", computerHours: 200 },
-        {
-          tier: "ultra",
-          monthlyPriceCents: 19900,
-          annualPriceCents: 190800,
-          computerSize: "xlarge",
-          computerHours: 600,
-        },
       ],
     });
     await service.checkout(actor, undefined, "year", "pro");
@@ -243,38 +236,7 @@ dbTests("own-key plan", () => {
       byokPriceCents: BYOK_TIERS.pro.annualPriceCents,
       byokInterval: "year",
     });
-    const computer = await prisma.computer.create({
-      data: {
-        spaceId,
-        userId,
-        scope: "team",
-        scopeKey: `byok-team-${stamp}`,
-        homeKey: `byok-home-${stamp}`,
-        kind: "boat",
-      },
-    });
-    expect(await planComputerSize(prisma, computer.id)).toBe("standard");
-    const sized = createBillingService({
-      prisma,
-      provider,
-      sandbox: { describe: () => ({ id: "boat" }) } as SandboxProvider,
-      webOrigin: "https://example.test",
-    });
-    await expect(sized.cloudComputers(actor)).resolves.toEqual({
-      computers: [
-        { id: computer.id, scope: "team", botName: null, size: "standard", savedSize: "standard" },
-      ],
-      available: ["standard", "large"],
-      canManage: true,
-    });
-    await expect(sized.setComputerSize(actor, computer.id, "xlarge")).rejects.toMatchObject({
-      message: "Your plan does not include this computer size",
-    });
-    await expect(sized.setComputerSize(actor, "missing", "large")).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
-    await sized.setComputerSize(actor, computer.id, "large");
-    expect(await planComputerSize(prisma, computer.id)).toBe("large");
+    expect(await planComputerSize(prisma, spaceId)).toBe("large");
 
     await expect(service.changeTier(actor, "pro")).rejects.toMatchObject({ code: "CONFLICT" });
     await service.changeTier(actor, "max");
@@ -283,34 +245,13 @@ dbTests("own-key plan", () => {
       byokPriceCents: BYOK_TIERS.max.annualPriceCents,
       byokInterval: "year",
     });
-    expect(await planComputerSize(prisma, computer.id)).toBe("large");
-    await sized.setComputerSize(actor, computer.id, "xlarge");
-    expect(await planComputerSize(prisma, computer.id)).toBe("xlarge");
-    await service.changeTier(actor, "ultra");
+    expect(await planComputerSize(prisma, spaceId)).toBe("xlarge");
+    await service.changeTier(actor, "standard");
     await expect(service.status(actor)).resolves.toMatchObject({
-      byokTier: "ultra",
-      byokPriceCents: 190800,
-      byokInterval: "year",
+      byokTier: "standard",
+      byokPriceCents: BYOK_TIERS.standard.annualPriceCents,
     });
-    await service.changeTier(actor, "pro");
-    await expect(service.status(actor)).resolves.toMatchObject({
-      byokTier: "pro",
-      byokPriceCents: BYOK_TIERS.pro.annualPriceCents,
-    });
-    // Above the new plan's limit, the computer runs at the largest size the plan allows.
-    expect(await planComputerSize(prisma, computer.id)).toBe("large");
-    await expect(sized.cloudComputers(actor)).resolves.toMatchObject({
-      computers: [{ id: computer.id, size: "large", savedSize: "xlarge" }],
-    });
-
-    await service.changeTier(actor, "max");
-    expect(await planComputerSize(prisma, computer.id)).toBe("xlarge");
-
-    // Choosing the size a smaller plan held it at keeps it there once the plan grows again.
-    await service.changeTier(actor, "pro");
-    await sized.setComputerSize(actor, computer.id, "large");
-    await service.changeTier(actor, "max");
-    expect(await planComputerSize(prisma, computer.id)).toBe("large");
+    expect(await planComputerSize(prisma, spaceId)).toBe("standard");
 
     // A plan set to cancel stays as it is.
     provider.subscriptions.at(-1)!.cancelAtPeriodEnd = true;
@@ -327,7 +268,7 @@ dbTests("own-key plan", () => {
     const metered = createBillingService({
       prisma,
       provider,
-      sandbox: { describe: () => ({ id: "fake" }) } as SandboxProvider,
+      sandbox: {} as SandboxProvider,
       webOrigin: "https://example.test",
     });
     // $25 of computer time, more than Pro's $20 a month.

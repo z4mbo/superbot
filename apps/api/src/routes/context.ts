@@ -16,7 +16,6 @@ import {
   createFaviconResolver,
   decisionModelCatalog,
   deploymentModelRole,
-  deploymentPaysForReview,
   findConnectedModelCredential,
   hasHostedModelCredits,
   hasReadyModelCredential,
@@ -104,7 +103,6 @@ export function createRouterContext(deps: RouterDeps) {
     actor: Actor | null;
     /** The signed-in session, so a push token ends with the session that registered it. */
     sessionId?: string;
-    nativeSessionId?: string;
     signal?: AbortSignal;
     /** Re-runs the request's auth so a long-lived stream notices sign-out and revocation. */
     stillAuthorized?: () => Promise<boolean>;
@@ -303,32 +301,26 @@ export function createRouterContext(deps: RouterDeps) {
       );
   };
 
-  // Shown where a member chose no model, so the list names what actually runs and whether
-  // the deployment pays for it.
+  // Shown where a member chose no model, so the list names what actually runs.
   const deploymentDefault = async (
     actor: Actor,
     role: ModelRole,
-  ): Promise<Pick<ModelRoleView, "deploymentPrimary" | "deploymentIncluded">> => {
+  ): Promise<ModelRoleChoice | null> => {
     if (role === "main") {
-      if (!deps.env.deploymentModelConfigured) return { deploymentPrimary: null };
+      if (!deps.env.deploymentModelConfigured) return null;
       const access = await bestEffort(
         "read main model default funding",
         deploymentModelAccess(deps, actor),
       );
-      return {
-        deploymentPrimary: access?.hasDeployment
-          ? deploymentModelRole(role, {
-              settings: await deps.prisma.deploymentSettings.findUnique({
-                where: { id: "default" },
-              }),
-              deployment: { provider: deps.env.defaultProvider, model: deps.env.defaultModel },
-            }).primary
-          : null,
-      };
+      return access?.hasDeployment
+        ? deploymentModelRole(role, {
+            settings: await deps.prisma.deploymentSettings.findUnique({ where: { id: "default" } }),
+            deployment: { provider: deps.env.defaultProvider, model: deps.env.defaultModel },
+          }).primary
+        : null;
     }
-    const creditsEnabled = deps.billing?.modelCreditsEnabled === true;
     let deploymentPrimary = deploymentModelRole(role, {
-      includedApproval: creditsEnabled,
+      includedApproval: deps.billing?.modelCreditsEnabled === true,
     }).primary;
     if (
       role === "approval" &&
@@ -354,14 +346,7 @@ export function createRouterContext(deps: RouterDeps) {
         deploymentPrimary = null;
       }
     }
-    return role === "approval" &&
-      deploymentPrimary &&
-      deploymentPaysForReview(
-        { provider: deploymentPrimary.provider, model: deploymentPrimary.modelId },
-        creditsEnabled,
-      )
-      ? { deploymentPrimary, deploymentIncluded: true }
-      : { deploymentPrimary };
+    return deploymentPrimary;
   };
   /**
    * The main role also says whether its model reads images where runs use it, so settings

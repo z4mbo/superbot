@@ -7,11 +7,6 @@ import {
   TOOL_QUESTION_FIELDS_MAX,
   ToolQuestionValueSchema,
 } from "../integrations/tool-question.js";
-import {
-  CalendarResponse,
-  NativeCalendarDeviceKey,
-  NativeCalendarRequest,
-} from "../personal-calendar/personal-calendar.js";
 import { botId } from "../rpc/inputs.js";
 import { SpaceChangeKind } from "../spaces/space.js";
 import { ProductEventSchema } from "./events.js";
@@ -20,7 +15,7 @@ import {
   UpdateExternalConversationPolicyInput,
 } from "./external-conversations.js";
 import { MessageReactionSchema } from "./reactions.js";
-import { SEARCH_QUERY_MAX_LENGTH, SearchQueryOutputSchema } from "./search.js";
+import { SearchQueryOutputSchema } from "./search.js";
 import { ChatAlertSchema, ThreadMessagePageSchema, ThreadSnapshotSchema } from "./thread.js";
 import {
   threadSendInput,
@@ -65,24 +60,6 @@ export const threadsRpc = {
     sendWithRoutines: oc
       .input(threadSendWithRoutinesInput)
       .output(z.object({ routineRunIds: z.array(Id), send: threadSendOutput.optional() })),
-    nativeCalendarPending: oc
-      .input(botId.extend({ deviceKey: NativeCalendarDeviceKey }))
-      .output(z.array(NativeCalendarRequest)),
-    nativeCalendarClaim: oc
-      .input(
-        NativeCalendarRequest.pick({ id: true, runId: true, threadId: true }).extend({
-          deviceKey: NativeCalendarDeviceKey,
-        }),
-      )
-      .output(NativeCalendarRequest.nullable()),
-    nativeCalendarResult: oc
-      .input(
-        NativeCalendarRequest.pick({ id: true, runId: true, threadId: true }).extend({
-          deviceKey: NativeCalendarDeviceKey,
-          response: CalendarResponse,
-        }),
-      )
-      .output(z.object({ accepted: z.boolean() })),
     react: oc
       .input(
         threadTarget.safeExtend({
@@ -298,9 +275,7 @@ export const threadsRpc = {
       .output(z.object({ ok: z.literal(true) })),
   },
   search: {
-    query: oc
-      .input(z.object({ q: z.string().max(SEARCH_QUERY_MAX_LENGTH) }))
-      .output(SearchQueryOutputSchema),
+    query: oc.input(z.object({ q: z.string().max(200) })).output(SearchQueryOutputSchema),
   },
   links: {
     /**

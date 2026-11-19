@@ -9,7 +9,6 @@ import {
   onAppear,
   onDisappear,
   onGeometryChange,
-  onScrollPhaseChange,
   refreshable,
   scrollContentBackground,
 } from "@expo/ui/swift-ui/modifiers";
@@ -26,8 +25,6 @@ import { canScrollNativeList, scrollNativeListToRow } from "../../lib/native/nat
 import { NativeInsetList } from "../native/native-inset-list";
 import { NativeListRowContext } from "../native/native-list-row";
 import { NativeRow } from "../native/native-row";
-import type { OpenSwipe } from "./inbox-swipe-context";
-import { InboxSwipeContext } from "./inbox-swipe-context";
 import type { NativeInboxListProps } from "./native-inbox-list";
 import { UnreadJumpOverlay } from "./unread-jump-overlay";
 
@@ -119,7 +116,6 @@ export function NativeInboxList<Item>({
   showJumpPills,
 }: NativeInboxListProps<Item>) {
   const hostRef = useRef(null);
-  const openSwipe = useRef<OpenSwipe | null>(null);
   const floatingHeader = useFloatingHeaderInset() > 0;
   const headerInset = useTopBarInset();
   const { bottom, left, right } = useSafeAreaInsets();
@@ -174,13 +170,7 @@ export function NativeInboxList<Item>({
       hostRef={hostRef}
       variant="plain"
       background={native.page}
-      modifiers={[
-        scrollContentBackground("hidden"),
-        refreshable(onRefresh),
-        onScrollPhaseChange((phase) => {
-          if (phase === "interacting") openSwipe.current?.close();
-        }),
-      ]}
+      modifiers={[scrollContentBackground("hidden"), refreshable(onRefresh)]}
     >
       {spacer("top", headerInset)}
       {/* Rows wait for the measured width: one laid out before it keeps its first size. */}
@@ -219,7 +209,7 @@ export function NativeInboxList<Item>({
   // refresh does) never rebuilds the native list.
   return (
     <View style={{ flex: 1 }}>
-      <InboxSwipeContext.Provider value={openSwipe}>{list}</InboxSwipeContext.Provider>
+      {list}
       {showJumpPills && canScrollNativeList ? (
         // Centred over the inbox column.
         <View
@@ -238,13 +228,12 @@ export function NativeInboxList<Item>({
             viewport={avatarViewport}
             topInset={headerInset}
             bottomInset={bottom}
-            onJump={(index) => {
-              openSwipe.current?.close();
+            onJump={(index) =>
               void scrollNativeListToRow(
                 findNodeHandle(hostRef.current) ?? null,
                 firstItemRow + index,
-              );
-            }}
+              )
+            }
           />
         </View>
       ) : null}

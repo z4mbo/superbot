@@ -2,7 +2,6 @@ import { useLingui } from "@lingui/react/macro";
 import type { ThreadItem } from "@rakazo/core";
 import {
   answerableAskMessageIds,
-  continuedSenderMessageIds,
   dismissableAskMessageIds,
   groupVoiceChats,
   memberName,
@@ -22,7 +21,6 @@ import { threadHeaderFloats } from "../../lib/thread/scroll/thread-edges";
 import { previewMessageText } from "../../lib/thread/thread-message-text";
 import type { useThreadTranscript } from "../../lib/thread/thread-transcript";
 import { VoiceChatCard } from "../calls/VoiceChatCard";
-import { hasSenderLabelContent } from "./message-bubble";
 import type { MessageRowActions } from "./message-row";
 import { MessageRow } from "./message-row";
 import { TimeSeparator } from "./time-separator";
@@ -121,16 +119,7 @@ export function useThreadRows({
     [visibleMessages, readSeq, snap?.olderCursor, userId],
   );
   // Group calls in reading order, then reverse for the inverted list.
-  const { liveItems, continuedSenderIds } = useMemo(() => {
-    const items = groupVoiceChats(visibleMessages);
-    const continuedSenderIds = continuedSenderMessageIds(
-      items,
-      separatorIds,
-      unreadDividerId,
-      hasSenderLabelContent,
-    );
-    return { liveItems: items.reverse(), continuedSenderIds };
-  }, [visibleMessages, separatorIds, unreadDividerId]);
+  const liveItems = useMemo(() => groupVoiceChats(visibleMessages).reverse(), [visibleMessages]);
   const messagesById = useMemo(
     () => new Map((snap?.messages ?? []).map((message) => [message.id, message])),
     [snap?.messages],
@@ -172,7 +161,6 @@ export function useThreadRows({
           bubbleBotId={botId ?? snap?.members?.[0]?.botId ?? ""}
           groupId={groupId}
           botName={displayName}
-          hideSenderLabel={!options?.enableJump && continuedSenderIds.has(message.id)}
           showBotSenderName={showBotSenderName}
           bots={mentionBots}
           members={snap?.members}
@@ -215,7 +203,6 @@ export function useThreadRows({
     [
       messagesById,
       separateAnswers,
-      continuedSenderIds,
       showBotSenderName,
       snap?.members,
       snap?.activeRuns,

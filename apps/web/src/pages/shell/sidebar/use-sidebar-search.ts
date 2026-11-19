@@ -1,7 +1,5 @@
 import { useTimeout } from "@rakazo/chat-ui/hooks";
 import type { SearchHit } from "@rakazo/contracts";
-import { SEARCH_QUERY_MAX_LENGTH } from "@rakazo/contracts";
-import { sliceWellFormed } from "@rakazo/core";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ActivityListFilters } from "../../../lib/activity-list-filters";
 import { emptyActivityFilters } from "../../../lib/activity-list-filters";
@@ -61,10 +59,7 @@ export function useSidebarSearch({
       setSearchLoading(true);
       setSearchError(null);
       void rpc.search
-        .query(
-          { q: sliceWellFormed(spaceQuery, SEARCH_QUERY_MAX_LENGTH) },
-          { signal: abort.signal },
-        )
+        .query({ q: spaceQuery }, { signal: abort.signal })
         .then((result) => {
           if (!abort.signal.aborted) setSearchHits(result.hits);
         })

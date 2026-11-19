@@ -76,7 +76,6 @@ describe("explicit model credit funding", () => {
       apiKey: "fake-operator-key",
       connectionId: `credits:${offering.id}`,
       callObserver: expect.any(Object),
-      billing: "credits",
     });
     expect(load).toHaveBeenCalledTimes(1);
     expect(load).toHaveBeenCalledWith("operator-secret", "operator-secret");
@@ -99,7 +98,6 @@ describe("explicit model credit funding", () => {
     expect(registerSecrets).toHaveBeenCalledWith(["fake-included-checker-key"]);
     expect(result.callObserver).toBeUndefined();
     expect(result.connectionId).toBeUndefined();
-    expect(result.billing).toBe("deployment");
     expect(load).not.toHaveBeenCalled();
     expect(findUnique).not.toHaveBeenCalled();
   });
@@ -133,7 +131,6 @@ describe("explicit model credit funding", () => {
       apiKey: "fake-personal-key",
       connectionId: personal.id,
       ownCredential: true,
-      billing: "api_key",
     });
     expect(result.callObserver).toBeUndefined();
     expect(findUnique).not.toHaveBeenCalled();

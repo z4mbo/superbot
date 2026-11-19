@@ -160,13 +160,11 @@ export async function reconcileCreditPurchase(
     const owedBefore = owed(previousLot);
     const owedNow = owed(await tx.modelCreditLot.findUniqueOrThrow({ where: { id: entry.id } }));
     const charged = existing ? storedCreditAllocations(existing) : [];
-    // Read before the return, which lowers the stored allocations in place.
-    const chargedMicros = allocatedMicros(charged);
     const covering =
       owedNow > owedBefore
         ? [...charged, ...(await allocateCreditLots(tx, organizationId, owedNow - owedBefore, now))]
         : await returnCreditLots(tx, charged, owedBefore - owedNow, now);
-    if (allocatedMicros(covering) !== chargedMicros)
+    if (allocatedMicros(covering) !== allocatedMicros(charged))
       await tx.modelCreditEntry.update({
         where: { id: entry.id },
         data: { allocations: covering },

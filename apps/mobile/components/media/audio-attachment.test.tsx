@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   share: vi.fn(),
   dispose: vi.fn(),
   icon: vi.fn(),
-  listeners: [] as Array<(state: Record<string, unknown>) => void>,
+  setState: undefined as undefined | ((state: Record<string, unknown>) => void),
 }));
 vi.mock("react-native", () => ({
   Pressable: (props: { children?: ReactNode }) => {
@@ -46,7 +46,7 @@ vi.mock("../../lib/messages/attachment-audio", () => ({
     _uri: unknown,
     setState: (state: Record<string, unknown>) => void,
   ) => {
-    mocks.listeners.push(setState);
+    mocks.setState = setState;
     return { toggle: mocks.toggle, dispose: mocks.dispose };
   },
 }));
@@ -99,7 +99,7 @@ it("preserves message actions on the row and independent play/share controls", a
     expect(actions.onLongPress).toHaveBeenCalledTimes(1);
     expect(actions.onAccessibilityAction).toHaveBeenCalledTimes(1);
     await act(async () =>
-      container.querySelector<HTMLButtonElement>('button[aria-label="Play clip"]')?.click(),
+      container.querySelector<HTMLButtonElement>('button[aria-label="Play"]')?.click(),
     );
     expect(mocks.toggle).toHaveBeenCalledTimes(1);
     await act(async () =>
@@ -111,46 +111,6 @@ it("preserves message actions on the row and independent play/share controls", a
     vi.unstubAllGlobals();
   }
   expect(mocks.dispose).toHaveBeenCalledTimes(1);
-});
-
-it("names each clip's play and pause controls, with a fallback for a blank name", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  const container = document.createElement("div");
-  const root = createRoot(container);
-  const filenames = ["first.m4a", "second.m4a", "  "];
-  const firstListener = mocks.listeners.length;
-  const buttons = () =>
-    [...container.querySelectorAll("button")].map((button) => button.getAttribute("aria-label"));
-  const playbackLabels = () => buttons().filter((label) => !label?.startsWith("Share "));
-  try {
-    await act(async () =>
-      root.render(
-        <>
-          {filenames.map((name) => (
-            <AudioAttachment
-              key={name}
-              target={{ botId: "bot-1" }}
-              artifactId={name}
-              name={name}
-              mimeType="audio/mp4"
-            />
-          ))}
-        </>,
-      ),
-    );
-    expect(playbackLabels()).toEqual(["Play first.m4a", "Play second.m4a", "Play"]);
-    expect(buttons()).toEqual(expect.arrayContaining(["Share first.m4a", "Share second.m4a"]));
-
-    await act(async () => {
-      for (const setState of mocks.listeners.slice(firstListener)) {
-        setState({ playing: true, loading: false, currentTime: 1, duration: 3 });
-      }
-    });
-    expect(playbackLabels()).toEqual(["Pause first.m4a", "Pause second.m4a", "Pause"]);
-  } finally {
-    await act(async () => root.unmount());
-    vi.unstubAllGlobals();
-  }
 });
 
 it("sits on the inset fill, not the bubble's own fill, so it shows without an outline", async () => {
@@ -231,7 +191,7 @@ it.each([
       ),
     );
     await act(async () =>
-      mocks.listeners.at(-1)?.({
+      mocks.setState?.({
         playing: false,
         loading: false,
         duration: 0,

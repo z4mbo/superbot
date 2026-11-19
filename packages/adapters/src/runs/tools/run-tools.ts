@@ -5,6 +5,12 @@ import {
   isTerminatingReplyResult,
 } from "../../approvals/approval-effect.js";
 import { argumentGiven } from "../../bots/update-bot-patch.js";
+import {
+  findLiveMarketplaceGrant,
+  MARKETPLACE_UNAVAILABLE,
+  marketplaceScope,
+  marketplaceToolName,
+} from "../../integrations/marketplace-runtime.js";
 import { listChatTranscripts, readChatMeeting } from "../../meetings/meeting-chat.js";
 import {
   meetingTranscriptArgs,
@@ -12,8 +18,6 @@ import {
 } from "../../meetings/meeting-chat.tool-definition.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "../../models/model-vision.js";
 import { MODEL_CANNOT_SEE_MESSAGE } from "../../models/model-vision.prompt.js";
-import { personalCalendarTools } from "../../personal-calendar/personal-calendar.tool-definition.js";
-import { calendarTool } from "../../personal-calendar/run-calendar-tool.js";
 import { strategicInitiativeToolAllowed } from "../../routines/strategic-initiative.js";
 import type { RunContext } from "../assembly/run-context.js";
 import { markReadOutsideContent } from "../assembly/run-context.js";
@@ -84,7 +88,6 @@ const TOOL_HANDLERS = new Map<string, ToolHandler>([
   ...Object.entries(preferenceTools),
   ...Object.entries(feedbackTools),
   ...Object.entries(emailTools),
-  ...personalCalendarTools.map(({ name }) => [name, calendarTool] as const),
   ...[...PAGE_BROWSER_TOOL_NAMES].map((name) => [name, pageBrowserTool] as const),
 ]);
 
@@ -266,11 +269,27 @@ async function dispatchTool(
   if (IMAGE_RETURNING_COMPUTER_TOOLS.has(name) && !ctx.computer.acceptsImages) {
     return refuse(refusal("model_cannot_see_images", MODEL_CANNOT_SEE_MESSAGE));
   }
+  if (marketplaceToolName(name)) {
+    const tool = ctx.tools.offered.find((offered) => offered.name === name);
+    const scope = marketplaceScope(ctx.run, ctx.bot, ctx.source.messagingChannelRun);
+    if (
+      !tool ||
+      !scope ||
+      !(await findLiveMarketplaceGrant(
+        { prisma: ctx.deps.prisma, scope, signal: ctx.context.signal },
+        tool,
+      ))
+    )
+      return refuse(refusal("marketplace_tool_unavailable", MARKETPLACE_UNAVAILABLE));
+  }
   const request = await resolveToolRequest(ctx, name, args, executionId);
   if ("error" in request) return refuse(request);
   // A catalog call resolves to a connector tool after the checks above; one named like a local
   // tool (message_agent, cloud_agent_*, ...) would otherwise run that local handler instead.
-  if (request.catalogRemapped && toolHandler(request.name) !== connectorTool) {
+  if (
+    request.catalogRemapped &&
+    (toolHandler(request.name) !== connectorTool || marketplaceToolName(request.name))
+  ) {
     return refuse(
       refusal("connector_name_conflict", "Connector tool name conflicts with a built-in tool"),
       request.name,
@@ -283,22 +302,20 @@ async function dispatchTool(
   if ("result" in gate) {
     const ownProfile = name === "update_bot" && !argumentGiven(args.bot_id);
     if (gate.replayed && toolResultTaintsRun(request.name) && !ownProfile) {
-      await markReadOutsideContent(ctx, gate.result);
+      await markReadOutsideContent(ctx);
     }
     return refuse(gate.result, request.name);
   }
   // Only a call that ran can have taken in outside content; one refused above, or whose approval
   // was denied, never did. A call that failed partway still counts.
   const runHandler = async () => {
-    let result: unknown;
     try {
-      result = await toolHandler(gate.call.name)(ctx, gate.call);
-      return result;
+      return await toolHandler(gate.call.name)(ctx, gate.call);
     } finally {
       // Editing its own profile returns only what this run wrote; a child's profile is another
       // bot's.
       const ownProfile = name === "update_bot" && !argumentGiven(args.bot_id);
-      if (toolResultTaintsRun(name) && !ownProfile) await markReadOutsideContent(ctx, result);
+      if (toolResultTaintsRun(name) && !ownProfile) await markReadOutsideContent(ctx);
     }
   };
   if (!gate.call.applied) return runHandler();

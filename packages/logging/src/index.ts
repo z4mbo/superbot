@@ -12,7 +12,6 @@ export {
   type RequestCorrelation,
 } from "./correlation.js";
 export { createServiceLogger, resolveLogEnv, SERVICE_NAMES } from "./env.js";
-export { warnExpectedFailure } from "./expected-failures.js";
 export {
   formatTraceparent,
   generateRequestId,
@@ -35,7 +34,6 @@ export {
   monitoringUserId,
 } from "./pseudonym.js";
 export { redactBindings, redactSensitiveText } from "./redaction.js";
-export { wasReportedError } from "./reported-errors.js";
 export { serializeError } from "./serialize-error.js";
 export { logSinkHealth } from "./sink-guard.js";
 export { createTestSink, type TestSink } from "./test-sink.js";

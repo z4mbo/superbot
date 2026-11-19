@@ -1,7 +1,11 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
-import { Button, Disclosure, Input, Label, OptionSelect, Switch } from "@rakazo/ui-web";
+import { Button, Disclosure, Input, Label, Switch } from "@rakazo/ui-web";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  ModelPreflightFeedback,
+  modelPreflightTestingLabel,
+} from "../../components/models/ModelConnectionPreflightNotice";
 import { CompatibleKeyField } from "./compatible-key-field";
 
 import type { ModelSettingsState } from "./use-model-settings";
@@ -25,18 +29,17 @@ export function ConnectionControls({
   needsRouting,
   needsGateway,
   needsProject,
-  modelId,
-  modelsForProvider,
-  setModelId,
-  setThinkingLevel,
   isOpenAiCompatible,
   oauth,
   oauthPending,
   pasteCode,
   pending,
   popupBlocked,
+  preflightFailure,
+  preflightSuccess,
+  preflightTarget,
+  preflightTesting,
   selected,
-  selectionRevisionRef,
   setAccountId,
   setGatewayId,
   setProjectId,
@@ -45,6 +48,7 @@ export function ConnectionControls({
   setZeroDataRetention,
   submitOAuthCode,
   subscriptionSignIn,
+  testApiKeyConnection,
   updateApiKey,
   zeroDataRetention,
 }: Pick<
@@ -67,18 +71,17 @@ export function ConnectionControls({
   | "needsRouting"
   | "needsGateway"
   | "needsProject"
-  | "modelId"
-  | "modelsForProvider"
-  | "setModelId"
-  | "setThinkingLevel"
   | "isOpenAiCompatible"
   | "oauth"
   | "oauthPending"
   | "pasteCode"
   | "pending"
   | "popupBlocked"
+  | "preflightFailure"
+  | "preflightSuccess"
+  | "preflightTarget"
+  | "preflightTesting"
   | "selected"
-  | "selectionRevisionRef"
   | "setAccountId"
   | "setGatewayId"
   | "setProjectId"
@@ -87,6 +90,7 @@ export function ConnectionControls({
   | "setZeroDataRetention"
   | "submitOAuthCode"
   | "subscriptionSignIn"
+  | "testApiKeyConnection"
   | "updateApiKey"
   | "zeroDataRetention"
 >) {
@@ -314,31 +318,6 @@ export function ConnectionControls({
               />
             </label>
           ) : null}
-          {!credential && acceptsKey && modelsForProvider.length ? (
-            <label
-              className="mt-4 block text-body text-muted-foreground"
-              htmlFor="connection-model"
-            >
-              <Trans>Model</Trans>
-              <OptionSelect
-                id="connection-model"
-                aria-label={t`Model`}
-                options={modelsForProvider.map((entry) => ({
-                  value: entry.id,
-                  label: entry.label,
-                }))}
-                value={modelId}
-                onValueChange={(value) => {
-                  selectionRevisionRef.current += 1;
-                  setModelId(value);
-                  setThinkingLevel(null);
-                }}
-                disabled={busy}
-                size="lg"
-                className="mt-2 text-foreground"
-              />
-            </label>
-          ) : null}
           {selected?.dataRetentionControl ? (
             <div className="mt-4 flex items-center justify-between gap-3">
               <Label htmlFor="model-zero-data-retention" className="text-body font-normal">
@@ -353,6 +332,17 @@ export function ConnectionControls({
             </div>
           ) : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">
+            {acceptsKey && selected?.catalogProbe ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy || preflightTesting || apiKey.trim().length < 8}
+                onClick={() => void testApiKeyConnection()}
+              >
+                {modelPreflightTestingLabel(preflightTesting && preflightTarget === "api-key")}
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="secondary"
@@ -369,6 +359,9 @@ export function ConnectionControls({
               )}
             </Button>
           </div>
+          {preflightTarget === "api-key" ? (
+            <ModelPreflightFeedback success={preflightSuccess} failure={preflightFailure} />
+          ) : null}
         </div>
       ) : null}
 
@@ -384,28 +377,44 @@ export function ConnectionControls({
   ) : null;
 }
 
-export function CompatibleKeyInput({
+export function CompatibleKeyControls({
   apiKey,
+  busy,
+  connectKey,
   credential,
-  compatibleKeyRequired,
+  endpointPreset,
+  isOpenAiCompatible,
+  openAiCompatibleReady,
+  pending,
   updateApiKey,
-}: Pick<ModelSettingsState, "apiKey" | "credential" | "compatibleKeyRequired" | "updateApiKey">) {
+}: Pick<
+  ModelSettingsState,
+  | "apiKey"
+  | "busy"
+  | "connectKey"
+  | "credential"
+  | "endpointPreset"
+  | "isOpenAiCompatible"
+  | "openAiCompatibleReady"
+  | "pending"
+  | "updateApiKey"
+>) {
   const { t } = useLingui();
-  return (
+  return isOpenAiCompatible ? (
     <div className="mt-5">
       <CompatibleKeyField
-        keyRequired={compatibleKeyRequired}
+        keyRequired={Boolean(endpointPreset)}
         className="block text-body text-muted-foreground"
       >
         <Input
           aria-label={t`API key`}
           value={apiKey}
           onChange={(event) => updateApiKey(event.target.value)}
-          required={compatibleKeyRequired}
+          required={Boolean(endpointPreset)}
           placeholder={
             credential?.hasKey
               ? t`Paste a replacement key`
-              : compatibleKeyRequired
+              : endpointPreset
                 ? undefined
                 : t`Optional`
           }
@@ -415,6 +424,16 @@ export function CompatibleKeyInput({
           className="mt-2 text-foreground"
         />
       </CompatibleKeyField>
+      <Button
+        type="button"
+        variant="secondary"
+        className="mt-3"
+        size="sm"
+        disabled={busy || !openAiCompatibleReady}
+        onClick={() => void connectKey()}
+      >
+        {pending === "connect" ? <Trans>Saving…</Trans> : <Trans>Save</Trans>}
+      </Button>
     </div>
-  );
+  ) : null;
 }

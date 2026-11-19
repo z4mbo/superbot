@@ -314,14 +314,12 @@ export function Input({
   onChange,
   placeholder,
   type = "text",
-  min,
 }: {
   label?: string;
   value?: string | number;
   onChange?: (value: string) => void;
   placeholder?: string;
   type?: "text" | "number" | "search";
-  min?: number;
 }) {
   const id = useId();
   return (
@@ -335,11 +333,7 @@ export function Input({
         id={id}
         className="rk-input"
         type={type}
-        min={type === "number" ? min : undefined}
-        // The phone decimal pad has no minus key, so only a field that can't go negative gets it.
-        inputMode={
-          type === "number" && min !== undefined && Number(min) >= 0 ? "decimal" : undefined
-        }
+        inputMode={type === "number" ? "decimal" : undefined}
         value={value === undefined || value === null ? "" : String(value)}
         placeholder={placeholder}
         aria-label={label ? undefined : placeholder}

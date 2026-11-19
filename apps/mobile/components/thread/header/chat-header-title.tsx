@@ -98,8 +98,7 @@ export function ChatHeaderTitle({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityHint={opens ? (inGroup ? t`Group settings` : t`Profile`) : undefined}
+      accessibilityLabel={opens ? (inGroup ? t`Group settings` : t`Profile`) : label}
       disabled={!opens}
       onPress={() => {
         if (opens) router.push(opens);

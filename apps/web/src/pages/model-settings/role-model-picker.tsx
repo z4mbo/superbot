@@ -50,8 +50,8 @@ export function RoleModelPicker({
   label: string;
   options: RoleModelOption[];
   providers: ConnectableProvider[];
-  /** The deployment's model, offered to clear the slot back to it; `included` when it pays. */
-  defaultOption?: { label: string; included?: boolean };
+  /** The deployment's model, offered to clear the slot back to it. */
+  defaultOption?: string;
   disabled?: boolean;
   onPick: (option: RoleModelOption | null) => void;
   onConnect: (provider: ConnectableProvider) => void;
@@ -172,9 +172,9 @@ export function RoleModelPicker({
                     close();
                   }}
                 >
-                  <span className="min-w-0 truncate">{defaultOption.label}</span>
+                  <span className="min-w-0 truncate">{defaultOption}</span>
                   <CommandShortcut className="text-body-sm tracking-normal">
-                    {defaultOption.included ? <Trans>Included</Trans> : <Trans>Default</Trans>}
+                    <Trans>Default</Trans>
                   </CommandShortcut>
                 </CommandItem>
               </CommandGroup>

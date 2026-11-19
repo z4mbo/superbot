@@ -80,8 +80,7 @@ createRoot(document.getElementById("root")!, { onCaughtError: reportCaughtReactE
         <ClientUpdateOnNavigate />
         <QueryClientProvider client={queryClient}>
           <DesktopUpdatesProvider>
-            {/* Wait for a pause, so passing over icons does not flash their labels. */}
-            <TooltipProvider delay={500}>
+            <TooltipProvider>
               <BotAvatarActivityProvider source={webLogoAvatarActivity}>
                 <App />
               </BotAvatarActivityProvider>

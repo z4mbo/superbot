@@ -8,32 +8,21 @@ export const MODEL_CREDIT_AMOUNTS = [2000, 3000, 5000, 10000, 20000] as const;
 export const RETIRED_MODEL_CREDIT_AMOUNTS = [1000, 50000] as const;
 
 /**
- * The allowance rate for historical runs and providers that cannot confirm their machine size.
+ * What an hour of a billed computer counts against the allowance, $0.20, whatever its size: above
+ * a small cloud machine's raw price, so the allowance also covers storage and saves.
  */
 export const SANDBOX_HOURLY_COST_MICROS = 200_000;
-export const SANDBOX_SIZE_HOURLY_COST_MICROS = {
-  standard: 50_000,
-  large: 100_000,
-  xlarge: SANDBOX_HOURLY_COST_MICROS,
-} satisfies Record<ComputerSize, number>;
-
-export function computerSizesUpTo(max: ComputerSize): ComputerSize[] {
-  return ComputerSizeSchema.options.slice(0, ComputerSizeSchema.options.indexOf(max) + 1);
-}
 /** What a trial may spend on computers, in cents; ending the trial early starts the full allowance. */
 export const TRIAL_SANDBOX_ALLOWANCE_CENTS = 300;
 /** The share of a monthly credit plan an organization may also spend on computers. */
 export const CREDITS_SANDBOX_ALLOWANCE_PERCENT = 20;
 
 /** Computer hours an allowance in cents buys. */
-export function sandboxAllowanceHours(
-  allowanceCents: number,
-  hourMicros = SANDBOX_HOURLY_COST_MICROS,
-): number {
-  return (allowanceCents * 10_000) / hourMicros;
+export function sandboxAllowanceHours(allowanceCents: number): number {
+  return (allowanceCents * 10_000) / SANDBOX_HOURLY_COST_MICROS;
 }
 
-export const ByokTierSchema = z.enum(["standard", "pro", "max", "ultra"]);
+export const ByokTierSchema = z.enum(["standard", "pro", "max"]);
 export type ByokTier = z.infer<typeof ByokTierSchema>;
 
 export interface ByokTierTerms {
@@ -49,7 +38,7 @@ export interface ByokTierTerms {
 
 /**
  * The own-model plan's tiers, in order. Standard is the plan new organizations start on; the
- * others add computer hours and may offer bigger computers.
+ * others add bigger computers and more computer hours.
  */
 export const BYOK_TIERS: Record<ByokTier, ByokTierTerms> = {
   standard: {
@@ -71,13 +60,6 @@ export const BYOK_TIERS: Record<ByokTier, ByokTierTerms> = {
     monthlyPriceCents: 9900,
     annualPriceCents: 94800,
     computerAllowanceCents: 4000,
-    computerSize: "xlarge",
-  },
-  ultra: {
-    name: "Ultra",
-    monthlyPriceCents: 19900,
-    annualPriceCents: 190800,
-    computerAllowanceCents: 12000,
     computerSize: "xlarge",
   },
 };
@@ -160,8 +142,6 @@ export const BillingStatusSchema = z.object({
         annualPriceCents: z.number().int().positive().nullable(),
         computerSize: ComputerSizeSchema,
         computerHours: z.number().nonnegative(),
-        /** The advertised size is a maximum and hours are measured at Standard. */
-        computerSizeChoice: z.literal(true).optional(),
       }),
     )
     .optional(),
@@ -199,8 +179,6 @@ export const BillingStatusSchema = z.object({
   hasCustomer: z.boolean(),
   /** Computer hours left in the current allowance period; absent when computers have no limit. */
   computerHoursLeft: z.number().nonnegative().nullable().optional(),
-  /** Hours are counted at the Standard size's rate; larger sizes use them faster. */
-  standardComputerHours: z.literal(true).optional(),
   /** Next allowance renewal, distinct from a yearly subscription payment. */
   computerHoursResetAt: z.string().nullable().optional(),
   /** Present once the organization has subscribed: its invite link and free months earned. */

@@ -26,8 +26,6 @@ export interface DecisionProvider {
 }
 export interface DecisionProviderOptions {
   apiKey: string;
-  /** Route only to hosts that keep no prompts; a provider that cannot enforce this refuses it. */
-  zeroDataRetention?: boolean;
   fetch?: typeof fetch;
   callObserver?: ModelCallObserver;
   onUsage?: (

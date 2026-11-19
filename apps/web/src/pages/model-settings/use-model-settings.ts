@@ -1,7 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
 import type { Me, SettingsScope, ThinkingLevel } from "@rakazo/contracts";
 import {
+  compatibleEndpointPresets,
   connectionDisplayName,
+  matchCompatibleEndpointPreset,
   modelRoutingDirty,
   savedCompatibleEndpointMatches,
 } from "@rakazo/contracts";
@@ -86,12 +88,11 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
     baseUrl,
     connectionErrorText,
     enabledModelIds,
-    compatibleKeyRequired,
-    endpointPreset,
     gatewayId,
     projectId,
     region,
     headerRows,
+    invalidatePreflight,
     needsRouting,
     isOpenAiCompatible,
     modelId,
@@ -202,6 +203,7 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
       current: modelId,
     });
     if (selectionRevision === selectionRevisionRef.current) {
+      invalidatePreflight();
       resetOpenAiCompatibleProbe();
       setProvider(nextProvider);
       setModelId(nextModel);
@@ -260,6 +262,9 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
     [credentials],
   );
   selectedLabelRef.current = selected?.label;
+  const endpointPresets = useMemo(() => compatibleEndpointPresets(catalog), [catalog]);
+  // A hosted preset needs its key, so the form asks for it up front.
+  const endpointPreset = matchCompatibleEndpointPreset(endpointPresets, baseUrl);
   const selectedProviderName =
     endpointPreset?.name ?? groups.find((group) => group.id === provider)?.name ?? provider;
   const selectedConnectionName = credential
@@ -286,19 +291,21 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
       : [];
   const busy = pending !== null || oauthPending;
   const savedHeaderEndpointMatches = savedCompatibleEndpointMatches(baseUrl, credential?.baseUrl);
+  const effectiveBaseUrl = baseUrl.trim();
   const openAiCompatibleReady = compatibleConnectionReady({
     apiKey,
     baseUrl,
     modelId,
     headerRows,
     credential,
-    keyRequired: compatibleKeyRequired,
+    keyRequired: Boolean(endpointPreset),
   });
   const compatibleRows = compatibleModelRows(
     savedCompatibleModelIds(credential, baseUrl),
     enabledModelIds,
     probeModels,
   );
+  const defaultModelOptions = [...new Set([...enabledModelIds, modelId])];
   // Saved-connection settings edited without a new key (gateway ids, data retention).
   const settingsDirty =
     !isOpenAiCompatible &&
@@ -335,7 +342,6 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
         credential: nextCredential,
         presetBaseUrl,
       }),
-      presetBaseUrl,
     );
   }
 
@@ -469,8 +475,12 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
     credentialByProvider,
     credentials,
     currentEntry,
+    defaultModelOptions,
     disconnectCredential,
     disconnectName,
+    endpointPreset,
+    endpointPresets,
+    effectiveBaseUrl,
     groups,
     handleClose,
     hostCredentialSource,

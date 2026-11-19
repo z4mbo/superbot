@@ -22,7 +22,6 @@ import {
   storedMessageBlocks,
 } from "@rakazo/db";
 import { scheduleComputerSleep } from "../computers/computer-idle.js";
-import { wakeableComputerRef } from "../computers/computer-wake.js";
 import { releaseComputerControlLease } from "../computers/screens/computer-control.js";
 import { toComputerRef } from "../computers/screens/computer-support.js";
 
@@ -459,9 +458,8 @@ export async function expireTaughtSkillTeaching(
 }
 
 export async function applyTeachingDesktopInput(
-  deps: { prisma: PrismaClient; sandbox: SandboxProvider },
+  sandbox: SandboxProvider,
   computer: {
-    id: string;
     homeKey: string;
     kind: string;
     providerRef: string | null;
@@ -476,10 +474,9 @@ export async function applyTeachingDesktopInput(
     holder: "user",
     fence: 0,
   };
-  const ref = await wakeableComputerRef(deps.prisma, computer);
   if (mapped.kind === "scroll") {
-    await deps.sandbox.act(
-      ref,
+    await sandbox.act(
+      toComputerRef(computer),
       {
         actions: [
           {
@@ -502,7 +499,7 @@ export async function applyTeachingDesktopInput(
     desktop.kind === "key" && desktop.key && !desktop.modifiers?.length
       ? computerInputForDomKey(desktop.key)
       : desktop;
-  await deps.sandbox.sendInput(ref, input, lease, context);
+  await sandbox.sendInput(toComputerRef(computer), input, lease, context);
 }
 
 function protectedInputMissesRecording(
@@ -580,7 +577,7 @@ export async function recordTeachingInputEvent(
       if (protectedInputMissesRecording(mapped, active?.id)) return "stale";
     }
     await applyTeachingDesktopInput(
-      deps,
+      deps.sandbox,
       prepared.computer,
       mapped,
       computerContext(actor, botId, "input"),

@@ -110,7 +110,6 @@ import {
   agentToolDefinitions,
   createQueue,
   describeToolActivity,
-  maxToolCallsPerTurn,
   redactAskUserDetailInMessage,
   releaseToolCallBudget,
   toAgentTools,
@@ -156,8 +155,6 @@ export class PiAgentRuntime implements AgentRuntime {
   private readonly onContextDecision?: PiAgentRuntimeOptions["onContextDecision"];
 
   constructor(options: PiAgentRuntimeOptions = {}) {
-    // A mistyped cap fails when the worker or API starts, not on the first tool call.
-    maxToolCallsPerTurn();
     this.modelFetch = options.modelFetch;
     this.modelCallObserver = options.modelCallObserver;
     this.onContextDecision = options.onContextDecision;
@@ -497,7 +494,6 @@ export class PiAgentRuntime implements AgentRuntime {
                       operationKind: request.usageOperationKind ?? "answer",
                       userId: context?.userId,
                       runId: request.runId,
-                      billing: target.config.billing,
                     },
                     {
                       ...usageHooks,

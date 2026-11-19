@@ -121,7 +121,7 @@ describe("computer provisioning", () => {
           "computer-1",
           context,
         ),
-      ).resolves.toEqual({ ...ref, startSize: "standard" });
+      ).resolves.toEqual(ref);
       expect(provision).toHaveBeenCalledOnce();
       expect(prisma.computer.updateMany).toHaveBeenLastCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ state: "running" }) }),
@@ -1322,9 +1322,8 @@ describe("computer provisioning", () => {
       expect(updateMany.mock.invocationCallOrder[markIndex]).toBeLessThan(
         vi.mocked(sandbox.prepare).mock.invocationCallOrder[1]!,
       );
-      // The recovery failed for another reason, so the next start tries again instead of parking it.
       expect(updateMany).toHaveBeenLastCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ state: "error" }) }),
+        expect.objectContaining({ data: { state: "error", restorePending: true } }),
       );
     } finally {
       await rm(dataDir, { recursive: true, force: true });
@@ -1453,17 +1452,13 @@ describe("computer provisioning", () => {
           await vi.advanceTimersByTimeAsync(250);
           await new Promise((resolve) => setImmediate(resolve));
         }
-        await expect(started).resolves.toEqual({ ...ref, startSize: "standard" });
+        await expect(started).resolves.toEqual(ref);
         const activation = {
           state: "running",
           providerRef: next.providerRef,
           kind: next.kind,
           restorePending: false,
           runningSince: expect.any(Date),
-          ...(next.kind === "boat" && {
-            runningSize: "standard",
-            runningSizeSince: expect.any(Date),
-          }),
         };
         expect(prepare).toHaveBeenCalledWith(ref, context);
         expect(await sandbox.readFile(ref, "notes/keep.txt", context)).toEqual(saved);
@@ -1911,7 +1906,7 @@ describe("computer provisioning", () => {
         if (prepareFails) {
           await expect(result).rejects.toThrow("provider preparation failed");
         } else {
-          await expect(result).resolves.toEqual({ ...ref, startSize: "standard" });
+          await expect(result).resolves.toEqual(ref);
         }
         expect(prepare).toHaveBeenCalledWith(ref, context);
         expect(sandbox.importWorkspace).not.toHaveBeenCalled();
@@ -1975,7 +1970,7 @@ describe("computer provisioning", () => {
           "computer-1",
           context,
         ),
-      ).resolves.toEqual({ ...ref, startSize: "standard" });
+      ).resolves.toEqual(ref);
       expect(importWorkspace).toHaveBeenCalledTimes(1);
       expect(updateMany).toHaveBeenCalledTimes(2);
       expect(updateMany).toHaveBeenLastCalledWith(
@@ -2082,7 +2077,7 @@ describe("the record of a machine a start created", () => {
   it("is dropped in the transaction that stores the machine and leaves booting", async () => {
     const { row, writes, run } = start();
 
-    await expect(run()).resolves.toEqual({ ...ref, startSize: "standard" });
+    await expect(run()).resolves.toEqual(ref);
 
     expect(row).toMatchObject({ state: "running", providerRef: "machine-1" });
     expect(writes).toEqual(["in transaction: running", `in transaction: cancel ${key}`]);
@@ -2205,9 +2200,6 @@ describe("Team Computer wake", () => {
           modelCredits: { mode: "credits" },
           billing: { creditAmountCents: 5000 },
         }),
-      },
-      computerAllowanceGrant: {
-        aggregate: vi.fn().mockResolvedValue({ _sum: { amountCents: null } }),
       },
       // $10 of a $50 plan, at the default $0.10 an hour.
       $queryRaw: vi.fn().mockResolvedValue([{ kind: "e2b", hours: 100 }]),
@@ -2332,59 +2324,6 @@ describe("Team Computer wake", () => {
     });
   });
 
-  it("bills a new run at Standard when a sized provider cannot confirm its size", async () => {
-    const harness = wakeHarness("stopped", undefined, { kind: "boat" }, { kind: "boat" });
-
-    await boot(harness);
-
-    const startedAt = activation(harness)?.runningSince;
-    expect(activation(harness)).toMatchObject({
-      runningSize: "standard",
-      runningSizeSince: startedAt,
-    });
-    expect(harness.prisma.computerRun.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({ data: [expect.objectContaining({ startedAt, size: "standard" })] }),
-    );
-  });
-
-  it("keeps the starting rate and lifetime when reconnecting reports a different size", async () => {
-    const runningSince = new Date("2024-01-01T00:00:00.000Z");
-    const harness = wakeHarness(
-      "running",
-      undefined,
-      { kind: "boat", size: "large" },
-      { kind: "boat", runningSince, runningSize: "standard", runningSizeSince: runningSince },
-    );
-
-    await boot(harness);
-
-    expect(activation(harness)?.runningSince).toEqual(runningSince);
-    expect(harness.prisma.computerRun.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: [expect.objectContaining({ startedAt: runningSince, size: "standard" })],
-      }),
-    );
-  });
-
-  it("hands back a reference that wakes the computer at its planned size", async () => {
-    const harness = wakeHarness("stopped");
-    vi.mocked(planComputerSize).mockResolvedValueOnce("large");
-
-    await expect(boot(harness)).resolves.toMatchObject({ startSize: "large" });
-  });
-
-  it("wakes a reused running computer at its planned size", async () => {
-    const harness = wakeHarness("running", undefined, { kind: "boat" }, { kind: "boat" });
-    Object.assign(harness.sandbox, { isRunning: vi.fn().mockResolvedValue(true) });
-    vi.mocked(planComputerSize).mockResolvedValueOnce("large");
-
-    await expect(boot(harness)).resolves.toMatchObject({
-      providerRef: "sandbox-1",
-      startSize: "large",
-    });
-    expect(harness.sandbox.provision).not.toHaveBeenCalled();
-  });
-
   it("ends a run the provider stopped on its own when reconnecting has to start it again", async () => {
     const harness = wakeHarness(
       "running",
@@ -2405,13 +2344,13 @@ describe("Team Computer wake", () => {
       new Error("database unavailable"),
     );
 
-    await expect(boot(harness)).resolves.toEqual({ ...harness.ref, startSize: "standard" });
+    await expect(boot(harness)).resolves.toEqual(harness.ref);
   });
 
   it("removes folders of bots deleted while the Team Computer was stopped", async () => {
     const harness = wakeHarness("stopped");
 
-    await expect(boot(harness)).resolves.toEqual({ ...harness.ref, startSize: "standard" });
+    await expect(boot(harness)).resolves.toEqual(harness.ref);
 
     expect(harness.findMany).toHaveBeenCalledWith({
       where: { spaceId: "workspace-1" },
@@ -2430,7 +2369,7 @@ describe("Team Computer wake", () => {
   it("does not look for deleted bots' folders when reconnecting to a running Team Computer", async () => {
     const harness = wakeHarness("running");
 
-    await expect(boot(harness)).resolves.toEqual({ ...harness.ref, startSize: "standard" });
+    await expect(boot(harness)).resolves.toEqual(harness.ref);
 
     expect(harness.findMany).not.toHaveBeenCalled();
   });
@@ -2447,7 +2386,7 @@ describe("Team Computer wake", () => {
         provisioned,
       );
 
-      await expect(boot(harness)).resolves.toEqual({ ...harness.ref, startSize: "standard" });
+      await expect(boot(harness)).resolves.toEqual(harness.ref);
 
       expect(harness.execute).toHaveBeenCalledWith(
         harness.ref,
@@ -2477,7 +2416,7 @@ describe("Team Computer wake", () => {
       await cleanupStarted.promise;
       await vi.advanceTimersByTimeAsync(20_000);
 
-      await expect(booting).resolves.toEqual({ ...harness.ref, startSize: "standard" });
+      await expect(booting).resolves.toEqual(harness.ref);
     } finally {
       vi.useRealTimers();
     }
@@ -2491,7 +2430,7 @@ describe("Team Computer wake", () => {
     const sink = createTestSink();
     installLogger(createLogger({ service: "test", sinks: [sink] }));
     try {
-      await expect(boot(harness)).resolves.toEqual({ ...harness.ref, startSize: "standard" });
+      await expect(boot(harness)).resolves.toEqual(harness.ref);
     } finally {
       installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
     }

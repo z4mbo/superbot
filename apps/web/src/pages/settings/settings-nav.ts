@@ -86,7 +86,14 @@ export function useSettingsNavItems(available: {
         ]
       : []),
     ...(available.computer
-      ? [{ id: "computer" as const, label: t`Computers`, icon: Monitor }]
+      ? [
+          {
+            id: "computer" as const,
+            label: t`Computer`,
+            icon: Monitor,
+            description: t`The computer your bots work on.`,
+          },
+        ]
       : []),
     ...(available.labs ? [{ id: "labs" as const, label: t`Labs`, icon: FlaskConical }] : []),
     { id: "usage", label: t`Usage`, icon: Gauge },

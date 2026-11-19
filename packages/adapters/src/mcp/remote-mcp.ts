@@ -98,6 +98,8 @@ export interface RemoteMcpOptions extends RemoteTransportDependencies, RemoteUrl
   elicitation?: boolean;
   /** Who a call's questions go to; without an `ask` they are declined. */
   asker?: McpCallAsker;
+  authorizeTool?: (schema: Record<string, unknown>) => void;
+  authorizeRequest?: () => Promise<void>;
 }
 
 /** A reusable Streamable HTTP session failed below the protocol: the guarded
@@ -199,11 +201,18 @@ export async function callRemoteMcpTool(
   args: Record<string, unknown>,
   projectResult?: (result: unknown) => unknown,
 ): Promise<unknown> {
-  const long = options.longToolCalls === true;
+  const { asker, authorizeTool, longToolCalls: long = false } = options;
   return withScopedMcpClient(
     options,
-    (client, signal, router) =>
-      callMcpTool(client, signal, router, options.asker, toolName, args, long, projectResult),
+    async (client, signal, router) => {
+      if (authorizeTool) {
+        const { tools } = await listMcpTools(client, { signal, timeout: MCP_TIMEOUT_MS });
+        const matching = tools.filter((tool) => tool.name === toolName);
+        if (matching.length !== 1) throw new Error("MCP tool is unavailable");
+        authorizeTool(matching[0]!.inputSchema);
+      }
+      return callMcpTool(client, signal, router, asker, toolName, args, long, projectResult);
+    },
     // A long call keeps its own clock, which leaves out the time a person spends answering.
     long ? null : MCP_TIMEOUT_MS,
   );
@@ -291,7 +300,7 @@ async function withRemoteMcpClient<T>(
     options.fetch,
     options.resolveHostname ?? resolveHostname,
     policy,
-    undefined,
+    options.authorizeRequest,
     MCP_HTTP_TIMEOUTS,
   );
   const transport = new StreamableHTTPClientTransport(endpoint, {
@@ -485,7 +494,7 @@ export class RemoteMcpSessionCache {
       options.fetch,
       options.resolveHostname ?? resolveHostname,
       policy,
-      undefined,
+      options.authorizeRequest,
       MCP_HTTP_TIMEOUTS,
     );
     const transport = new StreamableHTTPClientTransport(endpoint, {
@@ -677,7 +686,7 @@ export function createSafeRemoteFetch(
   resolve: ResolveHostname = resolveHostname,
   policy: RemoteUrlPolicy = {},
   /** Called once the destination is checked, just before the request is sent; a throw stops it. */
-  beforeSend?: () => void,
+  beforeSend?: () => void | Promise<void>,
   /** The HTTP client's waits for headers and between body chunks; its defaults otherwise. */
   responseTimeouts?: { headersTimeout: number; bodyTimeout: number },
 ): SafeRemoteFetch {
@@ -695,7 +704,7 @@ export function createSafeRemoteFetch(
       throw new Error("Connector fetch requires a URL, not a Request");
     }
     const { url, addresses } = await inspectSafeRemoteUrl(String(input), resolve, policy);
-    beforeSend?.();
+    if (beforeSend) await beforeSend();
     let response: Response;
     try {
       const requestInit = { ...init, redirect: "manual" as const };

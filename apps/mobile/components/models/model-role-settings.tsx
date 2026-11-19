@@ -157,8 +157,6 @@ export function ModelRoleSettings({
   // What runs when the member chose no first model; named in the empty row.
   const deployment = state.settings?.deploymentPrimary ?? null;
   const deploymentName = deployment ? modelLabel(deployment) : null;
-  // The deployment pays for its default, so it reads as included rather than as a provider bill.
-  const included = state.settings?.deploymentIncluded ? t`Included` : undefined;
   /** The row's own connection, or the provider's newest for rows that name none. */
   const connectionFor = (choice: ModelRoleChoice) => connectionForModelChoice(credentials, choice);
   const connectionName = (choice: ModelRoleChoice) => {
@@ -268,11 +266,8 @@ export function ModelRoleSettings({
           ? [
               {
                 key: "default",
-                label: included
-                  ? withConnectionName(deploymentName ?? defaultLabel, included)
-                  : (deploymentName ?? defaultLabel),
+                label: deploymentName ?? defaultLabel,
                 modelLabel: deploymentName ?? defaultLabel,
-                detail: included,
               },
             ]
           : []),
@@ -381,7 +376,7 @@ export function ModelRoleSettings({
           key="empty"
           leading={ordered ? number(0) : undefined}
           title={deploymentName ?? defaultLabel}
-          detail={deployment ? (included ?? providerName(deployment)) : undefined}
+          detail={deployment ? providerName(deployment) : undefined}
           disabled={busy}
           onPress={() => pick("empty")}
         />

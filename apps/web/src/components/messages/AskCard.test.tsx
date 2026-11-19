@@ -389,60 +389,14 @@ it("keeps an accepted question choice answered until the block updates", async (
   await act(async () => button("AParis")!.click());
 
   expect(onAnswer).toHaveBeenCalledWith("paris");
-  expect(container.querySelector(".sr-only")?.textContent).toBe("Answered");
+  expect(container.textContent).not.toContain("Answered");
   expect(button("AParis")!.getAttribute("aria-pressed")).toBe("true");
   expect(button("BLondon")!.disabled).toBe(true);
   expect(container.querySelector(".text-destructive")).toBeNull();
 
   await render({ ...block, status: "answered", answer: "london" });
   expect(button("BLondon")!.getAttribute("aria-pressed")).toBe("true");
-  expect(button("AParis")!.getAttribute("aria-pressed")).toBe("false");
-});
-
-it("announces an answered question's state and marks only the chosen option", async () => {
-  await render({
-    kind: "ask",
-    text: "Which city?",
-    status: "answered",
-    answer: "london",
-    actions: [
-      { id: "paris", label: "Paris" },
-      { id: "london", label: "London" },
-    ],
-  });
-  expect(container.querySelector(".sr-only")?.textContent).toBe("Answered");
-  expect(button("AParis")!.getAttribute("aria-pressed")).toBe("false");
-  expect(button("BLondon")!.getAttribute("aria-pressed")).toBe("true");
-});
-
-it("announces an expired question as expired with no option chosen", async () => {
-  await render({
-    kind: "ask",
-    text: "Which city?",
-    status: "answered",
-    expired: true,
-    actions: [
-      { id: "paris", label: "Paris" },
-      { id: "london", label: "London" },
-    ],
-  });
-  expect(container.querySelector(".sr-only")?.textContent).toBe("Expired");
-  expect(button("AParis")!.getAttribute("aria-pressed")).toBe("false");
-  expect(button("BLondon")!.getAttribute("aria-pressed")).toBe("false");
-});
-
-it("leaves an unanswered question's options as plain actions", async () => {
-  await render({
-    kind: "ask",
-    text: "Which city?",
-    status: "pending",
-    actions: [
-      { id: "paris", label: "Paris" },
-      { id: "london", label: "London" },
-    ],
-  });
-  expect(container.querySelector("[aria-pressed]")).toBeNull();
-  expect(container.querySelector(".sr-only")).toBeNull();
+  expect(button("AParis")!.hasAttribute("aria-pressed")).toBe(false);
 });
 
 it("dims a closed question's options without a status line", async () => {
@@ -864,8 +818,7 @@ it("dims the options a typed answer did not match", async () => {
   });
   expect(container.querySelector('[data-testid="ask-answer"]')).toBeNull();
   expect(container.textContent).not.toContain("Paris");
-  expect(button("ABerlin")!.getAttribute("aria-pressed")).toBe("false");
-  expect(button("BSeoul")!.getAttribute("aria-pressed")).toBe("false");
+  expect(container.querySelector("[aria-pressed]")).toBeNull();
 
   await render({
     kind: "ask",

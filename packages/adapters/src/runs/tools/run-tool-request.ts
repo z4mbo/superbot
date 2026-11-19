@@ -3,6 +3,7 @@ import { BOT_INSTRUCTIONS_MAX_LENGTH, BotSecretAuth, OneTimeCodeTarget } from "@
 import { redactSecrets } from "@rakazo/core";
 import { runLoginKind } from "@rakazo/db";
 import type { FleetCardSummary } from "../../approvals/approval-ask.js";
+import { MAX_APPROVAL_DETAIL_LENGTH } from "../../approvals/approval-ask.js";
 import type { TerminatingToolResult } from "../../approvals/approval-effect.js";
 import {
   approvalReplayPathError,
@@ -21,8 +22,13 @@ import { prepareAgentConnectionResponse } from "../../bots/agent-connections.js"
 import { argumentGiven, dropUnchangedOwnBotArgs } from "../../bots/update-bot-patch.js";
 import { validCloudAgentArgs } from "../../cloud-agents/cloud-agent-tools.js";
 import { sanitizeConnectorError } from "../../integrations/connector-safety.js";
+import {
+  MARKETPLACE_UNAVAILABLE,
+  marketplaceRoute,
+  marketplaceToolName,
+} from "../../integrations/marketplace-runtime.js";
 import { paidRequestEffect, restorePaidRequest } from "../../payments/paid-request.js";
-import type { PurchaseApproval, UncheckedPress } from "../../payments/purchase-gate.js";
+import type { PurchaseApproval } from "../../payments/purchase-gate.js";
 import {
   detectPurchase,
   PURCHASE_CHECKED_TOOLS,
@@ -41,7 +47,11 @@ import {
   vaultLoginUseOf,
 } from "../../secrets/vault/vault-card-use.js";
 import { isFleetApprovalTool, modelLabel, prepareFleetRequest } from "../../tools/fleet-tools.js";
-import { assertConnectorToolArgs, CATALOG_EXECUTE } from "../../tools/lazy-tool-catalog.js";
+import {
+  assertConnectorToolArgs,
+  CATALOG_EXECUTE,
+  parseConnectorToolArgs,
+} from "../../tools/lazy-tool-catalog.js";
 import { SCHEDULE_TOOL_NAMES } from "../../tools/schedule-tools.js";
 import { SKILL_TOOL_NAMES } from "../../tools/skill-tools.js";
 import type { RunContext } from "../assembly/run-context.js";
@@ -137,7 +147,11 @@ export async function resolveToolRequest(
     );
   }
   let effectRequest: unknown = name === "paid_request" ? paidRequestEffect(args) : args;
-  if (connectorCall.route && deps.connector?.resolveCall) {
+  if (
+    connectorCall.route &&
+    !marketplaceRoute(connectorCall.route) &&
+    deps.connector?.resolveCall
+  ) {
     try {
       const resolved = await deps.connector.resolveCall(connectorCall, context);
       if (resolved) {
@@ -391,6 +405,28 @@ export async function prepareToolRequest(
   const { deps, run, bot } = ctx;
   const { name, executionId, nextApprovedTool } = request;
   let { args } = request;
+  if (marketplaceToolName(name)) {
+    const { route } = request.connectorCall;
+    if (!marketplaceRoute(route))
+      return refusal("marketplace_tool_unavailable", MARKETPLACE_UNAVAILABLE);
+    try {
+      const tool = ctx.tools.connector.get(name);
+      if (!tool) return refusal("marketplace_tool_unavailable", MARKETPLACE_UNAVAILABLE);
+      args = parseConnectorToolArgs(tool.inputSchema, args);
+      request.effectRequest = boundDirectApprovalRequest(route, args, CATALOG_APPROVAL_TOOL);
+      if (tool.readOnly !== true) {
+        const lines = [tool.label ?? name, JSON.stringify(args)];
+        if (lines.join("\n").length > MAX_APPROVAL_DETAIL_LENGTH)
+          return refusal(
+            "marketplace_tool_arguments_too_long",
+            "The marketplace call is too long to review.",
+          );
+        request.fleetSummary = { title: "Run a marketplace tool?", lines };
+      }
+    } catch (error) {
+      return refusal("marketplace_tool_arguments_invalid", sanitizeConnectorError(error));
+    }
+  }
   if (
     (SCHEDULE_TOOL_NAMES.has(name) || SKILL_TOOL_NAMES.has(name)) &&
     (ctx.source.messagingChannelRun ||
@@ -417,21 +453,6 @@ export async function prepareToolRequest(
       );
     if (isSubagentToolExecution(executionId))
       return refusal("helper_user_computer", "Helpers cannot use the user's computer.");
-    // Routines and webhooks reach no one's computer, including through a run they were handed to.
-    if (
-      await deps.prisma.steeringMessage.findFirst({
-        where: {
-          runId: ctx.runId,
-          claimedAt: { not: null },
-          originTrigger: { in: ["routine", "webhook"] },
-        },
-        select: { id: true },
-      })
-    )
-      return refusal(
-        "user_computer_unavailable",
-        "The user's computer is not available in this run.",
-      );
   }
   // The card shows and the effect stores the events in their short form, so padding can't hide one.
   if ((name === "schedule_create" || name === "schedule_update") && "on" in args) {
@@ -557,10 +578,14 @@ export async function prepareToolRequest(
         error: "Type a saved card and sign in with a saved login in separate browser_act calls.",
       };
     // A desktop press has no check on the page right before it, as a browser_act click does: one the user
-    // approved goes ahead only while the page still shows what the card did.
-    if (name === "computer_act" && approved) {
+    // approved goes ahead only while the page still shows what the card did. A card that named nothing
+    // (the check failed) has nothing to compare.
+    if (
+      name === "computer_act" &&
+      approved &&
+      (approved.site || approved.label || approved.amount)
+    ) {
       const now = await detectPurchase(ctx, name, rest);
-      if (typeof now === "string") return uncheckedPress(now);
       if (
         !now ||
         now.site !== approved.site ||
@@ -575,10 +600,7 @@ export async function prepareToolRequest(
           "The page changed since the user approved this purchase, so nothing was pressed. Look at the screen and try again.",
         );
     }
-    const detected = approved ?? (await detectPurchase(ctx, name, rest));
-    // A press that could not be checked is never pressed and never asked about, in any approval mode.
-    if (typeof detected === "string") return uncheckedPress(detected);
-    const purchase = detected;
+    const purchase = approved ?? (await detectPurchase(ctx, name, rest));
     // One card asks one question: a sign-in is never approved under a payment's.
     if (loginUse && purchase)
       return {
@@ -626,32 +648,6 @@ export async function prepareToolRequest(
   )
     request.effectRequest = args;
   return undefined;
-}
-
-/** What the model is told when a press could not be checked for a payment, so nothing was pressed. */
-function uncheckedPress(why: UncheckedPress): { error: string } {
-  switch (why) {
-    case "opened":
-      return refusal(
-        "purchase_page_opened",
-        "This presses on a page the same call opens, which couldn't be checked first, so nothing was pressed. Open the page first, then press in a separate call.",
-      );
-    case "dialog":
-      return refusal(
-        "purchase_dialog_unchecked",
-        "A confirmation dialog is open and couldn't be checked for a payment, so nothing was pressed. Press Escape to cancel it, or stop and ask the user.",
-      );
-    case "dialog-batch":
-      return refusal(
-        "purchase_dialog_batch",
-        "A dialog is open on the page, so nothing was pressed. Answer it with a single press in its own call, then continue.",
-      );
-    case "unreadable":
-      return refusal(
-        "purchase_page_unreadable",
-        "The page couldn't be read, so nothing was pressed. Reload the page or take a screenshot and try once more; if it still can't be read, stop and tell the user.",
-      );
-  }
 }
 
 /** Settings that change what this bot runs on or how it speaks; only the owner's chat sets them. */

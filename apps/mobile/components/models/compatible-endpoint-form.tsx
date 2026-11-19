@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import type { ModelApiProtocol, ModelHeaderRow } from "@rakazo/contracts";
-import { isUnlistedCompatibleModel, toggleEnabledModelId } from "@rakazo/core";
+import { toggleEnabledModelId } from "@rakazo/core";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { native, useThemedStyles } from "../../lib/native/native";
@@ -20,15 +20,15 @@ type CompatibleEndpointFormProps = {
   probing: boolean;
   baseUrl: string;
   onChangeBaseUrl: (next: string) => void;
+  onFindModels: () => void;
+  /** A known endpoint needs no setup help. */
   hasPreset: boolean;
-  keyField: ReactNode;
-  showModelPicker: boolean;
-  onToggleModelPicker: () => void;
-  showConnectionOptions: boolean;
+  showEndpointHelp: boolean;
+  onToggleEndpointHelp: () => void;
   apiProtocol: ModelApiProtocol;
   onChangeProtocol: (next: ModelApiProtocol) => void;
-  probeError: string | null;
-  onRetryProbe: () => void;
+  /** The result of finding models, shown under the protocol. */
+  probeFeedback: ReactNode;
   search: ReturnType<typeof useListSearch<string>>;
   compatibleRows: string[];
   modelId: string;
@@ -49,15 +49,13 @@ export function CompatibleEndpointForm({
   probing,
   baseUrl,
   onChangeBaseUrl,
+  onFindModels,
   hasPreset,
-  keyField,
-  showModelPicker,
-  onToggleModelPicker,
-  showConnectionOptions,
+  showEndpointHelp,
+  onToggleEndpointHelp,
   apiProtocol,
   onChangeProtocol,
-  probeError,
-  onRetryProbe,
+  probeFeedback,
   search,
   compatibleRows,
   modelId,
@@ -73,6 +71,7 @@ export function CompatibleEndpointForm({
 }: CompatibleEndpointFormProps) {
   const styles = useThemedStyles(createModelsStyles);
   const { t } = useLingui();
+  const effectiveBaseUrl = baseUrl.trim();
   const protocolChoices: { key: ModelApiProtocol; label: string }[] = [
     { key: "chat-completions", label: t`Chat Completions` },
     { key: "responses", label: t`Responses` },
@@ -82,35 +81,69 @@ export function CompatibleEndpointForm({
 
   return (
     <>
-      {hasPreset ? null : (
+      <Text style={styles.sectionTitle}>{t`Server URL`}</Text>
+      <TextInput
+        accessibilityLabel={t`OpenAI-compatible server URL`}
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={!busy}
+        onChangeText={onChangeBaseUrl}
+        placeholder={t`http://127.0.0.1:8000/v1`}
+        placeholderTextColor={native.tertiaryLabel}
+        style={styles.keyInput}
+        value={baseUrl}
+      />
+      <NativeActionButton
+        disabled={busy || probing || !effectiveBaseUrl}
+        fill
+        label={probing ? t`Finding…` : t`Find models`}
+        onPress={onFindModels}
+        prominence="secondary"
+        style={{ marginTop: 12 }}
+      />
+      {!hasPreset ? (
         <>
-          <Text style={styles.sectionTitle}>{t`Server URL`}</Text>
-          <TextInput
-            accessibilityLabel={t`OpenAI-compatible server URL`}
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!busy}
-            onChangeText={onChangeBaseUrl}
-            placeholder={t`http://127.0.0.1:8000/v1`}
-            placeholderTextColor={native.tertiaryLabel}
-            style={styles.keyInput}
-            value={baseUrl}
+          <DisclosureRow
+            label={t`Setup help`}
+            expanded={showEndpointHelp}
+            onPress={onToggleEndpointHelp}
           />
+          {showEndpointHelp ? (
+            <Text
+              style={styles.hint}
+            >{t`Paste the OpenAI-compatible address from your server. Rakazo adds /v1 if needed.`}</Text>
+          ) : null}
         </>
-      )}
-      {keyField}
-      {compatibleRows.length ? (
-        <DisclosureRow label={t`Model`} expanded={showModelPicker} onPress={onToggleModelPicker} />
-      ) : (
-        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>{t`Model`}</Text>
-      )}
-      {compatibleRows.includes(modelId) && !showModelPicker ? (
-        <Text style={styles.secondary}>{modelId}</Text>
       ) : null}
-      {showModelPicker && search.showSearch ? (
+      <MenuPickerMenu
+        label={t`Protocol`}
+        choices={protocolChoices}
+        value={apiProtocol}
+        disabled={busy}
+        onChange={(value) => {
+          onChangeProtocol(value as ModelApiProtocol);
+        }}
+      >
+        <View>
+          <SettingsRow
+            title={t`Protocol`}
+            value={apiProtocolLabel}
+            chevron="down"
+            accessibilityRole="button"
+            accessible
+            accessibilityLabel={t`Protocol`}
+            accessibilityState={{ disabled: busy }}
+            accessibilityValue={{ text: apiProtocolLabel }}
+          />
+        </View>
+      </MenuPickerMenu>
+      {probeFeedback}
+      <Text style={[styles.sectionTitle, { marginTop: 12 }]}>{t`Model`}</Text>
+      {/* The switches stay visible while the default is "Other model…" or a typed id. */}
+      {search.showSearch ? (
         <ListSearchInput query={search.query} setQuery={search.setQuery} />
       ) : null}
-      {showModelPicker && compatibleRows.length ? (
+      {compatibleRows.length ? (
         <View style={styles.card}>
           {search.visible.map((entry) => (
             // The switch sits beside the radio, not inside it: an accessible
@@ -120,10 +153,7 @@ export function CompatibleEndpointForm({
                 accessibilityRole="radio"
                 accessibilityState={{ selected: entry === modelId }}
                 disabled={probing}
-                onPress={() => {
-                  onSelectModel(entry);
-                  onToggleModelPicker();
-                }}
+                onPress={() => onSelectModel(entry)}
                 style={({ pressed }) => [
                   styles.modelRowChoice,
                   probing && styles.disabled,
@@ -176,9 +206,7 @@ export function CompatibleEndpointForm({
           {probeModels.length ? (
             <Pressable
               accessibilityRole="button"
-              onPress={() => {
-                onSelectModel(probeModels[0] ?? "");
-              }}
+              onPress={() => onSelectModel(probeModels[0] ?? "")}
               style={({ pressed }) => [pressed && styles.pressed]}
             >
               <Text style={styles.textAction}>{t`Use a found model`}</Text>
@@ -186,64 +214,14 @@ export function CompatibleEndpointForm({
           ) : null}
         </>
       )}
-      {isUnlistedCompatibleModel(modelId, probeModels) ? (
-        <Text style={styles.secondary} accessibilityLiveRegion="polite">
-          {t`The server didn’t list this model.`}
-        </Text>
-      ) : null}
-      {probing ? (
-        <Text style={styles.secondary} accessibilityLiveRegion="polite">{t`Finding…`}</Text>
-      ) : null}
-      {probeError ? (
-        <>
-          <Text style={styles.error} accessibilityLiveRegion="polite">
-            {probeError}
-          </Text>
-          <NativeActionButton
-            disabled={busy}
-            fill={false}
-            label={t`Try again`}
-            prominence="secondary"
-            onPress={onRetryProbe}
-          />
-        </>
-      ) : null}
-      {showConnectionOptions ? (
-        <>
-          <DisclosureRow label={t`Advanced`} expanded={showAdvanced} onPress={onToggleAdvanced} />
-          {showAdvanced ? (
-            <>
-              <MenuPickerMenu
-                label={t`Protocol`}
-                choices={protocolChoices}
-                value={apiProtocol}
-                disabled={busy}
-                onChange={(value) => {
-                  onChangeProtocol(value as ModelApiProtocol);
-                }}
-              >
-                <View>
-                  <SettingsRow
-                    title={t`Protocol`}
-                    value={apiProtocolLabel}
-                    chevron="down"
-                    accessibilityRole="button"
-                    accessible
-                    accessibilityLabel={t`Protocol`}
-                    accessibilityState={{ disabled: busy }}
-                    accessibilityValue={{ text: apiProtocolLabel }}
-                  />
-                </View>
-              </MenuPickerMenu>
-              <HeaderRowsEditor
-                rows={headerRows}
-                onChange={onChangeHeaderRows}
-                disabled={busy}
-                savedValuePlaceholder={savedHeaderPlaceholder}
-              />
-            </>
-          ) : null}
-        </>
+      <DisclosureRow label={t`Advanced`} expanded={showAdvanced} onPress={onToggleAdvanced} />
+      {showAdvanced ? (
+        <HeaderRowsEditor
+          rows={headerRows}
+          onChange={onChangeHeaderRows}
+          disabled={busy}
+          savedValuePlaceholder={savedHeaderPlaceholder}
+        />
       ) : null}
     </>
   );

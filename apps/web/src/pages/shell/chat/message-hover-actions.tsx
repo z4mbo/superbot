@@ -95,7 +95,10 @@ export function MessageHoverActions({
           <Reply size={15} strokeWidth={1.7} />
         </button>
         <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
-          <DropdownMenuTrigger aria-label={t`More`} className={iconButtonClass}>
+          <DropdownMenuTrigger
+            aria-label={copied ? t`Copied` : t`More`}
+            className={iconButtonClass}
+          >
             {copied ? (
               <Check size={15} strokeWidth={1.7} />
             ) : (
@@ -129,9 +132,6 @@ export function MessageHoverActions({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <span role="status" className="sr-only">
-          {copied ? t`Copied` : null}
-        </span>
       </div>
       <CopyTextFallback
         open={copyFailed}

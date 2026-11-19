@@ -318,7 +318,6 @@ export class DesktopUpdateController {
   /** Bumped by each download and updater error, so only the latest verification can finish. */
   private verificationAttempt = 0;
   private checkPromise: Promise<DesktopUpdateState> | null = null;
-  private emittedCheckErrors: Set<unknown> | null = null;
   private downloadPromise: Promise<DesktopUpdateState> | null = null;
   private checkWasRequested = false;
   private installStarted = false;
@@ -423,10 +422,7 @@ export class DesktopUpdateController {
             downloadedFileFrom(payload),
           );
         });
-        updater.on("error", (error) => {
-          this.emittedCheckErrors?.add(error);
-          this.fail(error);
-        });
+        updater.on("error", (error) => this.fail(error));
         this.loadedUpdater = updater;
         return updater;
       })
@@ -493,20 +489,12 @@ export class DesktopUpdateController {
     now = this.clock.now();
     if (!shouldCheck(this.current, now, this.lastCheck, checkOptions)) return this.current;
     this.lastCheck = now;
-    const emittedErrors = new Set<unknown>();
-    this.emittedCheckErrors = emittedErrors;
     try {
       await updater.checkForUpdates();
     } catch (error) {
-      // The updater can emit and reject with the same error; the event already set the UI state.
-      if (
-        !emittedErrors.has(error) &&
-        (this.current.phase === "idle" || this.current.phase === "checking")
-      ) {
+      if (this.current.phase === "idle" || this.current.phase === "checking") {
         this.push({ type: "failed", error, userInitiated: this.checkWasRequested });
       }
-    } finally {
-      this.emittedCheckErrors = null;
     }
     return this.current;
   }

@@ -434,21 +434,15 @@ export function BackToTop({ label }: { label?: string }) {
 
 type TocItem = { label?: string; id?: string; depth?: number };
 
-/**
- * Lowercase words joined by dashes: the anchor a Section gets from its heading.
- * Latin accents are dropped, while combining marks in other scripts (kana dakuten,
- * Indic and Thai vowel signs) are kept and the result is recomposed to NFC.
- * The cap counts code points, so it never splits a surrogate pair.
- */
+/** Lowercase words joined by dashes: the anchor a Section gets from its heading. */
 export function slugify(value: string): string {
-  const slug = value
+  return value
     .normalize("NFKD")
     .toLowerCase()
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-")
-    .normalize("NFC")
-    .replace(/^-+|-+$/g, "");
-  return Array.from(slug).slice(0, 64).join("").replace(/-+$/, "");
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
 }
 
 /** The heading the reader is in: the last one scrolled past, or the first. */

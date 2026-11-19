@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import type { JobPublisher, JobQueueOrder, JobWorkerHost } from "@rakazo/adapter-kit";
-import { liveModelCatalogEnabled, unwrapEnvFromKeyManager } from "@rakazo/adapters";
+import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
+import { unwrapEnvFromKeyManager } from "@rakazo/adapters";
 import { configuredMeetingMedia } from "@rakazo/adapters/meeting-media";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import { stopOnShutdownSignals } from "@rakazo/core/node/shutdown-signals";
@@ -51,7 +51,6 @@ import {
   meetingCalendarScope,
   messagingEnvFromProcess,
   messagingPlatformsFromEnv,
-  openAiCompatAllowPublicHosts,
   PiAgentRuntime,
   PostgresRealtimeFanout,
   PrismaPushTokenStore,
@@ -74,11 +73,7 @@ import {
   withSecretPersistence,
   withSecretWriteAhead,
 } from "@rakazo/adapters";
-import { abortableDelay, parseEnvFlag } from "@rakazo/core";
-import {
-  MAX_SANDBOX_COMMAND_TIMEOUT_MS,
-  sandboxCommandTimeoutExceedsMax,
-} from "@rakazo/core/node/sandbox-command";
+import { abortableDelay } from "@rakazo/core";
 import { resolveMeetingSigningKey, resolveSupervisorToken } from "@rakazo/core/node/secrets-guard";
 import {
   createBoardEvents,
@@ -108,10 +103,6 @@ async function main() {
   const stopStallWatch = watchEventLoopStalls("worker.event_loop_stalled");
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
-  if (sandboxCommandTimeoutExceedsMax(process.env))
-    logger.warn("SANDBOX_COMMAND_TIMEOUT_MS is above the maximum; using the maximum", {
-      maximumMs: MAX_SANDBOX_COMMAND_TIMEOUT_MS,
-    });
   const poolMax = parsePositiveInteger(process.env.DB_POOL_MAX, 8);
   // Three queue listeners and reconciliation leadership hold connections. Leave
   // room for job queries and transactions instead of starting a stalled worker.
@@ -163,11 +154,7 @@ async function main() {
     analytics,
     runSecretWriter: createRunSecretWriter(secrets),
   });
-  // Fail at boot rather than on the first catalog read, which would fail a run.
-  liveModelCatalogEnabled(process.env);
   const env = runRuntimeEnvFromProcess(process.env);
-  // Read per request by model connections; refuse a bad value at boot like the API does.
-  openAiCompatAllowPublicHosts();
   const boardEvents = createBoardEvents(realtime);
   const runtime =
     process.env.AGENT_RUNTIME === "scripted"
@@ -200,7 +187,7 @@ async function main() {
     process.env.RUN_DRAIN_ENABLED === "true" ? RUN_DRAIN_MS : 0,
   );
   const runs = new RunStarter(realtime, { signal: shutdown.signal });
-  const jobs: JobPublisher & JobQueueOrder =
+  const jobs: JobPublisher =
     inMemoryJobs ?? new RunJobPublisher(prisma, new GraphileJobPublisher(pool, prisma), runs);
   secretCleanupJobs = jobs;
   const connectors = createConnectorRuntime(env, { prisma, secrets, events, jobs });
@@ -324,12 +311,12 @@ async function main() {
     cloudAgent,
     // Device sockets live in an API process; the worker forwards to whichever one holds it.
     userDevices: withHostComputerScreen(
-      parseEnvFlag("USER_DEVICES_ENABLED", process.env.USER_DEVICES_ENABLED, true)
-        ? new UserDevices({
+      process.env.USER_DEVICES_ENABLED === "false"
+        ? undefined
+        : new UserDevices({
             prisma,
             forwardSecret: userDeviceForwardSecret(env.encryptionKey),
-          })
-        : undefined,
+          }),
       {
         prisma,
         sandboxKind: sandboxProvider,

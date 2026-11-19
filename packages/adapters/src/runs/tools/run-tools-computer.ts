@@ -6,7 +6,7 @@ import { COMPUTER_COMMAND_OUTPUT_MAX_CHARS } from "@rakazo/contracts";
 import { redactSecrets } from "@rakazo/core";
 import { sandboxCommandTimeoutMs } from "@rakazo/core/node/sandbox-command";
 import { RunHistoryWriteError, releasePayment } from "@rakazo/db";
-import { bestEffort, getLogger } from "@rakazo/logging";
+import { getLogger } from "@rakazo/logging";
 import { recordPagePayment } from "../../billing/spending-gate.js";
 import { getActiveTeachingSession } from "../../bots/teaching-session.js";
 import {
@@ -249,13 +249,8 @@ export async function pageBrowserTool(ctx: RunContext, call: ToolCall) {
   // Where the page is, from the browser's own result: page text the run hides is never a URL to match.
   // A refused step reports no address, which leaves the last one the run saw.
   const raw = ctx.providers.browser;
-  const seen = <T extends { url?: string; ok?: boolean; uncertain?: boolean }>(result: T) => {
-    // A failed or unsure step may have moved the page, and reports the page it asked for, not the
-    // one the browser shows; only a step that went through says where the page now is.
-    const unsure = result.ok === false || result.uncertain === true;
+  const seen = <T extends { url?: string }>(result: T) => {
     if (result.url) ctx.state.pageUrl = result.url;
-    if (unsure) ctx.state.pageUrlUncertain = true;
-    else if (result.url) ctx.state.pageUrlUncertain = false;
     return result;
   };
   const pageUrlTrackingBrowser: BrowserProvider = {
@@ -565,27 +560,14 @@ export const computerTools: ToolHandlers = {
       exitCode: null,
       output: "",
     });
-    let latestOutput = "";
-    let lastPublishedAt = 0;
-    let publishTimer: ReturnType<typeof setTimeout> | undefined;
-    const clearPublishTimer = () => {
-      if (publishTimer) clearTimeout(publishTimer);
-      publishTimer = undefined;
-    };
-    // A stale debounced "running" must not land after the terminal event.
-    const recordFailure = async (error: unknown) => {
-      clearPublishTimer();
-      await appendComputerCommand(ctx, {
-        ...commandEvent,
-        status: "done",
-        exitCode: 1,
-        output: redactSecrets(
-          error instanceof Error ? error.message : "command failed",
-          ctx.secrets,
-        ).slice(-COMPUTER_COMMAND_OUTPUT_MAX_CHARS),
-      });
-    };
     try {
+      let latestOutput = "";
+      let lastPublishedAt = 0;
+      let publishTimer: ReturnType<typeof setTimeout> | undefined;
+      const clearPublishTimer = () => {
+        if (publishTimer) clearTimeout(publishTimer);
+        publishTimer = undefined;
+      };
       const publishRunning = (output: string, immediate = false) => {
         latestOutput = output.slice(-COMPUTER_COMMAND_OUTPUT_MAX_CHARS);
         const send = () => {
@@ -656,25 +638,17 @@ export const computerTools: ToolHandlers = {
         for (const item of commandEnvironment.used) await recordVaultUse(ctx, name, item);
       });
       if (observed.completion) {
-        const completion = observed.completion.then(
-          async (final) => {
-            clearPublishTimer();
-            await appendComputerCommand(ctx, {
-              ...commandEvent,
-              status: "done",
-              exitCode: final.code,
-              output: commandOutput(final, false).slice(-COMPUTER_COMMAND_OUTPUT_MAX_CHARS),
-            });
-            return final;
-          },
-          async (error: unknown) => {
-            await recordFailure(error);
-            throw error;
-          },
-        );
-        // The failure is recorded above and reaches the observer through `completion`; this
-        // only keeps an unobserved rejection from being reported as unhandled.
-        void bestEffort("background shell command", completion);
+        const completion = observed.completion.then(async (final) => {
+          clearPublishTimer();
+          await appendComputerCommand(ctx, {
+            ...commandEvent,
+            status: "done",
+            exitCode: final.code,
+            output: commandOutput(final, false).slice(-COMPUTER_COMMAND_OUTPUT_MAX_CHARS),
+          });
+          return final;
+        });
+        void completion.catch(() => undefined);
         publishRunning(commandOutput(observed.result, true), true);
         const returned = await call.finish({
           stdout: observed.result.stdout,
@@ -696,7 +670,15 @@ export const computerTools: ToolHandlers = {
       });
       return call.finish(redacted);
     } catch (error) {
-      await recordFailure(error);
+      await appendComputerCommand(ctx, {
+        ...commandEvent,
+        status: "done",
+        exitCode: 1,
+        output: redactSecrets(
+          error instanceof Error ? error.message : "command failed",
+          ctx.secrets,
+        ).slice(-COMPUTER_COMMAND_OUTPUT_MAX_CHARS),
+      });
       throw error;
     }
   },

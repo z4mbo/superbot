@@ -51,13 +51,6 @@ export function AudioAttachment({
   // The row takes the message long-press; screen readers get the message actions on the
   // name instead so the play and share buttons stay separately focusable.
   const { accessibilityActions, onAccessibilityAction, ...touchProps } = pressableProps ?? {};
-  const playbackLabel = name.trim()
-    ? state.playing
-      ? t`Pause ${name}`
-      : t`Play ${name}`
-    : state.playing
-      ? t`Pause`
-      : t`Play`;
   return (
     <Pressable
       {...touchProps}
@@ -83,7 +76,7 @@ export function AudioAttachment({
           <ActivityIndicator color={labelColor ?? tokens.mutedForeground} />
         ) : (
           <GlassIconButton
-            accessibilityLabel={playbackLabel}
+            accessibilityLabel={state.playing ? t`Pause` : t`Play`}
             ios={state.playing ? "pause.fill" : "play.fill"}
             android={state.playing ? "pause" : "play"}
             color={labelColor}

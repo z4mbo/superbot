@@ -41,7 +41,6 @@ import {
   SandboxSizeUnavailableError,
   SandboxUnavailableError,
   SandboxUnresponsiveError,
-  WorkspaceSaveFailedError,
   WorkspaceTooLargeError,
 } from "@rakazo/adapter-kit";
 import type { ComputerSize } from "@rakazo/contracts";
@@ -95,7 +94,6 @@ import {
   createBoatClient,
   nextPoll,
 } from "./boat-client.js";
-import { BOAT_MACHINE_TYPES, boatComputerSize } from "./boat-computer.js";
 import { BoatApiError, boatResumeInProgress, boatSdk } from "./boat-errors.js";
 import { readBoatStoppedFile } from "./boat-stopped-file.js";
 
@@ -123,6 +121,13 @@ const BOAT_TRANSFER_TIMEOUT_MS = 5 * 60_000;
 /** Boat archives an abandoned build sandbox soon after a crashed build. */
 const BOAT_SNAPSHOT_BUILD_TTL_SECONDS = 30 * 60;
 
+/** Boat's machine type for each computer size: 4, 8 and 16 vCPUs with 8, 16 and 32 GB. */
+const BOAT_MACHINE_TYPES: Record<ComputerSize, SandboxTypeEnum> = {
+  standard: "default",
+  large: "large",
+  xlarge: "xlarge",
+};
+
 const RUNNABLE_STATES = new Set<SandboxStateEnum>(["ready", "idle", "running"]);
 const BOAT_NOT_RUNNING_CODES = new Set([
   "sandbox_not_ready",
@@ -135,9 +140,6 @@ const BOAT_RECOVER_WAIT_CODES = new Set([
   "recover_unsupported",
   "reset_failed",
 ]);
-
-/** A sandbox a call works on, with what that call wakes it at if it finds it stopped. */
-type BoatTarget = Pick<ComputerRef, "startSize"> & { id: string };
 
 interface BoatCommandResult {
   stdout: string;
@@ -164,7 +166,7 @@ export class BoatSandboxProvider implements SandboxProvider {
     }),
     run: async (computer, command, context) => {
       const result = await this.runCommand(
-        this.target(computer),
+        this.id(computer),
         `bash -c ${shellQuote(command)}`,
         undefined,
         120_000,
@@ -177,10 +179,10 @@ export class BoatSandboxProvider implements SandboxProvider {
       };
     },
     screenUrl: async (computer, port, context) => {
-      const sandbox = this.target(computer);
-      const hosted = await this.whenRunnable(sandbox, context.signal, () =>
+      const id = this.id(computer);
+      const hosted = await this.whenRunnable(id, context.signal, () =>
         this.client.hostPort(
-          { sandboxId: sandbox.id, hostPortRequest: { port, _public: false } },
+          { sandboxId: id, hostPortRequest: { port, _public: false } },
           { signal: context.signal },
         ),
       );
@@ -196,14 +198,13 @@ export class BoatSandboxProvider implements SandboxProvider {
       return url.toString();
     },
     runWithInput: async (computer, command, input, timeoutMs, context) => {
-      const sandbox = this.target(computer);
-      const { id } = sandbox;
+      const id = this.id(computer);
       const inputFile = `${BOAT_COMMAND_ENV}/${randomUUID()}`;
       let removed = false;
       try {
-        await this.writePrivateFile(sandbox, inputFile, input, context.signal);
+        await this.writePrivateFile(id, inputFile, input, context.signal);
         const result = await this.runCommand(
-          sandbox,
+          id,
           `exec 0< ${shellQuote(inputFile)} || exit 1; rm -f -- ${shellQuote(inputFile)}; ${command}`,
           undefined,
           timeoutMs,
@@ -290,11 +291,11 @@ export class BoatSandboxProvider implements SandboxProvider {
     const type = request.size ? BOAT_MACHINE_TYPES[request.size] : undefined;
     if (request.providerRef && request.providerKind === "boat") {
       try {
-        const running = await this.ensureRunnable(request.providerRef, context.signal, {
+        const started = await this.ensureRunnable(request.providerRef, context.signal, {
           savedAt: request.savedAt,
           type,
         });
-        return { ...this.ref(request.providerRef, request.botId, false), ...running };
+        return { ...this.ref(request.providerRef, request.botId, false), started };
       } catch (error) {
         if (!isSandboxGoneError(error)) throw error;
         this.forget(request.providerRef);
@@ -331,10 +332,7 @@ export class BoatSandboxProvider implements SandboxProvider {
         throw boatSizeError(failure);
       });
     }
-    return {
-      ...this.ref(created.sandbox.id, request.botId, true),
-      size: boatComputerSize(created.sandbox.type),
-    };
+    return this.ref(created.sandbox.id, request.botId, true);
   }
 
   /**
@@ -359,7 +357,7 @@ export class BoatSandboxProvider implements SandboxProvider {
     try {
       await this.ensureRunnable(sandbox.id, signal);
       for (const command of BOAT_COMPUTER_SETUP) {
-        const result = await this.runCommand(sandbox, command, undefined, 15 * 60_000, signal);
+        const result = await this.runCommand(sandbox.id, command, undefined, 15 * 60_000, signal);
         if (result.exitCode !== 0 || result.timedOut) {
           throw new Error("could not prepare the Boat computer snapshot", {
             cause: new Error(commandFailure(result)),
@@ -421,16 +419,15 @@ export class BoatSandboxProvider implements SandboxProvider {
   }
 
   async prepare(computer: ComputerRef, context: AdapterContext): Promise<void> {
-    const sandbox = this.target(computer);
-    const { id } = sandbox;
+    const id = this.id(computer);
     if (this.prepared.has(id)) return;
     const pending = this.preparations.get(id);
     if (pending) return pending;
     let preparation!: Promise<void>;
     preparation = (async () => {
-      await this.wake(sandbox, context.signal);
+      await this.ensureRunnable(id, context.signal);
       const result = await this.runCommand(
-        sandbox,
+        id,
         configureBoatWorkspaceCommand(),
         undefined,
         60_000,
@@ -443,20 +440,18 @@ export class BoatSandboxProvider implements SandboxProvider {
         throw new Error(`could not prepare Boat workspace (${commandFailure(result)})`);
       }
       const runtime = await this.runCommand(
-        sandbox,
+        id,
         PREPARE_LINUX_DESKTOP,
         undefined,
         180_000,
         context.signal,
       );
-      if (runtime.timedOut)
-        throw new SandboxUnresponsiveError("could not prepare computer desktop tools (timed out)");
-      if (runtime.exitCode !== 0)
+      if (runtime.exitCode !== 0 || runtime.timedOut)
         throw new Error("could not prepare computer desktop tools", {
           cause: new Error(commandFailure(runtime)),
         });
       const pageBrowser = await this.runCommand(
-        sandbox,
+        id,
         installPageBrowserCommand(),
         undefined,
         120_000,
@@ -490,8 +485,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       yield* abortedCommandEvents();
       return;
     }
-    const sandbox = this.target(computer);
-    const { id } = sandbox;
+    const id = this.id(computer);
     const timeoutMs = boundedSandboxCommandTimeoutMs(request.timeoutMs);
     const argv = sandboxCommandArgv({
       ...request,
@@ -504,9 +498,9 @@ export class BoatSandboxProvider implements SandboxProvider {
     const envFile = environment ? `${BOAT_COMMAND_ENV}/${randomUUID()}` : undefined;
     let envFileRemoved = !envFile;
     try {
-      if (envFile) await this.writePrivateFile(sandbox, envFile, environment, context.signal);
+      if (envFile) await this.writePrivateFile(id, envFile, environment, context.signal);
       const result = await this.runCommand(
-        sandbox,
+        id,
         envFile ? sourceEnvironmentCommand(envFile, argv) : argv,
         path.posix.relative(BOAT_HOME, workspaceCwd(BOAT_WORKSPACE, request.cwd, [BOAT_HOME])),
         timeoutMs,
@@ -517,11 +511,11 @@ export class BoatSandboxProvider implements SandboxProvider {
         yield* abortedCommandEvents();
         return;
       }
+      if (result.stdout) yield { type: "stdout", data: result.stdout };
       if (result.timedOut) {
-        yield* timedOutCommandEvents(timeoutMs, result);
+        yield* timedOutCommandEvents(timeoutMs);
         return;
       }
-      if (result.stdout) yield { type: "stdout", data: result.stdout };
       if (result.stderr) yield { type: "stderr", data: result.stderr };
       yield { type: "exit", code: result.exitCode };
     } catch (error) {
@@ -602,7 +596,7 @@ export class BoatSandboxProvider implements SandboxProvider {
   ): Promise<ComputerFileEntry[]> {
     const relative = normalizeWorkspacePath(directory);
     const result = await this.runCommand(
-      this.target(computer),
+      this.id(computer),
       listBoatFilesCommand(workspacePath(BOAT_WORKSPACE, relative)),
       undefined,
       60_000,
@@ -623,7 +617,7 @@ export class BoatSandboxProvider implements SandboxProvider {
     options?: { maxBytes?: number },
   ): Promise<Uint8Array> {
     return this.readRemoteFile(
-      this.target(computer),
+      this.id(computer),
       workspacePath(BOAT_WORKSPACE, filePath),
       context.signal,
       options?.maxBytes,
@@ -645,7 +639,7 @@ export class BoatSandboxProvider implements SandboxProvider {
   }
 
   async writeFile(computer: ComputerRef, file: PortableFile, context: AdapterContext) {
-    await this.writeFiles(this.target(computer), [file], context);
+    await this.writeFiles(this.id(computer), [file], context);
   }
 
   async *exportWorkspace(
@@ -653,18 +647,14 @@ export class BoatSandboxProvider implements SandboxProvider {
     context: AdapterContext,
     limits?: WorkspaceExportLimits,
   ): AsyncIterable<PortableFile | StreamedPortableFile> {
-    const sandbox = this.target(computer);
-    const { id } = sandbox;
-    await this.desktops.stopBrowsers(computer, context).catch((error: unknown) => {
-      const reason = diskFailure(error instanceof Error ? error.message : String(error));
-      throw reason ? new WorkspaceSaveFailedError(reason, { cause: error }) : error;
-    });
+    const id = this.id(computer);
+    await this.desktops.stopBrowsers(computer, context);
     // One archive, not a request per file: Boat rate limits every API call by IP, and a
     // workspace can hold thousands of files.
     const archive = `${BOAT_ARCHIVE_PREFIX}${randomUUID()}.tar.gz`;
     try {
       const result = await this.runCommand(
-        sandbox,
+        id,
         archiveBoatWorkspaceCommand(archive, { limits }),
         undefined,
         BOAT_ARCHIVE_TIMEOUT_MS,
@@ -678,12 +668,10 @@ export class BoatSandboxProvider implements SandboxProvider {
         throw new WorkspaceTooLargeError("bytes");
       }
       if (result.exitCode !== 0 || result.timedOut) {
-        const failure = new Error(`could not archive Boat workspace (${commandStatus(result)})`);
-        const reason = result.timedOut ? "timed_out" : diskFailure(result.stderr);
-        throw reason ? new WorkspaceSaveFailedError(reason, { cause: failure }) : failure;
+        throw new Error(`could not archive Boat workspace (${commandStatus(result)})`);
       }
       const response = await this.signedDownload(
-        sandbox,
+        id,
         archive,
         context.signal,
         BOAT_ARCHIVE_TRANSFER_TIMEOUT_MS,
@@ -702,12 +690,12 @@ export class BoatSandboxProvider implements SandboxProvider {
     files: AsyncIterable<PortableFile>,
     context: AdapterContext,
   ): Promise<void> {
-    const sandbox = this.target(computer);
+    const id = this.id(computer);
     await this.desktops.stopBrowsers(computer, context);
     // A restore can land on a computer that kept its disk, which can hold read-only files such as
     // git packs, and Boat's file API cannot replace a read-only file.
     const writable = await this.runCommand(
-      sandbox,
+      id,
       BOAT_WRITABLE_WORKSPACE_COMMAND,
       undefined,
       60_000,
@@ -718,7 +706,7 @@ export class BoatSandboxProvider implements SandboxProvider {
     const batcher = new PortableFileBatcher<PortableFile>(8, (file) => file.content.byteLength);
     const flush = async (batch: PortableFile[]) => {
       if (!batch.length) return;
-      await this.writeFiles(sandbox, batch, context);
+      await this.writeFiles(id, batch, context);
     };
     for await (const file of files) {
       if (shouldSkipPortableWorkspaceFile(file.path)) continue;
@@ -836,7 +824,7 @@ export class BoatSandboxProvider implements SandboxProvider {
   /**
    * Waits until the sandbox can run commands, resuming or recovering it on the way. Throws a
    * gone error when Boat cannot bring it back, so the caller replaces it from its checkpoint.
-   * Returns the confirmed size and whether this call started it.
+   * Returns whether this call started it.
    *
    * A sandbox in `error` follows Boat's documented order: recover it and wait for it to answer;
    * if it still does not, force-stop it to its last good snapshot and resume that. It is gone
@@ -844,16 +832,12 @@ export class BoatSandboxProvider implements SandboxProvider {
    * since a replacement restores that save in full. The rollback happens only on `reconnect`,
    * before anything runs on the sandbox; elsewhere it is reported unavailable until then. On
    * `reconnect`, a stopped sandbox whose snapshot is older than the saved workspace is gone too.
-   *
-   * A stopped or lost machine resumes at the reconnect's type, or else at `startType`. Outside a
-   * reconnect a type Boat refuses is dropped and it resumes at the one it has.
    */
   private async ensureRunnable(
     id: string,
     signal?: AbortSignal,
     reconnect?: { savedAt?: Date; type?: SandboxTypeEnum },
-    startType?: SandboxTypeEnum,
-  ): Promise<{ started: boolean; size?: ComputerSize }> {
+  ): Promise<boolean> {
     const logWait = sandboxWaitLog(id, "start");
     const gone = (sandbox: BoatMachine, reason: string) => {
       logRecovery("gone", reason);
@@ -874,7 +858,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       if (RUNNABLE_STATES.has(sandbox.state)) {
         logWait(sandbox, "completed");
         if (recovering) logRecovery(forced ? "resumed" : "answered");
-        return { started, size: boatComputerSize(sandbox.type) };
+        return started;
       }
       // `cancelled` is terminal, and a stopped sandbox whose data Boat deleted cannot resume.
       if (sandbox.state === "cancelled" || sandbox.dataExpiredAt)
@@ -889,10 +873,11 @@ export class BoatSandboxProvider implements SandboxProvider {
       }
       if (Date.now() < deadline) logWait(sandbox);
       if (sandbox.state === "archived" && !started) {
-        await this.resumeAt(id, signal, reconnect, startType);
+        // Only a reconnect moves the sandbox to another size; other wakes keep the one it has.
+        await this.resume(id, signal, reconnect?.type);
         started = true;
       } else if (sandbox.state === "error" && !recovering) {
-        logRecovery("wait", await this.recover(id, signal, reconnect, startType));
+        logRecovery("wait", await this.recover(id, signal, reconnect?.type));
         recovering = started = true;
       }
       if (Date.now() >= deadline) {
@@ -938,7 +923,7 @@ export class BoatSandboxProvider implements SandboxProvider {
    * it and try once more.
    */
   private async whenRunnable<Result>(
-    sandbox: BoatTarget,
+    id: string,
     signal: AbortSignal | undefined,
     call: () => Promise<Result>,
   ): Promise<Result> {
@@ -946,7 +931,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       return await call();
     } catch (error) {
       if (!notRunning(error)) throw error;
-      await this.wake(sandbox, signal);
+      await this.ensureRunnable(id, signal);
       try {
         return await call();
       } catch (retryError) {
@@ -954,33 +939,6 @@ export class BoatSandboxProvider implements SandboxProvider {
         if (notRunning(retryError)) throw new SandboxUnavailableError({ cause: retryError });
         throw retryError;
       }
-    }
-  }
-
-  /** Brings the sandbox up for a call, at the call's size if it has to start it. */
-  private async wake(sandbox: BoatTarget, signal: AbortSignal | undefined): Promise<void> {
-    const type = sandbox.startSize && BOAT_MACHINE_TYPES[sandbox.startSize];
-    await this.ensureRunnable(sandbox.id, signal, undefined, type);
-  }
-
-  /** A reconnect handles a refused type itself, so it can report that it started at another. */
-  private async resumeAt(
-    id: string,
-    signal: AbortSignal | undefined,
-    reconnect: { type?: SandboxTypeEnum } | undefined,
-    startType: SandboxTypeEnum | undefined,
-  ): Promise<void> {
-    if (reconnect) return this.resume(id, signal, reconnect.type);
-    try {
-      await this.resume(id, signal, startType);
-    } catch (error) {
-      if (!startType || !(error instanceof SandboxSizeUnavailableError)) throw error;
-      getLogger().warn("sandbox.size_unavailable", {
-        provider: "boat",
-        size: boatComputerSize(startType),
-        reason: error.reason,
-      });
-      await this.resume(id, signal);
     }
   }
 
@@ -1005,16 +963,15 @@ export class BoatSandboxProvider implements SandboxProvider {
    */
   private async recover(
     id: string,
-    signal: AbortSignal | undefined,
-    reconnect: { type?: SandboxTypeEnum } | undefined,
-    startType: SandboxTypeEnum | undefined,
+    signal?: AbortSignal,
+    type?: SandboxTypeEnum,
   ): Promise<string | undefined> {
     try {
       await this.client.recover({ sandboxId: id }, { signal });
     } catch (error) {
       if (!(error instanceof BoatApiError) || error.response.status !== 409) throw error;
       if (error.code === "no_machine") {
-        await this.resumeAt(id, signal, reconnect, startType);
+        await this.resume(id, signal, type);
         return error.code;
       }
       // Already answering again, or an earlier recover is still running. A machine Boat cannot
@@ -1060,15 +1017,15 @@ export class BoatSandboxProvider implements SandboxProvider {
 
   /** Writes a file only `user` can read, into the command environment directory. */
   private async writePrivateFile(
-    sandbox: BoatTarget,
+    id: string,
     file: string,
     content: string,
     signal: AbortSignal,
   ): Promise<void> {
     // Preparation makes the private directory; repeat it for commands that skipped preparation.
-    if (!this.prepared.has(sandbox.id)) {
+    if (!this.prepared.has(id)) {
       const result = await this.runCommand(
-        sandbox,
+        id,
         commandEnvDirectoryCommand(),
         undefined,
         60_000,
@@ -1078,10 +1035,10 @@ export class BoatSandboxProvider implements SandboxProvider {
         throw new Error(`could not prepare Boat command environment (${commandFailure(result)})`);
       }
     }
-    await this.whenRunnable(sandbox, signal, () =>
+    await this.whenRunnable(id, signal, () =>
       this.client.writeFile(
         {
-          sandboxId: sandbox.id,
+          sandboxId: id,
           fileWriteRequest: {
             path: file,
             content: Buffer.from(content).toString("base64"),
@@ -1094,7 +1051,7 @@ export class BoatSandboxProvider implements SandboxProvider {
   }
 
   private async writeFiles(
-    sandbox: BoatTarget,
+    id: string,
     files: readonly PortableFile[],
     context: AdapterContext,
   ): Promise<void> {
@@ -1102,11 +1059,11 @@ export class BoatSandboxProvider implements SandboxProvider {
     await Promise.all(
       files.map((file) =>
         file.content.byteLength > BOAT_INLINE_FILE_MAX_BYTES
-          ? this.uploadFile(sandbox, file, context)
-          : this.whenRunnable(sandbox, context.signal, () =>
+          ? this.uploadFile(id, file, context)
+          : this.whenRunnable(id, context.signal, () =>
               this.client.writeFile(
                 {
-                  sandboxId: sandbox.id,
+                  sandboxId: id,
                   fileWriteRequest: {
                     path: workspacePath(BOAT_WORKSPACE, file.path),
                     content: Buffer.from(file.content).toString("base64"),
@@ -1123,7 +1080,7 @@ export class BoatSandboxProvider implements SandboxProvider {
         `${file.executable ? "700" : "600"} ${shellQuote(workspacePath(BOAT_WORKSPACE, file.path))}`,
     );
     const result = await this.runCommand(
-      sandbox,
+      id,
       executable.map((entry) => `chmod ${entry}`).join(" && "),
       undefined,
       60_000,
@@ -1134,16 +1091,12 @@ export class BoatSandboxProvider implements SandboxProvider {
     }
   }
 
-  private async uploadFile(
-    sandbox: BoatTarget,
-    file: PortableFile,
-    context: AdapterContext,
-  ): Promise<void> {
+  private async uploadFile(id: string, file: PortableFile, context: AdapterContext): Promise<void> {
     context.signal.throwIfAborted();
     const filePath = workspacePath(BOAT_WORKSPACE, file.path);
-    const signed = await this.whenRunnable(sandbox, context.signal, () =>
+    const signed = await this.whenRunnable(id, context.signal, () =>
       this.client.createUploadUrl(
-        { sandboxId: sandbox.id, fileUrlRequest: { path: filePath } },
+        { sandboxId: id, fileUrlRequest: { path: filePath } },
         { signal: context.signal },
       ),
     );
@@ -1169,7 +1122,7 @@ export class BoatSandboxProvider implements SandboxProvider {
   }
 
   private async readRemoteFile(
-    sandbox: BoatTarget,
+    id: string,
     filePath: string,
     signal?: AbortSignal,
     maxBytes?: number,
@@ -1177,13 +1130,7 @@ export class BoatSandboxProvider implements SandboxProvider {
   ): Promise<Uint8Array> {
     const chunks: Uint8Array[] = [];
     let size = 0;
-    for await (const chunk of this.remoteFileChunks(
-      sandbox,
-      filePath,
-      signal,
-      maxBytes,
-      listedSize,
-    )) {
+    for await (const chunk of this.remoteFileChunks(id, filePath, signal, maxBytes, listedSize)) {
       chunks.push(chunk);
       size += chunk.byteLength;
     }
@@ -1198,13 +1145,13 @@ export class BoatSandboxProvider implements SandboxProvider {
 
   /** Streams a file in the chunks it arrives in; stopping early cancels the download. */
   private async *remoteFileChunks(
-    sandbox: BoatTarget,
+    id: string,
     filePath: string,
     signal?: AbortSignal,
     maxBytes?: number,
     listedSize?: number,
   ): AsyncGenerator<Uint8Array> {
-    const response = await this.fileResponse(sandbox, filePath, signal, maxBytes, listedSize);
+    const response = await this.fileResponse(id, filePath, signal, maxBytes, listedSize);
     const reader = response.body?.getReader();
     let finished = false;
     let size = 0;
@@ -1239,7 +1186,7 @@ export class BoatSandboxProvider implements SandboxProvider {
    * short-lived URL the sandbox serves itself.
    */
   private async fileResponse(
-    sandbox: BoatTarget,
+    id: string,
     filePath: string,
     signal: AbortSignal | undefined,
     maxBytes: number | undefined,
@@ -1247,9 +1194,9 @@ export class BoatSandboxProvider implements SandboxProvider {
   ) {
     if (listedSize <= BOAT_INLINE_FILE_MAX_BYTES) {
       try {
-        const { raw } = await this.whenRunnable(sandbox, signal, () =>
+        const { raw } = await this.whenRunnable(id, signal, () =>
           this.client.artifactRaw(
-            { sandboxId: sandbox.id, path: filePath },
+            { sandboxId: id, path: filePath },
             signal ? { signal } : undefined,
           ),
         );
@@ -1262,19 +1209,19 @@ export class BoatSandboxProvider implements SandboxProvider {
         } else if (!(error instanceof SandboxUnresponsiveError)) throw error;
       }
     }
-    return this.signedDownload(sandbox, filePath, signal);
+    return this.signedDownload(id, filePath, signal);
   }
 
   private async signedDownload(
-    sandbox: BoatTarget,
+    id: string,
     filePath: string,
     signal: AbortSignal | undefined,
     timeoutMs = BOAT_TRANSFER_TIMEOUT_MS,
   ): Promise<Response> {
     signal?.throwIfAborted();
-    const signed = await this.whenRunnable(sandbox, signal, () =>
+    const signed = await this.whenRunnable(id, signal, () =>
       this.client.createDownloadUrl(
-        { sandboxId: sandbox.id, fileUrlRequest: { path: filePath } },
+        { sandboxId: id, fileUrlRequest: { path: filePath } },
         signal ? { signal } : undefined,
       ),
     );
@@ -1316,20 +1263,19 @@ export class BoatSandboxProvider implements SandboxProvider {
   }
 
   private async runCommand(
-    sandbox: BoatTarget,
+    id: string,
     command: string,
     cwd: string | undefined,
     timeoutMs: number,
     signal?: AbortSignal,
     background = false,
   ): Promise<BoatCommandResult> {
-    const { id } = sandbox;
     const marker = `/tmp/rakazo-command-${randomUUID()}.completed-124`;
     const wrapped = timeoutCommand(command, timeoutMs, marker);
     const timeoutSeconds = Math.ceil(timeoutMs / 1_000);
     const detached = background || timeoutSeconds + 5 > BOAT_API_COMMAND_TIMEOUT_SECONDS;
     try {
-      const response = await this.whenRunnable(sandbox, signal, () =>
+      const response = await this.whenRunnable(id, signal, () =>
         this.client.command(
           {
             sandboxId: id,
@@ -1519,10 +1465,6 @@ export class BoatSandboxProvider implements SandboxProvider {
     return computer.providerRef || computer.id;
   }
 
-  private target(computer: ComputerRef): BoatTarget {
-    return { id: this.id(computer), startSize: computer.startSize };
-  }
-
   private forget(id: string): void {
     this.pendingProvisions.delete(id);
     this.prepared.delete(id);
@@ -1552,31 +1494,13 @@ function commandFailure(result: BoatCommandResult): string {
 /**
  * Boat's runner starts each command with `systemd-run` and sources the machine's environment
  * before our command line runs. These failures come from that, so the machine's system files are
- * missing or broken; the command itself never started. A machine whose user is missing from
- * `/etc/passwd` has lost its system files the same way.
+ * missing or broken; the command itself never started.
  */
 const BOAT_SYSTEM_DAMAGED =
-  /^(?:Executable not found in \$PATH: "systemd-run"|ENOENT: no such file or directory, posix_spawn 'systemd-run'|environment: line \d+: \/usr\/bin\/[\w.-]+: cannot execute: required file not found|sudo: you do not exist in the passwd database)$/m;
+  /^(?:Executable not found in \$PATH: "systemd-run"|ENOENT: no such file or directory, posix_spawn 'systemd-run'|environment: line \d+: \/usr\/bin\/[\w.-]+: cannot execute: required file not found)$/m;
 
 function systemDamaged(stderr: string): boolean {
   return BOAT_SYSTEM_DAMAGED.test(stderr);
-}
-
-/** The disk failure a command's error output reports, read from each line's reason, not its paths. */
-function diskFailure(output: string): "disk_full" | "disk_error" | undefined {
-  const reasons = output.split("\n").map((line) => line.slice(line.lastIndexOf(": ") + 2).trim());
-  if (reasons.includes("No space left on device")) return "disk_full";
-  if (
-    reasons.some((reason) =>
-      [
-        "Input/output error",
-        "Transport endpoint is not connected",
-        "Read-only file system",
-      ].includes(reason),
-    )
-  )
-    return "disk_error";
-  return undefined;
 }
 
 /** How a listing command ended. Its output is file names, never an error message. */

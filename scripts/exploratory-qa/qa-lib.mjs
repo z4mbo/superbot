@@ -54,9 +54,7 @@ export function isoWeek(date) {
 export function normalizePath(path) {
   let pathname = String(path ?? "/");
   try {
-    const url = new URL(pathname, "http://stack.invalid");
-    // Only web URLs percent-encode their path, which keeps it inside the issue's code span.
-    pathname = url.protocol === "http:" || url.protocol === "https:" ? url.pathname : "/";
+    pathname = new URL(pathname, "http://stack.invalid").pathname;
   } catch {
     pathname = "/";
   }

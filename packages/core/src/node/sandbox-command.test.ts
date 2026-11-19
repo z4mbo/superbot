@@ -3,7 +3,6 @@ import {
   boundedSandboxCommandTimeoutMs,
   DEFAULT_SANDBOX_COMMAND_TIMEOUT_MS,
   MAX_SANDBOX_COMMAND_TIMEOUT_MS,
-  sandboxCommandTimeoutExceedsMax,
   sandboxCommandTimeoutMs,
 } from "./sandbox-command.js";
 
@@ -14,29 +13,11 @@ describe("sandbox command timeout", () => {
     expect(sandboxCommandTimeoutMs({ SANDBOX_COMMAND_TIMEOUT_MS: "invalid" })).toBe(
       DEFAULT_SANDBOX_COMMAND_TIMEOUT_MS,
     );
-  });
-
-  it("uses the maximum, not the default, when the override is above it", () => {
-    for (const value of [String(MAX_SANDBOX_COMMAND_TIMEOUT_MS + 1), "7200000"]) {
-      expect(sandboxCommandTimeoutMs({ SANDBOX_COMMAND_TIMEOUT_MS: value })).toBe(
-        MAX_SANDBOX_COMMAND_TIMEOUT_MS,
-      );
-      expect(sandboxCommandTimeoutExceedsMax({ SANDBOX_COMMAND_TIMEOUT_MS: value })).toBe(true);
-    }
     expect(
-      sandboxCommandTimeoutExceedsMax({
-        SANDBOX_COMMAND_TIMEOUT_MS: String(MAX_SANDBOX_COMMAND_TIMEOUT_MS),
+      sandboxCommandTimeoutMs({
+        SANDBOX_COMMAND_TIMEOUT_MS: String(MAX_SANDBOX_COMMAND_TIMEOUT_MS + 1),
       }),
-    ).toBe(false);
-  });
-
-  it("keeps the default for unset, blank, zero, negative and non-numeric overrides", () => {
-    for (const value of [undefined, "", "  ", "0", "-5", "invalid", "Infinity"]) {
-      expect(sandboxCommandTimeoutMs({ SANDBOX_COMMAND_TIMEOUT_MS: value })).toBe(
-        DEFAULT_SANDBOX_COMMAND_TIMEOUT_MS,
-      );
-      expect(sandboxCommandTimeoutExceedsMax({ SANDBOX_COMMAND_TIMEOUT_MS: value })).toBe(false);
-    }
+    ).toBe(DEFAULT_SANDBOX_COMMAND_TIMEOUT_MS);
   });
 
   it("honors bounded per-command timeouts and rejects invalid values", () => {

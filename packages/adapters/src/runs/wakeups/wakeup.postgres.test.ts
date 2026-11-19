@@ -58,7 +58,6 @@ function handlers(overrides: Partial<BackgroundJobHandlers> = {}): BackgroundJob
     "memory.retain-turn": vi.fn(async () => undefined),
     "memory.purge-history": vi.fn(async () => undefined),
     "messaging.send": vi.fn(async () => undefined),
-    "messaging.inbound_settle": vi.fn(async () => undefined),
     "messaging.reply": vi.fn(async () => undefined),
     "messaging.deliver": vi.fn(async () => undefined),
     "messaging.progress": vi.fn(async () => undefined),

@@ -54,7 +54,6 @@ import { McpOAuthCallbackPage } from "./pages/integrations/McpOAuthCallback";
 import { SlackInstallCallbackPage } from "./pages/integrations/SlackInstallCallback";
 import { SharedPagePage } from "./pages/SharedPage";
 import { ShellPage } from "./pages/Shell";
-import { AppRailLayout } from "./pages/shell/app-rail";
 
 const AuthPage = lazyComponent(() => import("./pages/auth/Auth").then((module) => module.AuthPage));
 const PasswordResetPage = lazyComponent(() =>
@@ -316,20 +315,14 @@ function SessionApp() {
                   )
                 }
               >
-                <Route element={<AppRailLayout enabled={boardEnabled} />}>
-                  <Route path="/app" element={<ShellPage />} />
-                  <Route path="/app/g/:groupId" element={<ShellPage />} />
-                  <Route path="/app/:botId" element={<ShellPage />} />
-                  {boardEnabled ? (
-                    <Route element={<CallLayout />}>
-                      <Route path="/app/board" element={<BoardPage />} />
-                    </Route>
-                  ) : null}
-                </Route>
+                <Route path="/app" element={<ShellPage />} />
+                <Route path="/app/g/:groupId" element={<ShellPage />} />
+                <Route path="/app/:botId" element={<ShellPage />} />
                 <Route element={<CallLayout />}>
                   <Route path="/onboarding/:step?" element={<OnboardingPage />} />
                   <Route path="/app/artifacts" element={<ArtifactsPage />} />
                   <Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} />
+                  {boardEnabled ? <Route path="/app/board" element={<BoardPage />} /> : null}
                   <Route path="/app/x/:linkId" element={<NavLinkPage />} />
                 </Route>
               </Route>

@@ -9,30 +9,6 @@ import {
 } from "./markdown-plain.js";
 
 describe("plainTextFromMarkdown", () => {
-  it.each([
-    ["## Weekly report ##\nReady to review.", "Weekly report Ready to review."],
-    ["   ###\tTitle\t######## \t", "Title"],
-    ["## ##\nAfter", "After"],
-    ["## C#\nKeep C# and the tag #", "C# Keep C# and the tag #"],
-    ["## Ticket #42 \t#", "Ticket #42"],
-    ["## Keep # suffix", "Keep # suffix"],
-    ["## Keep #\u00a0", "Keep #"],
-    ["## Keep \\#", "Keep #"],
-    ["## Keep `#`", "Keep #"],
-    ["## Keep `a\nb` ##", "Keep a b ##"],
-    ["## [Keep #](https://example.test)", "Keep #"],
-    ["## Keep # <!-- note -->", "Keep #"],
-    ["    ## Keep ##", "## Keep ##"],
-    ["####### Keep ##", "####### Keep ##"],
-    ["```\n## Keep ##\n```", "## Keep ##"],
-  ])("strips only closing ATX markers in %j", (source, expected) => {
-    expect(plainTextFromMarkdown(source)).toBe(expected);
-  });
-
-  it("does not remove a hash at a preview cut in the middle of heading text", () => {
-    expect(plainTextFromMarkdown("## Note # continued", { maxSource: 9 })).toBe("Note #");
-  });
-
   it.each(["\n", "\r\n", "\r"])("handles Markdown line endings %j", (eol) => {
     const cases: Array<[string, string]> = [
       ["# Heading\n## Subheading", "Heading Subheading"],
@@ -131,21 +107,6 @@ describe("plainTextFromMarkdown", () => {
     expect(plainTextFromMarkdown("Created **Projects-CoS** as a **Project**")).toBe(
       "Created Projects-CoS as a Project",
     );
-  });
-
-  it.each([
-    ["x = 2 * y + 3 * z", "x = 2 * y + 3 * z"],
-    ["2 ** 3 ** 4", "2 ** 3 ** 4"],
-    ["cost * 5 and 6* items", "cost * 5 and 6* items"],
-    ["**total** = 2 * 3", "total = 2 * 3"],
-    ["**bold**", "bold"],
-    ["*it*", "it"],
-    ["*a*", "a"],
-    ["**bold** and *it*", "bold and it"],
-    ["**a** * b", "a * b"],
-    ["**a** **b**", "a b"],
-  ])("keeps operators and strips only emphasis that is flanked: %s", (source, expected) => {
-    expect(plainTextFromMarkdown(source)).toBe(expected);
   });
 
   it("keeps link labels and heading or list words", () => {
@@ -381,9 +342,7 @@ describe("plainTextFromMarkdown", () => {
 
   it("returns empty when only markers remain", () => {
     expect(plainTextFromMarkdown("")).toBe("");
-    expect(plainTextFromMarkdown("   **a**   ")).toBe("a");
     expect(plainTextFromMarkdown("   **  **   ")).toBe("");
-    expect(plainTextFromMarkdown("****")).toBe("");
   });
 });
 

@@ -7,7 +7,6 @@ import {
   isAllowedAttachmentMimeType,
   isAttachmentImageMimeType,
 } from "@rakazo/contracts";
-import { sliceWellFormed } from "../primitives/utf8.js";
 import { isApprovalAskBlock, isSecretAskBlock } from "../runs/action-approval.js";
 
 export class AttachmentValidationError extends Error {
@@ -141,7 +140,7 @@ export function normalizeVoiceTranscript(value: string | null | undefined): stri
       return code >= 32 && !(code >= 0x7f && code <= 0x9f);
     })
     .join("");
-  return sliceWellFormed(printable.trim(), VOICE_TRANSCRIPT_MAX_CHARS);
+  return printable.trim().slice(0, VOICE_TRANSCRIPT_MAX_CHARS);
 }
 
 export function promptTextForAttachments(
@@ -186,7 +185,7 @@ export function toolStepsHistoryText(
   const lines = shown.map((step) => {
     const name =
       !full && step.label.length > TOOL_STEP_LABEL_MAX_CHARS
-        ? `${sliceWellFormed(step.label, TOOL_STEP_LABEL_MAX_CHARS)}…`
+        ? `${step.label.slice(0, TOOL_STEP_LABEL_MAX_CHARS)}…`
         : step.label;
     const counted = Number(step.count) > 1 ? `${name} ×${step.count}` : name;
     const outcome = toolStepOutcomeText(step);
@@ -194,7 +193,7 @@ export function toolStepsHistoryText(
     const whole = typeof step.note === "string" ? step.note.replace(/\s+/g, " ").trim() : "";
     const note =
       !full && whole.length > TOOL_STEP_NOTE_MAX_CHARS
-        ? `${sliceWellFormed(whole, TOOL_STEP_NOTE_MAX_CHARS)}…`
+        ? `${whole.slice(0, TOOL_STEP_NOTE_MAX_CHARS)}…`
         : whole;
     return note ? `- ${label}: ${note}` : `- ${label}`;
   });

@@ -175,8 +175,6 @@ async function runLoop(
   };
   let answeredMessageIds = ["steer-1"];
   const prisma = {
-    // Ask: these cover loop guards and redaction, not what the approval model checks.
-    userActionAutoReviewPreference: { findUnique: vi.fn(async () => ({ enabled: false })) },
     externalEffect,
     steeringMessage: {
       findMany: vi.fn(async () => answeredMessageIds.map((messageId) => ({ messageId }))),

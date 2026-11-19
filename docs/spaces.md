@@ -5,14 +5,11 @@ and one for home.
 
 ## Create a space
 
-On web and desktop, choose **Create** (the **+** at the top of the sidebar), then
-**New private space**. You switch to it from the sidebar.
+Choose **Create** (the **+** at the top of the sidebar), then **New private space**. You switch
+to it from the sidebar, and each space has its own bots, groups and sections.
 
-On iOS and Android, tap **Create** (the **+** at the top of the chat list), then
-**New private space**. Enter a name and tap **Create space**.
-
-Each space has its own bots, groups and sections. Most people only need one. Add a space when
-work must stay apart: a client, a side project, or personal life.
+Most people only need one. Add a space when work must stay apart: a client, a side project, or
+personal life.
 
 ## What stays inside a space
 

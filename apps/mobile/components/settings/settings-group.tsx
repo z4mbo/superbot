@@ -180,9 +180,6 @@ export function SettingsRow({
   return (
     <Pressable
       {...props}
-      accessibilityRole={
-        props.accessibilityRole ?? (props.role === undefined ? "button" : undefined)
-      }
       android_ripple={androidRipple()}
       style={({ pressed }) => [
         styles.row,

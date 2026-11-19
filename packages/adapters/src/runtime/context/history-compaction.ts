@@ -10,7 +10,6 @@ import type {
 } from "../../memory/memory-provider-factory.js";
 import { modelCreditOfferings } from "../../model-credits/offerings.js";
 import { resolveDeploymentModel } from "../../models/deployment-model.js";
-import { modelBilling } from "../../models/model-secret.js";
 import {
   historyCompactionInstructions,
   historyCompactionPrompt,
@@ -396,7 +395,6 @@ export async function compactHistory(
           provider: deploymentFallback.provider,
           id: deploymentFallback.model,
           apiKey: deps.deploymentModelKey,
-          billing: modelBilling({}),
         }
       : await (async () => {
           const settings = await deps.prisma.deploymentSettings.findUnique({
@@ -406,7 +404,6 @@ export async function compactHistory(
             provider: settings?.defaultModelProvider ?? "scripted",
             id: settings?.defaultModelId ?? "scripted",
             apiKey: undefined,
-            billing: modelBilling({}),
           };
         })();
   if (!deps.runtime.describe().capabilities.compaction || model.provider === "scripted") {

@@ -38,7 +38,6 @@ export function LoadEarlierButton({ loading, onPress }: { loading: boolean; onPr
   const { t } = useLingui();
   return (
     <Pressable
-      accessibilityRole="button"
       disabled={loading}
       onPress={onPress}
       style={{

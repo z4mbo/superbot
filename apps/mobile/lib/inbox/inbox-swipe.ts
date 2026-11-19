@@ -25,7 +25,7 @@ export const SNOOZE_LABELS = {
 /** Swipe right toggles read state; swipe left offers Archive outermost, then Pin, and a full swipe archives. */
 export function inboxRowActions(chat: { unread?: boolean; pinned?: boolean }): {
   leading: InboxRowAction;
-  trailing: ["archive", "pin" | "unpin"];
+  trailing: InboxRowAction[];
 } {
   return {
     leading: chat.unread ? "read" : "unread",

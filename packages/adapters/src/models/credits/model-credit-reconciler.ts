@@ -329,7 +329,6 @@ export function createModelCreditReconciler(deps: {
                   provider: call.provider,
                   model: call.model,
                   callId: call.callId,
-                  billing: "credits",
                 },
                 {
                   userId: call.userId,

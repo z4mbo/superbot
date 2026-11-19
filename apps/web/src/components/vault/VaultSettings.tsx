@@ -9,7 +9,6 @@ import type {
 import {
   isIdentityConfirmationRequired,
   parseVaultCsv,
-  sendVaultImport,
   VAULT_IMPORT_FILE_LIMIT,
   VAULT_KINDS,
   vaultKind,
@@ -164,7 +163,7 @@ export function VaultSettings({
   async function importRows(rows: Parameters<typeof rpc.vault.import>[0]["rows"]) {
     setBusy(true);
     try {
-      return await sendVaultImport(rows, (batch) => rpc.vault.import({ scope, rows: batch }));
+      return await rpc.vault.import({ scope, rows });
     } finally {
       setBusy(false);
       await refresh();

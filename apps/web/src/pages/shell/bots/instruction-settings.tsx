@@ -12,7 +12,7 @@ import { errorText } from "../../../lib/query/user-error";
 type Change = { kind: "edit" } | { kind: "restore"; versionId: string } | { kind: "reload" };
 
 export function InstructionSettings({ bot }: { bot: Bot }) {
-  const { i18n, t } = useLingui();
+  const { t } = useLingui();
   const queries = useSpaceQueries();
   const id = useId();
   const [previousBot, setPreviousBot] = useState(bot);
@@ -80,9 +80,7 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
                   <Disclosure
                     summary={
                       <span className="inline-flex flex-wrap gap-x-2">
-                        <span>
-                          {new Date(version.createdAt).toLocaleString(i18n.locale || "en")}
-                        </span>
+                        <span>{new Date(version.createdAt).toLocaleString()}</span>
                         <span className="text-muted-foreground">{version.reason}</span>
                       </span>
                     }

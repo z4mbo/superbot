@@ -18,8 +18,7 @@ type Unit = { node: Text; start: number; end: number } | null;
 
 function searchable(node: Text) {
   const parent = node.parentElement;
-  // Table announcements are clipped for sighted users but still pass checkVisibility().
-  if (!parent || parent.closest("button, [aria-hidden='true'], .rk-sr-only")) return false;
+  if (!parent || parent.closest("button, [aria-hidden='true']")) return false;
   // A collapsed tool step or other hidden text would be a match the user cannot see.
   return typeof parent.checkVisibility === "function" ? parent.checkVisibility() : true;
 }

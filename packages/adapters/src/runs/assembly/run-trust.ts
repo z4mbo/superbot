@@ -104,11 +104,14 @@ export function createRunTrustLoaders(
     connectedPlugins,
   } = input;
   let approvalRulesPromise: Promise<ActionApprovalRule[]> | undefined;
-  const loadApprovalRules = () => {
-    approvalRulesPromise ??= listApprovalRules(deps.prisma, {
-      userId: run.userId,
-      spaceId: run.spaceId,
-    }).then((rules) => rules as ActionApprovalRule[]);
+  const loadApprovalRules = (fresh = false) => {
+    const read = () =>
+      listApprovalRules(deps.prisma, {
+        userId: run.userId,
+        spaceId: run.spaceId,
+      }).then((rules) => rules as ActionApprovalRule[]);
+    if (fresh) return read();
+    approvalRulesPromise ??= read();
     return approvalRulesPromise;
   };
   let approvalModelPromise: Promise<EffectiveModelRole> | undefined;
@@ -121,14 +124,17 @@ export function createRunTrustLoaders(
   let autoReviewPreferencePromise:
     | Promise<{ enabled: boolean; skipApprovals: boolean }>
     | undefined;
-  const loadAutoReviewPreference = () => {
-    autoReviewPreferencePromise ??= findAutoReviewPreference(deps.prisma, {
-      userId: run.userId,
-      spaceId: run.spaceId,
-    }).then((row) => ({
-      enabled: row?.enabled ?? true,
-      skipApprovals: row?.skipApprovals ?? false,
-    }));
+  const loadAutoReviewPreference = (fresh = false) => {
+    const read = () =>
+      findAutoReviewPreference(deps.prisma, {
+        userId: run.userId,
+        spaceId: run.spaceId,
+      }).then((row) => ({
+        enabled: row?.enabled ?? true,
+        skipApprovals: row?.skipApprovals ?? false,
+      }));
+    if (fresh) return read();
+    autoReviewPreferencePromise ??= read();
     return autoReviewPreferencePromise;
   };
   // The owner's own words for this run: the message they sent (in Rakazo or their own chat app),

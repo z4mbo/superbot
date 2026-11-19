@@ -1,9 +1,7 @@
 import {
   COMPUTER_ALLOWANCE_USED_ERROR,
-  COMPUTER_DAMAGED_ERROR,
   COMPUTER_PROVIDER_UNAVAILABLE_ERROR,
   COMPUTER_RATE_LIMIT_ERROR,
-  COMPUTER_START_FAILED_ERROR,
 } from "@rakazo/contracts";
 
 /** The sandbox provider refused the request because an account rate limit or quota was hit. */
@@ -67,7 +65,7 @@ export class SandboxProviderAccountError extends SandboxUnresponsiveError {
 export class SandboxUnavailableError extends Error {
   readonly code = "SANDBOX_UNAVAILABLE";
   constructor(options?: { cause?: unknown }) {
-    super(COMPUTER_START_FAILED_ERROR, options);
+    super("The computer did not start. Try again.", options);
     this.name = "SandboxUnavailableError";
   }
 }
@@ -99,28 +97,13 @@ export class WorkspaceTooLargeError extends Error {
 }
 
 /**
- * The computer's own disk failed its save: full, unreadable, or too slow to archive. The files
- * are not saved; a provider that keeps the disk still has them.
- */
-export class WorkspaceSaveFailedError extends Error {
-  readonly code = "WORKSPACE_SAVE_FAILED";
-  constructor(
-    readonly reason: "disk_full" | "disk_error" | "timed_out",
-    options?: { cause?: unknown },
-  ) {
-    super("The computer's files could not be saved", options);
-    this.name = "WorkspaceSaveFailedError";
-  }
-}
-
-/**
  * The computer is up but its system can no longer start programs, so nothing on it can run or
  * be saved. Waiting does not fix it; Recover rebuilds the computer from its last save.
  */
 export class SandboxDamagedError extends Error {
   readonly code = "SANDBOX_DAMAGED";
   constructor(options?: { cause?: unknown }) {
-    super(COMPUTER_DAMAGED_ERROR, options);
+    super("This computer's system is damaged. Recover the computer to rebuild it.", options);
     this.name = "SandboxDamagedError";
   }
 }

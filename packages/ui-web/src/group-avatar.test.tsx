@@ -66,6 +66,5 @@ describe("GroupAvatar", () => {
       />,
     );
     expect(html).toContain("+2");
-    expect(html).toMatch(/<div\b[^>]*\baria-hidden="true"[^>]*>\+2<\/div>/);
   });
 });

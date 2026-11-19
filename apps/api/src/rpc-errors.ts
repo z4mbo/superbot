@@ -13,7 +13,7 @@ import { ComputerRecoveryRequiredError } from "@rakazo/adapters";
 import { ConnectionSetupError } from "@rakazo/contracts";
 import { ClientError } from "@rakazo/core";
 import { databaseOutage, IsolationError, ProviderTransactionBusyError } from "@rakazo/db";
-import { enrichLogContext, getLogContext, getLogger, wasReportedError } from "@rakazo/logging";
+import { enrichLogContext, getLogContext, getLogger } from "@rakazo/logging";
 import { markExpectedFailure } from "@rakazo/logging/hono";
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -42,8 +42,7 @@ export function requestHitDatabaseOutage(): boolean {
 
 /**
  * Hono's default prints the stack and answers 500. Requests already log their failure, and a
- * database outage answers 503 so clients try again, as does a client error its thrower already
- * logged as an outage.
+ * database outage answers 503 so clients try again.
  */
 export function handleHttpError(error: Error, c: Context): Response {
   if (error instanceof HTTPException) return error.getResponse();
@@ -51,10 +50,6 @@ export function handleHttpError(error: Error, c: Context): Response {
     return c.text("Service Unavailable", 503, {
       "Retry-After": String(DATABASE_RETRY_AFTER_SECONDS),
     });
-  if (error instanceof ClientError && wasReportedError(error)) {
-    markExpectedFailure();
-    return c.json({ error: error.message }, clientErrorStatus(error.kind));
-  }
   return c.text("Internal Server Error", 500);
 }
 
@@ -85,8 +80,7 @@ export function handleRpcError(
       cause: error,
     });
     // An outage the caller is told to wait out is still reported, unless its thrower logged it.
-    if (wasReportedError(error)) markExpectedFailure();
-    else logUnexpectedRpcError(answer, path);
+    logUnexpectedRpcError(answer, path);
     throw answer;
   }
   // What the person entered for a connection, or how their server answered its check.

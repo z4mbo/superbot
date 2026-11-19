@@ -71,7 +71,6 @@ export const MessageView = memo(function MessageView({
   onOpenBot,
   onOpenPeerMessages,
   peerExchange,
-  hideSenderLabel,
   speakerName,
   memberName,
   peerBot,
@@ -118,7 +117,6 @@ export const MessageView = memo(function MessageView({
   onOpenPeerMessages: (peer: { peerBotId: string; peerBotName: string }) => void;
   /** The adjacent receipts represented by this peer line. */
   peerExchange?: PeerExchange;
-  hideSenderLabel?: boolean;
   speakerName?: string;
   memberName?: (botId: string | undefined) => string | undefined;
   peerBot: (
@@ -208,7 +206,7 @@ export const MessageView = memo(function MessageView({
   );
   const messageContext = (
     <>
-      {hideSenderLabel ? null : speakerName ? (
+      {speakerName ? (
         <div
           className="mb-1.5 flex items-center gap-2 text-body-sm font-semibold tracking-tight"
           dir="auto"

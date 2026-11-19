@@ -491,17 +491,15 @@ export function createUpdaterApp(
 
   /** The branch head on the remote, read without fetching, so a plan does not mutate the checkout. */
   async function resolveRemoteHead(request: { repoUrl: string; branch: string }) {
-    const ref = `refs/heads/${request.branch}`;
-    const listed = await run("git", ["ls-remote", "--heads", "--", request.repoUrl, ref], {
-      cwd: config.deployDir,
-      timeoutMs: STEP_TIMEOUT_MS.fetch ?? DEFAULT_TIMEOUT_MS,
-    });
+    const listed = await run(
+      "git",
+      ["ls-remote", "--heads", "--", request.repoUrl, request.branch],
+      { cwd: config.deployDir, timeoutMs: STEP_TIMEOUT_MS.fetch ?? DEFAULT_TIMEOUT_MS },
+    );
     if (!listed.ok) {
       throw new UpdateRefused(`Could not read ${request.branch} from ${request.repoUrl}.`);
     }
-    // ls-remote matches a pattern against the tail of each ref, so `main` also lists `feature/main`.
-    const line = listed.stdout.split("\n").find((entry) => entry.trim().split(/\s+/)[1] === ref);
-    const commit = line?.trim().split(/\s+/)[0] ?? "";
+    const commit = listed.stdout.trim().split(/\s/)[0] ?? "";
     if (!isGitCommit(commit)) {
       throw new UpdateRefused(`${request.repoUrl} has no branch called ${request.branch}.`);
     }

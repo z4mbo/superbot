@@ -1,5 +1,3 @@
-import { speechWords } from "./speech-words.js";
-
 /** A heard line longer than this is a real turn, however much it overlaps the reply. */
 const MAX_ECHO_WORDS = 12;
 /** Fewer matched words than this is coincidence, not the speaker leaking into the mic. */
@@ -17,13 +15,13 @@ const CONTRACTIONS: Record<string, string> = {
 
 /** Dictation writes out what speech contracts, so "I'm" must compare equal to "I am". */
 function words(text: string): string[] {
-  return speechWords(
-    text
-      .toLowerCase()
-      .replace(/n['’]t\b/g, " not")
-      .replace(/['’](m|re|s|ll|ve|d)\b/g, (_match, tail: string) => ` ${CONTRACTIONS[tail]}`)
-      .replace(/[^\p{L}\p{M}\p{N}\s]+/gu, " "),
-  );
+  return text
+    .toLowerCase()
+    .replace(/n['’]t\b/g, " not")
+    .replace(/['’](m|re|s|ll|ve|d)\b/g, (_match, tail: string) => ` ${CONTRACTIONS[tail]}`)
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
 }
 
 /**

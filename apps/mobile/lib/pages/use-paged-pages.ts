@@ -10,14 +10,13 @@ const PAGE_SIZE = 5;
 type PagedPages =
   | { status: "loading" }
   | { status: "error"; error: unknown }
-  | { status: "ready"; items: PageSummary[]; nextCursor: string | null; generation: number };
+  | { status: "ready"; items: PageSummary[]; nextCursor: string | null };
 
 /**
  * A bot's or group's pages, five at a time, read again each time the list comes back on screen
  * (after Share, or a page a routine changed), as many as were shown, as the web list does.
  * One "Show more" runs at a time, and a page of results that started before a reload (a pin,
- * rename or delete) is dropped. The previous list stays visible during a reload, but its cursor
- * cannot start a new page request.
+ * rename or delete) is dropped.
  */
 export function usePagedPages(owner: { botId?: string; groupId?: string }) {
   const { botId, groupId } = owner;
@@ -45,8 +44,7 @@ export function usePagedPages(owner: { botId?: string; groupId?: string }) {
     const limit = Math.min(Math.max(shown.current.count, PAGE_SIZE), PAGE_LIST_MAX_LIMIT);
     void rpc("pages/list", input(undefined, limit)).then(
       (result) => {
-        if (started === generation.current)
-          setListed({ status: "ready", ...result, generation: started });
+        if (started === generation.current) setListed({ status: "ready", ...result });
       },
       (error: unknown) => {
         if (started === generation.current) setListed({ status: "error", error });
@@ -55,13 +53,7 @@ export function usePagedPages(owner: { botId?: string; groupId?: string }) {
   }, [input, botId, groupId]);
   useFocusEffect(load);
   const showMore = useCallback(async () => {
-    if (
-      listed.status !== "ready" ||
-      listed.generation !== generation.current ||
-      !listed.nextCursor ||
-      loadingMore.current
-    )
-      return;
+    if (listed.status !== "ready" || !listed.nextCursor || loadingMore.current) return;
     loadingMore.current = true;
     const started = generation.current;
     try {
@@ -72,9 +64,9 @@ export function usePagedPages(owner: { botId?: string; groupId?: string }) {
       });
       if (!result || started !== generation.current) return;
       setListed((current) =>
-        current.status === "ready" && current.generation === started
+        current.status === "ready"
           ? {
-              ...current,
+              status: "ready",
               items: uniquePages([...current.items, ...result.items]),
               nextCursor: result.nextCursor,
             }

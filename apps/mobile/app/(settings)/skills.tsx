@@ -1,4 +1,3 @@
-import { plural } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import type { CapabilityInstall } from "@rakazo/contracts";
 import { pluginSite } from "@rakazo/core";
@@ -197,7 +196,7 @@ export default function SkillsScreen() {
                       {params.name}
                     </Text>
                     <Text numberOfLines={1} style={styles.secondary}>
-                      {t`${plural(count, { one: "# skill", other: "# skills" })}`}
+                      {count === 1 ? t`1 skill` : t`${count} skills`}
                     </Text>
                   </View>
                   <Chevron />

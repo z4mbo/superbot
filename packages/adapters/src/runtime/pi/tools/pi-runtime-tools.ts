@@ -63,15 +63,13 @@ const AGENT_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const MAX_AGENT_TOOL_NAME_LENGTH = 64;
 const FALLBACK_AGENT_TOOL_NAME = "connector_tool";
 
-/** Optional self-host fuse. Unset, empty, or 0 means unlimited (default); anything else must be a whole number. */
+/** Optional self-host fuse. Unset, empty, or 0 means unlimited (default). */
 export function maxToolCallsPerTurn(env: NodeJS.ProcessEnv = process.env): number {
   const raw = env.MAX_TOOL_CALLS_PER_TURN?.trim();
   if (!raw) return 0;
-  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)))
-    throw new Error(
-      `MAX_TOOL_CALLS_PER_TURN must be a whole number of 0 or more (0 or unset means unlimited), got "${raw}"`,
-    );
-  return Number(raw);
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.floor(parsed);
 }
 
 export function toAgentTools(toolDefs: readonly ConnectorTool[], host: ToolHost): AgentTool[] {
@@ -89,15 +87,6 @@ export function toAgentTools(toolDefs: readonly ConnectorTool[], host: ToolHost)
     tool.name === USE_TOOL ? useToolAgentTool(tool, runnable, host) : tool,
   );
 }
-
-/** Tools that can change the page a sibling page action would type into. */
-const PAGE_CHANGING_TOOL_NAMES = new Set([
-  "computer_act",
-  "open_path",
-  "launch_app",
-  "browser_navigate",
-  "browser_act",
-]);
 
 /**
  * Unwraps to the real tool before anything else, so its gate, approvals, checkpoint, audit
@@ -127,10 +116,7 @@ function useToolAgentTool(
           ]),
           response: host.modelResponses,
         });
-        throw new Error(
-          host.request.unavailableToolReasons?.[name] ??
-            `${name} is not available. Use a name find_tool lists.`,
-        );
+        throw new Error(`${name} is not available. Use a name find_tool lists.`);
       }
       const prepared = tool.prepareArguments?.(args ?? {}) ?? args ?? {};
       const validated = validateToolArguments(tool, {
@@ -392,14 +378,11 @@ function toAgentTool(
     // Pi runs a turn's tool calls concurrently by default, so a batch that
     // creates a routine and lists routines can read the list before the row
     // exists. Pi runs the whole batch in order when any call in it is
-    // sequential. Remember also needs this to avoid competing revision writes, request_secret
-    // so a sibling request cannot start after one pauses for its card and share its answer, and the
-    // page and desktop tools so a page action is gated against the page it will act on, never one
-    // a sibling is about to change.
+    // sequential. Remember also needs this to avoid competing revision writes, and request_secret
+    // so a sibling request cannot start after one pauses for its card and share its answer.
     ...(SCHEDULE_TOOL_NAMES.has(tool.name) ||
     tool.name === "remember" ||
-    tool.name === "request_secret" ||
-    PAGE_CHANGING_TOOL_NAMES.has(tool.name)
+    tool.name === "request_secret"
       ? { executionMode: "sequential" as const }
       : {}),
     parameters: parametersFor(tool),

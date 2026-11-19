@@ -3,21 +3,15 @@ import { recordUsage } from "@rakazo/db";
 import type { AutoReviewChecker } from "../../approvals/auto-review.js";
 import {
   autoReviewTimeoutMs,
-  includedReviewChecker,
   isAutoReviewCheckerConfigured,
+  resolveAutoReviewChecker,
   resolveAutoReviewProviderKind,
 } from "../../approvals/auto-review.js";
 import { createAutoReviewProvider } from "../../approvals/auto-review-factory.js";
 import { CheckerConnectionUnavailableError } from "../../approvals/auto-review-failures.js";
 import { DecisionAutoReviewProvider } from "../../approvals/decision-auto-review.js";
 import { decisionModel } from "../../approvals/decision-models.js";
-import type { DecisionModelDescriptor } from "../../approvals/model-descriptor.js";
 import { operatorReviewObserver } from "../../approvals/operator-review-usage.js";
-import {
-  autoReviewShadowModel,
-  recordShadowReview,
-  ShadowedAutoReviewProvider,
-} from "../../approvals/shadow-review.js";
 import { DataRetentionRefusedError } from "../../models/endpoints/data-retention.js";
 import {
   findConnectedModelCredential,
@@ -26,27 +20,28 @@ import {
 import type { ExecutorDeps } from "../executor/executor-deps.js";
 import { modelCreditBillingEnabled, resolveModelKey } from "./run-model.js";
 
-/** The deployment's operator-funded reviewer, when hosted credits include one. */
+/**
+ * The deployment's operator-funded reviewer, when hosted credits include one. It needs no
+ * connection or credits of the member's, so it can still decide when their own choice cannot.
+ */
 export async function includedAutoReviewChecker(
   deps: Pick<ExecutorDeps, "prisma" | "billingEnabled">,
 ): Promise<AutoReviewChecker | null> {
-  return includedReviewChecker(await modelCreditBillingEnabled(deps));
+  if (!(await modelCreditBillingEnabled(deps))) return null;
+  const checker = resolveAutoReviewChecker(process.env, true);
+  if (
+    !checker ||
+    !decisionModel(checker.provider, checker.model) ||
+    !isAutoReviewCheckerConfigured({ checker })
+  )
+    return null;
+  return { ...checker, included: true };
 }
 
 /** The Auto Review provider that judges a run's action with one checker choice. */
 export async function autoReviewCheckerProvider(
   deps: ExecutorDeps,
-  scope: {
-    runId: string;
-    spaceId: string;
-    userId: string;
-    botId: string;
-    threadId: string;
-    /** Names the reviewed action on the review's usage records. */
-    operationId: string;
-    /** The reviewed action's effect, which a shadow review's record names. */
-    effectId?: string;
-  },
+  scope: { runId: string; spaceId: string; userId: string; botId: string; threadId: string },
   options: {
     injectedReview?: AutoReviewProvider;
     memberChecker: boolean;
@@ -54,7 +49,7 @@ export async function autoReviewCheckerProvider(
   },
   checker: AutoReviewChecker,
 ): Promise<AutoReviewProvider> {
-  const { runId, spaceId, userId, botId, threadId, operationId, effectId } = scope;
+  const { runId, spaceId, userId, botId, threadId } = scope;
   const { injectedReview, memberChecker, registerSecrets } = options;
   if (injectedReview) return injectedReview;
   const deploymentChoice = !memberChecker && !checker.credentialId && !checker.creditOfferingId;
@@ -85,17 +80,16 @@ export async function autoReviewCheckerProvider(
           { credentialId: checker.credentialId },
         );
   const operatorFunded = hosted && !reviewCredential;
-  const attribution = {
-    spaceId,
-    userId,
-    botId,
-    runId,
-    parentRunId: runId,
-    operationId,
-    operationKind: "setup" as const,
-  };
   const operatorObserver = operatorFunded
-    ? operatorReviewObserver(deps.prisma, attribution)
+    ? operatorReviewObserver(deps.prisma, {
+        spaceId,
+        userId,
+        botId,
+        runId,
+        parentRunId: runId,
+        operationId: `auto-review:${runId}`,
+        operationKind: "setup",
+      })
     : undefined;
   const onUsage = (event: Extract<AgentRuntimeEvent, { type: "usage" }>) =>
     recordUsage(deps.prisma, event, {
@@ -104,7 +98,7 @@ export async function autoReviewCheckerProvider(
       botId,
       parentRunId: runId,
       runId,
-      operationId,
+      operationId: `auto-review:${runId}`,
       operationKind: "setup",
       fundingSource: operatorFunded ? "operator" : "customer",
     });
@@ -143,44 +137,20 @@ export async function autoReviewCheckerProvider(
         },
       );
   const callObserver = operatorObserver ?? judgeKey?.callObserver;
-  if (decision && judgeKey?.zeroDataRetention && !decision.dataRetentionControl) {
+  if (decision && judgeKey?.zeroDataRetention) {
+    // The decision endpoint has no way to restrict routing, so it is never used for this connection.
     throw new DataRetentionRefusedError("Selected checker cannot restrict data retention");
   }
-  const decisionReviewer = (
-    model: DecisionModelDescriptor,
-    id: string,
-    observer: typeof callObserver,
-  ) =>
-    new DecisionAutoReviewProvider({
-      provider: model.create({
+  if (decision)
+    return new DecisionAutoReviewProvider({
+      provider: decision.create({
         apiKey: deploymentKey ?? judgeKey?.apiKey ?? "",
-        ...(judgeKey?.zeroDataRetention ? { zeroDataRetention: true } : {}),
-        callObserver: observer,
+        callObserver,
         onUsage: operatorFunded ? undefined : onUsage,
       }),
       providerId: checker.provider,
-      model: id,
-      calibration: model.calibration,
+      model: checker.model,
     });
-  if (decision) {
-    const reviewer = decisionReviewer(decision, checker.model, callObserver);
-    // Only the included reviewer runs a deployment's trial model, on the same operator key and
-    // built like it, so it is sent under the same data retention rule.
-    const shadow = included && deploymentKey ? autoReviewShadowModel(decision) : undefined;
-    if (!shadow) return reviewer;
-    return new ShadowedAutoReviewProvider({
-      primary: reviewer,
-      shadow: decisionReviewer(
-        shadow,
-        shadow.id,
-        operatorReviewObserver(deps.prisma, {
-          ...attribution,
-          operationId: `shadow:${operationId}`,
-        }),
-      ),
-      record: (review) => recordShadowReview({ spaceId, runId, threadId, effectId }, review),
-    });
-  }
   if (!judgeKey) throw new CheckerConnectionUnavailableError();
   return createAutoReviewProvider("llm", {
     llm: {
@@ -189,7 +159,6 @@ export async function autoReviewCheckerProvider(
       checker,
       apiKey: judgeKey.oauth ? undefined : judgeKey.apiKey,
       callObserver,
-      billing: judgeKey.billing,
       accountId: judgeKey.accountId,
       gatewayId: judgeKey.gatewayId,
       projectId: judgeKey.projectId,

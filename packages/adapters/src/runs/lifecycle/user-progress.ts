@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { isToolActivityBlock, sliceWellFormed } from "@rakazo/core";
+import { isToolActivityBlock } from "@rakazo/core";
 
 /**
  * Keep mid-turn progress beats short; prefer a few high-signal updates. Mid-turn
@@ -18,7 +18,7 @@ export function narrationStatusLine(text: string): string {
   const line = text.replace(/\s+/g, " ").trim();
   return line.length <= NARRATION_STATUS_MAX_LENGTH
     ? line
-    : `${sliceWellFormed(line, NARRATION_STATUS_MAX_LENGTH).trimEnd()}…`;
+    : `${line.slice(0, NARRATION_STATUS_MAX_LENGTH).trimEnd()}…`;
 }
 
 /** A mid-task message from the run's person restarts the interim budget at most this often. */
@@ -62,7 +62,7 @@ export function clampUserProgressMessage(
   const trimmed = text.trim();
   if (!trimmed) return "";
   if (trimmed.length <= maxLength) return trimmed;
-  return `${sliceWellFormed(trimmed, maxLength - 1).trimEnd()}…`;
+  return `${trimmed.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 /**
