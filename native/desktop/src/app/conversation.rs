@@ -177,12 +177,9 @@ impl Desktop {
     fn follow(&mut self, target: Target, cursor: i64, cx: &mut Context<Self>) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         let selection = self.space_selection;
-        let live = follow(api.client, space_id.clone(), target.clone(), cursor);
+        let mut live = follow(api.client, space_id.clone(), target.clone(), cursor);
         let task = cx.spawn(async move |this, cx| {
-            // The whole stream moves in. Naming only `live.updates` below would leave its
-            // cancel-on-drop guard behind, and the stream would be cancelled as this returns.
-            let mut live = live;
-            while let Some(update) = live.updates.recv().await {
+            while let Some(update) = live.recv().await {
                 let applied = this.update(cx, |this, cx| {
                     let open = this.active_space(selection, &space_id)
                         && this.chat.as_ref().is_some_and(|chat| chat.target == target);
@@ -699,13 +696,15 @@ fn apply_event(chat: &mut Chat, event: &ThreadEvent) -> bool {
     let last = Chat::row_of(chat.entries.len());
     match event.kind.as_str() {
         "thread.message.created" | "thread.message.updated" => {
-            if let Some(entry) = api::message_from_event(event).and_then(Entry::read) {
+            let message = api::message_from_event(event);
+            let seq = message.as_ref().and_then(|message| message.seq);
+            if let Some(entry) = message.and_then(Entry::read) {
                 if entry.speaker == crate::transcript::Speaker::Agent {
                     chat.draft.clear();
                 }
                 // Only the rows that changed are measured again, so a person reading older
                 // history stays where they are.
-                match upsert(&mut chat.entries, entry, clock::now()) {
+                match upsert(&mut chat.entries, entry, seq, clock::now()) {
                     Placed::Replaced(index) => {
                         let row = Chat::row_of(index);
                         chat.list.remeasure_items(row..row + 1);

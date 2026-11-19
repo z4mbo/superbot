@@ -43,10 +43,16 @@ pub enum Live<T = ThreadEvent> {
     Unauthorized,
 }
 
-/// A thread's live events. Dropping it closes the stream.
+/// Thread or Space updates. Dropping the subscription closes its network stream.
 pub struct LiveStream<T> {
-    pub updates: UnboundedReceiver<Live<T>>,
+    updates: UnboundedReceiver<Live<T>>,
     _cancel: CancelOnDrop,
+}
+
+impl<T> LiveStream<T> {
+    pub async fn recv(&mut self) -> Option<Live<T>> {
+        self.updates.recv().await
+    }
 }
 
 struct CancelOnDrop(AbortHandle);
@@ -158,10 +164,32 @@ mod tests {
             },
             |seq| Some(*seq),
         );
-        assert!(matches!(live.updates.recv().await, Some(Live::Connected)));
-        assert!(matches!(live.updates.recv().await, Some(Live::Event(5))));
-        assert!(matches!(live.updates.recv().await, Some(Live::Reconnecting)));
-        assert!(matches!(live.updates.recv().await, Some(Live::Unauthorized)));
-        assert!(live.updates.recv().await.is_none());
+        assert!(matches!(live.recv().await, Some(Live::Connected)));
+        assert!(matches!(live.recv().await, Some(Live::Event(5))));
+        assert!(matches!(live.recv().await, Some(Live::Reconnecting)));
+        assert!(matches!(live.recv().await, Some(Live::Unauthorized)));
+        assert!(live.recv().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_subscription_moved_into_an_async_consumer_lives_until_the_consumer_drops_it() {
+        let (event_tx, event_rx) = tokio::sync::oneshot::channel::<u8>();
+        let (closed_tx, closed_rx) = tokio::sync::oneshot::channel::<()>();
+        let mut source = Some(Box::pin(stream::once(async move { Ok::<_, Error>(event_rx.await.unwrap()) }).chain(
+            stream::once(async move {
+                let _keep_until_cancelled = closed_tx;
+                std::future::pending::<Result<u8, Error>>().await
+            }),
+        )));
+        let consume = {
+            let mut subscription = reconnect(0, move |_| std::future::ready(Ok(source.take().unwrap())), |_| None);
+            async move {
+                assert!(matches!(subscription.recv().await, Some(Live::Connected)));
+                assert!(matches!(subscription.recv().await, Some(Live::Event(42))));
+            }
+        };
+        event_tx.send(42).unwrap();
+        tokio::time::timeout(Duration::from_secs(5), consume).await.unwrap();
+        assert!(tokio::time::timeout(Duration::from_secs(5), closed_rx).await.unwrap().is_err());
     }
 }
