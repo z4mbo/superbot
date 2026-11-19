@@ -56,7 +56,9 @@ impl Desktop {
                 let email = self.me.as_ref().map(|me| me.email.clone()).unwrap_or_default();
                 let items = vec![
                     Item::Label(email),
-                    item("manage", "settings", "Manage workspace", |this, window, cx| this.show(View::Workspace, window, cx)),
+                    item("manage", "settings", "Manage workspace", |this, window, cx| {
+                        this.show(View::Workspace, window, cx)
+                    }),
                     item("plugins", "apps", "Plugins", |this, window, cx| this.show(View::Store, window, cx)),
                     item("web", "app-window", "Open web workspace", |this, _, cx| this.open_web_workspace(cx)),
                     item("web-browser", "external-link", "Open in browser", |this, _, cx| {
@@ -103,33 +105,44 @@ impl Desktop {
             .border_color(theme.ink_at(0.1))
             .shadow(theme.float_shadow())
             .occlude()
-            .children(items.into_iter().enumerate().map(|(index, item)| match item {
-                Item::Label(text) => div().px_2().pt_1p5().pb_1().meta().font_weight(FontWeight::MEDIUM).text_color(theme.ink_tertiary).truncate().child(text).into_any_element(),
-                Item::Separator => div().my_1().mx_2().h(px(1.)).bg(theme.hairline.opacity(0.5)).into_any_element(),
-                Item::Row { id, glyph, label, chosen, danger, act } => {
-                    let ink = if danger { theme.danger } else { theme.ink };
-                    let hover = theme.ink_at(0.06);
-                    div()
-                        .id((id, index))
-                        .h_8()
+            .children(items.into_iter().enumerate().map(|(index, item)| {
+                match item {
+                    Item::Label(text) => div()
                         .px_2()
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .rounded(radius::MENU_ROW)
-                        .item()
-                        .text_color(ink)
-                        .cursor_pointer()
-                        .hover(move |style| style.bg(hover))
-                        .on_click(cx.listener(move |this, _, window, cx| {
-                            this.menu = None;
-                            act(this, window, cx);
-                            cx.notify();
-                        }))
-                        .child(icon(glyph, px(16.), if danger { theme.danger } else { theme.ink_secondary }))
-                        .child(div().flex_1().min_w_0().truncate().child(label))
-                        .when(chosen, |row| row.child(icon("check", px(14.), theme.ink_secondary)))
-                        .into_any_element()
+                        .pt_1p5()
+                        .pb_1()
+                        .meta()
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(theme.ink_tertiary)
+                        .truncate()
+                        .child(text)
+                        .into_any_element(),
+                    Item::Separator => div().my_1().mx_2().h(px(1.)).bg(theme.hairline.opacity(0.5)).into_any_element(),
+                    Item::Row { id, glyph, label, chosen, danger, act } => {
+                        let ink = if danger { theme.danger } else { theme.ink };
+                        let hover = theme.ink_at(0.06);
+                        div()
+                            .id((id, index))
+                            .h_8()
+                            .px_2()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .rounded(radius::MENU_ROW)
+                            .item()
+                            .text_color(ink)
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(hover))
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.menu = None;
+                                act(this, window, cx);
+                                cx.notify();
+                            }))
+                            .child(icon(glyph, px(16.), if danger { theme.danger } else { theme.ink_secondary }))
+                            .child(div().flex_1().min_w_0().truncate().child(label))
+                            .when(chosen, |row| row.child(icon("check", px(14.), theme.ink_secondary)))
+                            .into_any_element()
+                    }
                 }
             }));
 
@@ -139,15 +152,24 @@ impl Desktop {
                 .absolute()
                 .inset_0()
                 .occlude()
-                .on_mouse_down(MouseButton::Left, cx.listener(|this, _, _, cx| {
-                    this.menu = None;
-                    cx.notify();
-                }))
-                .on_mouse_down(MouseButton::Right, cx.listener(|this, _, _, cx| {
-                    this.menu = None;
-                    cx.notify();
-                }))
-                .child(deferred(anchored().position(at).anchor(anchor).snap_to_window_with_margin(px(8.)).child(sheet)).with_priority(1))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _, cx| {
+                        this.menu = None;
+                        cx.notify();
+                    }),
+                )
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(|this, _, _, cx| {
+                        this.menu = None;
+                        cx.notify();
+                    }),
+                )
+                .child(
+                    deferred(anchored().position(at).anchor(anchor).snap_to_window_with_margin(px(8.)).child(sheet))
+                        .with_priority(1),
+                )
                 .into_any_element(),
         )
     }
@@ -195,14 +217,22 @@ impl Desktop {
                                 .flex()
                                 .justify_end()
                                 .gap_2()
-                                .child(pill_button("dialog-cancel", "Cancel", Tone::Quiet, !dialog.busy, &theme).on_click(cx.listener(
-                                    |this, _, _, cx| {
-                                        this.dismiss(cx);
-                                    },
-                                )))
                                 .child(
-                                    pill_button("dialog-submit", if dialog.busy { working } else { action }, Tone::Primary, !dialog.busy, &theme)
-                                        .on_click(cx.listener(|this, _, window, cx| this.submit_dialog(window, cx))),
+                                    pill_button("dialog-cancel", "Cancel", Tone::Quiet, !dialog.busy, &theme).on_click(
+                                        cx.listener(|this, _, _, cx| {
+                                            this.dismiss(cx);
+                                        }),
+                                    ),
+                                )
+                                .child(
+                                    pill_button(
+                                        "dialog-submit",
+                                        if dialog.busy { working } else { action },
+                                        Tone::Primary,
+                                        !dialog.busy,
+                                        &theme,
+                                    )
+                                    .on_click(cx.listener(|this, _, window, cx| this.submit_dialog(window, cx))),
                                 ),
                         ),
                 )

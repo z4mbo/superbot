@@ -82,7 +82,10 @@ impl Outbox {
 
     /// Attaches a checked file. False when the message is full or the file is already attached.
     pub fn attach(&mut self, picked: Picked, most: usize) -> bool {
-        if self.sending || self.attachments.len() >= most || self.attachments.iter().any(|held| held.path == picked.path) {
+        if self.sending
+            || self.attachments.len() >= most
+            || self.attachments.iter().any(|held| held.path == picked.path)
+        {
             return false;
         }
         self.attached += 1;
@@ -290,11 +293,17 @@ mod tests {
     use super::*;
 
     fn picked(name: &str) -> Picked {
-        Picked { path: PathBuf::from(format!("C:/fixture/{name}")), name: name.into(), mime_type: "text/plain", size: 12 }
+        Picked {
+            path: PathBuf::from(format!("C:/fixture/{name}")),
+            name: name.into(),
+            mime_type: "text/plain",
+            size: 12,
+        }
     }
 
     fn members() -> Vec<GroupMember> {
-        let member = |bot_id: &str, name: &str| GroupMember { bot_id: bot_id.into(), name: name.into(), color: String::new() };
+        let member =
+            |bot_id: &str, name: &str| GroupMember { bot_id: bot_id.into(), name: name.into(), color: String::new() };
         vec![member("b1", "Fixture agent"), member("b2", "Support agent"), member("b3", "Support")]
     }
 
@@ -369,7 +378,8 @@ mod tests {
         assert_eq!(mention_query("@Fixture ag", 11).unwrap().typed, "Fixture ag");
 
         let all = members();
-        let names = |typed: &str| mention_matches(&all, typed).iter().map(|member| member.name.as_str()).collect::<Vec<_>>();
+        let names =
+            |typed: &str| mention_matches(&all, typed).iter().map(|member| member.name.as_str()).collect::<Vec<_>>();
         assert_eq!(names(""), ["Fixture agent", "Support agent", "Support"]);
         assert_eq!(names("sup"), ["Support agent", "Support"]);
         assert_eq!(names("ag"), ["Fixture agent", "Support agent"]);

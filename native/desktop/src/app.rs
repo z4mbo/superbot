@@ -135,18 +135,11 @@ impl Desktop {
         let field = |placeholder: &'static str, window: &mut Window, cx: &mut Context<Self>| {
             cx.new(|cx| InputState::new(window, cx).placeholder(placeholder))
         };
-        let server_field = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder("https://rakazo.example.com")
-                .default_value(server)
-        });
+        let server_field =
+            cx.new(|cx| InputState::new(window, cx).placeholder("https://rakazo.example.com").default_value(server));
         let password = cx.new(|cx| InputState::new(window, cx).masked(true));
-        let composer = cx.new(|cx| {
-            TextareaState::new(window, cx)
-                .auto_grow(1, 8)
-                .submit_on_enter(true)
-                .placeholder("Message")
-        });
+        let composer =
+            cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 8).submit_on_enter(true).placeholder("Message"));
         let search = field("Search", window, cx);
         let sign_in = SignIn {
             mode: SignInMode::Password,
@@ -545,7 +538,8 @@ impl Desktop {
     }
 
     fn active_space(&self, selection: u64, space_id: &str) -> bool {
-        self.session == Session::SignedIn && self.space_selection == selection
+        self.session == Session::SignedIn
+            && self.space_selection == selection
             && self.space.as_ref().is_some_and(|space| space.id == space_id)
     }
 
@@ -570,7 +564,8 @@ impl Desktop {
                     SidebarRead::Current => api.space_navigation(Some(&space)).await,
                     SidebarRead::Navigation => api.navigation(Some(&space)).await,
                 }
-            }).await;
+            })
+            .await;
             this.update(cx, |this, cx| {
                 if !this.active_space(selection, &space_id) {
                     return;
@@ -604,7 +599,8 @@ impl Desktop {
                 if this.active_space(selection, &space_id) {
                     this.refresh_sidebar(SidebarRead::Current, cx);
                 }
-            }).ok();
+            })
+            .ok();
         })
         .detach();
     }

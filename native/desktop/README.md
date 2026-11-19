@@ -41,7 +41,9 @@ radii from `theme::radius`, text sizes from the `Type` trait in `src/ui/mod.rs`.
   archive with Undo), the account menu, and the Plugins and workspace buttons.
 - **Chat.** History, sending, live replies as they are written, the working line, stop,
   joined bubbles, speaker names in groups, Markdown in replies, approval cards answered in
-  place, facts cards and file chips. A conversation on screen is marked read as replies arrive.
+  place, facts cards and file chips. The composer accepts files with or without a caption.
+  Scroll up for older messages, use the timestamps to find an exchange, and type `@` in
+  a group to select a member bot. A conversation on screen is marked read as replies arrive.
 - **Plugins.** Discover with a search the server runs across the whole registry, Installed,
   Yours, and Review for deployment reviewers. A plugin's page installs and uninstalls it,
   pins it to another approved version after a confirmation, and grants each of its parts to
@@ -62,8 +64,7 @@ transcript says what it is and links there.
 
 - Provider OAuth sign-in, live voice, calls, meetings and a bot's computer. Compatible-endpoint and API-key model setup use **Manage workspace → Models**.
 - Typed and secret answers to ask cards, choice cards, charts, pages and embedded apps.
-- Attachments in the composer, reactions, reply quotes, mentions, message search.
-- Loading history older than the newest page, and time stamps between messages.
+- Reactions, reply quotes and message search.
 - Groups can be opened and written to, but are created and edited in the workspace panel.
 - The sidebar's four round controls ease their hover tint over 120ms (`src/ui/corner.rs`).
   Every other hover fill still changes at once.

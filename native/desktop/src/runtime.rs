@@ -57,21 +57,12 @@ impl Drop for CancelOnDrop {
     }
 }
 
-pub fn follow(
-    client: Client,
-    space_id: String,
-    target: Target,
-    cursor: i64,
-) -> LiveStream<ThreadEvent> {
+pub fn follow(client: Client, space_id: String, target: Target, cursor: i64) -> LiveStream<ThreadEvent> {
     reconnect(
         cursor,
         move |cursor| {
             let (client, space_id, target) = (client.clone(), space_id.clone(), target.clone());
-            async move {
-                client
-                    .subscribe_thread(&space_id, target.wire(), cursor)
-                    .await
-            }
+            async move { client.subscribe_thread(&space_id, target.wire(), cursor).await }
         },
         |event| (event.kind != "heartbeat").then_some(event.seq),
     )
@@ -142,10 +133,7 @@ where
             delay = (delay * 2).min(Duration::from_secs(15));
         }
     });
-    LiveStream {
-        updates,
-        _cancel: CancelOnDrop(task.abort_handle()),
-    }
+    LiveStream { updates, _cancel: CancelOnDrop(task.abort_handle()) }
 }
 
 #[cfg(test)]
@@ -172,14 +160,8 @@ mod tests {
         );
         assert!(matches!(live.updates.recv().await, Some(Live::Connected)));
         assert!(matches!(live.updates.recv().await, Some(Live::Event(5))));
-        assert!(matches!(
-            live.updates.recv().await,
-            Some(Live::Reconnecting)
-        ));
-        assert!(matches!(
-            live.updates.recv().await,
-            Some(Live::Unauthorized)
-        ));
+        assert!(matches!(live.updates.recv().await, Some(Live::Reconnecting)));
+        assert!(matches!(live.updates.recv().await, Some(Live::Unauthorized)));
         assert!(live.updates.recv().await.is_none());
     }
 }

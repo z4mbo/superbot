@@ -8,9 +8,9 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::api::{GroupMember, Target};
+use crate::app::conversation::{FileState, MentionList};
 use crate::app::{Desktop, DialogKind, View};
 use crate::clock;
-use crate::app::conversation::{FileState, MentionList};
 use crate::files;
 use crate::outbox::{self, Attachment};
 use crate::theme::{mix, radius, ActiveTheme, Theme, BUBBLE_MAX, CAPTION_WIDTH, CHAT_COLUMN};
@@ -40,7 +40,12 @@ impl Desktop {
                 .justify_center()
                 .gap_3()
                 .child(self.target_face(&target, px(56.), &theme))
-                .child(div().item().text_color(theme.ink_secondary).child(format!("Say what you need and {name} gets to work.")))
+                .child(
+                    div()
+                        .item()
+                        .text_color(theme.ink_secondary)
+                        .child(format!("Say what you need and {name} gets to work.")),
+                )
                 .into_any_element()
         } else {
             list(chat.list.clone(), cx.processor(|this, index: usize, _, cx| this.render_row(index, cx)))
@@ -72,11 +77,15 @@ impl Desktop {
                     .items_center()
                     .justify_center()
                     .gap_4()
-                    .child(div().item().text_color(theme.ink_secondary).child("Create your first agent to start a conversation."))
                     .child(
-                        pill_button("first-agent", "New agent", Tone::Primary, true, theme)
-                            .on_click(cx.listener(|this, _, window, cx| this.open_dialog(DialogKind::NewAgent, window, cx))),
-                    ),
+                        div()
+                            .item()
+                            .text_color(theme.ink_secondary)
+                            .child("Create your first agent to start a conversation."),
+                    )
+                    .child(pill_button("first-agent", "New agent", Tone::Primary, true, theme).on_click(
+                        cx.listener(|this, _, window, cx| this.open_dialog(DialogKind::NewAgent, window, cx)),
+                    )),
             )
             .into_any_element()
     }
@@ -132,14 +141,12 @@ impl Desktop {
                     .map(|group| group.members.iter().take(2).map(|member| theme.identity_for(&member.color)).collect())
                     .unwrap_or_default();
                 let face = size * 0.68;
-                div()
-                    .size(size)
-                    .flex_shrink_0()
-                    .relative()
-                    .children(colors.into_iter().enumerate().map(|(index, color)| {
+                div().size(size).flex_shrink_0().relative().children(colors.into_iter().enumerate().map(
+                    |(index, color)| {
                         let offset = if index == 0 { px(0.) } else { size - face };
                         agent_face(color, face).absolute().left(offset).top(offset)
-                    }))
+                    },
+                ))
             }
         }
     }
@@ -207,7 +214,14 @@ impl Desktop {
         }
     }
 
-    fn render_entry(&self, entry: &Entry, place: Place, index: usize, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+    fn render_entry(
+        &self,
+        entry: &Entry,
+        place: Place,
+        index: usize,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let chat = self.chat.as_ref();
         let in_group = chat.is_some_and(|chat| matches!(chat.target, Target::Group(_)));
         let members: &[GroupMember] = chat.map_or(&[], |chat| &chat.conversation.members);
@@ -300,16 +314,25 @@ impl Desktop {
                 .children(answer.clone().map(|answer| div().body().text_color(theme.ink_tertiary).child(answer)))
                 .when(*needs_typing, |card| card.child(self.open_on_web("Answer on the web", theme, cx)))
                 .when(!actions.is_empty(), |card| {
-                    card.child(div().flex().flex_wrap().gap_2().children(actions.iter().enumerate().map(|(choice, action)| {
-                        let tone = if choice == 0 { Tone::Primary } else { Tone::Quiet };
-                        let (run_id, message_id, answer) = (entry.run_id.clone(), entry.id.clone(), action.id.clone());
-                        pill_button(SharedString::from(format!("answer-{}-{}", entry.id, action.id)), action.label.clone(), tone, run_id.is_some(), theme)
+                    card.child(div().flex().flex_wrap().gap_2().children(actions.iter().enumerate().map(
+                        |(choice, action)| {
+                            let tone = if choice == 0 { Tone::Primary } else { Tone::Quiet };
+                            let (run_id, message_id, answer) =
+                                (entry.run_id.clone(), entry.id.clone(), action.id.clone());
+                            pill_button(
+                                SharedString::from(format!("answer-{}-{}", entry.id, action.id)),
+                                action.label.clone(),
+                                tone,
+                                run_id.is_some(),
+                                theme,
+                            )
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 if let Some(run_id) = run_id.clone() {
                                     this.answer_card(run_id, message_id.clone(), answer.clone(), window, cx);
                                 }
                             }))
-                    })))
+                        },
+                    )))
                 })
                 .into_any_element(),
             Part::Elsewhere(kind) => card(theme)
@@ -460,12 +483,14 @@ impl Desktop {
             .children(chat.error.clone().map(|error| div().pt_4().w_full().child(error_line(error, theme))))
             .when(chat.unread, |row| {
                 let target = chat.target.clone();
-                row.child(div().pt_3().child(pill_button("reload-chat", "Try again", Tone::Quiet, true, theme).on_click(cx.listener(
-                    move |this, _, window, cx| {
-                        this.chat = None;
-                        this.open(target.clone(), window, cx);
-                    },
-                ))))
+                row.child(div().pt_3().child(
+                    pill_button("reload-chat", "Try again", Tone::Quiet, true, theme).on_click(cx.listener(
+                        move |this, _, window, cx| {
+                            this.chat = None;
+                            this.open(target.clone(), window, cx);
+                        },
+                    )),
+                ))
             })
             .into_any_element()
     }
@@ -482,7 +507,9 @@ impl Desktop {
         let multiline = self.composer.read(cx).value().contains('\n');
         let needs_model = self.me.as_ref().is_some_and(|me| me.needs_model);
         let identity = match target {
-            Target::Agent(id) => theme.identity_for(&self.agent(id).map(|agent| agent.color.clone()).unwrap_or_default()),
+            Target::Agent(id) => {
+                theme.identity_for(&self.agent(id).map(|agent| agent.color.clone()).unwrap_or_default())
+            }
             Target::Group(_) => theme.ink,
         };
         let has_content = has_text || !attachments.is_empty();
@@ -742,11 +769,7 @@ fn bubble(
     named: &[std::ops::Range<usize>],
     theme: &Theme,
 ) -> AnyElement {
-    let (fill, ink) = if mine {
-        (theme.bubble_user, theme.bubble_user_ink)
-    } else {
-        (theme.card, theme.ink)
-    };
+    let (fill, ink) = if mine { (theme.bubble_user, theme.bubble_user_ink) } else { (theme.card, theme.ink) };
     let tight = radius::BUBBLE_JOINED;
     let shape = div()
         .max_w(BUBBLE_MAX)

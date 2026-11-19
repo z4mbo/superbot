@@ -121,17 +121,11 @@ pub struct AgentSummary {
 
 impl AgentSummary {
     pub fn working(&self) -> bool {
-        matches!(
-            self.thread_status.as_deref().unwrap_or(&self.status),
-            "queued" | "leased" | "running"
-        )
+        matches!(self.thread_status.as_deref().unwrap_or(&self.status), "queued" | "leased" | "running")
     }
 
     pub fn waiting_on_you(&self) -> bool {
-        matches!(
-            self.thread_status.as_deref().unwrap_or(&self.status),
-            "waiting_input" | "waiting_takeover"
-        )
+        matches!(self.thread_status.as_deref().unwrap_or(&self.status), "waiting_input" | "waiting_takeover")
     }
 }
 
@@ -234,8 +228,7 @@ pub struct FileContent {
 impl Snapshot {
     pub fn working(&self) -> bool {
         let active = |run: &Run| matches!(run.status.as_str(), "queued" | "leased" | "running");
-        self.run.as_ref().is_some_and(active)
-            || self.active_runs.as_ref().is_some_and(|runs| runs.iter().any(active))
+        self.run.as_ref().is_some_and(active) || self.active_runs.as_ref().is_some_and(|runs| runs.iter().any(active))
     }
 }
 
@@ -273,15 +266,8 @@ pub fn message_from_event(event: &ThreadEvent) -> Option<WireMessage> {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum ManifestPart {
-    Skill {
-        id: String,
-        instructions: String,
-    },
-    Mcp {
-        id: String,
-        transport: String,
-        endpoint: String,
-    },
+    Skill { id: String, instructions: String },
+    Mcp { id: String, transport: String, endpoint: String },
 }
 
 impl ManifestPart {
@@ -375,12 +361,7 @@ impl Api {
         self.client.rpc("bots/create", Some(space_id), json!({ "name": name })).await
     }
 
-    pub async fn update_agent(
-        &self,
-        space_id: &str,
-        agent_id: &str,
-        patch: Value,
-    ) -> Result<AgentSummary, Error> {
+    pub async fn update_agent(&self, space_id: &str, agent_id: &str, patch: Value) -> Result<AgentSummary, Error> {
         let mut input = json!({ "botId": agent_id });
         if let (Some(input), Some(patch)) = (input.as_object_mut(), patch.as_object()) {
             input.extend(patch.clone());
@@ -408,10 +389,7 @@ impl Api {
     }
 
     pub async fn send(&self, space_id: &str, target: &Target, message: &Outgoing<'_>) -> Result<(), Error> {
-        self.client
-            .rpc::<Value>("threads/send", Some(space_id), send_input(target, message))
-            .await
-            .map(|_| ())
+        self.client.rpc::<Value>("threads/send", Some(space_id), send_input(target, message)).await.map(|_| ())
     }
 
     /// Stores a file in the conversation and returns its id. Sent again with the same nonce,
@@ -554,12 +532,7 @@ impl Api {
         self.client.rpc::<Value>(path, Some(space_id), input).await.map(|_| ())
     }
 
-    async fn pages<T: DeserializeOwned>(
-        &self,
-        path: &str,
-        space_id: &str,
-        filter: Value,
-    ) -> Result<Vec<T>, Error> {
+    async fn pages<T: DeserializeOwned>(&self, path: &str, space_id: &str, filter: Value) -> Result<Vec<T>, Error> {
         const MOST_PAGES: usize = 10;
         let mut items = Vec::new();
         let mut after: Option<String> = None;

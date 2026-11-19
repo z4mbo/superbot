@@ -89,9 +89,8 @@ impl Conversation {
 }
 
 fn new_outbox() -> Outbox {
-    let moment = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_nanos());
+    let moment =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_nanos());
     Outbox::new(format!("desktop-{}-{moment}", std::process::id()))
 }
 
@@ -137,7 +136,7 @@ impl Desktop {
             error: None,
             unread: false,
             reconnecting: false,
-            list: ListState::new(2, ListAlignment::Bottom, px(600.)),
+            list: transcript_list(),
             conversation: Conversation::new(),
             _live: None,
         });
@@ -178,8 +177,11 @@ impl Desktop {
     fn follow(&mut self, target: Target, cursor: i64, cx: &mut Context<Self>) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         let selection = self.space_selection;
-        let mut live = follow(api.client, space_id.clone(), target.clone(), cursor);
+        let live = follow(api.client, space_id.clone(), target.clone(), cursor);
         let task = cx.spawn(async move |this, cx| {
+            // The whole stream moves in. Naming only `live.updates` below would leave its
+            // cancel-on-drop guard behind, and the stream would be cancelled as this returns.
+            let mut live = live;
             while let Some(update) = live.updates.recv().await {
                 let applied = this.update(cx, |this, cx| {
                     let open = this.active_space(selection, &space_id)
@@ -289,9 +291,15 @@ impl Desktop {
         }
         let this = cx.entity().downgrade();
         chat.list.set_scroll_handler(move |event, window, cx| {
-            if event.visible_range.start <= NEAR_TOP {
-                this.update(cx, |this, cx| this.load_older(window, cx)).ok();
+            if event.visible_range.start > NEAR_TOP {
+                return;
             }
+            // GPUI 0.3.12 calls this handler while the list's state is borrowed, and loading
+            // older history reads and changes that state, so it waits for the scroll to finish.
+            let this = this.clone();
+            window.defer(cx, move |window, cx| {
+                this.update(cx, |this, cx| this.load_older(window, cx)).ok();
+            });
         });
     }
 
@@ -430,6 +438,8 @@ impl Desktop {
         let Some(sending) = chat.conversation.outbox.begin(&text, mentions) else { return };
         chat.error = None;
         chat.conversation.mention_closed = None;
+        // Sending brings the person back to the latest message.
+        chat.list.set_follow_mode(FollowMode::Tail);
 
         let stored = Arc::new(Mutex::new(Vec::<(u64, String)>::new()));
         let (progress, sent_text, at) = (stored.clone(), sending.text.clone(), place.clone());
@@ -508,7 +518,8 @@ impl Desktop {
         if state.mention_closed.as_ref() == Some(&query) {
             return None;
         }
-        let choices: Vec<GroupMember> = outbox::mention_matches(&state.members, &query.typed).into_iter().cloned().collect();
+        let choices: Vec<GroupMember> =
+            outbox::mention_matches(&state.members, &query.typed).into_iter().cloned().collect();
         if choices.is_empty() {
             return None;
         }
@@ -604,7 +615,14 @@ impl Desktop {
         };
     }
 
-    fn open_copy(&mut self, place: Place, file: FileRef, bytes: Vec<u8>, extension: &'static str, cx: &mut Context<Self>) {
+    fn open_copy(
+        &mut self,
+        place: Place,
+        file: FileRef,
+        bytes: Vec<u8>,
+        extension: &'static str,
+        cx: &mut Context<Self>,
+    ) {
         let path = files::open_copy_path(&file.artifact_id, &file.name, extension);
         cx.spawn(async move |this, cx| {
             let copy = path.clone();
@@ -762,4 +780,12 @@ fn apply_event(chat: &mut Chat, event: &ThreadEvent) -> bool {
         "bot.updated" | "bot.archived" | "bot.deleted" | "bot.spawned" | "group.updated" | "group.created" => true,
         _ => false,
     }
+}
+
+/// The transcript's list: it starts at the latest message and stays there as replies arrive,
+/// until the person scrolls away; scrolling back to the end picks the latest up again.
+fn transcript_list() -> ListState {
+    let list = ListState::new(2, ListAlignment::Bottom, px(600.));
+    list.set_follow_mode(FollowMode::Tail);
+    list
 }

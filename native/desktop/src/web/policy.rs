@@ -105,7 +105,13 @@ mod tests {
     #[test]
     fn other_schemes_are_refused() {
         let server = server();
-        for target in ["file:///C:/Windows/win.ini", "javascript:alert(1)", "ms-settings:privacy", "data:text/html,x", "not a url"] {
+        for target in [
+            "file:///C:/Windows/win.ini",
+            "javascript:alert(1)",
+            "ms-settings:privacy",
+            "data:text/html,x",
+            "not a url",
+        ] {
             assert_eq!(navigation(&server, target), Navigate::Refuse, "{target}");
             assert_eq!(popup(&server, target, true), Popup::Refuse, "{target}");
         }

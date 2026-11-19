@@ -19,7 +19,8 @@ impl Desktop {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         let Some(switch) = self.store.version_switch.as_mut().filter(|switch| !switch.busy) else { return };
         switch.busy = true;
-        let (installation_id, from, to) = (switch.installation_id.clone(), switch.from.id.clone(), switch.to.id.clone());
+        let (installation_id, from, to) =
+            (switch.installation_id.clone(), switch.from.id.clone(), switch.to.id.clone());
         let version = switch.to.version;
         let work = async move {
             match api.switch_plugin_version(&space_id, &installation_id, &from, &to).await {
@@ -39,7 +40,12 @@ impl Desktop {
                         Some(known) => *known = installation,
                         None => this.store.installations.push(installation),
                     }
-                    this.notify(format!("Now on version {version}. Choose again which agents can use it."), false, None, cx);
+                    this.notify(
+                        format!("Now on version {version}. Choose again which agents can use it."),
+                        false,
+                        None,
+                        cx,
+                    );
                 }
                 Ok(Err((installations, catalog))) => {
                     this.store.installations = installations;
@@ -106,16 +112,27 @@ impl Desktop {
                                 .justify_end()
                                 .gap_2()
                                 .child(
-                                    pill_button("version-switch-cancel", "Keep current version", Tone::Quiet, !switch.busy, &theme).on_click(
-                                        cx.listener(|this, _, _, cx| {
-                                            this.store.cancel_version_switch();
-                                            cx.notify();
-                                        }),
-                                    ),
+                                    pill_button(
+                                        "version-switch-cancel",
+                                        "Keep current version",
+                                        Tone::Quiet,
+                                        !switch.busy,
+                                        &theme,
+                                    )
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.store.cancel_version_switch();
+                                        cx.notify();
+                                    })),
                                 )
                                 .child(
-                                    pill_button("version-switch-confirm", if switch.busy { "Switching…" } else { "Switch version" }, Tone::Danger, !switch.busy, &theme)
-                                        .on_click(cx.listener(|this, _, window, cx| this.switch_version(window, cx))),
+                                    pill_button(
+                                        "version-switch-confirm",
+                                        if switch.busy { "Switching…" } else { "Switch version" },
+                                        Tone::Danger,
+                                        !switch.busy,
+                                        &theme,
+                                    )
+                                    .on_click(cx.listener(|this, _, window, cx| this.switch_version(window, cx))),
                                 ),
                         ),
                 )

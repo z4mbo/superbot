@@ -64,8 +64,7 @@ pub fn check_slug(value: &str) -> Result<()> {
 }
 
 pub fn trim_text(value: &mut String, field: &str, max: usize) -> Result<()> {
-    *value = bounded(value, max).map_err(|_| {
-        anyhow!("{field} must contain 1 to {max} UTF-16 code units after trimming")
-    })?;
+    *value = bounded(value, max)
+        .map_err(|_| anyhow!("{field} must contain 1 to {max} UTF-16 code units after trimming"))?;
     Ok(())
 }

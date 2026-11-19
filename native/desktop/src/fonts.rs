@@ -32,10 +32,7 @@ impl Fonts {
                 fallback.clone()
             }
         };
-        Self {
-            sans: family(SANS, &kit.font_family),
-            mono: family(MONO, &kit.mono_font_family),
-        }
+        Self { sans: family(SANS, &kit.font_family), mono: family(MONO, &kit.mono_font_family) }
     }
 }
 

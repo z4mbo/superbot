@@ -1,8 +1,5 @@
 use gpui_kit::component::{Theme as KitTheme, ThemeMode};
-use gpui_kit::{
-    hsla, point, px, rgb, rgba, App, BoxShadow, Global, Hsla, Pixels, SharedString,
-    WindowAppearance,
-};
+use gpui_kit::{hsla, point, px, rgb, rgba, App, BoxShadow, Global, Hsla, Pixels, SharedString, WindowAppearance};
 
 use crate::fonts::Fonts;
 
@@ -160,10 +157,7 @@ impl Theme {
 
     /// Ink at a low opacity: the hover and pressed fill that works on every surface.
     pub fn ink_at(&self, opacity: f32) -> Hsla {
-        Hsla {
-            a: opacity,
-            ..self.ink
-        }
+        Hsla { a: opacity, ..self.ink }
     }
 
     /// The elevated control fill under the pointer: the composer tone with 7% ink.
@@ -187,8 +181,7 @@ impl Theme {
             _ => None,
         };
         let index = named.unwrap_or_else(|| {
-            key.bytes()
-                .fold(0usize, |hash, byte| hash.wrapping_mul(31).wrapping_add(byte as usize))
+            key.bytes().fold(0usize, |hash, byte| hash.wrapping_mul(31).wrapping_add(byte as usize))
                 % self.identity.len()
         });
         self.identity[index]
@@ -216,15 +209,7 @@ impl Theme {
 
     /// Makes the component library's own controls (text fields, scrollbars) wear this skin.
     pub fn install(self, cx: &mut App) {
-        KitTheme::change(
-            if self.is_dark() {
-                ThemeMode::Dark
-            } else {
-                ThemeMode::Light
-            },
-            None,
-            cx,
-        );
+        KitTheme::change(if self.is_dark() { ThemeMode::Dark } else { ThemeMode::Light }, None, cx);
         KitTheme::update(cx, |kit| {
             kit.font_family = self.font.clone();
             kit.mono_font_family = self.mono.clone();
@@ -236,10 +221,7 @@ impl Theme {
             kit.input = self.hairline;
             kit.ring = self.focus;
             kit.caret = self.ink;
-            kit.selection = Hsla {
-                a: 0.35,
-                ..self.accent
-            };
+            kit.selection = Hsla { a: 0.35, ..self.accent };
             kit.popover = self.menu;
             kit.popover_foreground = self.ink;
             kit.link = self.accent_text;
@@ -247,10 +229,7 @@ impl Theme {
             kit.link_active = self.accent_text;
             kit.title_bar = self.panel;
             kit.title_bar_border = self.panel;
-            kit.scrollbar = Hsla {
-                a: 0.,
-                ..self.panel
-            };
+            kit.scrollbar = Hsla { a: 0., ..self.panel };
             kit.scrollbar_thumb = self.ink_at(0.18);
             kit.scrollbar_thumb_hover = self.ink_at(0.3);
         });
@@ -261,13 +240,7 @@ impl Theme {
 pub fn mix(base: Hsla, over: Hsla, amount: f32) -> Hsla {
     let (base, over) = (base.to_rgb(), over.to_rgb());
     let blend = |from: f32, to: f32| from + (to - from) * amount;
-    gpui_kit::Rgba {
-        r: blend(base.r, over.r),
-        g: blend(base.g, over.g),
-        b: blend(base.b, over.b),
-        a: base.a,
-    }
-    .into()
+    gpui_kit::Rgba { r: blend(base.r, over.r), g: blend(base.g, over.g), b: blend(base.b, over.b), a: base.a }.into()
 }
 
 pub trait ActiveTheme {

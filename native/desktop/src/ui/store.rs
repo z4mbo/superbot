@@ -113,12 +113,7 @@ impl Store {
     fn releases(&self, slug: &str) -> Vec<PluginVersion> {
         let mut releases: Vec<PluginVersion> = Vec::new();
         let found = self.found.iter().flat_map(|found| &found.plugins);
-        for version in self
-            .catalog
-            .iter()
-            .chain(found)
-            .filter(|version| version.slug == slug)
-        {
+        for version in self.catalog.iter().chain(found).filter(|version| version.slug == slug) {
             if !releases.iter().any(|known| known.id == version.id) {
                 releases.push(version.clone());
             }
@@ -147,9 +142,7 @@ impl Store {
     }
 
     pub fn installation(&self, slug: &str) -> Option<&Installation> {
-        self.installations
-            .iter()
-            .find(|installation| installation.plugin.slug == slug)
+        self.installations.iter().find(|installation| installation.plugin.slug == slug)
     }
 }
 
@@ -176,9 +169,7 @@ impl Desktop {
                 return;
             }
             let asked = query.clone();
-            let result =
-                crate::runtime::network(async move { api.discover(&space_id, Some(&asked)).await })
-                    .await;
+            let result = crate::runtime::network(async move { api.discover(&space_id, Some(&asked)).await }).await;
             this.update(cx, |this, cx| {
                 if let (true, Ok(plugins)) = (current(this), result) {
                     this.store.found = Some(Found { query, plugins });
@@ -203,11 +194,7 @@ impl Desktop {
                 api.installations(&space_id),
                 api.my_plugins(&space_id)
             )?;
-            let queue = if reviews {
-                api.review_queue(&space_id).await?
-            } else {
-                Vec::new()
-            };
+            let queue = if reviews { api.review_queue(&space_id).await? } else { Vec::new() };
             Ok((catalog, installations, mine, queue))
         };
         self.call(window, cx, work, |this, result, _, _| {
@@ -237,16 +224,9 @@ impl Desktop {
             this.store.busy = None;
             match result {
                 Ok(installation) => {
-                    this.store
-                        .installations
-                        .retain(|known| known.id != installation.id);
+                    this.store.installations.retain(|known| known.id != installation.id);
                     this.store.installations.push(installation);
-                    this.notify(
-                        format!("{name} installed. Choose which agents can use it."),
-                        false,
-                        None,
-                        cx,
-                    );
+                    this.notify(format!("{name} installed. Choose which agents can use it."), false, None, cx);
                 }
                 Err(error) => this.notify(api::explain(&error), true, None, cx),
             }
@@ -254,32 +234,17 @@ impl Desktop {
         cx.notify();
     }
 
-    fn review(
-        &mut self,
-        version_id: String,
-        rejection: Option<String>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn review(&mut self, version_id: String, rejection: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else {
             return;
         };
-        if rejection
-            .as_ref()
-            .is_some_and(|reason| reason.trim().is_empty())
-        {
-            self.notify(
-                "Say why it was rejected, so its author can fix it.",
-                true,
-                None,
-                cx,
-            );
+        if rejection.as_ref().is_some_and(|reason| reason.trim().is_empty()) {
+            self.notify("Say why it was rejected, so its author can fix it.", true, None, cx);
             return;
         }
         self.store.busy = Some(version_id.clone());
         let work = async move {
-            api.review_plugin(&space_id, &version_id, rejection.as_deref())
-                .await?;
+            api.review_plugin(&space_id, &version_id, rejection.as_deref()).await?;
             tokio::try_join!(api.review_queue(&space_id), api.discover(&space_id, None))
         };
         self.call(window, cx, work, |this, result, _, cx| {
@@ -308,12 +273,7 @@ impl Desktop {
         page(body).into_any_element()
     }
 
-    fn render_store_home(
-        &mut self,
-        theme: &Theme,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    fn render_store_home(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let admin = self.me.as_ref().is_some_and(|me| me.is_admin);
         let tab = self.store.tab;
         let tabs = [
@@ -334,25 +294,19 @@ impl Desktop {
                     .justify_between()
                     .gap_3()
                     .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_0p5()
-                            .child(div().page_title().child("Plugins"))
-                            .child(
-                                div()
-                                    .body()
-                                    .text_color(theme.ink_secondary)
-                                    .child("Skills and connectors your agents can use."),
-                            ),
+                        div().flex().flex_col().gap_0p5().child(div().page_title().child("Plugins")).child(
+                            div()
+                                .body()
+                                .text_color(theme.ink_secondary)
+                                .child("Skills and connectors your agents can use."),
+                        ),
                     )
-                    .child(
-                        pill_button("create-plugin", "Create plugin", Tone::Primary, true, theme)
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.store.draft = Some(Draft::new(None, window, cx));
-                                cx.notify();
-                            })),
-                    ),
+                    .child(pill_button("create-plugin", "Create plugin", Tone::Primary, true, theme).on_click(
+                        cx.listener(|this, _, window, cx| {
+                            this.store.draft = Some(Draft::new(None, window, cx));
+                            cx.notify();
+                        }),
+                    )),
             )
             .child(
                 div()
@@ -364,29 +318,17 @@ impl Desktop {
                     .rounded_full()
                     .bg(theme.control.opacity(0.7))
                     .child(icon("search", px(15.), theme.ink_secondary))
-                    .child(
-                        div().flex_1().child(
-                            Input::new(&self.store.query)
-                                .appearance(false)
-                                .bordered(false),
-                        ),
-                    ),
+                    .child(div().flex_1().child(Input::new(&self.store.query).appearance(false).bordered(false))),
             )
-            .child(
-                div().flex().items_center().gap_2().children(
-                    tabs.into_iter()
-                        .filter(|(_, _, shown)| *shown)
-                        .map(|(value, label, _)| {
-                            chip(label, label, tab == value, theme).on_click(cx.listener(
-                                move |this, _, _, cx| {
-                                    this.store.tab = value;
-                                    this.store.rejection = None;
-                                    cx.notify();
-                                },
-                            ))
-                        }),
-                ),
-            );
+            .child(div().flex().items_center().gap_2().children(tabs.into_iter().filter(|(_, _, shown)| *shown).map(
+                |(value, label, _)| {
+                    chip(label, label, tab == value, theme).on_click(cx.listener(move |this, _, _, cx| {
+                        this.store.tab = value;
+                        this.store.rejection = None;
+                        cx.notify();
+                    }))
+                },
+            )));
 
         let content = if let Some(error) = self.store.error.clone() {
             div()
@@ -401,15 +343,7 @@ impl Desktop {
                 )
                 .into_any_element()
         } else if !self.store.loaded {
-            empty_line(
-                if self.store.loading {
-                    "Loading plugins…"
-                } else {
-                    ""
-                },
-                theme,
-            )
-            .into_any_element()
+            empty_line(if self.store.loading { "Loading plugins…" } else { "" }, theme).into_any_element()
         } else {
             match tab {
                 Tab::Discover => self.render_catalog(false, theme, window, cx),
@@ -424,15 +358,7 @@ impl Desktop {
             .flex()
             .flex_col()
             .child(header)
-            .child(
-                div()
-                    .id("store-scroll")
-                    .flex_1()
-                    .min_h_0()
-                    .overflow_y_scroll()
-                    .pb_8()
-                    .child(content),
-            )
+            .child(div().id("store-scroll").flex_1().min_h_0().overflow_y_scroll().pb_8().child(content))
             .into_any_element()
     }
 
@@ -445,32 +371,19 @@ impl Desktop {
     ) -> AnyElement {
         let query = self.store.query.read(cx).value().trim().to_lowercase();
         // The server has already matched these, on more than the fields shown here.
-        let matched = !installed_only
-            && self
-                .store
-                .found
-                .as_ref()
-                .is_some_and(|found| found.query == query);
-        let installed: Vec<PluginVersion> = self
-            .store
-            .installations
-            .iter()
-            .map(|known| known.plugin.clone())
-            .collect();
-        let shown: Vec<PluginVersion> = if installed_only {
-            installed
-        } else {
-            self.store.latest(&query).into_iter().cloned().collect()
-        }
-        .into_iter()
-        .filter(|version| {
-            matched
-                || query.is_empty()
-                || version.manifest.name.to_lowercase().contains(&query)
-                || version.manifest.description.to_lowercase().contains(&query)
-                || version.slug.contains(&query)
-        })
-        .collect();
+        let matched = !installed_only && self.store.found.as_ref().is_some_and(|found| found.query == query);
+        let installed: Vec<PluginVersion> = self.store.installations.iter().map(|known| known.plugin.clone()).collect();
+        let shown: Vec<PluginVersion> =
+            if installed_only { installed } else { self.store.latest(&query).into_iter().cloned().collect() }
+                .into_iter()
+                .filter(|version| {
+                    matched
+                        || query.is_empty()
+                        || version.manifest.name.to_lowercase().contains(&query)
+                        || version.manifest.description.to_lowercase().contains(&query)
+                        || version.slug.contains(&query)
+                })
+                .collect();
 
         if shown.is_empty() {
             let line = if !query.is_empty() {
@@ -483,67 +396,42 @@ impl Desktop {
             return empty_line(line, theme).pt_2().into_any_element();
         }
 
-        let columns = if window.viewport_size().width > px(1180.) {
-            2
-        } else {
-            1
-        };
+        let columns = if window.viewport_size().width > px(1180.) { 2 } else { 1 };
         div()
             .grid()
             .grid_cols(columns)
             .gap_x_4()
             .gap_y_1()
-            .children(
-                shown
-                    .into_iter()
-                    .map(|version| self.render_card(version, theme, cx)),
-            )
+            .children(shown.into_iter().map(|version| self.render_card(version, theme, cx)))
             .into_any_element()
     }
 
-    fn render_card(
-        &mut self,
-        version: PluginVersion,
-        theme: &Theme,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    fn render_card(&mut self, version: PluginVersion, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
         let installation = self.store.installation(&version.slug);
         let installed = installation.is_some();
         let busy = self.store.busy.as_deref() == Some(version.id.as_str());
         let slug = version.slug.clone();
         let hover = theme.raised.opacity(0.4);
         let action = if installed {
-            pill_button(
-                SharedString::from(format!("manage-{}", version.id)),
-                "Manage",
-                Tone::Quiet,
-                true,
-                theme,
-            )
-            .on_click(cx.listener({
-                let slug = slug.clone();
-                move |this, _, _, cx| {
-                    this.store.detail = Some(slug.clone());
-                    cx.stop_propagation();
-                    cx.notify();
-                }
-            }))
+            pill_button(SharedString::from(format!("manage-{}", version.id)), "Manage", Tone::Quiet, true, theme)
+                .on_click(cx.listener({
+                    let slug = slug.clone();
+                    move |this, _, _, cx| {
+                        this.store.detail = Some(slug.clone());
+                        cx.stop_propagation();
+                        cx.notify();
+                    }
+                }))
         } else {
             let label = if busy { "Installing…" } else { "Install" };
-            pill_button(
-                SharedString::from(format!("install-{}", version.id)),
-                label,
-                Tone::Quiet,
-                !busy,
-                theme,
-            )
-            .on_click(cx.listener({
-                let version = version.clone();
-                move |this, _, window, cx| {
-                    cx.stop_propagation();
-                    this.install(&version, window, cx);
-                }
-            }))
+            pill_button(SharedString::from(format!("install-{}", version.id)), label, Tone::Quiet, !busy, theme)
+                .on_click(cx.listener({
+                    let version = version.clone();
+                    move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.install(&version, window, cx);
+                    }
+                }))
         };
         div()
             .id(SharedString::from(format!("plugin-{}", version.id)))
@@ -575,9 +463,7 @@ impl Desktop {
                                     .truncate()
                                     .child(version.manifest.name.clone()),
                             )
-                            .when(installed, |row| {
-                                row.child(icon("check", px(13.), theme.success))
-                            }),
+                            .when(installed, |row| row.child(icon("check", px(13.), theme.success))),
                     )
                     .child(
                         div()
@@ -593,12 +479,9 @@ impl Desktop {
 
     fn render_yours(&mut self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
         if self.store.mine.is_empty() {
-            return empty_line(
-                "Nothing published yet. Create a plugin to submit it for review.",
-                theme,
-            )
-            .pt_2()
-            .into_any_element();
+            return empty_line("Nothing published yet. Create a plugin to submit it for review.", theme)
+                .pt_2()
+                .into_any_element();
         }
         let mut mine = self.store.mine.clone();
         mine.sort_by(|a, b| a.slug.cmp(&b.slug).then(b.version.cmp(&a.version)));
@@ -640,27 +523,25 @@ impl Desktop {
                                     .child(div().meta().text_color(tone).child(label)),
                             )
                             .child(
-                                div().meta().text_color(theme.ink_tertiary).child(format!(
-                                    "{} · Version {}",
-                                    version.slug, version.version
-                                )),
-                            )
-                            .children(version.reason.clone().map(|reason| {
                                 div()
-                                    .pt_1()
-                                    .body()
-                                    .text_color(theme.ink_secondary)
-                                    .child(reason)
-                            })),
+                                    .meta()
+                                    .text_color(theme.ink_tertiary)
+                                    .child(format!("{} · Version {}", version.slug, version.version)),
+                            )
+                            .children(
+                                version
+                                    .reason
+                                    .clone()
+                                    .map(|reason| div().pt_1().body().text_color(theme.ink_secondary).child(reason)),
+                            ),
                     )
                     .when(newest, |row| {
-                        row.child(
-                            pill_button(("revise", index), "New version", Tone::Quiet, true, theme)
-                                .on_click(cx.listener(move |this, _, window, cx| {
-                                    this.store.draft = Some(Draft::new(Some(&revise), window, cx));
-                                    cx.notify();
-                                })),
-                        )
+                        row.child(pill_button(("revise", index), "New version", Tone::Quiet, true, theme).on_click(
+                            cx.listener(move |this, _, window, cx| {
+                                this.store.draft = Some(Draft::new(Some(&revise), window, cx));
+                                cx.notify();
+                            }),
+                        ))
                     })
             }))
             .into_any_element()
@@ -668,174 +549,108 @@ impl Desktop {
 
     fn render_review(&mut self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
         if self.store.queue.is_empty() {
-            return empty_line("Nothing is waiting for review.", theme)
-                .pt_2()
-                .into_any_element();
+            return empty_line("Nothing is waiting for review.", theme).pt_2().into_any_element();
         }
         let busy = self.store.busy.clone();
-        let rejecting = self
-            .store
-            .rejection
-            .as_ref()
-            .map(|rejection| (rejection.version_id.clone(), rejection.reason.clone()));
+        let rejecting =
+            self.store.rejection.as_ref().map(|rejection| (rejection.version_id.clone(), rejection.reason.clone()));
         div()
             .flex()
             .flex_col()
             .gap_3()
-            .children(
-                self.store
-                    .queue
-                    .clone()
-                    .into_iter()
-                    .enumerate()
-                    .map(|(index, version)| {
-                        let waiting = busy.as_deref() == Some(version.id.as_str());
-                        let reason = rejecting
-                            .as_ref()
-                            .filter(|(id, _)| id == &version.id)
-                            .map(|(_, reason)| reason.clone());
-                        let (approve_id, reject_id) = (version.id.clone(), version.id.clone());
+            .children(self.store.queue.clone().into_iter().enumerate().map(|(index, version)| {
+                let waiting = busy.as_deref() == Some(version.id.as_str());
+                let reason = rejecting.as_ref().filter(|(id, _)| id == &version.id).map(|(_, reason)| reason.clone());
+                let (approve_id, reject_id) = (version.id.clone(), version.id.clone());
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .pb_5()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_3()
+                            .child(plugin_mark(&version, px(40.), theme))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .child(
+                                        div()
+                                            .item()
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .truncate()
+                                            .child(version.manifest.name.clone()),
+                                    )
+                                    .child(
+                                        div()
+                                            .meta()
+                                            .text_color(theme.ink_tertiary)
+                                            .child(format!("{} · Version {}", version.slug, version.version)),
+                                    ),
+                            )
+                            .when(reason.is_none(), |row| {
+                                row.child(
+                                    pill_button(("reject", index), "Reject…", Tone::Quiet, !waiting, theme).on_click(
+                                        cx.listener(move |this, _, window, cx| {
+                                            let input = cx.new(|cx| {
+                                                InputState::new(window, cx).placeholder("What needs to change")
+                                            });
+                                            input.update(cx, |input, cx| input.focus(window, cx));
+                                            this.store.rejection =
+                                                Some(Rejection { version_id: reject_id.clone(), reason: input });
+                                            cx.notify();
+                                        }),
+                                    ),
+                                )
+                                .child(
+                                    pill_button(
+                                        ("approve", index),
+                                        if waiting { "Approving…" } else { "Approve" },
+                                        Tone::Primary,
+                                        !waiting,
+                                        theme,
+                                    )
+                                    .on_click(cx.listener(
+                                        move |this, _, window, cx| this.review(approve_id.clone(), None, window, cx),
+                                    )),
+                                )
+                            }),
+                    )
+                    .child(div().body().text_color(theme.ink_secondary).child(version.manifest.description.clone()))
+                    .child(
                         div()
                             .flex()
                             .flex_col()
-                            .gap_3()
-                            .pb_5()
+                            .gap_2()
+                            .children(version.manifest.parts.iter().map(|part| part_card(part, theme))),
+                    )
+                    .children(reason.map(|reason| {
+                        let (input, version_id) = (reason.clone(), version.id.clone());
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
                             .child(
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .gap_3()
-                                    .child(plugin_mark(&version, px(40.), theme))
-                                    .child(
-                                        div()
-                                            .flex_1()
-                                            .min_w_0()
-                                            .child(
-                                                div()
-                                                    .item()
-                                                    .font_weight(FontWeight::SEMIBOLD)
-                                                    .truncate()
-                                                    .child(version.manifest.name.clone()),
-                                            )
-                                            .child(
-                                                div().meta().text_color(theme.ink_tertiary).child(
-                                                    format!(
-                                                        "{} · Version {}",
-                                                        version.slug, version.version
-                                                    ),
-                                                ),
-                                            ),
-                                    )
-                                    .when(reason.is_none(), |row| {
-                                        row.child(
-                                            pill_button(
-                                                ("reject", index),
-                                                "Reject…",
-                                                Tone::Quiet,
-                                                !waiting,
-                                                theme,
-                                            )
-                                            .on_click(
-                                                cx.listener(move |this, _, window, cx| {
-                                                    let input = cx.new(|cx| {
-                                                        InputState::new(window, cx)
-                                                            .placeholder("What needs to change")
-                                                    });
-                                                    input.update(cx, |input, cx| {
-                                                        input.focus(window, cx)
-                                                    });
-                                                    this.store.rejection = Some(Rejection {
-                                                        version_id: reject_id.clone(),
-                                                        reason: input,
-                                                    });
-                                                    cx.notify();
-                                                }),
-                                            ),
-                                        )
-                                        .child(
-                                            pill_button(
-                                                ("approve", index),
-                                                if waiting { "Approving…" } else { "Approve" },
-                                                Tone::Primary,
-                                                !waiting,
-                                                theme,
-                                            )
-                                            .on_click(
-                                                cx.listener(move |this, _, window, cx| {
-                                                    this.review(
-                                                        approve_id.clone(),
-                                                        None,
-                                                        window,
-                                                        cx,
-                                                    )
-                                                }),
-                                            ),
-                                        )
-                                    }),
+                                field_box(theme).flex_1().child(Input::new(&reason).appearance(false).bordered(false)),
                             )
+                            .child(pill_button(("cancel-reject", index), "Cancel", Tone::Quiet, true, theme).on_click(
+                                cx.listener(|this, _, _, cx| {
+                                    this.store.rejection = None;
+                                    cx.notify();
+                                }),
+                            ))
                             .child(
-                                div()
-                                    .body()
-                                    .text_color(theme.ink_secondary)
-                                    .child(version.manifest.description.clone()),
+                                pill_button(("confirm-reject", index), "Reject", Tone::Danger, !waiting, theme)
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        let reason = input.read(cx).value().trim().to_owned();
+                                        this.review(version_id.clone(), Some(reason), window, cx)
+                                    })),
                             )
-                            .child(
-                                div().flex().flex_col().gap_2().children(
-                                    version
-                                        .manifest
-                                        .parts
-                                        .iter()
-                                        .map(|part| part_card(part, theme)),
-                                ),
-                            )
-                            .children(reason.map(|reason| {
-                                let (input, version_id) = (reason.clone(), version.id.clone());
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .gap_2()
-                                    .child(field_box(theme).flex_1().child(
-                                        Input::new(&reason).appearance(false).bordered(false),
-                                    ))
-                                    .child(
-                                        pill_button(
-                                            ("cancel-reject", index),
-                                            "Cancel",
-                                            Tone::Quiet,
-                                            true,
-                                            theme,
-                                        )
-                                        .on_click(
-                                            cx.listener(|this, _, _, cx| {
-                                                this.store.rejection = None;
-                                                cx.notify();
-                                            }),
-                                        ),
-                                    )
-                                    .child(
-                                        pill_button(
-                                            ("confirm-reject", index),
-                                            "Reject",
-                                            Tone::Danger,
-                                            !waiting,
-                                            theme,
-                                        )
-                                        .on_click(
-                                            cx.listener(move |this, _, window, cx| {
-                                                let reason =
-                                                    input.read(cx).value().trim().to_owned();
-                                                this.review(
-                                                    version_id.clone(),
-                                                    Some(reason),
-                                                    window,
-                                                    cx,
-                                                )
-                                            }),
-                                        ),
-                                    )
-                            }))
-                    }),
-            )
+                    }))
+            }))
             .into_any_element()
     }
 }
@@ -881,9 +696,7 @@ fn plugin_mark(version: &PluginVersion, size: Pixels, theme: &Theme) -> Div {
 
 fn part_card(part: &ManifestPart, theme: &Theme) -> Div {
     let (kind, glyph, body, mono) = match part {
-        ManifestPart::Skill { instructions, .. } => {
-            ("Skill", "sparkles", instructions.clone(), false)
-        }
+        ManifestPart::Skill { instructions, .. } => ("Skill", "sparkles", instructions.clone(), false),
         ManifestPart::Mcp { endpoint, .. } => ("Connector", "plug", endpoint.clone(), true),
     };
     div()

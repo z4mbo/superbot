@@ -96,12 +96,7 @@ impl Entry {
 
 fn part(block: &Value) -> Option<Part> {
     let text = |key: &str| {
-        block
-            .get(key)
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_owned)
+        block.get(key).and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned)
     };
     match block.get("kind")?.as_str()? {
         "text" => text("text").map(Part::Text),
@@ -111,9 +106,7 @@ fn part(block: &Value) -> Option<Part> {
                 .get("lines")?
                 .as_array()?
                 .iter()
-                .filter_map(|line| {
-                    Some((line.get("k")?.as_str()?.to_owned(), line.get("v")?.as_str()?.to_owned()))
-                })
+                .filter_map(|line| Some((line.get("k")?.as_str()?.to_owned(), line.get("v")?.as_str()?.to_owned())))
                 .collect();
             (!lines.is_empty()).then_some(Part::Facts(lines))
         }
@@ -139,11 +132,7 @@ fn part(block: &Value) -> Option<Part> {
             Some(Part::Ask {
                 text: text("text")?,
                 detail: text("detail"),
-                answer: if pending {
-                    None
-                } else {
-                    Some(text("answer").unwrap_or_else(|| "Answered".into()))
-                },
+                answer: if pending { None } else { Some(text("answer").unwrap_or_else(|| "Answered".into())) },
                 needs_typing: pending && actions.is_empty(),
                 actions: if pending { actions } else { Vec::new() },
             })
@@ -158,15 +147,10 @@ fn part(block: &Value) -> Option<Part> {
         "routine_event" => text("name").map(|name| Part::Note(format!("Routine · {name}"))),
         "steps" => {
             let steps = block.get("steps")?.as_array()?;
-            let labels: Vec<_> = steps
-                .iter()
-                .filter_map(|step| step.get("label").and_then(Value::as_str))
-                .collect();
+            let labels: Vec<_> = steps.iter().filter_map(|step| step.get("label").and_then(Value::as_str)).collect();
             (!labels.is_empty()).then(|| Part::Steps(labels.join(" · ")))
         }
-        "handoff" | "bot_message_sent" | "bot_message_received" | "channel_message" => {
-            text("text").map(Part::Text)
-        }
+        "handoff" | "bot_message_sent" | "bot_message_received" | "channel_message" => text("text").map(Part::Text),
         "progress" | "delivery" => None,
         "page" => Some(Part::Elsewhere("Page")),
         "chart" => Some(Part::Elsewhere("Chart")),
@@ -304,7 +288,12 @@ mod tests {
         ]);
         let entry = Entry::read(message("m", 1, "user", blocks)).unwrap();
         let file = |artifact_id: &str, name: &str, mime_type: &str, size| {
-            Part::File(FileRef { artifact_id: artifact_id.into(), name: name.into(), mime_type: mime_type.into(), size })
+            Part::File(FileRef {
+                artifact_id: artifact_id.into(),
+                name: name.into(),
+                mime_type: mime_type.into(),
+                size,
+            })
         };
         assert_eq!(
             entry.parts,
@@ -326,11 +315,7 @@ mod tests {
 
     #[test]
     fn bubbles_join_only_within_one_voice() {
-        let entries = vec![
-            words("a", 1, "user", "hi"),
-            words("b", 2, "user", "there"),
-            words("c", 3, "bot", "hello"),
-        ];
+        let entries = vec![words("a", 1, "user", "hi"), words("b", 2, "user", "there"), words("c", 3, "bot", "hello")];
         let joins: Vec<_> = (0..3).map(|index| place(&entries, index, &Utc).join).collect();
         assert!(joins[0].below && joins[1].above);
         assert!(!joins[1].below && !joins[2].above);
@@ -367,7 +352,8 @@ mod tests {
     #[test]
     fn an_older_page_goes_in_front_once_and_stops_at_the_memory_bound() {
         let mut entries = vec![words("m5", 5, "user", "five"), words("m6", 6, "bot", "six")];
-        let page = vec![words("m4", 4, "bot", "four"), words("m3", 3, "user", "three"), words("m5", 5, "user", "again")];
+        let page =
+            vec![words("m4", 4, "bot", "four"), words("m3", 3, "user", "three"), words("m5", 5, "user", "again")];
         assert_eq!(prepend(&mut entries, page), 2);
         let ids: Vec<_> = entries.iter().map(|entry| entry.id.as_str()).collect();
         assert_eq!(ids, ["m3", "m4", "m5", "m6"]);
