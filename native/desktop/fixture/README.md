@@ -46,15 +46,13 @@ off-screen, so it never took the foreground. The captures are in
 | Drafts                  | Words and a file left unsent in the group were still there after opening the agent and coming back; the agent's composer was empty meanwhile.                                                                                                     |
 | Both skins              | Midnight and Daylight.                                                                                                                                                                                                                            |
 
-Two faults the fixture found were fixed in the same change: the app stopped when the view
-reached the top of the loaded history, and a live reply could be drawn after the message that
-followed it.
+A second run used the release executable in a visible window. The owner left text in the
+composer while Observer created another bot from a separate session. Its row appeared in the
+focused sidebar and the original draft stayed in place. Choosing **Open** on `launch-notes.txt`
+and selecting Notepad for that one file displayed the fixture's exact text in the system viewer.
 
 ## What was not checked
 
-- **Open** on a file. It hands a copy to the system's viewer, which comes to the foreground,
-  so it was left out of an unattended run. Which kinds may be opened, and the name and place
-  of the copy, are covered by unit tests.
 - The tooltip with a message's full date, which needs a resting pointer.
 - The "Earlier messages" pill, which only shows while the loaded page does not fill the
   window, and the line shown when an older page cannot be read.
