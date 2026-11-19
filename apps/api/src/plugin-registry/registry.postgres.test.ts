@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { createRouterClient, onError } from "@orpc/server";
 import type { Actor, RpcInput } from "@rakazo/contracts";
-import { asSystem, createDb, resolvePluginGrants, runAsTenant } from "@rakazo/db";
+import {
+  asSystem,
+  createDb,
+  JsonColumnMismatchError,
+  resolvePluginGrants,
+  runAsTenant,
+} from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "../router.js";
 import { createRouter } from "../router.js";
@@ -259,6 +265,104 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
         ),
       ).resolves.toBeNull();
     }
+  });
+
+  it("switches versions atomically and invalidates grants without reviving old identities", async () => {
+    const switchSlug = `${slug}-switch`;
+    const publish = (version: number, releaseSlug = switchSlug) =>
+      client(publisher).submit({
+        slug: releaseSlug,
+        version,
+        manifest: { ...manifest, parts: [manifest.parts[0]!] },
+      });
+    const approve = async (id: string) =>
+      client(admin).review({ versionId: id, decision: "approved" });
+    const [first, second, third, pending, rejected, corrupt, foreign] = await Promise.all([
+      publish(1),
+      publish(2),
+      publish(3),
+      publish(4),
+      publish(5),
+      publish(6),
+      publish(1, `${switchSlug}-other`),
+    ]);
+    await Promise.all([first, second, third, corrupt, foreign].map(({ id }) => approve(id)));
+    await client(admin).review({ versionId: rejected.id, decision: "rejected", reason: "Fixture" });
+    await system.registryPluginVersion.update({
+      where: { id: corrupt.id },
+      data: { manifest: {} },
+    });
+
+    const registry = client(installer);
+    const installation = await registry.install({ versionId: first.id });
+    const bot = botId(installer);
+    const grant = { installationId: installation.id, botId: bot, partIds: ["notes"] };
+    const installed = await registry.setGrants(grant);
+    const resolve = () => resolvePluginGrants(db.prisma, { ...installer, botId: bot });
+    const originalGrants = await resolve();
+    const request = {
+      installationId: installation.id,
+      expectedVersionId: first.id,
+      versionId: second.id,
+    };
+    await expect(client(null).switchVersion(request)).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    for (const actor of [publisher, otherSpace])
+      await expect(client(actor).switchVersion(request)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
+    await expect(
+      registry.switchVersion({ ...request, expectedVersionId: third.id }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    for (const release of [pending, rejected, foreign])
+      await expect(
+        registry.switchVersion({ ...request, versionId: release.id }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      registry.switchVersion({ ...request, versionId: corrupt.id }),
+    ).rejects.toBeInstanceOf(JsonColumnMismatchError);
+    expect((await registry.installations({})).items).toContainEqual(installed);
+    expect(await resolve()).toEqual(originalGrants);
+
+    const switched = await registry.switchVersion(request);
+    expect(switched).toMatchObject({
+      id: installation.id,
+      createdAt: installation.createdAt,
+      plugin: { id: second.id },
+      grants: [],
+    });
+    expect(await resolve()).toEqual([]);
+    const granted = await registry.setGrants(grant);
+    expect(await registry.switchVersion(request)).toEqual(granted);
+    expect((await resolve())[0]).toMatchObject({ versionId: second.id });
+    expect((await resolve())[0]?.grantId).not.toBe(originalGrants[0]?.grantId);
+
+    const candidates = [first.id, third.id].map((versionId) => ({
+      ...request,
+      expectedVersionId: second.id,
+      versionId,
+    }));
+    const switches = await Promise.allSettled(
+      candidates.map((candidate) => registry.switchVersion(candidate)),
+    );
+    expect(switches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "fulfilled",
+          value: expect.objectContaining({ grants: [] }),
+        }),
+        expect.objectContaining({
+          status: "rejected",
+          reason: expect.objectContaining({ code: "CONFLICT" }),
+        }),
+      ]),
+    );
+    expect(await resolve()).toEqual([]);
+    const pinned = (await registry.installations({})).items.find(
+      ({ id }) => id === installation.id,
+    );
+    expect([first.id, third.id]).toContain(pinned?.plugin.id);
   });
 
   it("searches each approved version in the tenant context before paging", async () => {

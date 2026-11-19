@@ -191,10 +191,7 @@ export function pluginRegistryRoutes({ deps, authed }: RouterContext) {
             include: installInclude,
           });
           if (existing && existing.versionId !== release.id)
-            throw new ClientError(
-              "CONFLICT",
-              "Uninstall the current version before switching versions",
-            );
+            throw new ClientError("CONFLICT", "A different version is already installed");
           const installed =
             existing ??
             (await tx.registryPluginInstall.create({
@@ -202,6 +199,34 @@ export function pluginRegistryRoutes({ deps, authed }: RouterContext) {
               include: installInclude,
             }));
           return installDto(installed);
+        }),
+      ),
+      switchVersion: rpc.switchVersion.handler(({ context: { actor }, input }) =>
+        prisma.$transaction(async (tx) => {
+          const { spaceId, userId } = actor;
+          await lockInstalls(tx, actor);
+          const scope = { id: input.installationId, spaceId, userId };
+          const current = await tx.registryPluginInstall.findUnique({
+            where: scope,
+            include: installInclude,
+          });
+          if (!current) throw new ClientError("NOT_FOUND", "Plugin installation not found");
+          if (current.versionId === input.versionId) return installDto(current);
+          if (current.versionId !== input.expectedVersionId)
+            throw new ClientError("CONFLICT", "The installed plugin version changed");
+          const release = await tx.registryPluginVersion.findFirst({
+            where: { id: input.versionId, slug: current.slug, status: "approved" },
+            select: { id: true },
+          });
+          if (!release) throw new ClientError("NOT_FOUND", "Approved plugin version not found");
+          await tx.registryPluginGrant.deleteMany({ where: { installationId: current.id } });
+          return installDto(
+            await tx.registryPluginInstall.update({
+              where: { ...scope, versionId: input.expectedVersionId },
+              data: { versionId: release.id },
+              include: installInclude,
+            }),
+          );
         }),
       ),
       installations: rpc.installations.handler(async ({ context: { actor }, input }) => {

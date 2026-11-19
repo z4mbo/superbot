@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
     discover: vi.fn(),
     installations: vi.fn(),
     install: vi.fn(),
+    switchVersion: vi.fn(),
     setGrants: vi.fn(),
     uninstall: vi.fn(),
     mine: vi.fn(),
@@ -430,12 +431,8 @@ it("shows the review queue to deployment admins only", async () => {
 
 it("switches a pinned install to another approved version only after confirming", async () => {
   installs = [installation([{ botId: "bot-1", partId: "temperatures" }])];
-  api.pluginRegistry.uninstall.mockImplementation(async () => {
-    installs = [];
-    return { ok: true };
-  });
-  api.pluginRegistry.install.mockImplementation(async () => {
-    installs = [{ ...installation([]), id: "install-2", plugin: converter2 }];
+  api.pluginRegistry.switchVersion.mockImplementation(async () => {
+    installs = [{ ...installation([]), plugin: converter2 }];
     return installs[0];
   });
   await render();
@@ -454,12 +451,15 @@ it("switches a pinned install to another approved version only after confirming"
   )!;
   await click(option);
   await click(button("Switch to version 2"));
-  expect(api.pluginRegistry.uninstall).not.toHaveBeenCalled();
+  expect(api.pluginRegistry.switchVersion).not.toHaveBeenCalled();
 
   await click(button("Remove access from 1 bot"));
-  expect(api.pluginRegistry.uninstall).toHaveBeenCalledExactlyOnceWith({
+  expect(api.pluginRegistry.switchVersion).toHaveBeenCalledExactlyOnceWith({
     installationId: "install-1",
+    expectedVersionId: converter1.id,
+    versionId: converter2.id,
   });
-  expect(api.pluginRegistry.install).toHaveBeenCalledExactlyOnceWith({ versionId: converter2.id });
+  expect(api.pluginRegistry.uninstall).not.toHaveBeenCalled();
+  expect(api.pluginRegistry.install).not.toHaveBeenCalled();
   expect(container.textContent).toContain("Version 2 installed");
 });
