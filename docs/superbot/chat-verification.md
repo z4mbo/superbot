@@ -82,3 +82,16 @@ A first-run focus card dismissed by the other account disappeared from an open n
 conversation. Two simultaneous answers from the initiating account produced one
 accepted answer and one HTTP 409. The client displayed the accepted answer without a
 reload. The same fixture rejected an answer from the other member.
+
+### Shared Board in the Windows desktop
+
+Open **Manage workspace → Board** as a member with Board enabled. In the two-account
+fixture, one member edited a description while the other changed the title, status and
+priority and posted a comment. The desktop kept the draft, showed the other member's
+changes, then saved the description and a second comment. Both were read back through
+the other account. Creating a high-priority ticket in the desktop also gave the other
+member the same ticket and assignee.
+
+Switch from Board to chat, change a ticket from the other account, then reopen the
+workspace. A loopback proxy recorded the Board stream closing on exit and opening
+again on return, and the client displayed the change made while the board was closed.

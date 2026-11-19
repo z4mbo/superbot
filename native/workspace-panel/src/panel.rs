@@ -5,7 +5,7 @@ use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::prelude::*;
 use gpui_kit::{
     canvas, div, px, App, Div, Entity, EventEmitter, FocusHandle, Focusable, FontWeight,
-    KeyDownEvent, Pixels, SharedString, Window,
+    KeyDownEvent, Pixels, ScrollHandle, SharedString, Window,
 };
 use superbot_client::{Client, Error};
 use superbot_features::{Bot, Group};
@@ -183,7 +183,8 @@ pub struct WorkspacePanel {
     epoch: u64,
     section: Section,
     focus: FocusHandle,
-    compact: bool,
+    compact_width: Option<Pixels>,
+    nav_scroll: ScrollHandle,
     pub(crate) visible: bool,
     caption_width: Pixels,
     toast: Option<Toast>,
@@ -233,7 +234,8 @@ impl WorkspacePanel {
                 epoch: 0,
                 section: initial.unwrap_or_default(),
                 focus: cx.focus_handle(),
-                compact: false,
+                compact_width: None,
+                nav_scroll: ScrollHandle::new(),
                 visible: true,
                 caption_width: px(0.),
                 toast: None,
@@ -296,6 +298,7 @@ impl WorkspacePanel {
     pub fn show(&mut self, section: Section, window: &mut Window, cx: &mut Context<Self>) {
         if self.section != section {
             self.section = section;
+            self.nav_scroll.scroll_to_item(section as usize);
             self.leave_details();
             self.board.stop_live();
         }
@@ -568,7 +571,7 @@ impl WorkspacePanel {
             )
             .on_click(cx.listener(move |panel, _, window, cx| panel.show(section, window, cx)))
         });
-        if self.compact {
+        if self.compact_width.is_some() {
             return div()
                 .flex()
                 .flex_shrink_0()
@@ -587,6 +590,7 @@ impl WorkspacePanel {
                         .flex_1()
                         .gap_1()
                         .overflow_x_scroll()
+                        .track_scroll(&self.nav_scroll)
                         .children(rows),
                 );
         }
@@ -685,15 +689,17 @@ impl Render for WorkspacePanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = tokens(cx);
         let panel = cx.entity().downgrade();
-        let compact = self.compact;
+        let compact_width = self.compact_width;
+        let compact = compact_width.is_some();
         let measure = canvas(
             move |bounds, window, cx| {
-                let now_compact = bounds.size.width < COMPACT_BELOW;
-                if now_compact != compact {
+                let width = (bounds.size.width < COMPACT_BELOW).then_some(bounds.size.width);
+                if width != compact_width {
                     window.defer(cx, move |_, cx| {
                         panel
                             .update(cx, |panel, cx| {
-                                panel.compact = now_compact;
+                                panel.compact_width = width;
+                                panel.nav_scroll.scroll_to_item(panel.section as usize);
                                 cx.notify();
                             })
                             .ok();

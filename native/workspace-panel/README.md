@@ -95,7 +95,10 @@ edits them, moves them and shows their comments. While it is on screen it follow
 `boards/subscribe` on the panel's network runtime and re-reads the tickets on each change,
 on every (re)connect and when the window becomes active; heartbeat frames are ignored, so
 nothing is read on a timer. A dropped stream reconnects after 1 s, doubling to 30 s.
-Leaving the section closes the stream.
+Leaving the section closes the stream. An embedding host calls `set_visible` when switching
+pages so the subscription also stops while the panel is hidden. The Windows desktop
+passes its caption-button width with `set_caption_width` to keep those controls clear of
+the compact tab strip.
 
 An open ticket's form is never overwritten by someone else's change: `edit.rs` rebases it,
 so untouched fields take the new value and edited ones stay, and the form says so. **Save**
