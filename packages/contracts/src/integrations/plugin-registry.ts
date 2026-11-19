@@ -69,6 +69,8 @@ const pageInput = {
 const page = <Item extends z.ZodType>(item: Item) =>
   z.object({ items: z.array(item), nextAfter: id.nullable() });
 
+export const MAX_REGISTRY_SEARCH_LENGTH = 120;
+
 export const pluginRegistryRpc = {
   pluginRegistry: {
     submit: oc
@@ -91,7 +93,19 @@ export const pluginRegistryRpc = {
       )
       .output(RegistryPluginVersionSchema),
     discover: oc
-      .input(z.object({ ...pageInput, slug: slug.optional() }))
+      .input(
+        z.object({
+          ...pageInput,
+          slug: slug.optional(),
+          query: z
+            .string()
+            .trim()
+            .min(1)
+            .max(MAX_REGISTRY_SEARCH_LENGTH)
+            .regex(/^[^\0]*$/)
+            .optional(),
+        }),
+      )
       .output(page(RegistryPluginVersionSchema)),
     install: oc.input(z.object({ versionId: id })).output(installation),
     installations: oc.input(z.object(pageInput)).output(page(installation)),

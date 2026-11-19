@@ -26,13 +26,15 @@ Parts have unique lowercase identifiers. A skill carries Markdown instructions. 
 | `mine` | `{after?, limit?}` | Publisher's versions, including review status |
 | `submissions` | `{status?, after?, limit?}` | Deployment admin review queue, defaults to pending |
 | `review` | `{versionId, decision: "approved" \| "rejected", reason?}` | Decided version |
-| `discover` | `{slug?, after?, limit?}` | Approved versions only |
+| `discover` | `{slug?, query?, after?, limit?}` | Approved versions only |
 | `install` | `{versionId}` | Installation with exact version and current grants |
 | `installations` | `{after?, limit?}` | Actor's installations in the selected Space |
 | `setGrants` | `{installationId, botId, partIds}` | Installation with current grants |
 | `uninstall` | `{installationId}` | `{ok: true}` |
 
 Lists return `{items, nextAfter}` using opaque string cursors. The default limit is 20 and the maximum is 50. Rejection requires a reason. Installation changes emit the `pluginRegistry` Space change frame on `notifications.subscribe`. A version contains `id, slug, version, manifest, status, reason, createdAt, reviewedAt`. An installation contains `id, plugin, grants, createdAt`, where `plugin` is the full approved version and each grant is `{botId, partId}`.
+
+Discover searches each approved version's slug, manifest name and description for a case-insensitive literal substring. The optional `query` must contain 1 to 120 characters after trimming. Keep the same slug and query filters when following a cursor.
 
 The first submission reserves the slug for its publisher. Rejected versions remain reserved. If the publisher account is deleted, the slug remains reserved and already approved versions stay available. A new version requires a separate submission and review. Only verified deployment admins may review. A version can be decided once. Approval checks declared MCP endpoints using the existing public endpoint policy. Install is idempotent for an identical version. An existing installation pins its version and a switch requires uninstalling and installing explicitly. New installations start with zero grants. Setting grants replaces one bot's selected parts and an empty list revokes them. Uninstall or loss of Space membership removes the installation and its grants atomically. Revoking and regranting a part issues a fresh grant ID.
 

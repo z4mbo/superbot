@@ -29,7 +29,7 @@ import {
   Input,
   Spinner,
 } from "@rakazo/ui-web";
-import { ChevronDown, ChevronRight, LayoutTemplate, X } from "lucide-react";
+import { ChevronDown, ChevronRight, LayoutTemplate, Store, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { IntegrationSetup } from "../../components/integrations/IntegrationSetup";
 import type {
@@ -42,6 +42,7 @@ import { connectMcpOauth } from "../../lib/integrations/mcp-connect";
 import { rpc } from "../../lib/query/rpc";
 import { errorCode, errorText } from "../../lib/query/user-error";
 import { AddMenu } from "./add-menu";
+import { CommunityStore } from "./community/community-store";
 import { ConnectorDetail } from "./connector-detail";
 import { DomainSearch, useDomainSearch } from "./domain-search";
 import { GithubImport } from "./github-import";
@@ -54,7 +55,7 @@ import { SourceFormView, useSourceForm } from "./source-form";
 import { PLUGIN_PAGE_SIZE, useCatalogBrowse } from "./use-catalog-browse";
 import { usePluginConnections } from "./use-plugin-connections";
 
-type OverlayView = "browse" | "manage" | "github" | "source" | "browseMcp" | "domain";
+type OverlayView = "browse" | "manage" | "github" | "source" | "browseMcp" | "domain" | "community";
 
 const CHIP_COUNT = 6;
 
@@ -425,6 +426,18 @@ export function PluginsOverlay({
                 <ChevronRight />
               </Button>
             ) : null}
+            {browsing ? (
+              <Button
+                variant="ghost"
+                size="lg"
+                className="-my-1 gap-2 px-2.5 text-body text-muted-foreground"
+                data-testid="open-community-plugins"
+                onClick={() => openAddView("community")}
+              >
+                <Store />
+                <Trans>Community</Trans>
+              </Button>
+            ) : null}
             {browsing && onOpenTemplates ? (
               <Button
                 variant="ghost"
@@ -612,6 +625,8 @@ export function PluginsOverlay({
               onBack={() => setView("browse")}
               onPick={beginCatalogSurface}
             />
+          ) : view === "community" ? (
+            <CommunityStore activeBotId={activeBotId} onBack={() => setView("browse")} />
           ) : view === "browseMcp" ? (
             <div className="space-y-6">
               <ViewTitle

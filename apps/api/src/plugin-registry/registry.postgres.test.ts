@@ -261,6 +261,53 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
     }
   });
 
+  it("searches each approved version in the tenant context before paging", async () => {
+    const searchSlug = `${slug}-search`;
+    const searchToken = `search-${tag.slice(0, 8)}`;
+    const publish = (version: number, name: string, description: string) =>
+      client(publisher).submit({
+        slug: searchSlug,
+        version,
+        manifest: { ...manifest, name, description, parts: [manifest.parts[0]!] },
+      });
+    const first = await publish(1, `Draft ${searchToken}`, "Converts units.");
+    const second = await publish(2, "Units", `Tracks ${searchToken} with 100%_accuracy.`);
+    const pending = await publish(3, `Pending ${searchToken}`, "Private draft.");
+    const rejected = await publish(4, `Rejected ${searchToken}`, "Private draft.");
+    for (const release of [first, second]) {
+      await client(admin).review({ versionId: release.id, decision: "approved" });
+    }
+    await client(admin).review({ versionId: rejected.id, decision: "rejected", reason: "Fixture" });
+
+    const discover = client(installer).discover;
+    const query = `  ${searchToken.toUpperCase()}  `;
+    const matching = await discover({ query, limit: 1 });
+    expect(matching.items).toHaveLength(1);
+    expect(matching.nextAfter).toBe(matching.items[0]?.id);
+    const next = await discover({ query, limit: 1, after: matching.nextAfter! });
+    expect(next.items).toHaveLength(1);
+    expect(next.nextAfter).toBeNull();
+    expect([...matching.items, ...next.items].map(({ id }) => id)).toEqual(
+      [first.id, second.id].sort(),
+    );
+
+    for (const [text, ids] of [
+      [searchSlug.toUpperCase(), [first.id, second.id]],
+      ["converts UNITS", [first.id]],
+      ["100%_ACCURACY", [second.id]],
+      ["%_", [second.id]],
+    ] as const) {
+      expect((await discover({ query: text })).items.map(({ id }) => id)).toEqual([...ids].sort());
+    }
+    expect((await discover({ slug, query })).items).toEqual([]);
+    for (const actor of [installer, publisher]) {
+      expect((await client(actor).discover({ query })).items.map(({ id }) => id)).not.toContain(
+        pending.id,
+      );
+      expect((await client(actor).discover({ query: "private draft" })).items).toEqual([]);
+    }
+  });
+
   it("keeps a version pending when review finds a private MCP endpoint", async () => {
     const privateSlug = `${slug}-private`;
     const release = await client(publisher).submit({
