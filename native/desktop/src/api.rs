@@ -179,8 +179,14 @@ pub struct WireMessage {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Run {
     pub status: String,
+    #[serde(default)]
+    pub id: Option<String>,
+    /// Who started the run: only they answer its cards.
+    #[serde(default)]
+    pub user_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -448,6 +454,36 @@ impl Api {
         input["messageId"] = json!(message_id);
         input["answer"] = json!(answer);
         self.done("threads/answer", space_id, input).await
+    }
+
+    /// Answers a question card; `dismiss` turns down a secret request with an empty answer.
+    pub async fn answer_question(
+        &self,
+        space_id: &str,
+        target: &Target,
+        run_id: &str,
+        message_id: &str,
+        answer: &str,
+        dismiss: bool,
+    ) -> Result<(), Error> {
+        let mut input = json!(target.wire());
+        input["runId"] = json!(run_id);
+        input["messageId"] = json!(message_id);
+        input["answer"] = json!(answer);
+        if dismiss {
+            input["dismiss"] = json!(true);
+        }
+        self.done("threads/answer", space_id, input).await
+    }
+
+    /// Picks an option on the first-run focus card, or puts it away with `None`.
+    pub async fn choose_focus(&self, space_id: &str, bot_id: &str, option_id: Option<&str>) -> Result<(), Error> {
+        match option_id {
+            Some(option_id) => {
+                self.done("onboarding/choose", space_id, json!({ "botId": bot_id, "optionId": option_id })).await
+            }
+            None => self.done("onboarding/dismissFocus", space_id, json!({ "botId": bot_id })).await,
+        }
     }
 
     /// Approved plugins. A query is matched by the server across the whole registry.

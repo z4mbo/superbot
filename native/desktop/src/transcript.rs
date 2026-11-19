@@ -40,6 +40,10 @@ pub enum Part {
         /// The card wants typed text or a secret, which is answered on the web for now.
         needs_typing: bool,
     },
+    /// A question the agent waits on: typed, picked from options, or a protected value.
+    Question(crate::cards::Question),
+    /// The first-run focus card.
+    Choice(crate::cards::Choice),
     File(FileRef),
     Steps(String),
     /// A card this app does not draw yet; the label says what it is.
@@ -111,6 +115,9 @@ fn part(block: &Value) -> Option<Part> {
             (!lines.is_empty()).then_some(Part::Facts(lines))
         }
         "ask" => {
+            if let Some(question) = crate::cards::read_question(block) {
+                return Some(Part::Question(question));
+            }
             let pending = block.get("status").and_then(Value::as_str) != Some("answered")
                 && block.get("dismissed").is_none()
                 && block.get("expired").is_none();
@@ -137,7 +144,7 @@ fn part(block: &Value) -> Option<Part> {
                 actions: if pending { actions } else { Vec::new() },
             })
         }
-        "choice" => text("question").map(Part::Note),
+        "choice" => crate::cards::read_choice(block).map(Part::Choice),
         "file" | "image" => Some(Part::File(FileRef {
             artifact_id: text("artifactId")?,
             name: text("name")?,
@@ -275,9 +282,10 @@ mod tests {
 
     #[test]
     fn a_pending_ask_offers_its_actions_and_an_answered_one_does_not() {
-        let pending = json!([{ "kind": "ask", "text": "Send it?", "actions": [{ "id": "yes", "label": "Send" }] }]);
-        let answered = json!([{ "kind": "ask", "text": "Send it?", "status": "answered", "answer": "Send",
-            "actions": [{ "id": "yes", "label": "Send" }] }]);
+        let pending = json!([{ "kind": "ask", "text": "Send it?", "approvalEffectId": "effect",
+            "actions": [{ "id": "allow", "label": "Allow once" }] }]);
+        let answered = json!([{ "kind": "ask", "text": "Send it?", "status": "answered", "answer": "allow",
+            "approvalEffectId": "effect", "actions": [{ "id": "allow", "label": "Allow once" }] }]);
         let ask = |blocks| Entry::read(message("m", 1, "bot", blocks)).unwrap().parts.remove(0);
         assert!(matches!(ask(pending), Part::Ask { actions, answer: None, .. } if actions.len() == 1));
         assert!(matches!(ask(answered), Part::Ask { actions, answer: Some(_), .. } if actions.is_empty()));

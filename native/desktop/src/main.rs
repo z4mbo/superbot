@@ -3,6 +3,7 @@
 mod api;
 mod app;
 mod assets;
+mod cards;
 mod clock;
 mod files;
 mod fonts;

@@ -32,6 +32,8 @@ pub struct Chat {
     pub list: ListState,
     /// Older history, what is being sent, mentions and fetched files.
     pub conversation: Conversation,
+    /// Its question cards: which runs wait for an answer, and what is typed or sent.
+    pub cards: crate::cards::Cards,
     _live: Option<Task<()>>,
 }
 
@@ -138,6 +140,7 @@ impl Desktop {
             reconnecting: false,
             list: transcript_list(),
             conversation: Conversation::new(),
+            cards: crate::cards::Cards::default(),
             _live: None,
         });
         self.resume_draft(window, cx);
@@ -157,6 +160,7 @@ impl Desktop {
             match result {
                 Ok(snapshot) => {
                     chat.working = snapshot.working();
+                    chat.cards.read(&snapshot);
                     let cursor = snapshot.cursor;
                     chat.conversation.older = snapshot.older_cursor;
                     chat.conversation.members = snapshot.members.unwrap_or_default();
@@ -694,11 +698,15 @@ fn apply_event(chat: &mut Chat, event: &ThreadEvent) -> bool {
     let text = |key: &str| event.data.get(key).and_then(Value::as_str);
     let flag = |key: &str| event.data.get(key).and_then(Value::as_bool).unwrap_or(false);
     let last = Chat::row_of(chat.entries.len());
+    chat.cards.follow(event);
     match event.kind.as_str() {
         "thread.message.created" | "thread.message.updated" => {
-            let message = api::message_from_event(event);
-            let seq = message.as_ref().and_then(|message| message.seq);
-            if let Some(entry) = message.and_then(Entry::read) {
+            let Some(message) = api::message_from_event(event) else { return false };
+            let seq = message.seq;
+            let id = message.id.clone();
+            let full_update = event.kind == "thread.message.updated" && !message.blocks.is_empty();
+            if let Some(entry) = Entry::read(message) {
+                chat.cards.caught_up(&entry);
                 if entry.speaker == crate::transcript::Speaker::Agent {
                     chat.draft.clear();
                 }
@@ -719,11 +727,20 @@ fn apply_event(chat: &mut Chat, event: &ThreadEvent) -> bool {
                 }
                 let now = Chat::row_of(chat.entries.len());
                 chat.list.remeasure_items(now..now + 1);
+            } else if full_update {
+                chat.cards.forget(&id);
+                if let Some(index) = chat.entries.iter().position(|entry| entry.id == id) {
+                    chat.entries.remove(index);
+                    let row = Chat::row_of(index);
+                    chat.list.splice(row..row + 1, 0);
+                    chat.list.remeasure_items(row.saturating_sub(1)..row + 1);
+                }
             }
             false
         }
         "thread.cleared" => {
             chat.entries.clear();
+            chat.cards = crate::cards::Cards::default();
             chat.draft.clear();
             chat.conversation.older = None;
             chat.conversation.capped = false;
