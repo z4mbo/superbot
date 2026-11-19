@@ -21,15 +21,21 @@ use crate::theme::{Skin, Theme};
 
 const APP_NAME: &str = "Superbot";
 
+#[cfg(target_os = "macos")]
+actions!(superbot, [Quit]);
+
 fn main() {
-    let server = std::env::var("SUPERBOT_SERVER")
-        .ok()
-        .filter(|server| !server.trim().is_empty())
-        .unwrap_or_else(|| superbot_client::DEFAULT_SERVER.to_owned());
+    let server = superbot_client::selected_server(std::env::var("SUPERBOT_SERVER").ok().as_deref());
     let chosen_skin = std::env::var("SUPERBOT_SKIN").ok().and_then(|name| Skin::named(&name));
 
     gpui_kit::application().with_assets(assets::Assets).run(move |cx| {
         gpui_kit::init(cx);
+        #[cfg(target_os = "macos")]
+        {
+            cx.on_action(|_: &Quit, cx| cx.quit());
+            cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
+            cx.set_menus([Menu::new(APP_NAME).items([MenuItem::action("Quit Superbot", Quit)])]);
+        }
         let fonts = fonts::Fonts::load(cx);
         let skin = chosen_skin.unwrap_or_else(|| Skin::for_appearance(cx.window_appearance()));
         Theme::of(skin, &fonts).install(cx);
@@ -39,7 +45,7 @@ fn main() {
             window_min_size: Some(size(px(760.), px(520.))),
             titlebar: Some(TitlebarOptions {
                 title: Some(APP_NAME.into()),
-                appears_transparent: true,
+                appears_transparent: !cfg!(target_os = "macos"),
                 traffic_light_position: None,
             }),
             ..Default::default()

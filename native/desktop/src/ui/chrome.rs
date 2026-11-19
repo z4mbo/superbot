@@ -2,6 +2,7 @@ use gpui_kit::*;
 
 use crate::app::{Desktop, Session, View};
 use crate::theme::ActiveTheme;
+#[cfg(not(target_os = "macos"))]
 use crate::ui::overlays::caption_buttons;
 
 impl Render for Desktop {
@@ -24,7 +25,7 @@ impl Render for Desktop {
                     .into_any_element()
             }
         };
-        div()
+        let frame = div()
             .id("desktop")
             .relative()
             .size_full()
@@ -33,8 +34,10 @@ impl Render for Desktop {
             .font_family(theme.font.clone())
             .text_size(px(13.))
             .line_height(px(18.))
-            .child(content)
-            .child(caption_buttons(window, &theme))
+            .child(content);
+        #[cfg(not(target_os = "macos"))]
+        let frame = frame.child(caption_buttons(window, &theme));
+        frame
             .children(self.render_menu(cx))
             .children(self.render_dialog(cx))
             .children(self.render_version_switch(cx))

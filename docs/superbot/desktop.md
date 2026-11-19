@@ -1,12 +1,46 @@
 # Superbot desktop
 
-The native Windows app uses Rust and GPUI. Surfaces it does not draw open in a workspace window with the server's web client. Start a Superbot server and open the desktop from the repository root. The desktop defaults to the local web origin on port 5173. [Windows server setup](windows-local.md) · [Hosting on another machine](hosting.md)
+The native macOS and Windows apps use Rust and GPUI. Surfaces they do not draw open in the default browser on macOS and in a workspace window on Windows.
+
+## Install from source
+
+On macOS, install Rust with rustup and select a full Xcode installation with the Metal toolchain. On Apple silicon, use the native ARM64 Rust toolchain for an ARM64 build. From the repository root, run:
+
+```sh
+bash scripts/install-native-macos.sh
+export PATH="$HOME/.local/bin:$PATH"
+open "$HOME/Applications/Superbot.app"
+```
+
+The installer builds for the Mac's Rust host architecture and puts both commands in the app bundle, with links in `~/.local/bin`. Add the `export` line to your shell profile to keep `superbot` and `superbot-plugin` on your `PATH`. This is a local source build without a Developer ID signature or notarization. Quit Superbot before reinstalling it.
+
+On Windows, run the existing launcher from the repository root:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/native.ps1
 ```
 
-Enter your server address on the sign-in screen, or set `SUPERBOT_SERVER` before launching. Use the web origin that serves authentication and RPC. For a remote host, use HTTPS. Sign in with an existing account or choose **Create an account** when registration is enabled. Email-code sign-in requires working mail delivery on the host. Desktop and CLI use the system credential store for the selected origin.
+To install the Windows app and both commands, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-native.ps1 -StartMenuShortcut`. See [Windows server setup](windows-local.md) for local development.
+
+## Connect to a server
+
+On each client device, connect to the tailnet and use the same HTTPS web origin advertised by the NixOS host's Tailscale Serve endpoint. Use the origin alone, such as `https://superbot.example-tailnet.ts.net`. See [hosting on another machine](hosting.md#optional-private-access-with-tailscale).
+
+Enter that address in **Server** on the desktop sign-in screen, or set it before launching any of the clients:
+
+```sh
+superbot server https://superbot.example-tailnet.ts.net
+superbot login
+superbot-plugin list
+```
+
+The desktop saves the address when you submit sign-in, account creation, or an email-code request with valid fields. All three programs reuse the saved address on that device. Quit and reopen the app after changing the default in your terminal. For a single CLI invocation, `--server URL` takes precedence over `SUPERBOT_SERVER`, and either takes precedence over the saved address. The desktop also honors `SUPERBOT_SERVER` at launch. With no explicit or saved address, clients use `http://127.0.0.1:5173`.
+
+Sign in with your existing account on each device. Desktop and the CLI share the credential vault on the same device and origin. The address is stored separately in `server.txt` in `~/Library/Application Support/Superbot` on macOS and `%LOCALAPPDATA%\Superbot` on Windows. Email-code sign-in requires working mail delivery on the host.
+
+## Private appearance files
+
+Keep your appearance pack in `~/Library/Application Support/Superbot/appearance` on macOS or `%LOCALAPPDATA%\Superbot\appearance` on Windows. To transfer it, quit Superbot, copy only your own appearance files through a private channel you control, and put them in the destination's appearance folder with their relative paths intact. Create the folder if needed and reopen Superbot. Keep these files outside the source checkout and app bundle. Sign in separately on the destination device.
 
 ## Conversations and shared Spaces
 

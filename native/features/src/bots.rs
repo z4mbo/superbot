@@ -89,6 +89,9 @@ pub enum MemoryScope {
 #[serde(rename_all = "camelCase")]
 pub struct CreateBot<'a> {
     pub name: &'a str,
+    /// Repeated creation with this key resolves to the same bot in the Space.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spawn_key: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]

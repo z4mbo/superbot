@@ -66,3 +66,19 @@ status 0 after signing out and stopping the disposable services.
 ```text
 PASS a published and granted marketplace skill returned its instructions to the model through the CLI chat
 ```
+
+### Shared roster import
+
+Add `--roster` to the Windows fixture command above to exercise `superbot import-bots`.
+The fixture seeds one active bot and one archived bot, runs a dry run, then starts two
+imports concurrently and repeats the import. It reads the Space from a second account
+to verify that exactly one new bot appeared and that the archived bot stayed archived.
+This check passed against disposable PostgreSQL on Windows.
+
+### Native question cards
+
+Two synthetic accounts exercised typed, multiple-choice and masked inputs on Windows.
+A first-run focus card dismissed by the other account disappeared from an open native
+conversation. Two simultaneous answers from the initiating account produced one
+accepted answer and one HTTP 409. The client displayed the accepted answer without a
+reload. The same fixture rejected an answer from the other member.
