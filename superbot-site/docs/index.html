@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build a plugin</title>
+  <meta name="description" content="Write a Superbot plugin with superbot-plugin: a manifest with skills and tools, submitted for review and granted to bots per part.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Build a plugin
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Plugins</h4>
+        <a href="./" aria-current="page">Build a plugin</a>
+        <a href="manifest.html">Manifest reference</a>
+        <a href="publishing.html">Review, install and grants</a>
+        <h4>Reference</h4>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Plugins</div>
+      <h1>Build a plugin</h1>
+      <p class="lede">A Superbot plugin is one JSON manifest that adds skills, tools or both to the bots people choose. This guide takes you from an empty folder to an approved version with the <code>superbot-plugin</code> command.</p>
+
+      <div class="note" role="note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <div><p>The store works on self-hosted Superbot servers today, from the command line and the <a href="api.html">registry API</a>. The desktop app's store is being built, and its plugin creator is planned; it will open the same <code>plugin.json</code> you write here.</p></div>
+      </div>
+
+      <h2 id="what">What a plugin can add</h2>
+      <ul>
+        <li><b>Skills</b>: Markdown instructions that teach a bot when and how to do something. Up to 16,000 characters each. Bots read them as untrusted input.</li>
+        <li><b>Tools</b>: a remote MCP server reached over Streamable HTTP at a public HTTPS address. A person approves every call after seeing its destination and arguments.</li>
+      </ul>
+      <p>A plugin has 1 to 16 parts, in any mix. It cannot carry credentials, HTTP headers, commands, packages, hooks or any field the schema doesn't name. The server stores the manifest and never runs code from it.</p>
+
+      <h2 id="install">Install the tools</h2>
+      <p>From the root of a Superbot checkout, with Rust installed:</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>cargo install --path native/cli --locked
+cargo install --path native/plugin-kit --locked
+superbot login</code></pre>
+      </figure>
+      <p>Both programs share the saved session in your system credential store. For your own server, pass the same <code>--server</code> to both or set <code>SUPERBOT_SERVER</code>. If you belong to more than one Space, add <code>--space</code> with its exact name or ID.</p>
+
+      <h2 id="steps">From folder to approved version</h2>
+      <ol class="steps">
+        <li>
+          <b>Create a starter skill.</b>
+          <figure class="code">
+            <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>mkdir release-notes
+cd release-notes
+superbot-plugin init release-notes --name "Release notes"</code></pre>
+          </figure>
+          This writes <code>plugin.json</code> with one skill part whose id is <code>summary</code>. The slug, <code>release-notes</code> here, is your plugin's permanent global name: 1 to 64 lowercase letters and digits with single hyphens between words. Choose another if it's taken.
+        </li>
+        <li>
+          <b>Edit the manifest.</b> A plugin with a skill and a tool looks like this:
+          <figure class="code">
+            <div class="code-head"><span>plugin.json</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>,
+  <span class="tok-k">"name"</span>: <span class="tok-s">"Release notes"</span>,
+  <span class="tok-k">"description"</span>: <span class="tok-s">"Draft release notes from issue summaries."</span>,
+  <span class="tok-k">"parts"</span>: [
+    {
+      <span class="tok-k">"id"</span>: <span class="tok-s">"summary"</span>,
+      <span class="tok-k">"kind"</span>: <span class="tok-s">"skill"</span>,
+      <span class="tok-k">"instructions"</span>: <span class="tok-s">"When asked for release notes, group the issue summaries into Added, Changed and Fixed."</span>
+    },
+    {
+      <span class="tok-k">"id"</span>: <span class="tok-s">"tracker"</span>,
+      <span class="tok-k">"kind"</span>: <span class="tok-s">"mcp"</span>,
+      <span class="tok-k">"transport"</span>: <span class="tok-s">"streamable_http"</span>,
+      <span class="tok-k">"endpoint"</span>: <span class="tok-s">"https://tracker.example.com/mcp"</span>
+    }
+  ]
+}</code></pre>
+          </figure>
+          The endpoint is a placeholder: host your MCP server first and use its address, without keys, tokens, a query string or a fragment. Every field is in the <a href="manifest.html">manifest reference</a>.
+        </li>
+        <li>
+          <b>Validate it.</b> <code>superbot-plugin validate</code> checks the schema locally without contacting the server. The registry checks the endpoint's safety during review.
+        </li>
+        <li>
+          <b>Publish version 1.</b>
+          <figure class="code">
+            <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin publish release-notes 1
+superbot-plugin list mine</code></pre>
+          </figure>
+          The version comes back as JSON with status <code>pending</code>. Your first submission reserves the slug for your account.
+        </li>
+        <li>
+          <b>Wait for review.</b> A deployment admin approves or rejects it. <code>superbot-plugin status VERSION_ID</code> shows the status and any rejection reason.
+        </li>
+        <li>
+          <b>Install and grant.</b> Once approved, anyone signed in to the server can install it into their Space. Installing adds nothing to any bot until someone grants parts to a bot. See <a href="publishing.html">review, install and grants</a>.
+        </li>
+      </ol>
+
+      <h2 id="writing-skills">Writing a good skill</h2>
+      <ul>
+        <li>Say when to use it in the first sentence, then how.</li>
+        <li>Name the tool parts it relies on by their part id, so a bot without that grant knows to ask.</li>
+        <li>Don't ask the bot to reveal, store or send secrets.</li>
+        <li>Write guidance, not rules that override the person. Bots treat skills as untrusted input.</li>
+      </ul>
+
+      <h2 id="writing-tools">Writing a good tool server</h2>
+      <ul>
+        <li>Support MCP initialization, <code>tools/list</code> and <code>tools/call</code> over Streamable HTTP. Keep listing free of side effects.</li>
+        <li>Give each tool a short description and a JSON object input schema with its required fields, and validate arguments again on your server.</li>
+        <li>Keep arguments short. People read them in the approval card before every call.</li>
+        <li>Treat the endpoint as public and set your own rate limits. Redirects and private addresses fail at runtime.</li>
+        <li>Publish a new version when the manifest or a tool's contract changes incompatibly.</li>
+      </ul>
+
+      <h2 id="github">Plugins from GitHub repositories</h2>
+      <p>The server Superbot builds on can also install plugins from a public GitHub repository using <code>plugin.json</code> and <code>mcp.json</code> in a different format. That format is documented in <code>docs/build-a-plugin.md</code> in the repository. These pages cover the Superbot store, which uses the manifest above and a review step.</p>
+
+      <nav class="pager" aria-label="Pages">
+        <a class="next" href="manifest.html"><small>Next</small><span>Manifest reference</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#what">What a plugin can add</a>
+      <a href="#install">Install the tools</a>
+      <a href="#steps">From folder to approved version</a>
+      <a href="#writing-skills">Writing a good skill</a>
+      <a href="#writing-tools">Writing a good tool server</a>
+      <a href="#github">Plugins from GitHub</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="api.html">Registry API</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

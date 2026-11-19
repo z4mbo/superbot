@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>superbot-plugin commands</title>
+  <meta name="description" content="Every superbot-plugin command for writing, publishing, reviewing and installing Superbot plugins.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">superbot-plugin commands
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Plugins</h4>
+        <a href="./">Build a plugin</a>
+        <a href="manifest.html">Manifest reference</a>
+        <a href="publishing.html">Review, install and grants</a>
+        <h4>Reference</h4>
+        <a href="cli.html" aria-current="page">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Reference</div>
+      <h1>superbot-plugin commands</h1>
+      <p class="lede">The author and admin tool for the plugin registry. Registry commands print JSON.</p>
+
+      <h2 id="global">Options for every command</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Option</th><th scope="col">What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>--server URL</code></td><td class="muted">The Superbot server. Also read from <code>SUPERBOT_SERVER</code>. Use the same one you signed in to with <code>superbot login</code>.</td></tr>
+            <tr><td><code>--space NAME|ID</code></td><td class="muted">Which Space to act in, by exact name or ID. Needed only if you belong to more than one.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="author">Writing and publishing</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>init SLUG [--name NAME] [--manifest FILE]</code></td><td class="muted">Writes a starter manifest with one skill part, <code>summary</code>. Alias <code>scaffold</code>. The file defaults to <code>plugin.json</code>.</td></tr>
+            <tr><td><code>validate [FILE]</code></td><td class="muted">Checks the manifest against schema 1 locally, without contacting the server.</td></tr>
+            <tr><td><code>publish SLUG VERSION [--manifest FILE]</code></td><td class="muted">Submits a version for review. <code>VERSION</code> is a whole number from 1. Alias <code>submit</code>.</td></tr>
+            <tr><td><code>status VERSION_ID</code></td><td class="muted">Shows one of your versions, its status and any rejection reason.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="lists">Lists</h2>
+      <p><code>list SCOPE [--after CURSOR] [--limit N]</code>, where <code>N</code> is 1 to 50 (default 20). When there's another page, the JSON includes <code>nextAfter</code>; pass it as <code>--after</code> with the same scope and filters.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Scope</th><th scope="col">Lists</th></tr></thead>
+          <tbody>
+            <tr><td><code>discover</code></td><td class="muted">Approved versions. The default. Filter with <code>--slug SLUG</code>.</td></tr>
+            <tr><td><code>mine</code></td><td class="muted">Your own submissions, with their status.</td></tr>
+            <tr><td><code>installations</code></td><td class="muted">Your installations in the selected Space, with their grants.</td></tr>
+            <tr><td><code>submissions</code></td><td class="muted">The review queue, for deployment admins. Filter with <code>--status pending|approved|rejected</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="install">Installing and granting</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>agents</code></td><td class="muted">Lists the selected Space's bots and their ids, for grants.</td></tr>
+            <tr><td><code>install VERSION_ID</code></td><td class="muted">Installs an approved version into the selected Space.</td></tr>
+            <tr><td><code>set-grants INSTALLATION_ID BOT_ID [PART_ID...]</code></td><td class="muted">Replaces that bot's parts for the installation. No part ids revokes them all. Alias <code>grant</code>.</td></tr>
+            <tr><td><code>uninstall INSTALLATION_ID</code></td><td class="muted">Removes the installation and every grant it has.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="review">Reviewing</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>review VERSION_ID approved</code></td><td class="muted">Approves a pending version. Deployment admins only.</td></tr>
+            <tr><td><code>review VERSION_ID rejected --reason TEXT</code></td><td class="muted">Rejects it. The reason is required and shown to the publisher.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="publishing.html"><small>Previous</small><span>Review, install and grants</span></a>
+        <a class="next" href="api.html"><small>Next</small><span>Registry API</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#global">Options</a>
+      <a href="#author">Writing and publishing</a>
+      <a href="#lists">Lists</a>
+      <a href="#install">Installing and granting</a>
+      <a href="#review">Reviewing</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="api.html">Registry API</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

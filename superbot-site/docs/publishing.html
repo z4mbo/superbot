@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Review, install and grants</title>
+  <meta name="description" content="How a Superbot plugin version is reviewed, installed into a Space, granted to bots and updated.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Review, install and grants
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Plugins</h4>
+        <a href="./">Build a plugin</a>
+        <a href="manifest.html">Manifest reference</a>
+        <a href="publishing.html" aria-current="page">Review, install and grants</a>
+        <h4>Reference</h4>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Plugins</div>
+      <h1>Review, install and grants</h1>
+      <p class="lede">A version moves from pending to approved or rejected once. After approval, people install it into a Space and choose, bot by bot, which parts that bot may use.</p>
+
+      <h2 id="review">Review</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Status</th><th scope="col">Who sees it</th><th scope="col">What happens next</th></tr></thead>
+          <tbody>
+            <tr><td><code>pending</code></td><td class="muted">The publisher, and deployment admins in the review queue</td><td class="muted">An admin approves or rejects it. It can't be installed.</td></tr>
+            <tr><td><code>approved</code></td><td class="muted">Everyone signed in to the server, through <code>discover</code></td><td class="muted">People can install it. It never changes.</td></tr>
+            <tr><td><code>rejected</code></td><td class="muted">The publisher, with the reviewer's reason</td><td class="muted">Fix it and submit a higher version number.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li>Deployment admins are the accounts the server operator lists in <code>RAKAZO_ADMIN_EMAILS</code>. Publishers can't review their own submissions unless they are admins.</li>
+        <li>A decision is final. A rejection needs a reason of 1 to 2,000 characters.</li>
+        <li>The first submission reserves the slug for its publisher, and a rejected version keeps it reserved.</li>
+      </ul>
+      <figure class="code">
+        <div class="code-head"><span>shell, as a deployment admin</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin list submissions
+superbot-plugin review VERSION_ID approved
+superbot-plugin review VERSION_ID rejected --reason "Clarify the skill instructions"</code></pre>
+      </figure>
+
+      <h2 id="install">Install</h2>
+      <p>Installing puts an approved version into the selected Space for your account. Installing the same version again returns the same installation. An installation is pinned to its exact version.</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin list discover --slug release-notes
+superbot-plugin install VERSION_ID
+superbot-plugin list installations</code></pre>
+      </figure>
+
+      <h2 id="grants">Grants</h2>
+      <p>A new installation starts with no grants: no bot can use any part yet. A grant gives one bot one part.</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin agents
+superbot-plugin set-grants INSTALLATION_ID BOT_ID summary tracker</code></pre>
+      </figure>
+      <ul>
+        <li>Each call replaces that bot's whole list of parts for the installation. Leave the part ids out to revoke them all.</li>
+        <li>Other bots need their own grants.</li>
+        <li>Removing a grant and adding it back creates a new grant, so approvals that were waiting on the old one don't carry over.</li>
+      </ul>
+
+      <h2 id="runtime">What a granted bot can do</h2>
+      <ul>
+        <li><b>Skills</b> reach the bot as Markdown it can read, treated as untrusted input.</li>
+        <li><b>Tools</b> are listed for the bot, and every call shows an approval card with the tool, its endpoint and the exact arguments. Nothing is sent until a person chooses <b>Allow once</b>. In a Space set to Never ask, calls are refused.</li>
+        <li>After approval the server checks the grant again, checks the tool's schema still matches what was approved, and refuses redirects and private addresses. A request already sent may finish after a grant is revoked.</li>
+      </ul>
+
+      <h2 id="update">Updating and uninstalling</h2>
+      <ol>
+        <li>Publish a higher version number and have it approved.</li>
+        <li>Uninstall the pinned installation: <code>superbot-plugin uninstall INSTALLATION_ID</code>. This removes every grant in that Space at once.</li>
+        <li>Install the new version and grant its parts again. Keeping part ids stable across versions makes this easy to follow.</li>
+      </ol>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="manifest.html"><small>Previous</small><span>Manifest reference</span></a>
+        <a class="next" href="cli.html"><small>Next</small><span>superbot-plugin commands</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#review">Review</a>
+      <a href="#install">Install</a>
+      <a href="#grants">Grants</a>
+      <a href="#runtime">What a granted bot can do</a>
+      <a href="#update">Updating and uninstalling</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="api.html">Registry API</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>
