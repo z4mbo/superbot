@@ -27,3 +27,15 @@ Nous Research, used under the MIT License:
   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
+
+Superbot Desktop and its public site adapt the Simple interface, icon and
+appearance tokens from OpenMausBot, Copyright 2026 Milind Soni and OpenMausBot
+contributors, under the Apache License, Version 2.0. The Lucide icon notice
+and icon license texts are in superbot-site/NOTICE.txt and superbot-site/licenses/.
+
+Superbot Desktop bundles unmodified Geist and Geist Mono variable font files
+from the Geist project, version 1.9.2.
+Copyright 2026 The Geist Project Authors, https://github.com/vercel/geist-font.
+The fonts are distributed under the SIL Open Font License, Version 1.1.
+See native/desktop/assets/fonts/OFL.txt for the license text.
+Source release: https://github.com/vercel/geist-font/releases/tag/v1.9.2

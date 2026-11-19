@@ -18,6 +18,7 @@ data
 apps/**/data
 .tmp
 .DS_Store
+/target/
 apps/web/dist
 apps/desktop/dist
 apps/desktop/out

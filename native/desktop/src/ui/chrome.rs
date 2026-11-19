@@ -1,0 +1,43 @@
+use gpui_kit::*;
+
+use crate::app::{Desktop, Session, View};
+use crate::theme::ActiveTheme;
+use crate::ui::overlays::caption_buttons;
+
+impl Render for Desktop {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.skin().clone();
+        let content = match self.session {
+            Session::Restoring => self.render_restoring(cx),
+            Session::SignedOut => self.render_sign_in(cx),
+            Session::SignedIn => {
+                let main = match self.view {
+                    View::Chat => self.render_chat(window, cx),
+                    View::Store => self.render_store(window, cx),
+                    View::Workspace => self.render_workspace(window, cx),
+                };
+                div()
+                    .size_full()
+                    .flex()
+                    .child(self.render_sidebar(window, cx))
+                    .child(div().flex_1().min_w_0().h_full().child(main))
+                    .into_any_element()
+            }
+        };
+        div()
+            .id("desktop")
+            .relative()
+            .size_full()
+            .bg(theme.app)
+            .text_color(theme.ink)
+            .font_family(theme.font.clone())
+            .text_size(px(13.))
+            .line_height(px(18.))
+            .child(content)
+            .child(caption_buttons(window, &theme))
+            .children(self.render_menu(cx))
+            .children(self.render_dialog(cx))
+            .children(self.render_version_switch(cx))
+            .children(self.render_notice(cx))
+    }
+}
