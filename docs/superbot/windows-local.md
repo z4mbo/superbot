@@ -56,7 +56,46 @@ existing unverified account, enter its current password. For a new account,
 use the password you want to sign in with. Superbot verifies the specified
 account and creates its personal Space if one is needed.
 
-The Windows launcher runs with email delivery disabled. Share generated
-invite links directly. For SMTP delivery, use the
-[Docker hosting workflow](hosting.md) and the
-[email configuration](../self-host-configuration.md).
+## Connect a local model server
+
+Private endpoints are disabled by default. To connect an OpenAI-compatible
+model server on this computer or a private network, stop Superbot, set
+`"allowPrivateEndpoints": true` in the existing `settings.json` object, and
+start it again. Enter the endpoint's base URL and any credentials in model
+connection settings. For a server on this computer, a base URL might be
+`http://127.0.0.1:11434/v1`. Use HTTPS when sending an API key or custom
+headers.
+
+This sets Rakazo's `MCP_ALLOW_PRIVATE_ENDPOINT` policy on the API and worker
+for every account on this instance. It also allows private destinations for
+configured remote MCP, API and GraphQL connectors and compatible speech
+servers. Enable it only on an instance whose users you trust with this
+network access. Community marketplace connectors still require public HTTPS
+destinations.
+
+## Send invite emails with SMTP
+
+With the default settings, share generated invite links directly. To enable
+email delivery, stop Superbot and create
+`%LOCALAPPDATA%\Superbot\local\smtp.json` with your relay settings.
+
+```json
+{
+  "SMTP_URL": "smtps://account:percent-encoded-password@smtp.example.com:465",
+  "EMAIL_FROM": "Superbot <superbot@example.com>"
+}
+```
+
+Use a sender the relay allows and URL-encode credentials. Use `smtp://` with
+the relay's submission port for STARTTLS, or `smtps://` for implicit TLS. The
+launcher selects `EMAIL_PROVIDER=smtp` when this file exists. You may also set
+`EMAIL_REPLY_TO`. For a relay signed by a private CA, the optional
+`NODE_EXTRA_CA_CERTS` field takes an absolute path to a PEM file. Use a CA
+you trust for the API and worker because this expands Node's TLS trust for
+both services. Use doubled backslashes or forward slashes in JSON paths.
+
+Keep `smtp.json` private. Start Superbot again and verify the Space owner's
+email address before using **Send invite** under **Manage workspace → People**.
+The relay also sends account mail, including verification links. To disable
+mail, remove or move `smtp.json` while the stack is stopped.
+[Email configuration](../self-host-configuration.md)
