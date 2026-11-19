@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../assets/base.css">
   <link rel="stylesheet" href="../assets/site.css">
   <script src="../assets/site.js"></script>
 </head>
@@ -47,8 +48,10 @@
       <div class="crumb">Plugins</div>
       <h1>Review, install and grants</h1>
       <p class="lede">A version moves from pending to approved or rejected once. After approval, people install it into a Space and choose, bot by bot, which parts that bot may use.</p>
+      <p>On desktop, open <b>Plugins</b> at the bottom of the sidebar. In the web app, open the account menu, choose <b>Integrations</b> and select <b>Community</b>. Both stores show the registry of the server you signed into.</p>
 
       <h2 id="review">Review</h2>
+      <p>Choose <b>Create plugin</b>, describe what the plugin does and add its skills or tool endpoints. Submit a version for review. A deployment reviewer can inspect its parts in <b>Review</b> and approve it or return a reason for rejection. To address feedback, publish a new version of the same plugin.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th scope="col">Status</th><th scope="col">Who sees it</th><th scope="col">What happens next</th></tr></thead>
@@ -72,6 +75,7 @@ superbot-plugin review VERSION_ID rejected --reason "Clarify the skill instructi
       </figure>
 
       <h2 id="install">Install</h2>
+      <p>In <b>Discover</b>, search by name or description. Open a result to inspect the skill instructions and remote tool destinations before choosing <b>Install</b>.</p>
       <p>Installing puts an approved version into the selected Space for your account. Installing the same version again returns the same installation. An installation is pinned to its exact version.</p>
       <figure class="code">
         <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
@@ -81,6 +85,7 @@ superbot-plugin list installations</code></pre>
       </figure>
 
       <h2 id="grants">Grants</h2>
+      <p>Open the plugin under <b>Installed</b>. Select a bot and turn on the parts it needs. Turn a part off to revoke that bot's grant. Other bots keep their own settings.</p>
       <p>A new installation starts with no grants: no bot can use any part yet. A grant gives one bot one part.</p>
       <figure class="code">
         <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
