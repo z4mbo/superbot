@@ -18,7 +18,8 @@ use crate::transcript::{place, Entry, FileRef, Join, Part, Place, Speaker};
 use crate::ui::{agent_face, error_line, icon, pill_button, Tone, Type};
 
 impl Desktop {
-    pub fn render_chat(&mut self, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub fn render_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        self.prepare_cards(window, cx);
         let theme = cx.skin().clone();
         let Some(chat) = self.chat.as_ref() else {
             return self.render_no_conversation(&theme, cx);
@@ -335,6 +336,8 @@ impl Desktop {
                     )))
                 })
                 .into_any_element(),
+            Part::Question(question) => self.render_question(entry, question, theme, cx),
+            Part::Choice(choice) => self.render_choice(entry, choice, theme, cx),
             Part::Elsewhere(kind) => card(theme)
                 .flex_row()
                 .items_center()
@@ -748,7 +751,7 @@ impl Desktop {
     }
 }
 
-fn card(theme: &Theme) -> Div {
+pub(crate) fn card(theme: &Theme) -> Div {
     div()
         .max_w(BUBBLE_MAX)
         .flex()

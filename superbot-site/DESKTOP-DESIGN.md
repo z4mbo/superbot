@@ -389,7 +389,32 @@ appears above the composer: "Reconnecting…" (`wifi-off` 14px); it disappears o
 without a "back online" toast. `is_unauthorized()` → sign in. Never duplicate a message
 already shown: key rows by `id`, order by `seq`.
 
-### 7.6 Empty and error states
+### 7.6 Question cards (Live)
+
+A run that waits on the person puts a card in the transcript (`native/desktop/src/cards`).
+Start-aligned, `composer` fill, radius 18, 440px wide. Answered with `threads/answer`.
+
+- Typed question: the text, any detail, a field "Your answer" and **Send** (Enter sends).
+  Answered: the reply as a quote under a 2px `hairline` rule.
+- Options: lettered rows A–D, 36px, hover `raised`; one click sends the option id. Answered:
+  the chosen row keeps `raised` and a check, the card dims to 70%.
+- Secret (`input: secret`, not a login, card or contact): key glyph, the destination
+  (site, `Command variable $NAME`, or "Only enter a code {host} sent you."), a masked field
+  named by its purpose, **Send**, and a quiet **Dismiss** beside "Saved for this agent. It
+  never appears in the chat." The value is read once on send; the field is dropped with
+  everything it held. Failures never show the server's words, except the vault's two
+  fixed refusals. Settled: "Saved", "Sent", "Dismissed" or "Expired".
+- First-run focus choice (`choice`): lettered rows and a close button, answered with
+  `onboarding/choose` or `onboarding/dismissFocus`.
+- Only the run's own user answers: anyone else sees "Only the person who started this run
+  can answer it." with no controls. A run no longer waiting reads "No longer waiting for
+  an answer." A stale answer says "This question isn't waiting for an answer anymore. It
+  may have been answered somewhere else." Waiting runs come from the snapshot's
+  `activeRuns`, so a card pending before a restart is answerable after it.
+- Approvals (Allow once / Deny), login, card and contact forms, and tool questions keep
+  their existing cards; the last three open in the web app.
+
+### 7.7 Empty and error states
 
 - New conversation: the bot's 56px avatar, its name 20/600 and one line 15/22
   `ink_secondary` "What should {name} do?", centred 30% from the top; the composer stays

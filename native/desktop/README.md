@@ -25,6 +25,7 @@ the system.
 | `src/transcript.rs`       | Message blocks turned into what the transcript draws, their order and stamps   |
 | `src/clock.rs`            | Message times: read from the server, shown in the person's own time            |
 | `src/outbox.rs`           | What is about to be sent: attachments, the attempt in flight, drafts, mentions |
+| `src/cards/`              | Native question cards, protected entry and first-run focus choices             |
 | `src/files.rs`            | Files in and out: accepted kinds, size checks, safe names, what may be opened  |
 | `src/app.rs`              | The one `Desktop` entity: session, Space, menus, dialogs                       |
 | `src/app/conversation.rs` | The open conversation: history, live events, sending, files, mentions          |
@@ -54,6 +55,9 @@ radii from `theme::radius`, text sizes from the `Type` trait in `src/ui/mod.rs`.
   file in a message can be saved, and opened when it is a kind the system's viewer shows
   without running anything. In a group, `@` lists its bots and the ones named are the ones
   asked. A conversation on screen is marked read as replies arrive.
+- **Questions.** An agent can request a written answer, offer options or ask for a key in
+  a masked field. In a shared Space, the member who started the run answers. A pending
+  question can be answered after restarting the app. New agents can also offer a focus choice.
 - **Plugins.** Discover with a search the server runs across the whole registry, Installed,
   Yours, and Review for deployment reviewers. A plugin's page installs and uninstalls it,
   pins it to another approved version after a confirmation, and grants each of its parts to
@@ -73,7 +77,7 @@ Each of these is reachable through **Open web workspace**; a card of that kind i
 transcript says what it is and links there.
 
 - Provider OAuth sign-in, live voice, calls, meetings and a bot's computer. Compatible-endpoint and API-key model setup use **Manage workspace → Models**.
-- Typed and secret answers to ask cards, choice cards, charts, pages and embedded apps.
+- Website logins, payment details, contact forms, tool questions, charts, pages and embedded apps.
 - Reactions, reply quotes and message search.
 - In chat: pictures show as file cards, not previews; files are attached with the chooser
   only, not by dragging or pasting; a mention is plain text in the composer and bold once
