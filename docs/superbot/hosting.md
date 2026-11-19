@@ -20,6 +20,8 @@ Sign up in two separate browser profiles to try multiplayer on one machine. In t
 
 ## Host on another machine
 
+For a persistent NixOS host with private access from Macs and Windows PCs, see [NixOS hosting](nixos-hosting.md).
+
 Run the same checkout and bootstrap on the server with the public-facing HTTPS origin.
 
 ```sh
