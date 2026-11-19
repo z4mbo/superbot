@@ -1,6 +1,6 @@
 # Superbot hosting
 
-Superbot starts with Rakazo's multi-account authentication, shared Spaces and live updates. Each person signs in separately. A Space owner can invite other people into that Space while keeping other Spaces private. Link invites work with mail disabled. The base stack needs no model credentials for signup, sharing or membership. Bot inference requires a model connection. This stack leaves optional computer sandboxes disabled.
+Superbot starts with Rakazo's multi-account authentication, shared Spaces and live updates. Each person signs in separately. A new account's **Personal** Space starts with the account holder as its only member. The owner can invite people into it or create a separate Space for team work. Each invite grants access to its selected Space, and link invites work with mail disabled. The base stack needs no model credentials for signup, sharing or membership. Bot inference requires a model connection. This stack leaves optional computer sandboxes disabled.
 
 ## Start on your machine
 

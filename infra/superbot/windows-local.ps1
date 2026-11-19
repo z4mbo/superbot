@@ -16,6 +16,7 @@ Set-StrictMode -Version Latest
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
 $instance = Join-Path $env:LOCALAPPDATA 'Superbot\local'
 $settingsFile = Join-Path $instance 'settings.json'
+$smtpFile = Join-Path $instance 'smtp.json'
 $processFile = Join-Path $instance 'processes.json'
 $databaseDir = Join-Path $instance 'postgres'
 $dataDir = Join-Path $instance 'data'
@@ -40,6 +41,36 @@ function New-Secret {
     $random = [Security.Cryptography.RandomNumberGenerator]::Create()
     try { $random.GetBytes($bytes) } finally { $random.Dispose() }
     [BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant()
+}
+
+function Read-SmtpEnvironment {
+    if (-not (Test-Path -LiteralPath $smtpFile)) { return @{ EMAIL_PROVIDER = 'none' } }
+    try {
+        $smtp = Get-Content -LiteralPath $smtpFile -Raw | ConvertFrom-Json
+    } catch {
+        throw 'smtp.json must contain a valid JSON object.'
+    }
+    $values = @{ EMAIL_PROVIDER = 'smtp' }
+    $allowed = @('SMTP_URL', 'EMAIL_FROM', 'EMAIL_REPLY_TO', 'NODE_EXTRA_CA_CERTS')
+    if ($smtp -isnot [PSCustomObject]) { throw 'smtp.json must contain a JSON object.' }
+    foreach ($setting in $smtp.PSObject.Properties) {
+        if ($setting.Name -cnotin $allowed -or $setting.Value -isnot [string] -or -not $setting.Value.Trim()) {
+            throw 'smtp.json accepts only nonempty SMTP_URL, EMAIL_FROM, EMAIL_REPLY_TO and NODE_EXTRA_CA_CERTS strings.'
+        }
+        $values[$setting.Name] = $setting.Value.Trim()
+    }
+    $uri = $null
+    if (-not $values.EMAIL_FROM -or
+        -not [Uri]::TryCreate($values.SMTP_URL, [UriKind]::Absolute, [ref]$uri) -or
+        $uri.Scheme -notin @('smtp', 'smtps') -or -not $uri.Host) {
+        throw 'smtp.json requires EMAIL_FROM and a valid smtp:// or smtps:// SMTP_URL.'
+    }
+    if ($values.NODE_EXTRA_CA_CERTS -and
+        (-not [IO.Path]::IsPathRooted($values.NODE_EXTRA_CA_CERTS) -or
+        -not (Test-Path -LiteralPath $values.NODE_EXTRA_CA_CERTS -PathType Leaf))) {
+        throw 'NODE_EXTRA_CA_CERTS in smtp.json must name an existing PEM file by absolute path.'
+    }
+    return $values
 }
 
 function Resolve-PostgresBin {
@@ -234,6 +265,7 @@ try {
             encryptionKey = New-Secret
             screenProxySecret = New-Secret
             reviewerEmails = @()
+            allowPrivateEndpoints = $false
         }
         Confirm-FreePorts
         Write-JsonFile $settingsFile $settings
@@ -293,7 +325,12 @@ try {
         ENCRYPTION_KEY = $settings.encryptionKey
         SCREEN_PROXY_SECRET = $settings.screenProxySecret
         SANDBOX_PROVIDER = 'none'
-        EMAIL_PROVIDER = 'none'
+        EMAIL_PROVIDER = $null
+        SMTP_URL = $null
+        EMAIL_FROM = $null
+        EMAIL_REPLY_TO = $null
+        NODE_EXTRA_CA_CERTS = $null
+        MCP_ALLOW_PRIVATE_ENDPOINT = $null
         AUTH_PASSWORD_ENABLED = 'true'
         SIGNUPS_ENABLED = 'true'
         RAKAZO_ADMIN_EMAILS = $reviewerEmails -join ','
@@ -330,6 +367,12 @@ try {
         throw 'The instance is partially running. Run stop before restarting it.'
     }
     Confirm-FreePorts
+    $privateEndpoints = $settings.PSObject.Properties['allowPrivateEndpoints']
+    if ($privateEndpoints -and $privateEndpoints.Value -isnot [bool]) {
+        throw 'allowPrivateEndpoints in settings.json must be true or false.'
+    }
+    $serviceEnv = Read-SmtpEnvironment
+    if ($privateEndpoints -and $privateEndpoints.Value) { $serviceEnv.MCP_ALLOW_PRIVATE_ENDPOINT = 'true' }
     foreach ($directory in @($root, (Join-Path $root 'apps/web'), (Join-Path $root 'packages/db'))) {
         foreach ($file in @('.env', '.env.local', '.env.development', '.env.development.local')) {
             if (Test-Path -LiteralPath (Join-Path $directory $file)) {
@@ -352,11 +395,13 @@ try {
         $env:DATABASE_MIGRATION_URL = "postgresql://postgres:$($settings.databaseOwnerPassword)@127.0.0.1:$($settings.databasePort)/postgres"
         Start-LocalProcess 'migrate' $node @('--import', 'tsx', 'src/cli/migrate-database.ts') $apiDir -Wait
         [Environment]::SetEnvironmentVariable('DATABASE_MIGRATION_URL', $null, 'Process')
+        foreach ($key in $serviceEnv.Keys) { [Environment]::SetEnvironmentVariable($key, $serviceEnv[$key], 'Process') }
         Start-LocalProcess 'api' $node @('--import', 'tsx', 'src/index.ts') $apiDir
         Wait-ServiceReady 'api'
         [IO.File]::Delete((Join-Path $tempDir 'rakazo-worker-health.json'))
         Start-LocalProcess 'worker' $node @('--import', 'tsx', 'src/index.ts') (Join-Path $root 'apps/worker')
         Wait-ServiceReady 'worker'
+        foreach ($key in $serviceEnv.Keys) { [Environment]::SetEnvironmentVariable($key, $null, 'Process') }
         Start-LocalProcess 'web' $node @('node_modules/vite/bin/vite.js', '--strictPort') (Join-Path $root 'apps/web')
         Wait-ServiceReady 'web'
         Write-Output "Superbot is ready at $webOrigin"
