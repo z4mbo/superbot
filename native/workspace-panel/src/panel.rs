@@ -13,8 +13,9 @@ use superbot_features::{Bot, Group};
 use crate::icons::Glyph;
 use crate::remote::{self, Failure, Remote};
 use crate::sections::{
-    activity::ActivityView, approvals::ApprovalsView, bots::BotsView, files::FilesView,
-    groups::GroupsView, models::ModelsView, people::PeopleView, routines::RoutinesView,
+    activity::ActivityView, approvals::ApprovalsView, board::BoardView, bots::BotsView,
+    files::FilesView, groups::GroupsView, models::ModelsView, people::PeopleView,
+    routines::RoutinesView,
 };
 use crate::theme::{tokens, Tokens, RADIUS_FULL};
 use crate::ui::{self, Action, Tone};
@@ -33,6 +34,8 @@ pub enum Section {
     People,
     /// Files in the space: upload, download, versions, removal.
     Files,
+    /// The space's shared tickets: by status, created, edited, moved and discussed.
+    Board,
     /// Scheduled work per bot, with its run history.
     Routines,
     /// What bots must ask before doing, and what is waiting on an answer.
@@ -42,12 +45,13 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: [Section; 8] = [
+    pub const ALL: [Section; 9] = [
         Section::Bots,
         Section::Models,
         Section::Groups,
         Section::People,
         Section::Files,
+        Section::Board,
         Section::Routines,
         Section::Approvals,
         Section::Activity,
@@ -60,6 +64,7 @@ impl Section {
             Section::Groups => "Groups",
             Section::People => "People",
             Section::Files => "Files",
+            Section::Board => "Board",
             Section::Routines => "Routines",
             Section::Approvals => "Approvals",
             Section::Activity => "Activity",
@@ -73,6 +78,7 @@ impl Section {
             Section::Groups => Glyph::UsersRound,
             Section::People => Glyph::Users,
             Section::Files => Glyph::Files,
+            Section::Board => Glyph::Kanban,
             Section::Routines => Glyph::CalendarClock,
             Section::Approvals => Glyph::ShieldCheck,
             Section::Activity => Glyph::Activity,
@@ -98,6 +104,9 @@ pub enum PanelEvent {
     SpaceJoined { space_id: String },
     /// The server rejected the session; return to sign in.
     SessionExpired,
+    /// The person asked for something only the web app does. `path` is a page of the
+    /// server's web app, such as `/app/board`.
+    OpenWeb { path: String },
 }
 
 /// A value read from the server, kept while it is being re-read.
@@ -185,6 +194,7 @@ pub struct WorkspacePanel {
     pub(crate) groups_view: GroupsView,
     pub(crate) people: PeopleView,
     pub(crate) files: FilesView,
+    pub(crate) board: BoardView,
     pub(crate) routines: RoutinesView,
     pub(crate) approvals: ApprovalsView,
     pub(crate) activity: ActivityView,
@@ -232,6 +242,7 @@ impl WorkspacePanel {
                 groups_view: GroupsView::new(window, cx),
                 people: PeopleView::new(window, cx),
                 files: FilesView::new(),
+                board: BoardView::new(window, cx),
                 routines: RoutinesView::new(window, cx),
                 approvals: ApprovalsView::new(window, cx),
                 activity: ActivityView::new(),
@@ -263,6 +274,7 @@ impl WorkspacePanel {
         if self.section != section {
             self.section = section;
             self.leave_details();
+            self.board.stop_live();
         }
         self.enter_section(window, cx);
         cx.notify();
@@ -289,6 +301,7 @@ impl WorkspacePanel {
         self.groups_view.reset();
         self.people.reset();
         self.files.reset();
+        self.board.reset();
         self.routines.reset();
         self.approvals.reset();
         self.activity.reset();
@@ -311,6 +324,7 @@ impl WorkspacePanel {
             Section::Groups => self.load_groups(window, cx),
             Section::People => self.load_members(window, cx),
             Section::Files => self.load_files(window, cx),
+            Section::Board => self.refresh_board(window, cx),
             Section::Routines => {
                 self.load_groups(window, cx);
                 self.load_routines(window, cx);
@@ -336,6 +350,7 @@ impl WorkspacePanel {
                 self.load_groups(window, cx);
                 self.load_files(window, cx);
             }
+            Section::Board => self.enter_board(window, cx),
             Section::Routines => self.load_routines(window, cx),
             Section::Approvals => self.load_approvals(window, cx),
             Section::Activity => self.load_activity(window, cx),
@@ -345,6 +360,7 @@ impl WorkspacePanel {
     fn leave_details(&mut self) {
         self.bots_view.close();
         self.groups_view.close();
+        self.board.close();
         self.routines.close();
         self.models.close();
     }
@@ -631,6 +647,7 @@ impl WorkspacePanel {
             Section::Groups => self.render_groups(window, cx),
             Section::People => self.render_people(window, cx),
             Section::Files => self.render_files(window, cx),
+            Section::Board => self.render_board(window, cx),
             Section::Routines => self.render_routines(window, cx),
             Section::Approvals => self.render_approvals(window, cx),
             Section::Activity => self.render_activity(window, cx),

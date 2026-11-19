@@ -1,5 +1,6 @@
 pub(crate) mod activity;
 pub(crate) mod approvals;
+pub(crate) mod board;
 pub(crate) mod bots;
 pub(crate) mod files;
 pub(crate) mod groups;

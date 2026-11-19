@@ -26,6 +26,7 @@ impl Desktop {
             PanelEvent::SpaceLeft { active_space_id } => this.switch_space(active_space_id.clone(), window, cx),
             PanelEvent::SpaceJoined { space_id } => this.switch_space(space_id.clone(), window, cx),
             PanelEvent::SessionExpired => this.session_ended(window, cx),
+            PanelEvent::OpenWeb { path } => this.open_web_page(path, cx),
         });
         self.workspace = Workspace { panel: Some(panel), _events: Some(events) };
         cx.notify();

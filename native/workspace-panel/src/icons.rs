@@ -36,6 +36,7 @@ glyphs! {
     ExternalLink => "external-link",
     File => "file",
     Files => "files",
+    Kanban => "kanban",
     KeyRound => "key-round",
     Link => "link",
     LogOut => "log-out",

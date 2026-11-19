@@ -1,5 +1,6 @@
 mod approvals;
 mod artifacts;
+mod boards;
 mod bots;
 mod models;
 pub mod plugin_manifest;
@@ -9,6 +10,7 @@ mod threads;
 
 pub use approvals::*;
 pub use artifacts::*;
+pub use boards::*;
 pub use bots::*;
 pub use models::*;
 pub use routines::*;

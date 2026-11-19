@@ -25,6 +25,7 @@ is the local Superbot hosting origin, `http://127.0.0.1:5173`.
 | `client.subscribe_thread(space_id, ThreadTarget::Group(group_id), cursor).await` | The same resumable event stream for a shared group conversation                                      |
 | `client.subscribe_notifications(space_id).await`                                 | Signed stream of roster, organization and run change hints                                           |
 | `client.rpc::<T>(path, space_id, input).await`                                   | Authenticated oRPC procedure result deserialized into `T`                                            |
+| `client.subscribe_rpc::<T>(path, space_id, input).await`                         | `RpcStream<T>`: a Space-scoped oRPC event iterator, each event's payload deserialized into `T`       |
 
 Method results are wrapped in `Result<_, Error>`. `Error::is_unauthorized()`
 identifies an expired or rejected session. The RPC input is a

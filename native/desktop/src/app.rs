@@ -265,7 +265,21 @@ impl Desktop {
 
     /// The web client in a window of this app, or in the browser where the platform has no web view.
     pub fn open_web_workspace(&mut self, cx: &mut Context<Self>) {
-        let Some(url) = self.web_workspace_url() else { return };
+        if let Some(url) = self.web_workspace_url() {
+            self.open_web_url(url, cx);
+        }
+    }
+
+    /// A page of the server's web app, such as `/app/board`, in the workspace window.
+    pub fn open_web_page(&mut self, path: &str, cx: &mut Context<Self>) {
+        let Some(api) = self.api.as_ref() else { return };
+        if path.starts_with('/') && !path.starts_with("//") {
+            let url = format!("{}{path}", api.client.server().trim_end_matches('/'));
+            self.open_web_url(url, cx);
+        }
+    }
+
+    fn open_web_url(&mut self, url: String, cx: &mut Context<Self>) {
         let (Some(api), Some(me)) = (self.api.as_ref(), self.me.as_ref()) else { return };
         if !crate::web::open(api.client.server(), &me.user_id, &url, cx) {
             cx.open_url(&url);

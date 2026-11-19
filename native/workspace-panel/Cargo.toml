@@ -3,11 +3,12 @@ name = "superbot-workspace-panel"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Native GPUI panel for managing a Superbot space: bots, groups, people, files, routines, approvals and run activity."
+description = "Native GPUI panel for managing a Superbot space: bots, groups, people, files, board, routines, approvals and run activity."
 
 [dependencies]
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+futures-util = "0.3"
 gpui-kit = "0.10.0"
 serde_json = "1"
 superbot-client = { path = "../client" }

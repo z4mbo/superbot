@@ -58,6 +58,14 @@ Agents need a model before they can reply. Open **Manage workspace**, then **Mod
 
 A provider that connects only by signing in to an account opens web model settings for the same Space. The panel reads the new connection when its window becomes active again. Private model addresses depend on the server's private endpoint policy. The [Windows host guide](windows-local.md) covers local endpoint access and SMTP for email invitations.
 
+## Board
+
+Open **Manage workspace**, then **Board**, for the Space's shared tickets. Tickets are grouped by status: To do, In progress, In review, Blocked, Done and Won't do. **New ticket** asks for a title, an owner bot and a priority; a description is optional. Open a ticket to edit it, choose a status to move it at once, and read or add comments. **Save** sends only the fields you changed.
+
+Every member of the Space shares the board. While it is open, changes from other members and from bots appear as they happen. If someone changes the ticket you are editing, the fields you have not touched take their version, and what you typed stays. A note says so, and it warns when they changed a field you are editing; saving keeps your version of that field. After a dropped connection, the board is read again when it reconnects and when the window becomes active.
+
+Board is a Labs feature upstream. If it is off for your account, the section says so and offers **Turn on Board** when the server lets your account switch it. That keeps your other Labs choices. The icon beside **New ticket** opens the web board in the workspace window, for what only the web does, such as Markdown in descriptions and comments.
+
 ## Community plugins
 
 Open the grid icon at the bottom of the sidebar to enter **Plugins**. Choose **Create plugin** to enter a name, identifier, version and description. Add a skill with instructions, or a connector with a public HTTPS MCP endpoint. **Submit for review** sends that version to the server. **Yours** shows the decision and lets you prepare another version.
