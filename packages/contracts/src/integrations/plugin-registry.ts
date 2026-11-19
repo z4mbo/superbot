@@ -108,6 +108,9 @@ export const pluginRegistryRpc = {
       )
       .output(page(RegistryPluginVersionSchema)),
     install: oc.input(z.object({ versionId: id })).output(installation),
+    switchVersion: oc
+      .input(z.object({ installationId: id, expectedVersionId: id, versionId: id }))
+      .output(installation),
     installations: oc.input(z.object(pageInput)).output(page(installation)),
     setGrants: oc
       .input(

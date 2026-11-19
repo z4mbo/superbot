@@ -30,9 +30,12 @@ Parts have unique lowercase identifiers. A skill carries Markdown instructions. 
 | `install` | `{versionId}` | Installation with exact version and current grants |
 | `installations` | `{after?, limit?}` | Actor's installations in the selected Space |
 | `setGrants` | `{installationId, botId, partIds}` | Installation with current grants |
+| `switchVersion` | `{installationId, expectedVersionId, versionId}` | Installation pinned to the requested version |
 | `uninstall` | `{installationId}` | `{ok: true}` |
 
 Lists return `{items, nextAfter}` using opaque string cursors. The default limit is 20 and the maximum is 50. Rejection requires a reason. Installation changes emit the `pluginRegistry` Space change frame on `notifications.subscribe`. A version contains `id, slug, version, manifest, status, reason, createdAt, reviewedAt`. An installation contains `id, plugin, grants, createdAt`, where `plugin` is the full approved version and each grant is `{botId, partId}`.
+
+`switchVersion` takes the current installation's `plugin.id` as `expectedVersionId`. The requested version must be approved and belong to the same plugin slug. A successful switch retains the installation ID and clears its grants in one transaction. An approval tied to a cleared grant cannot authorize an MCP call, including after an explicit regrant. When the requested version is already installed, the request returns the current installation and preserves any grants added since the first switch. A stale expected version otherwise returns `CONFLICT`. A missing or inaccessible installation or invalid target returns `NOT_FOUND`.
 
 Discover searches each approved version's slug, manifest name and description for a case-insensitive literal substring. The optional `query` must contain 1 to 120 characters after trimming. Keep the same slug and query filters when following a cursor.
 

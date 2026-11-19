@@ -11,10 +11,10 @@ import { errorText } from "../../../lib/query/user-error";
 import type { RegistryInstallation, RegistryPart, RegistryVersion } from "./registry";
 import { grantedBots, grantedParts, REGISTRY_PAGE_SIZE, readAllPages } from "./registry";
 
-type Change =
-  | { kind: "install"; versionId: string }
+type ConfirmedChange =
   | { kind: "uninstall"; installationId: string }
-  | { kind: "switch"; installationId: string; versionId: string };
+  | { kind: "switch"; installationId: string; expectedVersionId: string; versionId: string };
+type Change = { kind: "install"; versionId: string } | ConfirmedChange;
 
 /** An approved community plugin: its versions, parts, install and which bots may use each part. */
 export function CommunityDetail({
@@ -53,7 +53,7 @@ export function CommunityDetail({
     installed ??
     available.find((row) => row.version === preferredVersion) ??
     latest;
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<ConfirmedChange | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [chosenBot, setChosenBot] = useState<string | null>(null);
   const botId =
@@ -64,13 +64,14 @@ export function CommunityDetail({
     save: async (input: Change, rpc) => {
       if (input.kind === "install")
         return rpc.pluginRegistry.install({ versionId: input.versionId });
-      await rpc.pluginRegistry.uninstall({ installationId: input.installationId });
-      if (input.kind === "switch")
-        return rpc.pluginRegistry.install({ versionId: input.versionId });
-      return null;
+      if (input.kind === "switch") {
+        const { installationId, expectedVersionId, versionId } = input;
+        return rpc.pluginRegistry.switchVersion({ installationId, expectedVersionId, versionId });
+      }
+      return rpc.pluginRegistry.uninstall({ installationId: input.installationId });
     },
     stale,
-    onSaved: () => setConfirming(false),
+    onSaved: () => setConfirming(null),
   });
   const grants = useSave({
     save: (input: { botId: string; partIds: string[] }, rpc) =>
@@ -113,25 +114,16 @@ export function CommunityDetail({
   }
 
   function action() {
-    if (confirming && installation)
+    if (confirming && installation) {
+      const uninstalling = confirming.kind === "uninstall";
       return (
         <>
-          <Button variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
+          <Button variant="ghost" disabled={busy} onClick={() => setConfirming(null)}>
             <Trans>Cancel</Trans>
           </Button>
-          <Button
-            variant="destructive"
-            disabled={busy}
-            onClick={() =>
-              change.run(
-                viewingInstalled
-                  ? { kind: "uninstall", installationId: installation.id }
-                  : { kind: "switch", installationId: installation.id, versionId: shown!.id },
-              )
-            }
-          >
+          <Button variant="destructive" disabled={busy} onClick={() => change.run(confirming)}>
             {change.pending ? (
-              viewingInstalled ? (
+              uninstalling ? (
                 <Trans>Uninstalling…</Trans>
               ) : (
                 <Trans>Switching…</Trans>
@@ -142,7 +134,7 @@ export function CommunityDetail({
                 one="Remove access from # bot"
                 other="Remove access from # bots"
               />
-            ) : viewingInstalled ? (
+            ) : uninstalling ? (
               <Trans>Confirm uninstall</Trans>
             ) : (
               <Trans>Confirm switch</Trans>
@@ -150,13 +142,30 @@ export function CommunityDetail({
           </Button>
         </>
       );
+    }
     if (installation)
       return viewingInstalled ? (
-        <Button variant="secondary" disabled={busy} onClick={() => setConfirming(true)}>
+        <Button
+          variant="secondary"
+          disabled={busy}
+          onClick={() => setConfirming({ kind: "uninstall", installationId: installation.id })}
+        >
           <Trans>Uninstall</Trans>
         </Button>
       ) : (
-        <Button size="lg" className="px-5" disabled={busy} onClick={() => setConfirming(true)}>
+        <Button
+          size="lg"
+          className="px-5"
+          disabled={busy}
+          onClick={() =>
+            setConfirming({
+              kind: "switch",
+              installationId: installation.id,
+              expectedVersionId: installation.plugin.id,
+              versionId: shown!.id,
+            })
+          }
+        >
           <Trans>Switch to version {shown!.version}</Trans>
         </Button>
       );
@@ -235,7 +244,7 @@ export function CommunityDetail({
                     : t`Version ${row.version}`,
             }))}
             onValueChange={(value) => {
-              setConfirming(false);
+              setConfirming(null);
               setChosenVersion(Number(value));
             }}
           />
