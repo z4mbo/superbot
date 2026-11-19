@@ -138,8 +138,7 @@ impl Desktop {
         let server_field =
             cx.new(|cx| InputState::new(window, cx).placeholder("https://rakazo.example.com").default_value(server));
         let password = cx.new(|cx| InputState::new(window, cx).masked(true));
-        let composer =
-            cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 8).submit_on_enter(true).placeholder("Message"));
+        let composer = cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 8).submit_on_enter(true));
         let search = field("Search", window, cx);
         let sign_in = SignIn {
             mode: SignInMode::Password,
@@ -155,8 +154,9 @@ impl Desktop {
 
         let mut subscriptions = vec![
             cx.subscribe_in(&composer, window, |this, _, event: &InputEvent, window, cx| {
-                if let InputEvent::PressEnter { .. } = event {
-                    this.send(window, cx);
+                match event {
+                    InputEvent::PressEnter { .. } => this.send(window, cx),
+                    InputEvent::Change | InputEvent::Focus | InputEvent::Blur => cx.notify(),
                 }
             }),
             cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
