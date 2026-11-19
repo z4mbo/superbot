@@ -1,5 +1,5 @@
 import type { Actor } from "@rakazo/contracts";
-import { ClientError } from "@rakazo/core";
+import { ClientError, escapeSearchWildcards } from "@rakazo/core";
 import type { Prisma, RegistryPluginVersion } from "@rakazo/db";
 import {
   isUniqueViolation,
@@ -152,9 +152,28 @@ export function pluginRegistryRoutes({ deps, authed }: RouterContext) {
       }),
       discover: rpc.discover.handler(async ({ input }) => {
         const query = pageQuery(input);
+        const text = input.query === undefined ? undefined : escapeSearchWildcards(input.query);
         const rows = await prisma.registryPluginVersion.findMany({
           ...query,
-          where: { ...query.where, slug: input.slug, status: "approved" },
+          where: {
+            ...query.where,
+            slug: input.slug,
+            status: "approved",
+            OR:
+              text === undefined
+                ? undefined
+                : [
+                    { slug: { contains: text, mode: "insensitive" } },
+                    { manifest: { path: ["name"], string_contains: text, mode: "insensitive" } },
+                    {
+                      manifest: {
+                        path: ["description"],
+                        string_contains: text,
+                        mode: "insensitive",
+                      },
+                    },
+                  ],
+          },
         });
         return page(rows, input.limit, versionDto);
       }),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RegistryPluginManifestSchema } from "./plugin-registry.js";
+import { pluginRegistryRpc, RegistryPluginManifestSchema } from "./plugin-registry.js";
 
 const skill = { id: "notes", kind: "skill", instructions: "Summarize the provided issues." };
 const mcp = {
@@ -29,4 +29,17 @@ describe("Plugin registry manifest", () => {
   ])("rejects unsupported or ambiguous manifests", (value) => {
     expect(RegistryPluginManifestSchema.safeParse(value).success).toBe(false);
   });
+});
+
+it("validates and trims search text for approved registry discovery", () => {
+  const input = pluginRegistryRpc.pluginRegistry.discover["~orpc"].inputSchema!;
+  expect(input.parse({})).toEqual({ limit: 20 });
+  expect(input.parse({ query: "  RELEASE NOTES  ", after: "cursor" })).toEqual({
+    limit: 20,
+    query: "RELEASE NOTES",
+    after: "cursor",
+  });
+  for (const query of ["  ", "x".repeat(121), "x\0y"]) {
+    expect(input.safeParse({ query }).success).toBe(false);
+  }
 });
