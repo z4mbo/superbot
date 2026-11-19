@@ -5,6 +5,12 @@ import {
   isTerminatingReplyResult,
 } from "../../approvals/approval-effect.js";
 import { argumentGiven } from "../../bots/update-bot-patch.js";
+import {
+  findLiveMarketplaceGrant,
+  MARKETPLACE_UNAVAILABLE,
+  marketplaceScope,
+  marketplaceToolName,
+} from "../../integrations/marketplace-runtime.js";
 import { listChatTranscripts, readChatMeeting } from "../../meetings/meeting-chat.js";
 import {
   meetingTranscriptArgs,
@@ -18,8 +24,9 @@ import { markReadOutsideContent } from "../assembly/run-context.js";
 import { noteComputerTaskStep } from "../lifecycle/run-progress.js";
 import { logToolRefusal } from "../turn/tool-completion-audit.js";
 import { refusal } from "../turn/tool-refusal.js";
+import { auditToolCall } from "./run-tool-audit.js";
 import type { ToolHandler } from "./run-tool-gate.js";
-import { auditToolCall, gateToolCall } from "./run-tool-gate.js";
+import { gateToolCall } from "./run-tool-gate.js";
 import { prepareToolRequest, resolveToolRequest } from "./run-tool-request.js";
 import {
   BUILTIN_AGENT_TOOL_NAMES,
@@ -262,11 +269,27 @@ async function dispatchTool(
   if (IMAGE_RETURNING_COMPUTER_TOOLS.has(name) && !ctx.computer.acceptsImages) {
     return refuse(refusal("model_cannot_see_images", MODEL_CANNOT_SEE_MESSAGE));
   }
+  if (marketplaceToolName(name)) {
+    const tool = ctx.tools.offered.find((offered) => offered.name === name);
+    const scope = marketplaceScope(ctx.run, ctx.bot, ctx.source.messagingChannelRun);
+    if (
+      !tool ||
+      !scope ||
+      !(await findLiveMarketplaceGrant(
+        { prisma: ctx.deps.prisma, scope, signal: ctx.context.signal },
+        tool,
+      ))
+    )
+      return refuse(refusal("marketplace_tool_unavailable", MARKETPLACE_UNAVAILABLE));
+  }
   const request = await resolveToolRequest(ctx, name, args, executionId);
   if ("error" in request) return refuse(request);
   // A catalog call resolves to a connector tool after the checks above; one named like a local
   // tool (message_agent, cloud_agent_*, ...) would otherwise run that local handler instead.
-  if (request.catalogRemapped && toolHandler(request.name) !== connectorTool) {
+  if (
+    request.catalogRemapped &&
+    (toolHandler(request.name) !== connectorTool || marketplaceToolName(request.name))
+  ) {
     return refuse(
       refusal("connector_name_conflict", "Connector tool name conflicts with a built-in tool"),
       request.name,

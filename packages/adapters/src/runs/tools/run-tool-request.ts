@@ -3,6 +3,7 @@ import { BOT_INSTRUCTIONS_MAX_LENGTH, BotSecretAuth, OneTimeCodeTarget } from "@
 import { redactSecrets } from "@rakazo/core";
 import { runLoginKind } from "@rakazo/db";
 import type { FleetCardSummary } from "../../approvals/approval-ask.js";
+import { MAX_APPROVAL_DETAIL_LENGTH } from "../../approvals/approval-ask.js";
 import type { TerminatingToolResult } from "../../approvals/approval-effect.js";
 import {
   approvalReplayPathError,
@@ -21,6 +22,11 @@ import { prepareAgentConnectionResponse } from "../../bots/agent-connections.js"
 import { argumentGiven, dropUnchangedOwnBotArgs } from "../../bots/update-bot-patch.js";
 import { validCloudAgentArgs } from "../../cloud-agents/cloud-agent-tools.js";
 import { sanitizeConnectorError } from "../../integrations/connector-safety.js";
+import {
+  MARKETPLACE_UNAVAILABLE,
+  marketplaceRoute,
+  marketplaceToolName,
+} from "../../integrations/marketplace-runtime.js";
 import { paidRequestEffect, restorePaidRequest } from "../../payments/paid-request.js";
 import type { PurchaseApproval } from "../../payments/purchase-gate.js";
 import {
@@ -41,7 +47,11 @@ import {
   vaultLoginUseOf,
 } from "../../secrets/vault/vault-card-use.js";
 import { isFleetApprovalTool, modelLabel, prepareFleetRequest } from "../../tools/fleet-tools.js";
-import { assertConnectorToolArgs, CATALOG_EXECUTE } from "../../tools/lazy-tool-catalog.js";
+import {
+  assertConnectorToolArgs,
+  CATALOG_EXECUTE,
+  parseConnectorToolArgs,
+} from "../../tools/lazy-tool-catalog.js";
 import { SCHEDULE_TOOL_NAMES } from "../../tools/schedule-tools.js";
 import { SKILL_TOOL_NAMES } from "../../tools/skill-tools.js";
 import type { RunContext } from "../assembly/run-context.js";
@@ -137,7 +147,11 @@ export async function resolveToolRequest(
     );
   }
   let effectRequest: unknown = name === "paid_request" ? paidRequestEffect(args) : args;
-  if (connectorCall.route && deps.connector?.resolveCall) {
+  if (
+    connectorCall.route &&
+    !marketplaceRoute(connectorCall.route) &&
+    deps.connector?.resolveCall
+  ) {
     try {
       const resolved = await deps.connector.resolveCall(connectorCall, context);
       if (resolved) {
@@ -391,6 +405,28 @@ export async function prepareToolRequest(
   const { deps, run, bot } = ctx;
   const { name, executionId, nextApprovedTool } = request;
   let { args } = request;
+  if (marketplaceToolName(name)) {
+    const { route } = request.connectorCall;
+    if (!marketplaceRoute(route))
+      return refusal("marketplace_tool_unavailable", MARKETPLACE_UNAVAILABLE);
+    try {
+      const tool = ctx.tools.connector.get(name);
+      if (!tool) return refusal("marketplace_tool_unavailable", MARKETPLACE_UNAVAILABLE);
+      args = parseConnectorToolArgs(tool.inputSchema, args);
+      request.effectRequest = boundDirectApprovalRequest(route, args, CATALOG_APPROVAL_TOOL);
+      if (tool.readOnly !== true) {
+        const lines = [tool.label ?? name, JSON.stringify(args)];
+        if (lines.join("\n").length > MAX_APPROVAL_DETAIL_LENGTH)
+          return refusal(
+            "marketplace_tool_arguments_too_long",
+            "The marketplace call is too long to review.",
+          );
+        request.fleetSummary = { title: "Run a marketplace tool?", lines };
+      }
+    } catch (error) {
+      return refusal("marketplace_tool_arguments_invalid", sanitizeConnectorError(error));
+    }
+  }
   if (
     (SCHEDULE_TOOL_NAMES.has(name) || SKILL_TOOL_NAMES.has(name)) &&
     (ctx.source.messagingChannelRun ||

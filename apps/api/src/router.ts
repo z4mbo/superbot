@@ -43,6 +43,7 @@ import type { VoiceDeps } from "./calls/voice.js";
 import { meetingCalendarRoutes } from "./meetings/calendar/calendar-routes.js";
 import type { createMeetingAnswers } from "./meetings/meeting-answers.js";
 import { meetingRoutes } from "./meetings/meeting-routes.js";
+import { pluginRegistryRoutes } from "./plugin-registry/routes.js";
 import { accountRoutes } from "./routes/account.js";
 import { availabilityRoutes } from "./routes/availability.js";
 import { boardsRoutes } from "./routes/boards.js";
@@ -194,6 +195,7 @@ export function createRouter(deps: RouterDeps) {
     ...routinesRoutes(ctx),
     ...boardsRoutes(ctx),
     ...capabilitiesRoutes(ctx),
+    ...pluginRegistryRoutes(ctx),
     ...mcpRoutes(ctx),
     ...onboardingRoutes(ctx),
     ...availabilityRoutes(ctx),

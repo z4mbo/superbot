@@ -24,6 +24,11 @@ import {
   persistLivePluginConnections,
   selectRunConnections,
 } from "../../integrations/connection-context.js";
+import {
+  discoverMarketplaceTools,
+  marketplaceScope,
+  marketplaceToolName,
+} from "../../integrations/marketplace-runtime.js";
 import { loadBotMessageContext } from "../../messaging/bot-messages.js";
 import { resolveMemberMainModel } from "../../models/model-roles.js";
 import {
@@ -427,9 +432,16 @@ export async function connectRun(
     ),
   );
 
-  const discoveredPromise = deps.connector
-    ? deps.connector.discoverTools(context)
-    : Promise.resolve([]);
+  const scope = marketplaceScope(run, bot, parts.records.nonOwnerChatRun);
+  const discoveredPromise = Promise.all([
+    deps.connector?.discoverTools(context) ?? [],
+    scope && run.trigger !== "created"
+      ? discoverMarketplaceTools({ prisma: deps.prisma, scope, signal: context.signal })
+      : [],
+  ]).then(([connectors, marketplace]) => [
+    ...connectors.filter((tool) => !marketplaceToolName(tool.name)),
+    ...marketplace,
+  ]);
   // Awaited steps later: if one before it throws, a rejection here would stop the process.
   void bestEffort("tool discovery", discoveredPromise);
   // A connection that cannot be read now leaves the cloud-agent tools out of this turn only.

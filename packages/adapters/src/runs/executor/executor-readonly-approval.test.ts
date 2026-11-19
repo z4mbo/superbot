@@ -1,3 +1,7 @@
+import { once } from "node:events";
+import { readFileSync } from "node:fs";
+import type { Server } from "node:http";
+import { fileURLToPath } from "node:url";
 import type {
   AgentRunRequest,
   AutoReviewProvider,
@@ -11,7 +15,7 @@ import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@rakazo/contracts";
 import type { ActionApprovalRule } from "@rakazo/core";
 import { inboundRoutineBlock } from "@rakazo/core";
 import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
-import type { PrismaClient } from "@rakazo/db";
+import type { Prisma, PrismaClient } from "@rakazo/db";
 import { createPendingSteeringRun, sendUserMessage } from "@rakazo/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DENIED_ACTION_ERROR, isApprovalPausedResult } from "../../approvals/approval-effect.js";
@@ -19,6 +23,7 @@ import { fakeSpendingPrisma } from "../../billing/fake-spending.js";
 import type * as ComputerLifecycleModule from "../../computers/computer-lifecycle.js";
 import type { HostComputerRequest } from "../../computers/host/host-computer-protocol.js";
 import type { UserDeviceGateway } from "../../computers/host/user-device-protocol.js";
+import type * as RemoteMcpModule from "../../mcp/remote-mcp.js";
 import { FakeWebProvider } from "../../providers/web/fake/fake-web.js";
 import { MAX_SHARED_MEMORY_CHARS } from "../../tools/builtin.tool-definition.js";
 import type * as FleetToolsModule from "../../tools/fleet-tools.js";
@@ -52,6 +57,26 @@ vi.mock("../../tools/fleet-tools.js", async (importOriginal) => ({
   ...(await importOriginal<typeof FleetToolsModule>()),
   createFleetGroup: createFleetGroupMock,
 }));
+
+const fixtureNetwork = vi.hoisted(() => ({
+  options: undefined as
+    | Pick<RemoteMcpModule.RemoteMcpOptions, "fetch" | "resolveHostname">
+    | undefined,
+}));
+vi.mock("../../mcp/remote-mcp.js", async (importOriginal) => {
+  const remote = await importOriginal<typeof RemoteMcpModule>();
+  const withFixtureNetwork = (options: RemoteMcpModule.RemoteMcpOptions) =>
+    options.endpoint === "https://units.example.com/mcp"
+      ? { ...options, ...fixtureNetwork.options }
+      : options;
+  return {
+    ...remote,
+    listRemoteMcpTools: (options: RemoteMcpModule.RemoteMcpOptions) =>
+      remote.listRemoteMcpTools(withFixtureNetwork(options)),
+    callRemoteMcpTool: (...[options, ...args]: Parameters<typeof remote.callRemoteMcpTool>) =>
+      remote.callRemoteMcpTool(withFixtureNetwork(options), ...args),
+  };
+});
 
 const reviewMock = vi.fn();
 const autoReviewProvider: AutoReviewProvider = {
@@ -330,6 +355,11 @@ function fixture({
     | undefined;
   const spending = fakeSpendingPrisma(spendingLimit);
   const prisma = {
+    registryPluginGrant: {
+      findMany: vi.fn(
+        async (_query: Prisma.RegistryPluginGrantFindManyArgs): Promise<unknown[]> => [],
+      ),
+    },
     $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(prisma)),
     $executeRaw: vi.fn(async () => 0),
     $queryRaw: vi.fn(async () => []),
@@ -358,6 +388,7 @@ function fixture({
         ...instructionState,
         id: run.botId,
         userId: botUserId,
+        spaceId: run.spaceId,
         name: bot.name,
         description: bot.description,
         color: "#8B5CF6",
@@ -520,9 +551,11 @@ function fixture({
   const execute = vi.fn(async function* (call: ConnectorCall) {
     yield { type: "result" as const, data: { item: call.args.id } };
   });
-  let calls: { name?: string; args: Record<string, unknown>; executionId: string }[] = [
-    { args: { id: "item-1" }, executionId: "call-1" },
-  ];
+  let calls: {
+    name?: string | ((tools: ConnectorTool[]) => string);
+    args: Record<string, unknown>;
+    executionId: string;
+  }[] = [{ args: { id: "item-1" }, executionId: "call-1" }];
   const web = new FakeWebProvider();
   const fetchedUrls: string[] = [];
   const fakeFetch = web.fetch.bind(web);
@@ -547,8 +580,9 @@ function fixture({
       );
     }
     const executeCall = async (call: (typeof calls)[number]) => {
-      const result = call.name
-        ? await request.executeTool!(call.name, call.args, call.executionId)
+      const toolName = typeof call.name === "function" ? call.name(request.tools) : call.name;
+      const result = toolName
+        ? await request.executeTool!(toolName, call.args, call.executionId)
         : await request.executeTool!(
             catalog ? "demo_execute_tool" : name,
             catalog ? { id: catalogEntries([tool])[0]!.id, arguments: call.args } : call.args,
@@ -5123,4 +5157,243 @@ it("does not blame the webhook on cards every run shows", async () => {
   await connection.run();
   expect(connection.pauseRunForInput).toHaveBeenCalledOnce();
   expect(askDetail(connection)).toBe("Telegram: fake");
+});
+
+describe("marketplace plugin dispatch", () => {
+  const sample = new URL(
+    "../../../../../examples/plugins/marketplace-unit-converter/",
+    import.meta.url,
+  );
+  const manifest: unknown = JSON.parse(readFileSync(new URL("manifest.json", sample), "utf8"));
+  const args = { value: 100, from: "celsius", to: "fahrenheit" };
+  let server: Server;
+  let forwarded: string[];
+  let beforeRequest: (method: string) => void;
+
+  beforeEach(async () => {
+    const entry = fileURLToPath(new URL("server.ts", sample));
+    const { createConverterServer }: { createConverterServer: () => Server } = await import(entry);
+    server = createConverterServer();
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Fixture has no port");
+    const destination = new URL(`http://127.0.0.1:${address.port}/mcp`);
+    forwarded = [];
+    beforeRequest = () => {};
+    fixtureNetwork.options = {
+      resolveHostname: async () => [{ address: "203.0.113.10", family: 4 }],
+      fetch: async (input, init) => {
+        expect(String(input)).toBe("https://units.example.com/mcp");
+        const body = JSON.parse(String(init?.body)) as { method: string };
+        forwarded.push(body.method);
+        beforeRequest(body.method);
+        return fetch(destination, init);
+      },
+    };
+  });
+
+  afterEach(async () => {
+    fixtureNetwork.options = undefined;
+    if (server?.listening) {
+      server.close();
+      await once(server, "close");
+    }
+  });
+
+  function grant(f: ReturnType<typeof fixture>, id = "grant-1", partId = "temperatures") {
+    f.prisma.registryPluginGrant.findMany.mockImplementation(async ({ where }) => {
+      expect(where).toMatchObject({
+        botId: "bot-1",
+        bot: { spaceId: "space-1", userId: "user-1", archivedAt: null },
+        installation: { spaceId: "space-1", userId: "user-1", release: { status: "approved" } },
+      });
+      return [
+        {
+          id,
+          partId,
+          installation: {
+            id: "install-1",
+            versionId: "version-1",
+            release: { id: "version-1", manifest },
+          },
+        },
+      ];
+    });
+  }
+
+  function setCall(f: ReturnType<typeof fixture>, callArgs = args, executionId = "call-1") {
+    f.setCalls([{ name: selectTool("convert_temperature"), args: callArgs, executionId }]);
+  }
+
+  function selectTool(part: string) {
+    return (tools: ConnectorTool[]) =>
+      tools.find(
+        (tool) => tool.route?.connectorId === "marketplace" && tool.route.toolName === part,
+      )?.name ?? "marketplace__missing";
+  }
+
+  it("replays only the approved sample conversion over guarded MCP", async () => {
+    const f = fixture({ builtin: true, autoReview: true });
+    grant(f);
+    setCall(f);
+    await f.run();
+    expect(isApprovalPausedResult(f.results[0])).toBe(true);
+    expect(pausedActionIds(f)).toEqual(["allow", "deny"]);
+    expect(askDetail(f)).toContain("https://units.example.com/mcp");
+    expect(askDetail(f)).toContain(JSON.stringify(args));
+    expect(forwarded).not.toContain("tools/call");
+    f.effects[0]!.status = "approved";
+    setCall(f, { ...args, value: 0 }, "replay");
+    await f.run();
+    expect(forwarded.filter((method) => method === "tools/call")).toHaveLength(1);
+    expect(f.results.at(-1)).toMatchObject({
+      isError: false,
+      structuredContent: { value: 212, unit: "fahrenheit" },
+    });
+    expect(f.execute).not.toHaveBeenCalled();
+  });
+
+  it.each(["revoked", "regranted", "approval denied", "blocked by rule"] as const)(
+    "does not execute when access is %s during the pause",
+    async (change) => {
+      const rules: ActionApprovalRule[] = [];
+      const f = fixture({ builtin: true, rules });
+      grant(f);
+      setCall(f);
+      await f.run();
+      expect(isApprovalPausedResult(f.results[0])).toBe(true);
+      const name = f.offeredTools().find((tool) => tool.startsWith("marketplace__"))!;
+      f.effects[0]!.status = change === "approval denied" ? "denied" : "approved";
+      if (change === "revoked") f.prisma.registryPluginGrant.findMany.mockResolvedValue([]);
+      if (change === "regranted") grant(f, "grant-2");
+      if (change === "blocked by rule")
+        rules.push({ effect: "deny", matchKind: "tool", matchValue: name });
+      f.setCalls([{ name, args, executionId: "replay" }]);
+      await f.run(change === "revoked" || change === "regranted");
+      expect(forwarded).not.toContain("tools/call");
+      expect(f.results.at(-1)).toHaveProperty("error");
+    },
+  );
+
+  it("checks the grant again after the post-approval MCP tool list", async () => {
+    const f = fixture({ builtin: true });
+    grant(f);
+    setCall(f);
+    await f.run();
+    f.effects[0]!.status = "approved";
+    let lists = 0;
+    beforeRequest = (method) => {
+      if (method === "tools/list" && ++lists === 2) {
+        f.prisma.registryPluginGrant.findMany.mockResolvedValue([]);
+      }
+    };
+    setCall(f, args, "replay");
+    await f.run();
+    expect(lists).toBe(2);
+    expect(forwarded).not.toContain("tools/call");
+    expect(f.results.at(-1)).toHaveProperty("error");
+  });
+
+  it("rejects a schema change between approval replay and delivery", async () => {
+    const f = fixture({ builtin: true });
+    grant(f);
+    setCall(f);
+    await f.run();
+    f.effects[0]!.status = "approved";
+    const fetchSample = fixtureNetwork.options!.fetch!;
+    let lists = 0;
+    fixtureNetwork.options!.fetch = async (input, init) => {
+      const response = await fetchSample(input, init);
+      const { method } = JSON.parse(String(init?.body)) as { method: string };
+      if (method !== "tools/list" || ++lists !== 2) return response;
+      const payload = (await response.json()) as {
+        result: { tools: { inputSchema: Record<string, unknown> }[] };
+      };
+      payload.result.tools[0]!.inputSchema.required = ["from", "to"];
+      return Response.json(payload);
+    };
+    setCall(f, args, "replay");
+    await f.run();
+    expect(lists).toBe(2);
+    expect(forwarded).not.toContain("tools/call");
+    expect(f.results.at(-1)).toHaveProperty("error");
+  });
+
+  it("refuses an ungranted tool without discovering its endpoint", async () => {
+    const f = fixture({ builtin: true });
+    setCall(f);
+    await f.run();
+    expect(forwarded).toEqual([]);
+    expect(f.results[0]).toHaveProperty("error");
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
+  });
+
+  it.each(["bot", "space"])("loads only grants for the current %s", async (dimension) => {
+    const f = fixture({ builtin: true });
+    if (dimension === "bot") f.storedRun.botId = "bot-2";
+    else f.storedRun.spaceId = "space-2";
+    const { botId, spaceId } = f.storedRun;
+    f.prisma.registryPluginGrant.findMany.mockImplementation(async ({ where }) => {
+      expect(where).toMatchObject({ botId, bot: { spaceId }, installation: { spaceId } });
+      return [];
+    });
+    setCall(f);
+    await f.run();
+    expect(f.prisma.registryPluginGrant.findMany).toHaveBeenCalledOnce();
+    expect(forwarded).toEqual([]);
+    expect(f.results[0]).toHaveProperty("error");
+  });
+
+  it("does not discover the bot owner's grants in another account's run", async () => {
+    const f = fixture({ builtin: true, botUserId: "another-owner" });
+    setCall(f);
+    await f.run();
+    expect(f.prisma.registryPluginGrant.findMany).not.toHaveBeenCalled();
+    expect(forwarded).toEqual([]);
+    expect(f.results[0]).toHaveProperty("error");
+  });
+
+  it("returns a granted skill as a tool result without network access", async () => {
+    const f = fixture({ builtin: true });
+    grant(f, "grant-1", "conversion-guide");
+    f.setCalls([{ name: selectTool("conversion-guide"), args: {}, executionId: "skill-read" }]);
+    await f.run();
+    expect(f.results[0]).toEqual({
+      instructions:
+        "Use the temperature converter for numeric temperatures. Include the input and output units when reporting a conversion.",
+    });
+    expect(forwarded).toEqual([]);
+  });
+
+  it("refuses a redirect from a public endpoint", async () => {
+    const fetch = vi.fn(async () => Response.redirect("https://127.0.0.1/mcp"));
+    fixtureNetwork.options!.fetch = fetch;
+    const f = fixture({ builtin: true });
+    grant(f);
+    setCall(f);
+    await f.run();
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(f.results[0]).toHaveProperty("error");
+  });
+
+  it("does not send requests to a private address", async () => {
+    fixtureNetwork.options!.resolveHostname = async () => [{ address: "127.0.0.1", family: 4 }];
+    const f = fixture({ builtin: true });
+    grant(f);
+    setCall(f);
+    await f.run();
+    expect(forwarded).toEqual([]);
+    expect(f.results[0]).toHaveProperty("error");
+  });
+
+  it("refuses the remote call in Never ask mode", async () => {
+    const f = fixture({ builtin: true, skipApprovals: true });
+    grant(f);
+    setCall(f);
+    await f.run();
+    expect(forwarded).not.toContain("tools/call");
+    expect(f.results[0]).toHaveProperty("error");
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
+  });
 });

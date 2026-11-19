@@ -29,8 +29,7 @@ import {
 } from "@rakazo/core";
 import { normalizedHttpUrl, urlSite } from "@rakazo/core/egress";
 import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
-import type { AuditEventInput } from "@rakazo/db";
-import { recordAuditEvent, runSecretKind } from "@rakazo/db";
+import { runSecretKind } from "@rakazo/db";
 import { bestEffort } from "@rakazo/logging";
 import type { ApprovalCardOptions } from "../../approvals/approval-ask.js";
 import {
@@ -56,6 +55,7 @@ import type { AutoReviewCandidate } from "../../approvals/auto-review-backups.js
 import { reviewWithBackups } from "../../approvals/auto-review-backups.js";
 import { reviewOwnerMessages } from "../../approvals/review-owner-messages.js";
 import { pagePaymentPrecheck, paysWithWallet } from "../../billing/spending-gate.js";
+import { marketplaceRoute } from "../../integrations/marketplace-runtime.js";
 import { reportBotMessageWait } from "../../messaging/bot-messages.js";
 import { findConnectedModelCredential } from "../../models/model-selection.js";
 import { paidRequestEffect } from "../../payments/paid-request.js";
@@ -88,6 +88,7 @@ import { enqueueSteeringContinuation, renewRunLease } from "../lifecycle/run-lif
 import { notifyRun } from "../lifecycle/run-notifications.js";
 import { autoReviewCheckerProvider, includedAutoReviewChecker } from "../turn/run-auto-review.js";
 import { refusal } from "../turn/tool-refusal.js";
+import { auditAutoReview, auditToolCall } from "./run-tool-audit.js";
 import type { ToolRequest } from "./run-tool-request.js";
 import { BUILTIN_AGENT_TOOL_NAMES, READ_ONLY_AGENT_TOOLS } from "./run-tool-selection.js";
 import { callMediaTool } from "./run-tools-files.js";
@@ -166,6 +167,9 @@ export async function gateToolCall(
   // execute; a catalog call uses the tool it was just resolved to.
   const connectorTool = viaConnector ? (resolvedTool ?? ctx.tools.connector.get(name)) : undefined;
   const declaredReadOnly = connectorTool?.readOnly;
+  const marketplace = marketplaceRoute(connectorCall.route);
+  const marketplaceMcp = marketplace && declaredReadOnly !== true;
+  const marketplaceSkill = marketplace && declaredReadOnly === true;
   // A batch tool names the actions it runs in its arguments, so rules and the read/write
   // check look at each action, never the batch tool. An entry naming no action asks.
   const batch = connectorTool?.batch ? batchActions(connectorTool.batch, args) : undefined;
@@ -235,6 +239,7 @@ export async function gateToolCall(
         connectorProviders,
       )
     : viaConnector &&
+        !marketplaceSkill &&
         !unidentifiedAction &&
         (catalogControlRead ||
           approvalToolNames.every(
@@ -295,6 +300,7 @@ export async function gateToolCall(
     siteGate === "new" ||
     unidentifiedAction ||
     (!catalogControlRead &&
+      !marketplaceSkill &&
       approvalToolNames.some(
         (toolName) =>
           toolRequiresApproval(toolName, viaConnector, declaredReadOnlyFor(toolName)) ||
@@ -303,15 +309,17 @@ export async function gateToolCall(
   // A reviewed call still fails closed when its review errors, and keeps its approval key.
   const gated = requiresApprovalByDefault || reviewOnly;
   // In Ask and Auto these ask a person every time, whatever started the run.
-  const mandatoryInAnyRun = paying || unattendedWatch || toolRequiresExplicitApproval(name);
+  const mandatoryInAnyRun =
+    paying || unattendedWatch || marketplaceMcp || toolRequiresExplicitApproval(name);
   // Outside text may have asked for these, so an Always allow rule saved for calls the owner asked
   // for does not skip them; they still go through the approval mode.
   const ignoresAllowRules = routineWrittenAfterOutside || request.ignoresAllowRules;
   // No allow rule skips these, and without them the tool needs no approval, so "Always allow"
   // on their card would save a rule that never takes effect.
   const asksEveryTime =
-    (unattendedWatch || scheduleNamesNewSite || routineAddsEvents || ignoresAllowRules) &&
-    !toolRequiresApproval(name, viaConnector);
+    marketplaceMcp ||
+    ((unattendedWatch || scheduleNamesNewSite || routineAddsEvents || ignoresAllowRules) &&
+      !toolRequiresApproval(name, viaConnector));
   // Never ask runs everything else: only another owner's connection could have been steered into it.
   const guardedInNeverAsk = name === "respond_agent_connection";
   const resolvedRules = resolveActionApprovalForTools({
@@ -326,7 +334,7 @@ export async function gateToolCall(
     })),
     wrapper: batch ? { name, connectorKind } : undefined,
     site: fetchSite,
-    rules: await ctx.trust.loadApprovalRules(),
+    rules: await ctx.trust.loadApprovalRules(marketplace),
   });
   const approvalResolved =
     unidentifiedAction && resolvedRules.decision === "allow"
@@ -334,7 +342,7 @@ export async function gateToolCall(
       : ignoresAllowRules && resolvedRules.source === "always_allow"
         ? { ...resolvedRules, source: "default" as const }
         : resolvedRules;
-  const mode = approvalModeFromPreference(await ctx.trust.loadAutoReviewPreference());
+  const mode = approvalModeFromPreference(await ctx.trust.loadAutoReviewPreference(marketplace));
   const reviewable = mode === "auto" && !mandatoryInAnyRun;
   const injectedReview = reviewable ? deps.autoReview : undefined;
   const reviewSettings = !reviewable || injectedReview ? null : await ctx.trust.loadApprovalModel();
@@ -375,9 +383,10 @@ export async function gateToolCall(
         mode,
         mandatory: mandatoryInAnyRun,
         steerable:
-          guardedInNeverAsk && mode === "never"
-            ? !ctx.source.ownerStartedRun || (await isRunTainted(ctx))
-            : undefined,
+          marketplaceMcp ||
+          (guardedInNeverAsk &&
+            mode === "never" &&
+            (!ctx.source.ownerStartedRun || (await isRunTainted(ctx)))),
         consequential: requiresApprovalByDefault,
         reviewOnly,
         checkerConfigured,
@@ -393,7 +402,9 @@ export async function gateToolCall(
         "approval_denied",
         approvalResolved.decision === "deny"
           ? `${name} is blocked in this space${blockingRuleSuffix(approvalResolved)}. Don't try it another way; tell the user it's blocked.`
-          : `${name} needs the owner's approval because it could have been asked for by someone else, and this space never asks. Don't retry; tell the user.`,
+          : marketplaceMcp
+            ? "Marketplace MCP calls require approval. This space is set to Never ask."
+            : `${name} needs the owner's approval because it could have been asked for by someone else, and this space never asks. Don't retry; tell the user.`,
       ),
     };
   }
@@ -439,11 +450,12 @@ export async function gateToolCall(
         );
   // An approved replay claims the row the user approved. A derived key can differ
   // (another call's occurrence count), which would ask again and strand the approval.
+  const effectIdentity = marketplace ? { route: connectorCall.route, args } : args;
   const effectKey =
     approvedEffectKey ??
     (usesApprovalKey && occurrence === 0
-      ? approvalEffectKey(runId, replayEffectToolName, args)
-      : toolEffectIdempotencyKey(runId, replayEffectToolName, args, occurrence));
+      ? approvalEffectKey(runId, replayEffectToolName, effectIdentity)
+      : toolEffectIdempotencyKey(runId, replayEffectToolName, effectIdentity, occurrence));
   // Connector read-only hints must not bypass approval, review, or replay decisions.
   // A fetch to a new site is gated like any action, so it needs an effect to approve.
   const applied =
@@ -657,28 +669,6 @@ export async function gateToolCall(
     for (const trust of connectorTrusts) trusted.add(trust);
   }
   return { call };
-}
-
-/** A bot's consequential tool call, recorded in its organization's audit log. */
-export async function auditToolCall(
-  ctx: RunContext,
-  tool: string,
-  outcome: "success" | "failure" | "denied",
-  metadata: AuditEventInput["metadata"],
-  recorded: Pick<AuditEventInput, "action" | "actor"> = {
-    action: "tool.call",
-    actor: { type: "bot", id: ctx.bot.id, label: ctx.bot.name },
-  },
-): Promise<void> {
-  await recordAuditEvent({
-    ...recorded,
-    spaceId: ctx.run.spaceId,
-    target: { type: "tool", id: tool, label: humanizeToolName(tool) },
-    outcome,
-    runId: ctx.runId,
-    threadId: ctx.thread.id,
-    metadata,
-  });
 }
 
 function blockingRuleSuffix(resolved: ReturnType<typeof resolveActionApprovalForTools>): string {
@@ -980,20 +970,4 @@ async function reviewToolCall(
     await auditAutoReview(ctx, name, applied, "error", reviewModel);
     return verdict;
   }
-}
-
-function auditAutoReview(
-  ctx: RunContext,
-  tool: string,
-  applied: AppliedEffect | undefined,
-  decision: string,
-  model: string | undefined,
-): Promise<void> {
-  return auditToolCall(
-    ctx,
-    tool,
-    decision === "error" ? "failure" : "success",
-    { effectId: applied?.effect.id, decision },
-    { action: "approval.auto_reviewed", actor: { type: "system", label: model } },
-  );
 }

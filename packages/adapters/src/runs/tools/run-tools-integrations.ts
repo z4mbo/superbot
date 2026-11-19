@@ -8,6 +8,12 @@ import {
   redactConnectorPayload,
   sanitizeConnectorError,
 } from "../../integrations/connector-safety.js";
+import {
+  executeMarketplaceTool,
+  MARKETPLACE_UNAVAILABLE,
+  marketplaceScope,
+  marketplaceToolName,
+} from "../../integrations/marketplace-runtime.js";
 import { mcpAppViewArguments, mcpAppViewResult } from "../../mcp/mcp-app.js";
 import { addMcpServerFromTool } from "../../mcp/mcp-server-tool.js";
 import { serviceCallFromTool, serviceSearchFromTool } from "../../payments/paid-service-tools.js";
@@ -43,6 +49,19 @@ export async function cloudAgentTool(ctx: RunContext, call: ToolCall) {
 export async function connectorTool(ctx: RunContext, call: ToolCall) {
   const { deps, run, bot, thread, context } = ctx;
   const { name, args, effectKey, connectorCall } = call;
+  if (marketplaceToolName(name)) {
+    const scope = marketplaceScope(run, bot, ctx.source.messagingChannelRun);
+    const tool = ctx.tools.connector.get(name);
+    return call.finish(
+      scope && tool
+        ? await executeMarketplaceTool(
+            { prisma: deps.prisma, scope, signal: context.signal },
+            tool,
+            args,
+          )
+        : { error: MARKETPLACE_UNAVAILABLE },
+    );
+  }
   if (deps.connector) {
     let result: unknown = { error: `unknown tool ${name}` };
     // Background work posts no cards, so it does not fetch the app either.

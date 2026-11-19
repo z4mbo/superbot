@@ -22,6 +22,8 @@ model AiDataConsent {
 }
 
 model User {
+  registryPlugins RegistryPlugin[] @relation("RegistryPublisher")
+  reviewedRegistryPlugins RegistryPluginVersion[] @relation("RegistryReviewer")
   meetingSessions MeetingSession[]
   aiDataConsents AiDataConsent[]
   pages          Page[]
@@ -748,6 +750,7 @@ model SpaceKey {
 }
 
 model SpaceMember {
+  registryPluginInstalls RegistryPluginInstall[]
   id               String                 @id
   spaceId          String
   organizationId   String
@@ -993,6 +996,7 @@ model SpaceVoicePreference {
 }
 
 model Bot {
+  registryPluginGrants RegistryPluginGrant[]
   meetingSessions MeetingSession[]
   screenGeneration Int @default(0)
   id                String            @id @default(cuid())
@@ -3021,4 +3025,71 @@ model MeetingCalendarBooking {
   @@id([connectionId, eventId])
   @@index([sessionId])
   @@map("meeting_calendar_bookings")
+}
+
+enum RegistryPluginStatus {
+  pending
+  approved
+  rejected
+}
+
+model RegistryPlugin {
+  slug        String @id
+  publisherId String?
+  publisher   User? @relation("RegistryPublisher", fields: [publisherId], references: [id], onDelete: SetNull)
+  versions    RegistryPluginVersion[]
+
+  @@index([publisherId])
+  @@map("registry_plugins")
+}
+
+model RegistryPluginVersion {
+  id         String @id @default(cuid())
+  slug       String
+  plugin     RegistryPlugin @relation(fields: [slug], references: [slug], onDelete: Restrict)
+  version    Int
+  manifest   Json
+  status     RegistryPluginStatus @default(pending)
+  reason     String?
+  createdAt  DateTime @default(now())
+  reviewedAt DateTime?
+  reviewerId String?
+  reviewer   User? @relation("RegistryReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  installs   RegistryPluginInstall[]
+
+  @@unique([slug, version])
+  @@unique([id, slug])
+  @@index([status, id])
+  @@index([reviewerId])
+  @@map("registry_plugin_versions")
+}
+
+model RegistryPluginInstall {
+  id        String @id @default(cuid())
+  spaceId   String
+  userId    String
+  member    SpaceMember @relation(fields: [spaceId, userId], references: [spaceId, userId], onDelete: Cascade)
+  slug      String
+  versionId String
+  release   RegistryPluginVersion @relation(fields: [versionId, slug], references: [id, slug], onDelete: Restrict)
+  grants    RegistryPluginGrant[]
+  createdAt DateTime @default(now())
+
+  @@unique([spaceId, userId, slug])
+  @@index([userId])
+  @@index([versionId, slug])
+  @@map("registry_plugin_installs")
+}
+
+model RegistryPluginGrant {
+  id             String @id @default(cuid())
+  installationId String
+  installation   RegistryPluginInstall @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  botId          String
+  bot            Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+  partId         String
+
+  @@unique([installationId, botId, partId])
+  @@index([botId])
+  @@map("registry_plugin_grants")
 }
