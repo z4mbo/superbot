@@ -21,14 +21,12 @@ impl Desktop {
         let nothing = pinned.is_empty() && listed.is_empty() && groups.is_empty();
 
         let tiles = (!pinned.is_empty()).then(|| {
-            div()
-                .flex()
-                .flex_wrap()
-                .justify_center()
-                .gap_1()
-                .pt_3p5()
-                .pb_4()
-                .children(pinned.into_iter().map(|agent| self.render_tile(agent, open.as_ref(), &theme, cx)))
+            let mut tiles: Vec<_> =
+                pinned.into_iter().map(|agent| (superbot_avatars::primary_tile(&agent.name, cx), agent)).collect();
+            tiles.sort_by_key(|(primary, _)| !*primary);
+            div().flex().flex_wrap().justify_center().gap_1().pt_3p5().pb_4().children(
+                tiles.into_iter().map(|(primary, agent)| self.render_tile(agent, primary, open.as_ref(), &theme, cx)),
+            )
         });
         let rows = div()
             .flex()
@@ -162,6 +160,7 @@ impl Desktop {
     fn render_tile(
         &mut self,
         agent: AgentSummary,
+        primary: bool,
         open: Option<&Target>,
         theme: &Theme,
         cx: &mut Context<Self>,
@@ -173,14 +172,15 @@ impl Desktop {
         let menu = agent.id.clone();
         let watch = SharedString::from(format!("tile:{}", agent.id));
         superbot_avatars::watch_region(div().id(SharedString::from(format!("tile-{}", agent.id))), watch.clone())
-            .w(px(78.))
+            .group("bot-tile")
+            .w(px(if primary { 92. } else { 78. }))
             .h(px(92.))
             .flex_shrink_0()
             .flex()
             .flex_col()
             .items_center()
             .px_1()
-            .pt_2()
+            .pt(px(if primary { 6. } else { 8. }))
             .rounded(radius::FIELD)
             .bg(fill)
             .cursor_pointer()
@@ -196,6 +196,24 @@ impl Desktop {
                 div()
                     .relative()
                     .child(bot_avatar(agent.avatar(), px(56.), agent.working(), Some(watch), theme, cx))
+                    .when(primary, |avatar| {
+                        avatar.child(
+                            div()
+                                .absolute()
+                                .right(px(-3.))
+                                .bottom(px(-3.))
+                                .size(px(20.))
+                                .rounded_full()
+                                .border_2()
+                                .border_color(fill)
+                                .group_hover("bot-tile", move |style| style.border_color(hover))
+                                .bg(rgb(0xe8993a))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .child(icon("tile-crown", px(10.), white())),
+                        )
+                    })
                     .children(status_dot(&agent, fill, theme).map(|dot| dot.absolute().top(px(-2.)).right(px(-2.)))),
             )
             .child(
