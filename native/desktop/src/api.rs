@@ -127,6 +127,10 @@ impl AgentSummary {
     pub fn waiting_on_you(&self) -> bool {
         matches!(self.thread_status.as_deref().unwrap_or(&self.status), "waiting_input" | "waiting_takeover")
     }
+
+    pub fn avatar(&self) -> superbot_avatars::Bot<'_> {
+        superbot_avatars::Bot { id: &self.id, name: &self.name, color: &self.color }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -137,6 +141,12 @@ pub struct GroupMember {
     pub name: String,
     #[serde(default)]
     pub color: String,
+}
+
+impl GroupMember {
+    pub fn avatar(&self) -> superbot_avatars::Bot<'_> {
+        superbot_avatars::Bot { id: &self.bot_id, name: &self.name, color: &self.color }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]

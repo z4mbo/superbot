@@ -15,7 +15,9 @@ use crate::files;
 use crate::outbox::{self, Attachment};
 use crate::theme::{mix, radius, ActiveTheme, Theme, BUBBLE_MAX, CAPTION_WIDTH, CHAT_COLUMN};
 use crate::transcript::{place, Entry, FileRef, Join, Part, Place, Speaker};
-use crate::ui::{agent_face, error_line, icon, pill_button, Tone, Type};
+use superbot_avatars::{Bot, ChatTone, Mark};
+
+use crate::ui::{bot_avatar, bot_ink, chat_tone, error_line, icon, pill_button, Tone, Type};
 
 impl Desktop {
     pub fn render_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -40,7 +42,7 @@ impl Desktop {
                 .items_center()
                 .justify_center()
                 .gap_3()
-                .child(self.target_face(&target, px(56.), &theme))
+                .child(self.target_face(&target, px(64.), None, &theme, cx))
                 .child(
                     div()
                         .item()
@@ -94,6 +96,7 @@ impl Desktop {
     fn render_chat_header(&mut self, target: &Target, theme: &Theme, cx: &mut Context<Self>) -> Div {
         let name = self.target_name(target);
         let hover = theme.elevated_hover();
+        let watch = SharedString::from("head");
         div()
             .flex()
             .items_center()
@@ -104,8 +107,7 @@ impl Desktop {
             .child(div().w(CAPTION_WIDTH).flex_shrink_0())
             .child(
                 div().flex_1().min_w_0().flex().justify_center().child(
-                    div()
-                        .id("chat-head")
+                    superbot_avatars::watch_region(div().id("chat-head"), watch.clone())
                         .max_w_full()
                         .flex()
                         .items_center()
@@ -122,31 +124,74 @@ impl Desktop {
                         .occlude()
                         .hover(move |style| style.bg(hover))
                         .on_click(cx.listener(|this, _, window, cx| this.show(View::Workspace, window, cx)))
-                        .child(self.target_face(target, px(22.), theme))
+                        .child(self.target_face(target, px(22.), Some(watch), theme, cx))
                         .child(div().name().truncate().child(name)),
                 ),
             )
             .child(div().w(CAPTION_WIDTH).flex_shrink_0())
     }
 
-    pub fn target_face(&self, target: &Target, size: Pixels, theme: &Theme) -> Div {
+    fn chat_tone(&self, theme: &Theme, cx: &App) -> Option<ChatTone> {
+        match &self.chat.as_ref()?.target {
+            Target::Agent(id) => chat_tone(self.agent(id)?.avatar(), theme, cx),
+            Target::Group(_) => None,
+        }
+    }
+
+    /// The working bot's own moving mark beside what it is doing, when the avatar pack draws it.
+    fn working_presence(&self, theme: &Theme, cx: &App) -> Option<AnyElement> {
+        let Target::Agent(id) = &self.chat.as_ref()?.target else { return None };
+        let agent = self.agent(id)?;
+        let look = superbot_avatars::look(agent.avatar(), cx)?;
+        Some(Mark::new("presence", look, px(28.), theme.ink).working(true).into_any_element())
+    }
+
+    /// The person's own bubbles: the bot's colour when the avatar pack recolours its chat.
+    fn own_bubble(&self, theme: &Theme, cx: &App) -> (Hsla, Hsla) {
+        match self.chat_tone(theme, cx) {
+            Some(tone) => (tone.bubble, tone.bubble_ink),
+            None => (theme.bubble_user, theme.bubble_user_ink),
+        }
+    }
+
+    /// The avatar of what a conversation is with. An open chat's bot moves while it works.
+    pub fn target_face(
+        &self,
+        target: &Target,
+        size: Pixels,
+        watch: Option<SharedString>,
+        theme: &Theme,
+        cx: &App,
+    ) -> Div {
         match target {
             Target::Agent(id) => {
-                let color = self.agent(id).map(|agent| agent.color.clone()).unwrap_or_default();
-                agent_face(theme.identity_for(&color), size)
+                let working = self.chat.as_ref().is_some_and(|chat| chat.working && &chat.target == target)
+                    || self.agent(id).is_some_and(|agent| agent.working());
+                let avatar = match self.agent(id) {
+                    Some(agent) => bot_avatar(agent.avatar(), size, working, watch, theme, cx),
+                    None => bot_avatar(Bot { id, name: "", color: "" }, size, false, None, theme, cx),
+                };
+                div().flex_shrink_0().child(avatar)
             }
             Target::Group(id) => {
-                let colors: Vec<_> = self
+                let members: Vec<GroupMember> = self
                     .groups()
                     .iter()
                     .find(|group| &group.id == id)
-                    .map(|group| group.members.iter().take(2).map(|member| theme.identity_for(&member.color)).collect())
+                    .map(|group| group.members.iter().take(2).cloned().collect())
                     .unwrap_or_default();
                 let face = size * 0.68;
-                div().size(size).flex_shrink_0().relative().children(colors.into_iter().enumerate().map(
-                    |(index, color)| {
+                div().size(size).flex_shrink_0().relative().children(members.iter().enumerate().map(
+                    |(index, member)| {
                         let offset = if index == 0 { px(0.) } else { size - face };
-                        agent_face(color, face).absolute().left(offset).top(offset)
+                        div().absolute().left(offset).top(offset).child(bot_avatar(
+                            member.avatar(),
+                            face,
+                            false,
+                            None,
+                            theme,
+                            cx,
+                        ))
                     },
                 ))
             }
@@ -228,6 +273,7 @@ impl Desktop {
         let chat = self.chat.as_ref();
         let in_group = chat.is_some_and(|chat| matches!(chat.target, Target::Group(_)));
         let members: &[GroupMember] = chat.map_or(&[], |chat| &chat.conversation.members);
+        let own = self.own_bubble(theme, cx);
         let join = place.join;
         let mine = entry.speaker == Speaker::Person
             && entry.name.as_deref().is_none_or(|name| self.me.as_ref().is_some_and(|me| me.name == name));
@@ -236,7 +282,9 @@ impl Desktop {
             None
         } else {
             match entry.speaker {
-                Speaker::Agent if in_group => agent.map(|agent| (agent.name.clone(), theme.identity_for(&agent.color))),
+                Speaker::Agent if in_group => {
+                    agent.map(|agent| (agent.name.clone(), bot_ink(agent.avatar(), theme, cx)))
+                }
                 Speaker::Person if !mine => entry.name.clone().map(|name| (name, theme.ink_secondary)),
                 _ => None,
             }
@@ -271,7 +319,7 @@ impl Desktop {
                     Vec::new()
                 };
                 let key = (index, part_index);
-                let bubble = bubble(text, mine, entry.speaker, join, key, &named, theme);
+                let bubble = bubble(text, mine, entry.speaker, join, key, &named, own, theme);
                 match said.clone() {
                     Some(said) => div()
                         .id(("said", index * 64 + part_index))
@@ -458,6 +506,8 @@ impl Desktop {
 
     /// The transcript's last row: what is happening now, and what went wrong.
     fn render_now(&self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+        let own = self.own_bubble(theme, cx);
+        let presence = self.working_presence(theme, cx);
         let Some(chat) = self.chat.as_ref() else { return div().into_any_element() };
         let last = chat.entries.len();
         div()
@@ -466,7 +516,7 @@ impl Desktop {
             .flex_col()
             .items_start()
             .when(!chat.draft.is_empty(), |row| {
-                let draft = bubble(&chat.draft, false, Speaker::Agent, Join::default(), (last, 0), &[], theme);
+                let draft = bubble(&chat.draft, false, Speaker::Agent, Join::default(), (last, 0), &[], own, theme);
                 row.child(div().pt_4().w_full().flex().child(draft))
             })
             .when(chat.working, |row| {
@@ -478,7 +528,10 @@ impl Desktop {
                         .flex()
                         .items_center()
                         .gap_2()
-                        .child(div().size_2().rounded_full().bg(theme.success))
+                        .child(
+                            presence
+                                .unwrap_or_else(|| div().size_2().rounded_full().bg(theme.success).into_any_element()),
+                        )
                         .child(div().body().text_color(theme.ink_tertiary).truncate().child(activity)),
                 )
             })
@@ -514,6 +567,7 @@ impl Desktop {
         let has_text = !text.trim().is_empty();
         let multiline = text.contains('\n');
         let needs_model = self.me.as_ref().is_some_and(|me| me.needs_model);
+        let tone = self.chat_tone(theme, cx);
         let identity = match target {
             Target::Agent(id) => {
                 theme.identity_for(&self.agent(id).map(|agent| agent.color.clone()).unwrap_or_default())
@@ -523,17 +577,23 @@ impl Desktop {
         let has_content = has_text || !attachments.is_empty();
         let stopping = working && !has_content && !sending;
         let ready = has_content && !sending && !loading;
-        let (fill, ink) = if stopping {
+        let (fill, ink) = if let (true, Target::Agent(_), Some(tone)) = (stopping, target, tone) {
+            (tone.fill, tone.fill_ink)
+        } else if stopping {
             (theme.ink, theme.app)
         } else if has_content {
-            match target {
-                Target::Agent(_) => (identity, gpui_kit::white()),
-                Target::Group(_) => (theme.ink, theme.app),
+            match (target, tone) {
+                (Target::Agent(_), Some(tone)) => (tone.fill, tone.fill_ink),
+                (Target::Agent(_), None) => (identity, gpui_kit::white()),
+                (Target::Group(_), _) => (theme.ink, theme.app),
             }
         } else {
             (theme.raised_hover, theme.ink_secondary)
         };
-        let pressed = mix(fill, theme.app, 0.14);
+        let pressed = match tone.filter(|_| matches!(target, Target::Agent(_)) && (has_content || stopping)) {
+            Some(tone) => tone.fill_hover,
+            None => mix(fill, theme.app, 0.14),
+        };
         let ring = theme.ink_at(0.1);
         let ring_hover = theme.ink_at(0.22);
         let quiet_hover = theme.ink_at(0.08);
@@ -785,7 +845,7 @@ impl Desktop {
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.pick_mention(Some(index), window, cx);
                     }))
-                    .child(agent_face(theme.identity_for(&member.color), px(20.)))
+                    .child(bot_avatar(member.avatar(), px(20.), false, None, theme, cx))
                     .child(div().flex_1().min_w_0().truncate().child(member.name.clone()))
             }))
     }
@@ -827,9 +887,10 @@ fn bubble(
     join: Join,
     key: (usize, usize),
     named: &[std::ops::Range<usize>],
+    own: (Hsla, Hsla),
     theme: &Theme,
 ) -> AnyElement {
-    let (fill, ink) = if mine { (theme.bubble_user, theme.bubble_user_ink) } else { (theme.card, theme.ink) };
+    let (fill, ink) = if mine { own } else { (theme.card, theme.ink) };
     let tight = radius::BUBBLE_JOINED;
     let shape = div()
         .max_w(BUBBLE_MAX)

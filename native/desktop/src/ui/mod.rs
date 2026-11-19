@@ -13,6 +13,8 @@ use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
+use superbot_avatars::{Bot, ChatTone, Mark, Paint};
+
 use crate::theme::{radius, Theme};
 
 pub fn icon(name: &str, size: Pixels, color: Hsla) -> Svg {
@@ -82,6 +84,44 @@ pub fn agent_face(color: Hsla, size: Pixels) -> Div {
         .gap(size * 0.16)
         .pb(size * 0.06)
         .children((0..2).map(|_| div().w(eye).h(eye * 1.5).rounded_full().bg(gpui_kit::white())))
+}
+
+/// A bot's avatar in a slot of `size`: the local avatar pack's mark when one is installed,
+/// otherwise [`agent_face`]. `watch` names the mark for a region made with `watch_region`.
+pub fn bot_avatar(
+    bot: Bot,
+    size: Pixels,
+    working: bool,
+    watch: Option<SharedString>,
+    theme: &Theme,
+    cx: &App,
+) -> AnyElement {
+    match superbot_avatars::look(bot, cx) {
+        Some(look) => {
+            let id = SharedString::from(format!("avatar-{}", bot.id));
+            let mark = Mark::new(id, look, size, theme.ink).working(working);
+            match watch {
+                Some(key) => mark.watch(key).into_any_element(),
+                None => mark.into_any_element(),
+            }
+        }
+        None => agent_face(theme.identity_for(bot.color), size).into_any_element(),
+    }
+}
+
+/// The colour that stands for this bot in text: its mark's colour when the avatar pack draws it.
+pub fn bot_ink(bot: Bot, theme: &Theme, cx: &App) -> Hsla {
+    match superbot_avatars::look(bot, cx).map(|look| look.paint) {
+        Some(Paint::Color(color)) => color,
+        Some(Paint::Gradient(stops)) => stops[stops.len() / 2],
+        Some(Paint::Ink) => theme.ink,
+        None => theme.identity_for(bot.color),
+    }
+}
+
+/// The colours of a chat with this bot, when the avatar pack recolours chats.
+pub fn chat_tone(bot: Bot, theme: &Theme, cx: &App) -> Option<ChatTone> {
+    superbot_avatars::chat_tone(&superbot_avatars::look(bot, cx)?, theme.is_dark(), cx)
 }
 
 pub fn initials(name: &str) -> String {

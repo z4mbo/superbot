@@ -51,6 +51,8 @@ To use the same type on both clients, copy `typography.json` and its `fonts/` di
 }
 ```
 
+For matching bot avatars, keep the same `avatars/` directory on both clients. It contains `pack.json` and the shape files it references. Import the bot names into the shared Space once. Each client looks up names in its own pack regardless of the new server IDs. The [avatar pack reference](../../native/avatars/README.md) covers name matching, colours, hover and working frames, and chat tints.
+
 ## Conversations and shared Spaces
 
 At sign-in, desktop opens a Space you already share when one is available. Otherwise it opens the server's default Space. The upper-left menu selects a different Space, and your choice stays active while you work. The sidebar shows its agents and groups. Select a conversation to load the server history and follow live replies. Search filters the sidebar. The plus button creates an agent. The composer sends messages to the selected conversation.

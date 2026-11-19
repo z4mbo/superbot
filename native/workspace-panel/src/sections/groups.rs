@@ -461,7 +461,7 @@ impl WorkspacePanel {
                             SharedString::from(format!("group-{}", group.id)),
                             group.name.clone(),
                         )
-                        .leading(group_face(group, t))
+                        .leading(group_face(group, t, cx))
                         .detail(summary(group))
                         .when(group.pinned, |row| {
                             row.trailing(icon(Glyph::Pin, 14., t.ink_tertiary))
@@ -545,7 +545,7 @@ impl WorkspacePanel {
             SharedString::from(format!("archived-group-{}", group.id)),
             group.name.clone(),
         )
-        .leading(group_face(group, t).opacity(0.6))
+        .leading(div().opacity(0.6).child(group_face(group, t, cx)))
         .detail(summary(group));
         if view.confirm_remove.as_deref() == Some(group.id.as_str()) {
             let id = group.id.clone();
@@ -635,7 +635,7 @@ impl WorkspacePanel {
                     SharedString::from(format!("group-bot-{}", bot.id)),
                     bot.name.clone(),
                 )
-                .leading(ui::bot_face(t.identity_for(&bot.color), 32.))
+                .leading(ui::bot_avatar(super::bots::avatar(bot), 32., false, t, cx))
                 .detail(bot.description.clone())
                 .trailing(
                     Toggle::new(
@@ -739,12 +739,11 @@ impl WorkspacePanel {
     }
 }
 
-fn group_face(group: &Group, t: &Tokens) -> Div {
-    ui::group_face(
-        group
-            .members
-            .iter()
-            .map(|member| t.identity_for(&member.color)),
-        40.,
-    )
+fn group_face(group: &Group, t: &Tokens, cx: &App) -> Div {
+    let members = group.members.iter().map(|member| superbot_avatars::Bot {
+        id: &member.bot_id,
+        name: &member.name,
+        color: &member.color,
+    });
+    ui::group_face(members, 40., t, cx)
 }

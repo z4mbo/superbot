@@ -6,7 +6,7 @@ use crate::api::{AgentSummary, GroupSummary, Target};
 use crate::app::{Desktop, DialogKind, MenuKind, View};
 use crate::theme::{mix, radius, ActiveTheme, Theme, SIDEBAR_WIDTH};
 use crate::ui::corner::Corner;
-use crate::ui::{agent_face, empty_line, icon, person_face, Type};
+use crate::ui::{bot_avatar, empty_line, icon, person_face, Type};
 
 impl Desktop {
     pub fn render_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -171,8 +171,8 @@ impl Desktop {
         let fill = if selected { theme.raised } else { theme.panel };
         let hover = if selected { theme.raised } else { mix(theme.panel, theme.raised, 0.5) };
         let menu = agent.id.clone();
-        div()
-            .id(SharedString::from(format!("tile-{}", agent.id)))
+        let watch = SharedString::from(format!("tile:{}", agent.id));
+        superbot_avatars::watch_region(div().id(SharedString::from(format!("tile-{}", agent.id))), watch.clone())
             .w(px(78.))
             .h(px(92.))
             .flex_shrink_0()
@@ -195,7 +195,7 @@ impl Desktop {
             .child(
                 div()
                     .relative()
-                    .child(agent_face(theme.identity_for(&agent.color), px(56.)))
+                    .child(bot_avatar(agent.avatar(), px(56.), agent.working(), Some(watch), theme, cx))
                     .children(status_dot(&agent, fill, theme).map(|dot| dot.absolute().top(px(-2.)).right(px(-2.)))),
             )
             .child(
@@ -229,18 +229,22 @@ impl Desktop {
             (agent.preview.clone(), theme.ink_secondary)
         };
         let menu = agent.id.clone();
+        let watch = SharedString::from(format!("row:{}", agent.id));
         let face = div()
             .relative()
-            .child(agent_face(theme.identity_for(&agent.color), px(42.)))
+            .child(bot_avatar(agent.avatar(), px(42.), agent.working(), Some(watch.clone()), theme, cx))
             .children(status_dot(&agent, fill, theme).map(|dot| dot.absolute().bottom(px(-1.)).right(px(-1.))));
-        row(
-            SharedString::from(format!("agent-{}", agent.id)),
-            face,
-            agent.name.clone(),
-            preview,
-            agent.unread,
-            selected,
-            theme,
+        superbot_avatars::watch_region(
+            row(
+                SharedString::from(format!("agent-{}", agent.id)),
+                face,
+                agent.name.clone(),
+                preview,
+                agent.unread,
+                selected,
+                theme,
+            ),
+            watch,
         )
         .on_click(cx.listener(move |this, _, window, cx| this.open(target.clone(), window, cx)))
         .on_mouse_down(
@@ -261,7 +265,7 @@ impl Desktop {
     ) -> AnyElement {
         let target = Target::Group(group.id.clone());
         let selected = open == Some(&target);
-        let face = self.target_face(&target, px(42.), theme);
+        let face = self.target_face(&target, px(42.), None, theme, cx);
         let preview = if group.preview.is_empty() {
             group.members.iter().map(|member| member.name.as_str()).collect::<Vec<_>>().join(", ")
         } else {

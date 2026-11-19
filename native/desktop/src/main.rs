@@ -40,6 +40,7 @@ fn main() {
         let fonts = fonts::Fonts::load(cx);
         let skin = chosen_skin.unwrap_or_else(|| Skin::for_appearance(cx.window_appearance()));
         Theme::of(skin, &fonts).install(cx);
+        superbot_avatars::Avatars::install(appearance::folder().as_deref(), cx);
 
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, size(px(1280.), px(820.)), cx))),
