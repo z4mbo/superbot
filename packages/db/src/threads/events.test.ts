@@ -4370,6 +4370,12 @@ describe("sendUserMessage", () => {
   });
 
   it("persists steering instead of starting a parallel run when the bot is busy", async () => {
+    let committed = false;
+    const committedAtPublish: boolean[] = [];
+    const fanout = new TestFanout();
+    const publish = vi.spyOn(fanout, "publish").mockImplementation(async () => {
+      committedAtPublish.push(committed);
+    });
     const tx = {
       $queryRaw: vi.fn(async () => []),
       space: { findUnique: vi.fn() },
@@ -4402,19 +4408,27 @@ describe("sendUserMessage", () => {
       },
     };
     const prisma = {
-      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => {
+        const result = await callback(tx);
+        committed = true;
+        return result;
+      }),
     } as unknown as PrismaClient;
 
     await expect(
-      sendUserMessage(prisma, {
-        spaceId: "workspace-1",
-        threadId: "thread-1",
-        botId: "bot-1",
-        userId: "user-1",
-        blocks: [{ kind: "text", text: "hello" }],
-        prompt: "hello",
-        trigger: "follow_up",
-      }),
+      sendUserMessage(
+        prisma,
+        {
+          spaceId: "workspace-1",
+          threadId: "thread-1",
+          botId: "bot-1",
+          userId: "user-1",
+          blocks: [{ kind: "text", text: "hello" }],
+          prompt: "hello",
+          trigger: "follow_up",
+        },
+        fanout,
+      ),
     ).resolves.toEqual({ messageId: "message-1", seq: 4, taskId: null, runId: "run-0" });
 
     expect(tx.task.create).not.toHaveBeenCalled();
@@ -4426,6 +4440,11 @@ describe("sendUserMessage", () => {
     expect(tx.steeringMessage.create).toHaveBeenCalledWith({
       data: { messageId: "message-1", botId: "bot-1", userId: "user-1", runId: "run-0" },
     });
+    expect(publish.mock.calls).toEqual([
+      ["thread:thread-1", JSON.stringify({ cursor: 8 })],
+      ["space-changes:workspace-1", "runs"],
+    ]);
+    expect(committedAtPublish).toEqual([true, true]);
   });
 
   it.each([
