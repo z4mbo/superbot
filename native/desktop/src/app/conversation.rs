@@ -113,6 +113,7 @@ impl Desktop {
     pub fn open(&mut self, target: Target, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         self.view = View::Chat;
+        self.set_workspace_visible(false, window, cx);
         self.menu = None;
         if self.chat.as_ref().is_some_and(|chat| chat.target == target) {
             cx.notify();

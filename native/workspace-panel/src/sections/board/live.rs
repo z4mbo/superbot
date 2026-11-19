@@ -22,6 +22,13 @@ const LONGEST_RETRY: Duration = Duration::from_secs(30);
 /// Follows `boards/subscribe` until `signals` is dropped, reconnecting after drops with a
 /// growing delay. Heartbeats are not passed on: they carry no change.
 pub(crate) async fn follow(remote: Remote, signals: UnboundedSender<Live>) -> Result<(), Error> {
+    tokio::select! {
+        _ = signals.closed() => Ok(()),
+        result = follow_open(&remote, &signals) => result,
+    }
+}
+
+async fn follow_open(remote: &Remote, signals: &UnboundedSender<Live>) -> Result<(), Error> {
     let mut delay = FIRST_RETRY;
     while !signals.is_closed() {
         match remote.space().subscribe_board().await {

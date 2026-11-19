@@ -12,7 +12,7 @@ use tokio::sync::mpsc::unbounded_channel;
 
 use self::edit::{rebase, Changes, Fields};
 use self::live::Live;
-use crate::panel::{Loaded, PanelEvent, WorkspacePanel};
+use crate::panel::{Loaded, PanelEvent, Section, WorkspacePanel};
 use crate::remote::{self, Failure};
 use crate::ui;
 
@@ -141,6 +141,9 @@ impl BoardView {
 impl WorkspacePanel {
     /// Opens the board: reads it, then follows its changes while it is on screen.
     pub(crate) fn enter_board(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.visible || self.section() != Section::Board {
+            return;
+        }
         self.load_tickets(window, cx);
         if self.board.live.is_none() && self.board.gate == Gate::Open {
             self.follow_board(window, cx);
