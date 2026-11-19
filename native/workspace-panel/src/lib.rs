@@ -1,5 +1,5 @@
-//! Native management for one Superbot space: its bots, shared groups, people
-//! and invites, files, routines, approvals and run activity.
+//! Native management for one Superbot space: its bots, shared groups, people,
+//! invites, files, ticket board, routines, approvals and run activity.
 //!
 //! The host application signs in with `superbot-client` and hands this crate a
 //! clone of that [`Client`]. Everything shown is read through

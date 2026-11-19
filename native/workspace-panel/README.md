@@ -1,7 +1,7 @@
 # Superbot workspace panel
 
-Native GPUI management for one space: bots, shared groups, people and invites, files,
-routines, approvals and run activity. It reads and writes through the typed
+Native GPUI management for one space: bots, shared groups, people and invites, files, the
+shared ticket board, routines, approvals and run activity. It reads and writes through the typed
 `superbot-features` client and draws with the tokens in
 [`DESKTOP-DESIGN.md`](../../superbot-site/DESKTOP-DESIGN.md) on `gpui-kit 0.10.0`, the same
 toolkit as `native/desktop`.
@@ -28,6 +28,7 @@ cx.subscribe(&panel, |_, event: &PanelEvent, cx| match event {
     PanelEvent::SpaceLeft { active_space_id } => {}
     PanelEvent::SpaceJoined { space_id } => {}
     PanelEvent::SessionExpired => { /* back to sign in */ }
+    PanelEvent::OpenWeb { path } => { /* open this page of the server's web app */ }
 })
 .detach();
 ```
@@ -87,6 +88,27 @@ scripts/native.ps1 run -p superbot-workspace-panel --example workspace
 `SUPERBOT_SPACE` picks a space by name or id, `SUPERBOT_SECTION` a first section such as
 `people`, and `SUPERBOT_SKIN` is `midnight` or `daylight`.
 
+## Board
+
+The Board section (`src/sections/board/`) lists the space's tickets by status, creates and
+edits them, moves them and shows their comments. While it is on screen it follows
+`boards/subscribe` on the panel's network runtime and re-reads the tickets on each change,
+on every (re)connect and when the window becomes active; heartbeat frames are ignored, so
+nothing is read on a timer. A dropped stream reconnects after 1 s, doubling to 30 s.
+Leaving the section closes the stream.
+
+An open ticket's form is never overwritten by someone else's change: `edit.rs` rebases it,
+so untouched fields take the new value and edited ones stay, and the form says so. **Save**
+sends only fields that differ from the newest copy the panel has seen, so a field changed
+elsewhere and not edited here is never written back. When both sides changed the same field,
+saving keeps this person's value (last writer wins, as on the web).
+
+Board is a Labs feature per account upstream: `tickets/list` answers 404 while it is off.
+The section then reads `me` and offers **Turn on Board** only when `labsAvailable` lists it,
+writing the account's Labs list back with `board` added. Tickets cannot be deleted
+upstream, and renaming the board or its ticket prefix is API-only, so neither is offered. Markdown in descriptions and comments is shown as plain text; the header's web
+icon emits `PanelEvent::OpenWeb { path: "/app/board" }` for the host to open the web board.
+
 ## Open risks
 
 - Keyboard: every control is declared as a tab stop with a focus style, and Escape leaves an
@@ -94,5 +116,9 @@ scripts/native.ps1 run -p superbot-workspace-panel --example workspace
   exposes to screen readers, have not been checked.
 - Uploads and downloads hold the whole file in memory as base64, as the artifact RPC requires.
   The panel refuses to read a file over 100 MiB; the server enforces its own, lower limit.
+- Board: Escape (like Back) leaves an open ticket and drops unsaved edits, as other
+  editors in the panel do. A change made while the board's stream is down and the window
+  stays focused shows up at the next reconnect or activation. Board signals come from the
+  server's realtime fanout; a deployment without one sends no live changes.
 - Bot faces follow the identity key the server stores. `superbot-features` does not expose the
   model catalogue, so a bot's model can be reset to the space's model here but not chosen.

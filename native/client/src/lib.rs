@@ -25,6 +25,7 @@ const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(65);
 
 pub type EventStream = Pin<Box<dyn Stream<Item = Result<ThreadEvent, Error>> + Send>>;
 pub type NotificationStream = Pin<Box<dyn Stream<Item = Result<SpaceNotification, Error>> + Send>>;
+pub type RpcStream<T> = Pin<Box<dyn Stream<Item = Result<T, Error>> + Send>>;
 
 /// Content-free hints to read the selected Space with normal authorized RPCs.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -376,12 +377,14 @@ impl Client {
         })))
     }
 
-    async fn subscribe_rpc<T: DeserializeOwned + Send + 'static>(
+    /// Opens a Space-scoped oRPC event iterator and yields each event's JSON payload as `T`.
+    /// The stream ends when the server closes it; the caller decides whether to reconnect.
+    pub async fn subscribe_rpc<T: DeserializeOwned + Send + 'static>(
         &self,
         procedure: &str,
         space_id: &str,
         input: Value,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<T, Error>> + Send>>, Error> {
+    ) -> Result<RpcStream<T>, Error> {
         let response = checked(
             self.rpc_request(procedure, Some(space_id), input)?
                 .header(header::ACCEPT, "text/event-stream")

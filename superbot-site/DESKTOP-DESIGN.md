@@ -43,6 +43,7 @@ leaves room for it.
 | Presence ("who is here") and typing                       | Planned                                         | Planned                                                                                                    | no contract                                                                               |
 | Bot colour, avatar, preview line in the sidebar           | The navigation response includes bot summaries. | Live. The sidebar shows a face, identity colour, preview line and unread state.                            | `spaces/list`                                                                             |
 | Routines, approval rules, run activity                    | Live (native service)                           | Available in the workspace management panel with Bots, Groups, People and Files.                           | `routines/*`, `approvalRules/*`, `runs/list`                                              |
+| Board: tickets by status, edit, move, comments            | Live (Labs feature per account)                 | Live in the workspace panel's Board section, following `boards/subscribe`. Verified on Windows (§4.2).     | `boards/{get,subscribe}`, `tickets/{list,create,update,move,comment,comments}`            |
 | Bot computer, voice, calls                                | Live in the web app only                        | Native views Planned. The web app opens in the workspace window (§4.1); it is not GPUI.                    | retained app/API                                                                          |
 
 Asks from design to the client/runtime owners (UI code must not invent these):
@@ -268,6 +269,27 @@ beside it in the menu.
 - One WebView2 profile per desktop account per server. Signing out of desktop closes that
   account's workspace windows.
 - Profile, cookie and link rules: `docs/superbot/desktop.md`, _Open the web workspace_.
+
+### 4.2 Board (workspace panel)
+
+A section of the workspace panel, between Files and Routines, with the `kanban` glyph. It
+uses the panel's page layout and controls; no new tokens.
+
+- **List.** Title "Board", then a quiet icon button that opens the web board and the
+  primary **New ticket** pill (off until bots load, and when the Space has none). Tickets
+  are grouped under a `group_label` per status, in upstream order, as "To do · 2"; empty
+  statuses are left out. A row: status glyph (`warning` for Blocked, `success` for Done,
+  else `ink_secondary`), the title, then "ref · owner · priority (when not Normal) ·
+  updated …".
+- **Ticket.** Back chevron and the title; a meta line "ref · opened … · updated …".
+  **Status** is a row of small chips that move the ticket on press. Title, Description,
+  **Owner** (one chip per bot) and **Priority** chips save together with **Save**, which
+  stays off until something differs. A divider, then Comments: author, relative time,
+  text, a comment field and **Comment**.
+- **Someone else's change** shows one line above the title field: `ink_secondary` when it
+  only touched fields not being edited, `warning` when it touched one being edited.
+- **Off for the account.** One notice line, with **Turn on Board** as a link button when
+  the account may switch the Lab.
 
 ## 5. Sign in (server Live, desktop To build)
 
