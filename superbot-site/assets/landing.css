@@ -189,6 +189,11 @@
   font-weight: 500;
 }
 
+.av.me svg {
+  width: 62%;
+  height: 62%;
+}
+
 .row {
   display: flex;
   align-items: center;

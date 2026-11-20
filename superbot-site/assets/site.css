@@ -515,3 +515,83 @@ li code {
     padding: 0 12px;
   }
 }
+
+/* Connect */
+.connect {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 88px 24px 0;
+}
+
+.connect h1 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.connect p.lede {
+  margin: 12px 0 0;
+  color: var(--ink-2);
+}
+
+.connect form {
+  display: grid;
+  gap: 8px;
+  margin-top: 32px;
+}
+
+.connect label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.connect input {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--composer);
+  color: var(--ink);
+  font: 15px / 20px var(--font-sans);
+  transition: border-color 120ms linear;
+}
+
+.connect input::placeholder {
+  color: var(--ink-3);
+}
+
+.connect input:hover {
+  border-color: color-mix(in srgb, var(--ink) 40%, var(--hairline));
+}
+
+.connect input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-radius: 10px;
+}
+
+.connect input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.connect .field-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.connect .btn {
+  height: 40px;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .connect {
+    padding: 48px 16px 0;
+  }
+}
