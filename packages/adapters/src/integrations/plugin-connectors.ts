@@ -636,7 +636,8 @@ function collectMcpServers(
     !object(doc) ||
     !object(doc.mcpServers) ||
     (schema &&
-      (doc.$schema !== schema.replace("plugin.schema.json", "mcp.schema.json") ||
+      ((doc.$schema !== undefined &&
+        doc.$schema !== schema.replace("plugin.schema.json", "mcp.schema.json")) ||
         Object.keys(doc).some((key) => !["$schema", "mcpServers"].includes(key))))
   ) {
     skipped.push({
@@ -646,22 +647,25 @@ function collectMcpServers(
     });
     return [];
   }
+  const versioned = Boolean(schema && doc.$schema !== undefined);
+  const transports = versioned ? ["streamable-http", "sse"] : ["streamable-http", "sse", "http"];
+  const serverFields = versioned ? ["type", "url", "headers"] : ["type", "url", "headers", "_meta"];
   const out: PluginMcpServerEntry[] = [];
   for (const [name, entry] of Object.entries(doc.mcpServers)) {
     if (!object(entry)) {
       skipped.push({ kind: "mcp_invalid", name, reason: "Server must be an object" });
       continue;
     }
-    const type = entry.type ?? (!schema && entry.command ? "stdio" : undefined);
-    if (type === "stdio") {
+    const type = entry.type;
+    if (type === "stdio" || "command" in entry) {
       skipped.push({ kind: "mcp_stdio", name, reason: "Local MCP execution is disabled" });
       continue;
     }
-    if (!["streamable-http", "sse", ...(!schema ? ["http"] : [])].includes(String(type))) {
+    if (typeof type !== "string" || !transports.includes(type)) {
       skipped.push({ kind: "unsupported_transport", name, reason: "Unsupported MCP transport" });
       continue;
     }
-    if (schema && Object.keys(entry).some((key) => !["type", "url", "headers"].includes(key))) {
+    if (schema && Object.keys(entry).some((key) => !serverFields.includes(key))) {
       skipped.push({ kind: "mcp_invalid", name, reason: "Unknown MCP server field" });
       continue;
     }

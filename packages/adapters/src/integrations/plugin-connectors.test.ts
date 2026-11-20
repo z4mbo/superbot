@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -413,6 +413,43 @@ describe("portable plugin parser", () => {
       expect(preview.mcpServers).toEqual([]);
       expect(preview.skipped[0]?.kind).toBe("mcp_invalid");
     }
+  });
+  it("imports an Agent Plugins manifest paired with Figma's unversioned HTTP config", () => {
+    const url = "https://mcp.figma.com/mcp";
+    const headers = { "X-Figma-Plugin-Bundle": "figma_prod@2_2_211" };
+    const remote = {
+      type: "http",
+      url,
+      headers,
+      _meta: { ideToolIconPath: "./icon.svg", ideToolTitles: { whoami: "Who Am I" } },
+    };
+    const preview = parse([
+      {
+        path: "plugin.json",
+        content: JSON.stringify({
+          ...manifest,
+          $schema: schema.replace("1.1.0", "1.0.0"),
+          name: "figma",
+        }),
+      },
+      {
+        path: "mcp.json",
+        content: JSON.stringify({
+          mcpServers: {
+            figma: remote,
+            command: { ...remote, command: "unsupported" },
+            unsafe: { ...remote, url: "http://127.0.0.1/mcp" },
+          },
+        }),
+      },
+    ]);
+    expect(preview.mcpServers).toEqual([
+      { name: "figma", transport: "streamable_http", endpoint: url, headers },
+    ]);
+    expect(preview.skipped).toEqual([
+      expect.objectContaining({ kind: "mcp_stdio", name: "command" }),
+      expect.objectContaining({ kind: "mcp_invalid", name: "unsafe" }),
+    ]);
   });
   it("keeps text reference files with their skill", () => {
     const preview = parse([
@@ -905,7 +942,10 @@ describe("example plugins", () => {
       .filter((entry) => entry.isFile())
       .map((entry) => {
         const path = join(entry.parentPath, entry.name);
-        return { path: relative(root, path), content: readFileSync(path, "utf8") };
+        return {
+          path: relative(root, path).split(sep).join("/"),
+          content: readFileSync(path, "utf8"),
+        };
       });
     const plugin = parsePluginDirectory({ files, resolvedSha: SHA });
     expect(plugin).toMatchObject({ format: "agent-plugins", name, skipped: [] });
