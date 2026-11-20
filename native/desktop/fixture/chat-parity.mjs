@@ -25,10 +25,11 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const exec = promisify(execFile);
 const [, , postgresBin, outputDir] = process.argv;
 assert(
-  process.platform === "win32" && postgresBin && outputDir,
+  postgresBin && outputDir,
   "Usage: node --import tsx native/desktop/fixture/chat-parity.mjs POSTGRES_BIN_DIR OUTPUT_DIR",
 );
-const pg = (file) => resolve(postgresBin, `${file}.exe`);
+const windows = process.platform === "win32";
+const pg = (file) => resolve(postgresBin, windows ? `${file}.exe` : file);
 const output = resolve(outputDir);
 const secret = () => randomBytes(32).toString("hex");
 // 112 exchanges are 224 messages: three pages at the server's 100 a page.
@@ -47,9 +48,8 @@ const origin = `http://127.0.0.1:${apiPort}`;
 const directory = await mkdtemp(join(tmpdir(), "superbot-chat-parity-"));
 const db = join(directory, "pg");
 const scratch = join(directory, "tmp");
-const env = Object.fromEntries(
-  Object.entries(process.env).filter(([key]) =>
-    [
+const inherited = windows
+  ? [
       "path",
       "systemroot",
       "windir",
@@ -59,13 +59,16 @@ const env = Object.fromEntries(
       "appdata",
       "localappdata",
       "systemdrive",
-    ].includes(key.toLowerCase()),
-  ),
+    ]
+  : ["path", "home", "lang"];
+const env = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => inherited.includes(key.toLowerCase())),
 );
 Object.assign(env, {
   NODE_ENV: "test",
   TEMP: scratch,
   TMP: scratch,
+  ...(!windows && { TMPDIR: scratch }),
   RAKAZO_ENV_FILE: "none",
   DATABASE_MIGRATION_URL: `postgresql://fixture:${secret()}@127.0.0.1:${dbPort}/postgres`,
   DATABASE_URL: `postgresql://fixture_runtime:${secret()}@127.0.0.1:${dbPort}/postgres`,
@@ -101,6 +104,72 @@ async function controlPostgres(args, label) {
   });
   const exit = await new Promise((done, fail) => child.once("exit", done).once("error", fail));
   assert.equal(exit, 0, label);
+}
+
+async function clearDesktopSession() {
+  const service = "com.superbot.rakazo.session";
+  const account = `${origin}/`;
+  const options = { timeout: 5000 };
+  if (windows || process.platform === "darwin") {
+    try {
+      if (windows) {
+        // cmdkey collapses deletion errors to exit 1. Keep the original Win32 status.
+        await exec(
+          "powershell.exe",
+          [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            `Add-Type -Name CredentialManager -Namespace SuperbotFixture -ErrorAction Stop -MemberDefinition @'
+[DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+private static extern bool CredDelete(string target, uint type, uint flags);
+public static int DeleteGeneric(string target) {
+    const uint generic = 1;
+    return CredDelete(target, generic, 0) ? 0 : Marshal.GetLastWin32Error();
+}
+'@
+exit ([SuperbotFixture.CredentialManager]::DeleteGeneric($env:SUPERBOT_FIXTURE_CREDENTIAL_TARGET))`,
+          ],
+          {
+            timeout: 10000,
+            windowsHide: true,
+            env: { ...process.env, SUPERBOT_FIXTURE_CREDENTIAL_TARGET: `${account}.${service}` },
+          },
+        );
+      } else {
+        await exec("security", ["delete-generic-password", "-s", service, "-a", account], options);
+      }
+    } catch (error) {
+      // ERROR_NOT_FOUND on Windows, errSecItemNotFound on macOS.
+      if (error.code !== (windows ? 1168 : 44)) throw error;
+    }
+    return;
+  }
+  if (process.platform !== "linux") return;
+
+  const attributes = [
+    "service",
+    service,
+    "username",
+    account,
+    "target",
+    "default",
+    "application",
+    "rust-keyring",
+  ];
+  try {
+    await exec("secret-tool", ["clear", ...attributes], options);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      console.log(`Remove the Secret Service entry for ${service} with username ${account}.`);
+      return;
+    }
+    if (error.code !== 1 || error.stdout || error.stderr) throw error;
+  }
+  // clear only deletes unlocked matches. Even a silent status 1 can mean a locked match.
+  const { stdout, stderr } = await exec("secret-tool", ["search", "--all", ...attributes], options);
+  if (stdout || stderr)
+    throw new Error(`Could not clear the Secret Service session for ${account}`);
 }
 
 const children = [];
@@ -245,7 +314,8 @@ try {
       "-l",
       join(directory, "postgres.log"),
       "-o",
-      `-h 127.0.0.1 -p ${dbPort}`,
+      // PostgreSQL resolves a relative socket directory from its private data directory.
+      `-h 127.0.0.1 -p ${dbPort}${windows ? "" : " -k ."}`,
       "-w",
     ],
     "Database startup failed",
@@ -377,11 +447,7 @@ try {
     database?.end(),
     logs?.close(),
     model?.close(),
-    // The desktop keeps its session for this origin under this name in Windows Credential
-    // Manager (keyring 3.6); signing out there removes it first.
-    exec("cmdkey.exe", [`/delete:${origin}/.com.superbot.rakazo.session`], {
-      windowsHide: true,
-    }).catch(() => undefined),
+    clearDesktopSession(),
     postgresStarted &&
       controlPostgres(["stop", "-D", db, "-m", "immediate", "-w"], "Database shutdown failed"),
   ]);
