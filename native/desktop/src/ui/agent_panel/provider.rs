@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::chrome::switch;
 use crate::ui::focus::{self, Ring};
 use std::collections::{BTreeMap, HashMap};
 
@@ -363,6 +364,9 @@ impl Desktop {
                 let key = field.key.clone();
                 let toggle = div()
                     .id(SharedString::from(format!("provider-{}", field.key)))
+                    .role(Role::Switch)
+                    .aria_toggled(on.into())
+                    .aria_label(field.label.clone())
                     .self_start()
                     .cursor_pointer()
                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -372,7 +376,7 @@ impl Desktop {
                         });
                         cx.notify();
                     }))
-                    .child(switch(on, theme.ink, theme));
+                    .child(switch(on, true, theme));
                 focus::control(toggle, Ring::OuterPill, theme).into_any_element()
             }
             _ => match page.inputs.get(&field.key) {

@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::chrome::switch;
 use crate::ui::focus::{self, Ring};
 
 impl Desktop {
@@ -86,23 +87,32 @@ impl Desktop {
         };
 
         let notify = bot.notify_on_finish;
-        let color = bot_ink(look::avatar_of(bot), theme, cx);
-        let notifications = div()
-            .id("agent-notifications")
-            .flex()
-            .items_center()
-            .gap(px(10.))
-            .min_h(px(46.))
-            .px(px(14.))
-            .cursor_pointer()
-            .on_click(cx.listener(move |this, _, window, cx| this.change_agent(Change::Notify(!notify), window, cx)))
-            .child(icon("bell", px(16.), theme.ink_secondary))
-            .child(
-                div().flex_1().child(div().name().text_color(theme.ink).child("Notifications")).child(
+        let enabled = !panel.saving;
+        let notifications =
+            div()
+                .id("agent-notifications")
+                .role(Role::Switch)
+                .aria_toggled(notify.into())
+                .flex()
+                .items_center()
+                .gap(px(10.))
+                .min_h(px(46.))
+                .px(px(14.))
+                .when(enabled, |row| {
+                    row.cursor_pointer().on_click(
+                        cx.listener(move |this, _, window, cx| this.change_agent(Change::Notify(!notify), window, cx)),
+                    )
+                })
+                .child(icon("bell", px(16.), theme.ink_secondary))
+                .child(div().flex_1().child(div().name().text_color(theme.ink).child("Notifications")).child(
                     div().mt(px(1.)).body().text_color(theme.ink_secondary).child(format!("When {name} finishes")),
-                ),
-            )
-            .child(switch(notify, color, theme));
+                ))
+                .child(switch(notify, enabled, theme));
+        let notifications = if enabled {
+            focus::control(notifications, Ring::TrailingSwitch, theme)
+        } else {
+            focus::decorate(notifications)
+        };
 
         let job_editor = match editing {
             Some((Field::Description, Editor::Line(state))) => Some(state.clone()),
@@ -193,11 +203,7 @@ impl Desktop {
             )
             .child(div().mt_1p5().px_1().section().text_color(theme.ink).child("Agent settings"))
             .child(div().mt(px(14.)).child(card(theme).child(instructions)))
-            .child(
-                div()
-                    .mt(px(14.))
-                    .child(card(theme).child(focus::control(notifications, Ring::TrailingSwitch, theme)).child(job)),
-            )
+            .child(div().mt(px(14.)).child(card(theme).child(notifications).child(job)))
             .child(div().mt(px(14.)).child(card(theme).child(archive)))
     }
 }

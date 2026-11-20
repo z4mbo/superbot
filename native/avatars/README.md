@@ -52,11 +52,11 @@ and so is a shape whose frames file cannot be read. The pack is read once at sta
   anything left is picked from `fallback` by the bot's id, so it never changes.
   A renamed bot can retain its original motion by setting `engineName` to its name in the
   local engine's roster. For example, `"Scout": { "engineName": "First Mate", "primaryTile": true }`
-  displays Scout on the primary tile and uses First Mate's motion seed.
+  displays Scout on the primary card and uses First Mate's motion seed.
 - **Colours.** `palette` colours draw as they are, `inkColors` in the skin's text colour (or in
   `ink.light` / `ink.dark` when the pack sets `"ink": { "light": "#000", "dark": "#fff" }`),
   `gradients` top to bottom.
-- **Primary tile.** Set `"primaryTile": true` in a named bot's entry to reserve the first tile for it. The 95px-wide tile has a 16px star badge. It appears on each device that has the pack as soon as the bot is in the Space. Other pinned bots follow it. Search lists matching bots as rows. The setting affects only the local sidebar.
+- **Primary card.** Set `"primaryTile": true` in a named bot's entry to put it in the full-width card at the top of the sidebar on devices with the pack, even when the bot is unpinned. The card shows the bot's name and latest line. Without a pack match, the first pinned bot gets the card. Other pinned bots appear as tiles. Search lists matching bots as rows.
 - **Size.** The mark is drawn in a square `markScale` times the avatar slot (or the size
   `markBoxes` pins for that slot), centred on it, so it may reach past the slot. Squares
   smaller than `compactBelow` use the compact working frames.

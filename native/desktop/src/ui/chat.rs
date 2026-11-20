@@ -1,7 +1,8 @@
+use std::time::Instant;
+
 use chrono::Local;
 use gpui_kit::component::spinner::Spinner;
 use gpui_kit::component::text::TextView;
-use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::Sizable as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
@@ -18,13 +19,53 @@ use superbot_avatars::{Bot, ChatTone, Mark};
 #[cfg(target_os = "macos")]
 use crate::ui::traffic_lights_reserve;
 use crate::ui::focus::{self, Ring};
-use crate::ui::motion::{Colors, Pointer};
+use crate::ui::motion::{self, Colors, Pointer};
 use crate::ui::{
     bot_avatar_with, bot_ink, chat_tone, drag_region, error_line, face_state, icon, pill_button, AvatarSlot, Tone, Type,
 };
 
 mod composer;
 mod file;
+pub(super) mod tooltip;
+mod transitions;
+pub(crate) use transitions::ChatMotion;
+
+const HEADER_HEIGHT: Pixels = px(61.);
+
+fn transcript_fade(color: Hsla, height: Pixels, top_alpha: f32, bottom_alpha: f32) -> Div {
+    div()
+        .absolute()
+        .left_0()
+        .right_0()
+        .h(height)
+        .bg(linear_gradient(
+            180.,
+            linear_color_stop(color.opacity(top_alpha), 0.),
+            linear_color_stop(color.opacity(bottom_alpha), 1.),
+        ))
+}
+
+fn model_label_opacity(key: (Target, String), window: &mut Window, cx: &mut App) -> f32 {
+    let now = Instant::now();
+    let state = window.use_keyed_state("header-model-label", cx, |_, _| {
+        (key.clone(), motion::Tween::at_rest(1., now))
+    });
+    let span = motion::duration(motion::FADE, cx.reduce_motion());
+    state.update(cx, |(previous, alpha), _| {
+        let interpolate = |from, to, progress| from + (to - from) * progress;
+        if previous.0 == key.0 && previous.1 != key.1 {
+            *alpha = motion::Tween::at_rest(0.4, now);
+        } else if previous.0 != key.0 {
+            *alpha = motion::Tween::at_rest(1., now);
+        }
+        *previous = key;
+        alpha.aim(1., now, span, motion::STANDARD, interpolate);
+        if alpha.moving(now) {
+            window.request_animation_frame();
+        }
+        alpha.sample(now, motion::STANDARD, interpolate)
+    })
+}
 
 impl Desktop {
     pub fn render_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -32,17 +73,33 @@ impl Desktop {
         self.sync_agent_info(window, cx);
         self.sync_app_assist(window, cx);
         let theme = cx.skin().clone();
-        let Some(chat) = self.chat.as_ref() else {
+        let has_pending_local = self.pending_local_write().is_some();
+        let Some(chat) = self.chat.as_mut() else {
             return self.render_no_conversation(&theme, window, cx);
         };
         let target = chat.target.clone();
-        self.prepare_face_blink(&target, window, cx);
+        let active = chat.working || chat.local_turn.is_some();
         let quiet = chat.entries.is_empty()
             && chat.draft.is_empty()
-            && !chat.working
+            && !active
+            && !has_pending_local
+            && chat.local_prompt.is_none()
             && !chat.loading
             && chat.error.is_none()
             && chat.conversation.older.is_none();
+        let activity = active.then(|| chat.activity.clone().unwrap_or_else(|| "Working…".into()));
+        let (alpha, moving) = chat.motion.frame(
+            Instant::now(),
+            cx.reduce_motion() || chat.error.is_some(),
+            chat.list.is_following_tail(),
+            activity,
+            !chat.loading,
+        );
+        if moving {
+            window.request_animation_frame();
+        }
+        let list_state = chat.list.clone();
+        self.prepare_face_blink(&target, window, cx);
         let empty_watch = quiet
             .then(|| target.agent())
             .flatten()
@@ -68,6 +125,7 @@ impl Desktop {
             };
             div()
                 .size_full()
+                .pt(HEADER_HEIGHT)
                 .flex()
                 .flex_col()
                 .items_center()
@@ -82,8 +140,14 @@ impl Desktop {
                 )
                 .into_any_element()
         } else {
-            list(chat.list.clone(), cx.processor(|this, index: usize, _, cx| this.render_row(index, cx)))
+            let list = list(
+                list_state,
+                cx.processor(|this, index: usize, _, cx| this.render_row(index, cx)),
+            );
+            div()
                 .size_full()
+                .opacity(alpha)
+                .child(list.size_full())
                 .into_any_element()
         };
 
@@ -96,8 +160,22 @@ impl Desktop {
         area.size_full()
             .flex()
             .flex_col()
-            .child(self.render_chat_header(&target, &theme, window, cx))
-            .child(div().flex_1().min_h_0().child(transcript))
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .child(transcript)
+                    .child(transcript_fade(theme.app, px(48.), 0.92, 0.).top_0())
+                    .child(transcript_fade(theme.app, px(24.), 0., 1.).bottom_0())
+                    .child(
+                        self.render_chat_header(&target, &theme, window, cx)
+                            .absolute()
+                            .top_0()
+                            .left_0()
+                            .right_0(),
+                    ),
+            )
             .child(self.render_composer(&target, &theme, window, cx))
             .into_any_element()
     }
@@ -184,6 +262,16 @@ impl Desktop {
         let identity = focus::control(identity, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(docked), elevated);
         let mark = target.agent().and_then(|id| self.chat_model_mark(id));
         let model = model.map(|label| {
+            let rotation = motion::value(
+                "header-model-chevron",
+                f32::from(choosing),
+                motion::SLIDE,
+                motion::EMPHASIS,
+                window,
+                cx,
+            );
+            let label_key = (target.clone(), label.clone());
+            let label_opacity = model_label_opacity(label_key, window, cx);
             let button = self
                 .model_menu_button(crate::ui::model_menu::ModelTrigger::Header, cx)
                 .group("chat-model")
@@ -201,10 +289,22 @@ impl Desktop {
                 .pr(px(11.))
                 .rounded_full()
                 .cursor_pointer()
-                .when(!choosing, |model| model.tooltip(|window, cx| Tooltip::new("Change model").build(window, cx)))
-                .child(div().body().text_color(theme.ink_secondary).truncate().child(label))
-                .child(icon("chevron-down", px(14.), theme.ink_tertiary));
-            focus::control(button, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(choosing), elevated)
+                .when(!choosing, |model| tooltip::on(model, "Change model"))
+                .child(
+                    div()
+                        .body()
+                        .text_color(theme.ink_secondary)
+                        .truncate()
+                        .opacity(label_opacity)
+                        .child(label),
+                )
+                .child(
+                    icon("chevron-down", px(14.), theme.ink_tertiary).with_transformation(
+                        Transformation::rotate(Radians(rotation * std::f32::consts::PI)),
+                    ),
+                );
+            focus::control(button, Ring::InnerPill, theme)
+                .fill(Pointer::BUTTON.held(choosing), elevated)
         });
         let pill = div()
             .max_w_full()
@@ -212,6 +312,7 @@ impl Desktop {
             .items_center()
             .rounded_full()
             .bg(theme.composer)
+            .shadow(composer::floating_shadow(theme))
             .border_1()
             .border_color(theme.ink_at(0.06))
             .occlude()
@@ -229,10 +330,21 @@ impl Desktop {
             .justify_center()
             .pl(left)
             .pr_5()
-            .py_2p5()
-            .when(caption_space, |header| header.child(div().w(CAPTION_WIDTH).flex_shrink_0()))
-            .child(div().flex_1().min_w_0().flex().when(!docked, |row| row.justify_center()).child(pill))
-            .when(caption_space, |header| header.child(div().w(CAPTION_WIDTH).flex_shrink_0()))
+            .h(HEADER_HEIGHT)
+            .when(caption_space, |header| {
+                header.child(div().w(CAPTION_WIDTH).flex_shrink_0())
+            })
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .when(!docked, |row| row.justify_center())
+                    .child(pill),
+            )
+            .when(caption_space, |header| {
+                header.child(div().w(CAPTION_WIDTH).flex_shrink_0())
+            })
     }
 
     fn chat_tone(&self, theme: &Theme, cx: &App) -> Option<ChatTone> {
@@ -335,11 +447,20 @@ impl Desktop {
             .and_then(|index| chat.entries.get(index))
             .is_some_and(|entry| chat.reveal.marked.as_deref() == Some(entry.id.as_str()));
         let content = match row.checked_sub(1) {
-            None => self.render_head(&theme, cx),
+            // This space scrolls away with the first row while the header floats above the list.
+            None => div().pt(HEADER_HEIGHT).child(self.render_head(&theme, cx)).into_any_element(),
             Some(index) => match chat.entries.get(index) {
                 Some(entry) => {
                     let place = place(&chat.entries, index, &Local);
+                    let phase = chat.motion.arrival(&entry.id, Instant::now());
                     self.render_entry(entry, place, index, &theme, cx)
+                        .when_some(phase, |message, progress| {
+                            message
+                                .relative()
+                                .top(px(6. * (1. - progress)))
+                                .opacity(progress)
+                        })
+                        .into_any_element()
                 }
                 None => self.render_now(&theme, cx),
             },
@@ -408,7 +529,7 @@ impl Desktop {
         index: usize,
         theme: &Theme,
         cx: &mut Context<Self>,
-    ) -> AnyElement {
+    ) -> Div {
         let chat = self.chat.as_ref();
         let in_group = chat.is_some_and(|chat| matches!(chat.target, Target::Group(_)));
         let markdown = entry.speaker == Speaker::Agent && !entry.local_cli;
@@ -468,12 +589,11 @@ impl Desktop {
                 let key = (index, part_index);
                 let bubble = bubble(text, mine, markdown, join, key, &named, own, theme);
                 match said.clone() {
-                    Some(said) => div()
-                        .id(("said", index * 64 + part_index))
-                        .max_w_full()
-                        .tooltip(move |window, cx| Tooltip::new(said.clone()).build(window, cx))
-                        .child(bubble)
-                        .into_any_element(),
+                    Some(said) => tooltip::on(
+                        div().id(("said", index * 64 + part_index)).max_w_full().child(bubble),
+                        said,
+                    )
+                    .into_any_element(),
                     None => bubble,
                 }
             }
@@ -561,7 +681,6 @@ impl Desktop {
                     }))
                     .children(parts),
             )
-            .into_any_element()
     }
 
     /// A card this app does not draw yet opens where it can be used: the server's own web app.
@@ -581,6 +700,7 @@ impl Desktop {
         let presence = self.working_presence(theme, cx);
         let Some(chat) = self.chat.as_ref() else { return div().into_any_element() };
         let last = chat.entries.len();
+        let now = Instant::now();
         // A local exchange shows at once, faded until it is saved to the conversation.
         let unsaved = chat.local_prompt.clone().map(|text| (text, None)).or_else(|| {
             let (text, reply) = self.pending_local_write()?.exchange();
@@ -592,32 +712,57 @@ impl Desktop {
             .flex_col()
             .items_start()
             .when_some(unsaved, |row, (text, reply)| {
-                let mine = bubble(&text, true, false, Join::default(), (last, 1), &[], own, theme);
-                row.child(div().pt_4().w_full().flex().justify_end().opacity(0.6).child(mine)).children(reply.map(
-                    |reply| {
-                        let theirs = bubble(&reply, false, true, Join::default(), (last, 2), &[], own, theme);
-                        div().pt_4().w_full().flex().opacity(0.6).child(theirs)
-                    },
-                ))
+                let mine = bubble(
+                    &text,
+                    true,
+                    false,
+                    Join::default(),
+                    (last, 1),
+                    &[],
+                    own,
+                    theme,
+                );
+                let phase = chat.motion.optimistic_arrival(now).unwrap_or(1.);
+                row.child(
+                    div()
+                        .pt_4()
+                        .w_full()
+                        .flex()
+                        .justify_end()
+                        .relative()
+                        .top(px(4. * (1. - phase)))
+                        .opacity(0.6 * phase)
+                        .child(mine),
+                )
+                .children(reply.map(|reply| {
+                    let theirs = bubble(
+                        &reply,
+                        false,
+                        true,
+                        Join::default(),
+                        (last, 2),
+                        &[],
+                        own,
+                        theme,
+                    );
+                    div().pt_4().w_full().flex().opacity(0.6).child(theirs)
+                }))
             })
             .when(!chat.draft.is_empty(), |row| {
                 let draft = bubble(&chat.draft, false, true, Join::default(), (last, 0), &[], own, theme);
                 row.child(div().pt_4().w_full().flex().child(draft))
             })
-            .when(chat.working || chat.local_turn.is_some(), |row| {
-                let activity = chat.activity.clone().unwrap_or_else(|| "Working…".into());
+            .when_some(chat.motion.working(now), |row, (activity, alpha)| {
                 row.child(
                     div()
                         .pt_3()
                         .px_1()
+                        .opacity(alpha)
                         .flex()
                         .items_center()
                         .gap_2()
-                        .child(
-                            presence
-                                .unwrap_or_else(|| div().size_2().rounded_full().bg(theme.success).into_any_element()),
-                        )
-                        .child(div().body().text_color(theme.ink_tertiary).truncate().child(activity)),
+                        .child(presence.unwrap_or_else(|| div().size_2().rounded_full().bg(theme.success).into_any_element()))
+                        .child(div().body().text_color(theme.ink_tertiary).truncate().child(activity.to_owned())),
                 )
             })
             .when(chat.reconnecting, |row| {

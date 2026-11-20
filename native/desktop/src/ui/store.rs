@@ -17,9 +17,10 @@ use crate::api::{self, Installation, ManifestPart, PluginVersion};
 use crate::app::create::Template;
 use crate::app::{Desktop, View};
 use crate::theme::{radius, ActiveTheme, Theme};
+use crate::ui::chrome::SegmentTrack;
 use crate::ui::creator::Draft;
 use crate::ui::releases::VersionSwitch;
-use crate::ui::{chip, empty_line, error_line, field_box, icon, page, pill_button, Tone, Type};
+use crate::ui::{empty_line, error_line, field_box, icon, page, pill_button, Tone, Type};
 use app_view::{app_parts, OpenApp};
 use confirm::Confirm;
 use marketplace::Shelf;
@@ -418,14 +419,17 @@ impl Desktop {
             (Tab::Yours, "Yours", true),
             (Tab::Review, "Review", admin),
         ];
-        let switcher = div().flex().child(
-            div().flex().items_center().gap_1().p_1().rounded_full().bg(theme.control.opacity(0.5)).children(
-                sections.into_iter().map(|(value, label, glyph)| {
-                    section_tab(label, glyph, section == value, theme)
-                        .on_click(cx.listener(move |this, _, window, cx| this.show_section(value, window, cx)))
-                }),
-            ),
-        );
+        let track = SegmentTrack::new("store-sections", theme, window, cx);
+        let switcher = div().flex().child(track.element().items_center().gap_1().children(sections.into_iter().map(
+            |(value, label, glyph)| {
+                let chosen = section == value;
+                let button = section_tab(label)
+                    .child(icon(glyph, px(15.), if chosen { theme.ink } else { theme.ink_secondary }))
+                    .child(label)
+                    .on_click(cx.listener(move |this, _, window, cx| this.show_section(value, window, cx)));
+                track.control(button, chosen, theme)
+            },
+        )));
         let header = div()
             .flex()
             .flex_col()
@@ -468,15 +472,19 @@ impl Desktop {
                     .child(div().flex_1().child(Input::new(&self.store.query).appearance(false).bordered(false))),
             )
             .when(section == Section::Plugins, |header| {
-                header.child(div().flex().items_center().gap_2().children(
+                let track = SegmentTrack::new("store-plugin-tabs", theme, window, cx);
+                header.child(div().flex().child(track.element().items_center().gap_1().children(
                     tabs.into_iter().filter(|(_, _, shown)| *shown).map(|(value, label, _)| {
-                        chip(label, label, tab == value, theme).on_click(cx.listener(move |this, _, _, cx| {
-                            this.store.tab = value;
-                            this.store.rejection = None;
-                            cx.notify();
-                        }))
+                        let button = section_tab(label)
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.store.tab = value;
+                                this.store.rejection = None;
+                                cx.notify();
+                            }))
+                            .child(label);
+                        track.control(button, tab == value, theme)
                     }),
-                ))
+                )))
             });
 
         let content = match section {
@@ -934,23 +942,7 @@ pub fn count(amount: usize, noun: &str) -> String {
     }
 }
 
-/// One of the Store's sections in its switcher: raised when open.
-fn section_tab(label: &'static str, glyph: &str, chosen: bool, theme: &Theme) -> Stateful<Div> {
-    let hover = theme.raised_hover;
-    let ink = if chosen { theme.ink } else { theme.ink_secondary };
-    div()
-        .id(SharedString::from(format!("section-{label}")))
-        .h_8()
-        .px_3p5()
-        .flex()
-        .items_center()
-        .gap_1p5()
-        .rounded_full()
-        .body()
-        .font_weight(FontWeight::MEDIUM)
-        .cursor_pointer()
-        .text_color(ink)
-        .map(|tab| if chosen { tab.bg(theme.raised) } else { tab.hover(move |style| style.bg(hover)) })
-        .child(icon(glyph, px(15.), ink))
-        .child(label)
+/// One tab in either of the Store’s section rows.
+fn section_tab(label: &'static str) -> Stateful<Div> {
+    div().id(label).h_8().px_3p5().flex().items_center().gap_1p5().rounded_full().body().cursor_pointer()
 }

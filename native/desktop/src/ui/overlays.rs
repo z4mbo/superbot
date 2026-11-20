@@ -4,7 +4,7 @@ use gpui_kit::*;
 use crate::app::{Desktop, DialogKind, MenuKind, View};
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::focus::{self, Ring};
-use crate::ui::motion::{Colors, Pointer};
+use crate::ui::motion::{self, Colors, Pointer};
 use crate::ui::{error_line, field, icon, pill_button, Tone, Type};
 
 enum Item {
@@ -27,6 +27,20 @@ fn item(
     act: impl Fn(&mut Desktop, &mut Window, &mut Context<Desktop>) + 'static,
 ) -> Item {
     Item::Row { id, glyph, label: label.into(), chosen: false, danger: false, act: Box::new(act) }
+}
+
+/// Bring in the floating sheet without fading its click-away layer.
+pub(super) fn menu_enter(
+    id: &'static str,
+    sheet: Stateful<Div>,
+    translate: impl Fn(Stateful<Div>, f32) -> Stateful<Div> + 'static,
+) -> AnyElement {
+    let animation = motion::animation(motion::POP, motion::EMPHASIS).expect("POP has a duration");
+    sheet
+        .with_animation(id, animation, move |sheet, progress| {
+            translate(sheet.opacity(progress), 1. - progress)
+        })
+        .into_any_element()
 }
 
 impl Desktop {
@@ -61,7 +75,7 @@ impl Desktop {
     pub fn render_menu(&mut self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         let theme = cx.skin().clone();
         let menu = self.menu.as_ref()?;
-        let (items, anchor) = match &menu.kind {
+        let (items, anchor, entry, dy) = match &menu.kind {
             MenuKind::New => return Some(self.render_new_menu(cx)),
             MenuKind::Conversation { agent, thread } => {
                 let (agent, thread) = (agent.clone(), thread.clone());
@@ -74,7 +88,7 @@ impl Desktop {
             MenuKind::Spaces => {
                 let mut items = vec![Item::Label("Spaces".into())];
                 items.extend(self.space_items());
-                (items, Anchor::TopLeft)
+                (items, Anchor::TopLeft, "spaces-enter", -4.)
             }
             MenuKind::Profile => {
                 let email = self.me.as_ref().map(|me| me.email.clone()).unwrap_or_default();
@@ -95,7 +109,7 @@ impl Desktop {
                     Item::Separator,
                     item("sign-out", "log-out", "Sign out", |this, window, cx| this.sign_out(window, cx)),
                 ]);
-                (items.collect(), Anchor::BottomLeft)
+                (items.collect(), Anchor::BottomLeft, "profile-enter", 4.)
             }
             MenuKind::Agent(agent_id) => {
                 let pinned = self.agent(agent_id).is_some_and(|agent| agent.pinned);
@@ -117,12 +131,13 @@ impl Desktop {
                         act: Box::new(move |this, window, cx| this.archive_agent(archive.clone(), window, cx)),
                     },
                 ];
-                (items, Anchor::TopLeft)
+                (items, Anchor::TopLeft, "bot-menu-enter", -4.)
             }
         };
         let at = menu.at;
 
         let sheet = div()
+            .id("context-menu-sheet")
             .w(px(256.))
             .p_1()
             .flex()
@@ -178,6 +193,9 @@ impl Desktop {
                 }
             }));
 
+        let sheet = menu_enter(entry, sheet, move |sheet, remaining| {
+            sheet.relative().top(px(dy * remaining))
+        });
         Some(
             div()
                 .id("menu-backdrop")

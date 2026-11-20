@@ -1,6 +1,8 @@
+use std::time::Instant;
+
+use gpui_kit::base::input::RopeExt as _;
 use gpui_kit::component::input::{Enter, Escape, IndentInline, MoveDown, MoveUp, Textarea};
 use gpui_kit::component::spinner::Spinner;
-use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::Sizable as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
@@ -12,11 +14,13 @@ use crate::files;
 use crate::outbox::Attachment;
 use crate::theme::{radius, Theme, CHAT_COLUMN};
 use crate::ui::focus::{self, Ring};
-use crate::ui::motion::{Colors, Pointer};
+use crate::ui::motion::{self, Colors, Levels, Pointer, Tint, Tween};
 use crate::ui::{error_line, icon, pill_button, Tone, Type};
 
-/// The composer's lift, in CSS `box-shadow` terms.
-fn composer_shadow() -> Vec<BoxShadow> {
+use super::tooltip;
+
+/// The lift shared by the header and composer, in CSS `box-shadow` terms.
+pub(super) fn floating_shadow(theme: &Theme) -> Vec<BoxShadow> {
     // GPUI (gpui-pre 0.3.12) takes `blur_radius` as the Gaussian sigma; CSS blur is twice it.
     let shadow = |alpha: f32, y: f32, blur: f32, spread: f32| BoxShadow {
         color: hsla(0., 0., 0., alpha),
@@ -25,11 +29,22 @@ fn composer_shadow() -> Vec<BoxShadow> {
         spread_radius: px(spread),
         inset: false,
     };
-    vec![
+    let mut shadows = vec![
         shadow(0.05, 2., 8., -1.),
         shadow(0.03, 1., 2., 0.),
-        BoxShadow { color: rgba(0xe4e4e40a).into(), ..shadow(0., 0., 0., 1.) },
-    ]
+        BoxShadow {
+            color: rgba(0xe4e4e40a).into(),
+            ..shadow(0., 0., 0., 1.)
+        },
+    ];
+    if theme.is_dark() {
+        shadows.push(BoxShadow {
+            color: hsla(0., 0., 1., 0.04),
+            inset: true,
+            ..shadow(0., 1., 0., 0.)
+        });
+    }
+    shadows
 }
 
 fn attach_control(button: Stateful<Div>, enabled: bool, theme: &Theme) -> AnyElement {
@@ -66,12 +81,40 @@ fn hover_ring(pill: Stateful<Div>, focused: bool, rest: Hsla, hovered: Hsla) -> 
     })
 }
 
+struct ComposerMotion {
+    target: Target,
+    viewport: Size<Pixels>,
+    input_width: Pixels,
+    height: Tween<Pixels>,
+    ready: Tint,
+}
+
+fn editor_height(rows: usize, line: Pixels, viewport_height: Pixels) -> Pixels {
+    (line * rows.max(1) as f32).min((viewport_height * 0.4).max(line))
+}
+
+fn send_paint(empty: Hsla, full: (Hsla, Hsla), ready: f32) -> (Hsla, Hsla) {
+    let quiet = (empty.opacity(0.14), empty.opacity(0.55));
+    if ready == 0. {
+        return quiet;
+    }
+    if ready == 1. {
+        return full;
+    }
+    let levels = Levels {
+        hover: ready,
+        press: 0.,
+    };
+    let between = |rest, active| Colors::new(rest, active, active).sample(levels);
+    (between(quiet.0, full.0), between(quiet.1, full.1))
+}
+
 impl Desktop {
     pub(super) fn render_composer(
         &mut self,
         target: &Target,
         theme: &Theme,
-        window: &Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Div {
         if let Some(archived) = self.render_archived_composer(theme, cx) {
@@ -95,7 +138,17 @@ impl Desktop {
         let focused = editor.focus_handle(cx).is_focused(window);
         let text = editor.value();
         let has_text = !text.trim().is_empty();
-        let multiline = text.contains('\n');
+        let line = editor.line_height().unwrap_or(window.rem_size() * 1.25);
+        let viewport = window.viewport_size();
+        let input_width = editor.input_bounds().size.width;
+        let map = editor.display_map();
+        // Enter can add a buffer row before the kit lays out that row in its wrapped projection.
+        let rows = map.wrap_row_count()
+            + editor
+                .text()
+                .lines_len()
+                .saturating_sub(map.buffer_line_count());
+        let wanted_height = editor_height(rows, line, viewport.height);
         let needs_model = local.is_none() && self.me.as_ref().is_some_and(|me| me.needs_model);
         let tone = self.chat_tone(theme, cx);
         let identity = match target {
@@ -113,19 +166,55 @@ impl Desktop {
             && !running_local
             && (local.is_none() || attachments.is_empty());
         let write_problem = pending.and_then(|write| write.problem.clone());
-        let (fill, ink) =
-            if let (true, Target::Agent(_) | Target::Conversation { .. }, Some(tone)) = (stopping, target, tone) {
-                (tone.fill, tone.fill_ink)
-            } else if stopping {
-                (theme.ink, theme.app)
-            } else if has_content {
-                match (target, tone) {
-                    (Target::Agent(_) | Target::Conversation { .. }, Some(tone)) => (tone.fill, tone.fill_ink),
-                    _ => identity,
+        let full = tone.map_or(identity, |tone| (tone.fill, tone.fill_ink));
+        let now = Instant::now();
+        let still = cx.reduce_motion();
+        let state = window.use_keyed_state("composer-motion", cx, |_, _| None::<ComposerMotion>);
+        let first_layout = state.read(cx).is_none();
+        let (height, color_level) = state.update(cx, |state, _| {
+            let initial = || {
+                let mut ready = Tint::default();
+                ready.aim(has_content, now, true);
+                ComposerMotion {
+                    target: target.clone(),
+                    viewport,
+                    input_width,
+                    height: Tween::at_rest(wanted_height, now),
+                    ready,
                 }
-            } else {
-                (theme.raised_hover, theme.ink_secondary)
             };
+            let state = state.get_or_insert_with(initial);
+            if &state.target != target {
+                *state = initial();
+            }
+            // A new wrapping width or viewport is a layout change, so it takes effect immediately.
+            let resized = state.viewport != viewport || state.input_width != input_width;
+            state.viewport = viewport;
+            state.input_width = input_width;
+            let span = motion::duration(motion::GROW, resized || still);
+            let lerp = |from, to, progress| from + (to - from) * progress;
+            state
+                .height
+                .aim(wanted_height, now, span, motion::EMPHASIS, lerp);
+            state.ready.aim(has_content, now, still);
+            if state.height.moving(now) || state.ready.moving(now) {
+                window.request_animation_frame();
+            }
+            (
+                state.height.sample(now, motion::EMPHASIS, lerp),
+                state.ready.level(now),
+            )
+        });
+        if first_layout {
+            // Keep the kit's wrapping and internal scroll, and let this view own its visible height.
+            self.composer
+                .update(cx, |editor, cx| editor.set_rows(1, cx));
+        }
+        let (fill, ink) = if stopping {
+            tone.map_or((theme.ink, theme.app), |tone| (tone.fill, tone.fill_ink))
+        } else {
+            send_paint(identity.0, full, color_level)
+        };
         let ring = theme.ink_at(0.1);
         let ring_hover = theme.ink_at(0.22);
         let quiet_hover = theme.ink_at(0.08);
@@ -166,7 +255,7 @@ impl Desktop {
                                 .rounded_full()
                                 .cursor_pointer()
                                 .hover(move |style| style.bg(quiet_hover))
-                                .tooltip(|window, cx| Tooltip::new("Remove").build(window, cx))
+                                .map(|button| tooltip::on(button, "Remove"))
                                 .on_click(cx.listener(move |this, _, _, cx| this.detach_file(id, cx)))
                                 .child(icon("x", px(12.), theme.ink_secondary)),
                         )
@@ -190,7 +279,7 @@ impl Desktop {
             .when(!sending, |attach| {
                 attach
                     .cursor_pointer()
-                    .tooltip(|window, cx| Tooltip::new("Attach files").build(window, cx))
+                    .map(|button| tooltip::on(button, "Attach files"))
                     .on_click(cx.listener(|this, _, window, cx| this.attach_files(window, cx)))
             });
 
@@ -231,6 +320,7 @@ impl Desktop {
         };
         let field = Textarea::new(&self.composer)
             .small()
+            .h(height)
             .appearance(false)
             .bordered(false)
             .disabled(sending)
@@ -266,10 +356,14 @@ impl Desktop {
             .px(px(8.))
             .pt(px(6.))
             .pb(px(8.))
-            .rounded(if multiline || tray.is_some() { radius::BUBBLE } else { radius::COMPOSER })
+            .rounded(if height > line || tray.is_some() {
+                radius::BUBBLE
+            } else {
+                radius::COMPOSER
+            })
             .bg(theme.composer)
             .border_1()
-            .shadow(composer_shadow())
+            .shadow(floating_shadow(theme))
             .children(tray)
             .child(
                 div()
@@ -298,8 +392,8 @@ impl Desktop {
                     cx.stop_propagation();
                 }
             }))
-            .capture_action(cx.listener(|this, _: &Enter, window, cx| {
-                if this.pick_mention(None, window, cx) {
+            .capture_action(cx.listener(|this, event: &Enter, window, cx| {
+                if !event.shift && this.pick_mention(None, window, cx) {
                     cx.stop_propagation();
                 }
             }))
@@ -313,7 +407,14 @@ impl Desktop {
                     cx.stop_propagation();
                 }
             }))
-            .children(mentions.map(|list| deferred(self.render_mentions(&list, theme, cx)).with_priority(1)))
+            .children(mentions.map(|list| {
+                let sheet = crate::ui::overlays::menu_enter(
+                    "mentions-enter",
+                    self.render_mentions(&list, theme, cx),
+                    |sheet, remaining| sheet.mb(px(8. - 4. * remaining)),
+                );
+                deferred(sheet).with_priority(1)
+            }))
             .child(pill);
 
         div().w_full().flex().justify_center().px_5().pb_4().child(
@@ -393,5 +494,32 @@ impl Desktop {
                 .children(problem.map(|problem| error_line(problem, theme)))
                 .child(composer),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui_kit::{px, rgb, white, Hsla};
+
+    use super::{editor_height, send_paint};
+
+    #[test]
+    fn composer_height_reserves_one_line_and_caps_grown_content_at_forty_percent() {
+        let line = px(20.);
+        let window = px(820.);
+        assert_eq!(editor_height(0, line, window), line);
+        assert_eq!(editor_height(2, line, window), px(40.));
+        assert_eq!(editor_height(25, line, window), px(328.));
+        assert_eq!(editor_height(25, line, px(40.)), line);
+    }
+
+    #[test]
+    fn quiet_send_uses_the_identity_and_settles_on_the_ready_paint() {
+        let identity: Hsla = rgb(0x508060).into();
+        let full = (identity, white());
+        let empty = send_paint(identity, full, 0.);
+        assert!((empty.0.a - 0.14).abs() < f32::EPSILON);
+        assert!((empty.1.a - 0.55).abs() < f32::EPSILON);
+        assert_eq!(send_paint(identity, full, 1.), full);
     }
 }

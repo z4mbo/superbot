@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::chrome::switch;
 use crate::ui::focus::{self, Ring};
 
 impl Desktop {
@@ -7,6 +8,7 @@ impl Desktop {
         bot: &Bot,
         avatar: superbot_avatars::Bot,
         theme: &Theme,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let panel = self.agent_panel.as_ref().expect("rendered with a panel");
@@ -184,10 +186,11 @@ impl Desktop {
                 )
             });
 
-        let color = bot_ink(avatar, theme, cx);
         let tools = computer_tools_set(bot, false);
         let uses_row = div()
             .id("agent-computer-use")
+            .role(Role::Switch)
+            .aria_toggled(true.into())
             .flex()
             .items_center()
             .gap(px(10.))
@@ -195,37 +198,45 @@ impl Desktop {
             .px(px(14.))
             .border_b_1()
             .border_color(theme.ink_at(0.05))
-            .cursor_pointer()
-            .on_click(cx.listener(move |this, _, window, cx| {
-                this.change_agent(Change::DisabledTools(tools.clone()), window, cx)
-            }))
+            .when(!busy, |row| {
+                row.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| {
+                    this.change_agent(Change::DisabledTools(tools.clone()), window, cx)
+                }))
+            })
             .child(icon("monitor", px(16.), theme.ink_secondary))
             .child(div().flex_1().name().text_color(theme.ink).child("Uses a computer"))
-            .child(switch(true, color, theme));
+            .child(switch(true, !busy, theme));
         let mode_row = match &panel.computer {
             Some(ComputerView::Ready(status)) if on && status.offered() && !status.runs_on_user_machine => Some(
-                card(theme).child(focus::control(uses_row, Ring::TrailingSwitch, theme)).child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_2p5()
-                        .px(px(14.))
-                        .py(px(11.))
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap(px(10.))
-                                .child(icon("app-window", px(16.), theme.ink_secondary))
-                                .child(div().name().text_color(theme.ink).child(format!("Where {name} works"))),
-                        )
-                        .child(div().pl(px(26.)).child(segmented(
-                            [("Team computer", ComputerMode::Team), ("Its own computer", ComputerMode::Dedicated)],
-                            bot.computer_mode,
-                            theme,
-                            cx,
-                        ))),
-                ),
+                card(theme)
+                    .child(if busy {
+                        focus::decorate(uses_row).into_any_element()
+                    } else {
+                        focus::control(uses_row, Ring::TrailingSwitch, theme).into_any_element()
+                    })
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2p5()
+                            .px(px(14.))
+                            .py(px(11.))
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap(px(10.))
+                                    .child(icon("app-window", px(16.), theme.ink_secondary))
+                                    .child(div().name().text_color(theme.ink).child(format!("Where {name} works"))),
+                            )
+                            .child(div().pl(px(26.)).child(segmented(
+                                [("Team computer", ComputerMode::Team), ("Its own computer", ComputerMode::Dedicated)],
+                                bot.computer_mode,
+                                theme,
+                                window,
+                                cx,
+                            ))),
+                    ),
             ),
             _ => None,
         };

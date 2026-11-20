@@ -183,8 +183,11 @@ impl Desktop {
 
         let mut subscriptions = vec![
             cx.subscribe_in(&composer, window, |this, _, event: &InputEvent, window, cx| match event {
-                InputEvent::PressEnter { .. } => this.send(window, cx),
-                InputEvent::Change | InputEvent::Focus | InputEvent::Blur => cx.notify(),
+                InputEvent::PressEnter { shift: false, .. } => this.send(window, cx),
+                InputEvent::PressEnter { shift: true, .. }
+                | InputEvent::Change
+                | InputEvent::Focus
+                | InputEvent::Blur => cx.notify(),
             }),
             cx.subscribe_in(&search, window, |this, _, event: &InputEvent, window, cx| {
                 if matches!(event, InputEvent::Change) {

@@ -29,7 +29,7 @@ impl Ring {
                 .bottom_0()
                 .flex()
                 .items_center()
-                .child(border.w(px(52.)).h(px(32.)).rounded_full()),
+                .child(border.w(px(40.)).h(px(26.)).rounded_full()),
         }
     }
 }
@@ -48,7 +48,7 @@ pub fn decorate(element: Stateful<Div>) -> FocusControl {
     FocusControl::new(element)
 }
 
-type TintStyle = Box<dyn FnOnce(Stateful<Div>, Levels) -> Stateful<Div>>;
+type TintStyle = Box<dyn FnOnce(Stateful<Div>, Levels, &mut Window, &mut App) -> Stateful<Div>>;
 
 pub struct FocusControl {
     id: ElementId,
@@ -84,10 +84,14 @@ impl FocusControl {
         self.tint(pointer, move |control, levels| control.bg(colors.sample(levels)))
     }
 
-    pub fn tint(
+    pub fn tint(self, pointer: Pointer, style: impl FnOnce(Stateful<Div>, Levels) -> Stateful<Div> + 'static) -> Self {
+        self.tint_in(pointer, move |control, levels, _, _| style(control, levels))
+    }
+
+    pub fn tint_in(
         mut self,
         pointer: Pointer,
-        style: impl FnOnce(Stateful<Div>, Levels) -> Stateful<Div> + 'static,
+        style: impl FnOnce(Stateful<Div>, Levels, &mut Window, &mut App) -> Stateful<Div> + 'static,
     ) -> Self {
         self.motion = Some((pointer, Box::new(style)));
         self
@@ -170,7 +174,7 @@ impl Element for FocusControl {
                 if moving {
                     window.request_animation_frame();
                 }
-                control = style(control, levels).child(pointer_surface(stored, pointer));
+                control = style(control, levels, window, cx).child(pointer_surface(stored, pointer));
             }
             if let Some((ring, color)) = self.ring {
                 let handle = state.focus.get_or_insert_with(|| cx.focus_handle().tab_stop(true));

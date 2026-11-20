@@ -1,12 +1,14 @@
+use std::time::Instant;
+
 use serde_json::Value;
 use superbot_client::ThreadEvent;
 
 use super::Chat;
-use crate::transcript::{upsert, Entry, Placed};
+use crate::transcript::{upsert, Entry, Placed, Speaker};
 use crate::{api, clock};
 
 /// Applies one live event to the open conversation. True when the sidebar should be read again.
-pub(super) fn apply_event(chat: &mut Chat, event: &ThreadEvent) -> bool {
+pub(super) fn apply_event(chat: &mut Chat, event: &ThreadEvent, own_local_write: bool) -> bool {
     let text = |key: &str| event.data.get(key).and_then(Value::as_str);
     let flag = |key: &str| event.data.get(key).and_then(Value::as_bool).unwrap_or(false);
     let last = Chat::row_of(chat.entries.len());
@@ -19,7 +21,12 @@ pub(super) fn apply_event(chat: &mut Chat, event: &ThreadEvent) -> bool {
             let full_update = event.kind == "thread.message.updated" && !message.blocks.is_empty();
             if let Some(entry) = Entry::read(message) {
                 chat.cards.caught_up(&entry);
-                if entry.speaker == crate::transcript::Speaker::Agent {
+                let arriving = event.kind == "thread.message.created"
+                    && chat.list.is_following_tail()
+                    && entry.speaker != Speaker::System
+                    && !(entry.local_cli && own_local_write)
+                    && !(entry.speaker == Speaker::Agent && !chat.draft.is_empty());
+                if entry.speaker == Speaker::Agent {
                     chat.draft.clear();
                 }
                 // Only the rows that changed are measured again, so a person reading older
@@ -30,6 +37,9 @@ pub(super) fn apply_event(chat: &mut Chat, event: &ThreadEvent) -> bool {
                         chat.list.remeasure_items(row..row + 1);
                     }
                     Placed::Inserted(index) => {
+                        if arriving && index + 1 == chat.entries.len() {
+                            chat.motion.message(id.clone(), Instant::now());
+                        }
                         let row = Chat::row_of(index);
                         chat.list.splice(row..row, 1);
                         // Its neighbours' joined corners and time stamps can change with it.
