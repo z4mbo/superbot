@@ -26,6 +26,7 @@ impl Desktop {
     pub fn render_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         self.prepare_cards(window, cx);
         self.sync_agent_info(window, cx);
+        self.sync_app_assist(window, cx);
         let theme = cx.skin().clone();
         let Some(chat) = self.chat.as_ref() else {
             return self.render_no_conversation(&theme, cx);
@@ -723,6 +724,7 @@ impl Desktop {
             })
             .child(field);
         let local_mode = local.is_some();
+        let apps = self.app_assist_button(theme, cx);
         let pill = div()
             .flex()
             .flex_col()
@@ -738,7 +740,14 @@ impl Desktop {
             .shadow(composer_shadow())
             .children(tray)
             .child(
-                div().flex().items_end().gap_1p5().when(!local_mode, |row| row.child(attach)).child(input).child(send),
+                div()
+                    .flex()
+                    .items_end()
+                    .gap_1p5()
+                    .when(!local_mode, |row| row.child(attach))
+                    .children(apps)
+                    .child(input)
+                    .child(send),
             );
 
         // While the `@` list is open the keys that move through it and choose from it are taken

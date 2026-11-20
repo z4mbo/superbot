@@ -20,7 +20,9 @@ impl Render for Desktop {
                 self.sync_inbox(window, cx);
                 let side = match self.render_inbox_panel(window, cx) {
                     Some(inbox) => Some(inbox),
-                    None if self.view == View::Chat => self.render_agent_panel(window, cx),
+                    None if self.view == View::Chat => {
+                        self.render_agent_panel(window, cx).or_else(|| self.render_app_assist(window, cx))
+                    }
                     None => None,
                 };
                 div()

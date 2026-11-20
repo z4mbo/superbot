@@ -58,6 +58,8 @@ pub struct Chat {
     pub(crate) local_turn: Option<Task<()>>,
     /// A message an Inbox line asked to show, and its mark once shown.
     pub reveal: super::reveal::Reveal,
+    /// Local-model help with the bot's apps, open beside this conversation.
+    pub app_assist: crate::ui::app_assist::AppAssist,
 }
 
 impl Chat {
@@ -163,6 +165,7 @@ impl Desktop {
             _live: None,
             local_turn: None,
             reveal: Default::default(),
+            app_assist: Default::default(),
         });
         self.resume_draft(window, cx);
         self.restore_local_write();
@@ -459,6 +462,9 @@ impl Desktop {
         }
         if self.place().is_some_and(|place| self.local_writes.contains_key(&place)) {
             self.retry_local_write(window, cx);
+            return;
+        }
+        if self.take_apps_command(window, cx) {
             return;
         }
         match self.local_model_selection() {

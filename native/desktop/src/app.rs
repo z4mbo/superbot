@@ -591,7 +591,10 @@ impl Desktop {
                         Live::Event(SpaceNotification::Runs) => {
                             this.refresh_sidebar(SidebarRead::Current, cx);
                         }
-                        Live::Event(SpaceNotification::PluginRegistry) => this.plugins_changed(window, cx),
+                        Live::Event(SpaceNotification::PluginRegistry) => {
+                            this.plugins_changed(window, cx);
+                            this.app_grants_changed(window, cx);
+                        }
                         Live::Unauthorized => {
                             this.session_ended(window, cx);
                             cx.notify();
@@ -912,6 +915,9 @@ impl Desktop {
             self.search_open = false;
             true
         } else if self.agent_panel_back(cx) {
+            true
+        } else if self.view == View::Chat && self.chat.as_ref().is_some_and(|chat| chat.app_assist.is_open()) {
+            self.close_app_assist(cx);
             true
         } else {
             false
