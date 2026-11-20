@@ -243,7 +243,7 @@ it.each(["in", "up"])("offers a provider before the email form in %s mode", asyn
   expect(input("Email")).toBeNull();
   expect(button("Continue with Example")).toBeDefined();
   expect(button("Continue with email")).toBeDefined();
-  expect(host.textContent).toContain("Welcome to Rakazo");
+  expect(host.textContent).toContain("Welcome to Superbot");
   expect(host.textContent).not.toContain("account?");
   await press("Continue with email");
   expect(input("Email")).not.toBeNull();

@@ -90,4 +90,5 @@ export * from "./threads/reactions.js";
 export * from "./threads/search.js";
 export * from "./threads/thread.js";
 export * from "./threads/thread-message.js";
+export type { AppendLocalHistoryInput } from "./threads/thread-send.js";
 export { threadSendInput } from "./threads/thread-send.js";

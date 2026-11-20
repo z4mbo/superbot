@@ -260,7 +260,7 @@ describe("memory provider descriptors", () => {
     expect(connecting.shown("apiKey")).toMatchObject({ label: "API key", placeholder: "hch-…" });
     expect(connecting.shown("workspaceId")).toMatchObject({
       label: "Workspace",
-      placeholder: "rakazo-<space>",
+      placeholder: "my-workspace",
       advanced: true,
     });
     expect(connecting.shown("userPeerId")).toBeUndefined();
@@ -268,7 +268,7 @@ describe("memory provider descriptors", () => {
     connecting.fill({ apiKey: "hch-test-key", workspaceId: "team-notes" });
     expect(connecting.shown("userPeerId")).toMatchObject({
       label: "User peer",
-      description: "Recall from this peer; save to Rakazo’s own peers.",
+      description: "Recall from this peer; save to Superbot’s own peers.",
     });
     expect(connecting.ready()).toBe(true);
 
@@ -276,7 +276,7 @@ describe("memory provider descriptors", () => {
       expect(isReservedHonchoPeerId(peer)).toBe(true);
       expect(connecting.fill({ userPeerId: peer }).ready()).toBe(false);
       expect(() => assertMemoryProviderSettings("honcho", connecting.sends().settings)).toThrow(
-        "rakazo-shared and IDs starting with bot- are reserved for Rakazo.",
+        "This peer ID is reserved. Choose a different ID.",
       );
     }
     for (const value of ["has space", "slash/id", "a".repeat(513)]) {

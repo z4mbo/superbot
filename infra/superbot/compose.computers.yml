@@ -1,0 +1,63 @@
+services:
+  computer:
+    image: ${COMPOSE_PROJECT_NAME}-computer:local
+    pull_policy: build
+    network_mode: none
+
+  supervisor:
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    environment:
+      RAKAZO_COMPUTER_IMAGE: ${COMPOSE_PROJECT_NAME}-computer:local
+      SANDBOX_COMPUTER_EGRESS: restricted
+      SANDBOX_COMPUTER_MOUNTS: ""
+      SANDBOX_COMPUTER_COMPUTE_GPUS: ""
+      SANDBOX_MAX_COMPUTERS_PER_SPACE: ${SANDBOX_MAX_COMPUTERS_PER_SPACE:-0}
+    volumes:
+      - appdata:/data
+    networks:
+      - computer-control
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:7091/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  api:
+    environment:
+      SANDBOX_PROVIDER: docker
+      COMPUTER_DEFAULT_MODE: dedicated
+      USER_DEVICES_ENABLED: "false"
+    networks:
+      - default
+      - computer-control
+    depends_on:
+      supervisor:
+        condition: service_healthy
+
+  worker:
+    environment:
+      SANDBOX_PROVIDER: docker
+      COMPUTER_DEFAULT_MODE: dedicated
+      USER_DEVICES_ENABLED: "false"
+    networks:
+      - default
+      - computer-control
+    depends_on:
+      supervisor:
+        condition: service_healthy
+
+networks:
+  computer-control:
+    internal: true

@@ -90,7 +90,7 @@ export function JoinOrganizationPage() {
         }}
       >
         <Button type="submit" size="xl" className={submitClass}>
-          {state.kind === "error" ? <Trans>Retry</Trans> : <Trans>Open Rakazo</Trans>}
+          {state.kind === "error" ? <Trans>Retry</Trans> : <Trans>Open Superbot</Trans>}
         </Button>
       </AuthFrame>
     );

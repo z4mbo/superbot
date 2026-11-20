@@ -65,12 +65,13 @@ export function otherAuthor(
  * event's payload.
  */
 export function messageUnreadFor(
-  message: { role?: unknown; author?: unknown },
+  message: { role?: unknown; author?: unknown; origin?: unknown },
   meId: string | undefined,
 ) {
   return (
-    message.role === "bot" ||
-    (message.role === "user" && Boolean(otherAuthor(payloadAuthor(message).author, meId)))
+    (message.role === "bot" && message.origin !== "local_cli") ||
+    ((message.role === "user" || message.origin === "local_cli") &&
+      Boolean(otherAuthor(payloadAuthor(message).author, meId)))
   );
 }
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="t">
+  <!-- Adapted from OpenMausBot public/app-icon.svg. Copyright 2026 Milind Soni and OpenMausBot contributors. Apache License 2.0; see NOTICE.txt. -->
+  <title id="t">Superbot</title>
+  <rect width="1024" height="1024" rx="224" fill="#0B0B0C"/>
+  <circle cx="512" cy="530" r="318" fill="#F5F5F5"/>
+  <rect x="428" y="400" width="62" height="150" rx="31" fill="#0B0B0C"/>
+  <rect x="566" y="400" width="62" height="150" rx="31" fill="#0B0B0C"/>
+</svg>

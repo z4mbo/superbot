@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { AI_DISCLOSURE_VERSION, AI_PRIVACY_URL } from "@rakazo/contracts";
+import { AI_DISCLOSURE_VERSION } from "@rakazo/contracts";
 import {
   captureScreenshot,
   chooseOption,
@@ -76,10 +76,7 @@ test("read-aloud asks before sharing voice data and cancel sends no speech", asy
   await expect(
     disclosure.getByRole("heading", { name: "Share voice data with Example speech server?" }),
   ).toBeVisible();
-  await expect(disclosure.getByRole("link", { name: "Privacy policy" })).toHaveAttribute(
-    "href",
-    AI_PRIVACY_URL,
-  );
+  await expect(disclosure.getByRole("link", { name: "Privacy policy" })).toHaveCount(0);
   expect(speechRequests).toBe(0);
   expect(grants).toBe(0);
   await captureScreenshot(page, testInfo, "voice-data-sharing-disclosure");

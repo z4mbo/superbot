@@ -19,7 +19,7 @@ import {
 import { assertSafeWebUrl, withAbort } from "../../../web/web-ssrf.js";
 
 const ENDPOINT = "https://api.keenable.ai/mcp";
-const USER_AGENT = "Rakazo/0.1 (+https://github.com/elie222/rakazo; web tools)";
+const USER_AGENT = "Superbot/0.1 (web tools)";
 const MAX_SNIPPET_CHARS = 8_000;
 // Even escaped multibyte text stays inside the transport's 1 MB result limit.
 const KEENABLE_MAX_READ_CHARS = 100_000;

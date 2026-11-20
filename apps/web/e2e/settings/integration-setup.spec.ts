@@ -65,10 +65,7 @@ test("ordinary accounts can add personal MCP connections without server setup", 
   await expect(page.getByText("Keyed tool", { exact: true })).toBeHidden();
   await page.getByRole("button", { name: "Connect", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(message);
-  await expect(page.getByRole("link", { name: "Troubleshoot", exact: true })).toHaveAttribute(
-    "href",
-    "https://rakazo.com/docs/troubleshooting/#mcp-oauth-redirect-mismatch",
-  );
+  await expect(page.getByRole("link", { name: "Troubleshoot", exact: true })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "personal-mcp-callback-mismatch");
   await page.unroute("**/rpc/mcp/servers/connect");
   await page.route("**/rpc/mcp/servers/connect", (route) =>

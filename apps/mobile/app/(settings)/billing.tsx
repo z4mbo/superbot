@@ -181,7 +181,7 @@ export default function BillingScreen() {
               : plan === "byok"
                 ? t`Your subscription or API key`
                 : plan === "credits"
-                  ? t`Rakazo credits`
+                  ? t`Superbot credits`
                   : t`None`
           }
         />
@@ -402,7 +402,7 @@ export default function BillingScreen() {
           ) : null}
           {status.canManage && status.funding === "byok" && (status.balanceUsd ?? 0) > 0 ? (
             <SettingsRow
-              title={t`Use Rakazo credits`}
+              title={t`Use Superbot credits`}
               disabled={pending || !status.creditPurchasesEnabled}
               onPress={() =>
                 action(async (send) => {

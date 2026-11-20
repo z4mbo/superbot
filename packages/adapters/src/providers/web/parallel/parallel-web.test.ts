@@ -219,9 +219,7 @@ describe("optional Parallel web provider", () => {
       expect(peer.requests.length).toBeGreaterThan(1);
       for (const request of peer.requests) {
         expect(request.url).toBe("https://search.parallel.ai/mcp");
-        expect(request.headers.get("user-agent")).toBe(
-          "Rakazo/0.1 (+https://github.com/elie222/rakazo; web tools)",
-        );
+        expect(request.headers.get("user-agent")).toBe("Superbot/0.1 (web tools)");
         expect(request.headers.has("authorization")).toBe(false);
       }
       expect(resolveWebProviderKind({})).toBe("keyless-http");

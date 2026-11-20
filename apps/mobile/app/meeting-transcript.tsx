@@ -43,7 +43,7 @@ export default function MeetingTranscriptScreen() {
   });
   const turns = transcript.error ? undefined : transcript.data?.turns;
   const confirmDelete = () =>
-    Alert.alert(t`Delete this transcript?`, t`The transcript will be removed from Rakazo.`, [
+    Alert.alert(t`Delete this transcript?`, t`The transcript will be removed from Superbot.`, [
       { text: t`Cancel`, style: "cancel" },
       { text: t`Delete transcript`, style: "destructive", onPress: () => removal.run() },
     ]);

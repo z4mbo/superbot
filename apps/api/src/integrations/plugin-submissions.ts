@@ -20,7 +20,6 @@ import {
   INTEGRATION_CLAIM_CONFIRM_PATH,
   INTEGRATION_CLAIMS_PATH,
   IntegrationClaimInputSchema,
-  integrationPageUrl,
   PLUGIN_SUBMISSIONS_PATH,
   PluginSubmissionInputSchema,
 } from "@rakazo/contracts";
@@ -227,14 +226,14 @@ export function pluginSubmissionRoutes(
       return c.text("This link was already used or is invalid.", 404);
     }
     if (row.confirmExpiresAt.getTime() < Date.now()) {
-      return c.redirect(`${integrationPageUrl(row.claim)}claim/?expired`, 303);
+      return c.text("This link has expired. Submit the claim again.", 410);
     }
     const confirmed = await deps.prisma.pluginSubmission.updateMany({
       where: { id: row.id, status: "unconfirmed", confirmToken: row.confirmToken },
       data: { status: "pending", confirmToken: null, confirmExpiresAt: null },
     });
     if (confirmed.count > 0) notifyAdmins(row);
-    return c.redirect(`${integrationPageUrl(row.claim)}claim/?confirmed`, 303);
+    return c.text("Your claim is confirmed and waiting for review.");
   });
 
   // The marketing site reads this when it builds; a few minutes of staleness is fine.

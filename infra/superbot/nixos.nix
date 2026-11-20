@@ -4,6 +4,15 @@ let
   cfg = config.services.superbot;
   stateDir = "/var/lib/superbot";
   envFile = "${stateDir}/host.env";
+  egressUnit = "superbot-computer-egress.service";
+  firewalls = [ "firewall.service" "nftables.service" ];
+  applyEgress = pkgs.writeShellApplication {
+    name = "superbot-computer-egress";
+    runtimeInputs = [ pkgs.iptables pkgs.gawk pkgs.coreutils ];
+    text = ''
+      exec ${pkgs.bash}/bin/bash ${lib.escapeShellArg "${cfg.sourceDirectory}/infra/compose/restrict-computer-egress.sh"} --apply
+    '';
+  };
   host = pkgs.writeShellApplication {
     name = "superbot-host";
     runtimeInputs = [ pkgs.coreutils pkgs.nodejs_24 config.virtualisation.docker.package ];
@@ -31,6 +40,8 @@ in
   options.services.superbot = {
     enable = lib.mkEnableOption "the Superbot Compose host";
 
+    computerFirewall.enable = lib.mkEnableOption "restricted egress for agent computer bridges on Docker's iptables backend";
+
     sourceDirectory = lib.mkOption {
       type = lib.types.strMatching "/.*";
       default = "/srv/superbot/current";
@@ -50,12 +61,29 @@ in
     services.tailscale.enable = lib.mkIf cfg.tailscale.enable true;
     environment.systemPackages = [ host ];
 
+    systemd.services.superbot-computer-egress = lib.mkIf cfg.computerFirewall.enable {
+      description = "Restrict networking for Superbot agent computers";
+      wantedBy = [ "docker.service" ];
+      requires = [ "docker.service" ];
+      after = [ "docker.service" ] ++ firewalls;
+      partOf = [ "docker.service" ] ++ firewalls;
+      before = [ "superbot.service" ];
+      unitConfig.ReloadPropagatedFrom = lib.concatStringsSep " " firewalls;
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${applyEgress}/bin/superbot-computer-egress";
+        ExecReload = "${applyEgress}/bin/superbot-computer-egress";
+      };
+    };
+
     systemd.services.superbot = {
       description = "Superbot Compose host";
       wantedBy = [ "multi-user.target" ];
-      requires = [ "docker.service" ];
+      requires = [ "docker.service" ] ++ lib.optional cfg.computerFirewall.enable egressUnit;
+      partOf = lib.optional cfg.computerFirewall.enable egressUnit;
       wants = [ "network-online.target" ];
-      after = [ "docker.service" "network-online.target" ];
+      after = [ "docker.service" "network-online.target" ] ++ lib.optional cfg.computerFirewall.enable egressUnit;
       unitConfig.ConditionPathExists = envFile;
 
       serviceConfig = {

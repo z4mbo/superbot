@@ -427,7 +427,7 @@ it("offers credit and personal funding for the same model as separate connection
   expect(options).toContainEqual(
     expect.objectContaining({
       creditOfferingId: "offering-example",
-      connectionName: "Rakazo credits",
+      connectionName: "Superbot credits",
     }),
   );
   expect(options).toContainEqual(expect.objectContaining({ credentialId: "personal-example" }));

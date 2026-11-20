@@ -1411,8 +1411,8 @@ msgid "Allow once"
 msgstr "Permitir uma vez"
 
 #: apps/web/src/lib/calls/dictation.ts
-msgid "Allow Rakazo to use Speech Recognition and the microphone in System Settings."
-msgstr "Permita que o Rakazo use o Reconhecimento de Fala e o microfone nos Ajustes do Sistema."
+msgid "Allow Superbot to use Speech Recognition and the microphone in System Settings."
+msgstr "Permita que o Superbot use o Reconhecimento de Fala e o microfone nos Ajustes do Sistema."
 
 #: apps/mobile/lib/calls/call-session.ts
 #: apps/mobile/lib/composer/composer-dictation.ts
@@ -2542,8 +2542,8 @@ msgstr "Escolher pasta"
 
 #: apps/web/src/components/billing/ModelCredits.tsx
 #: apps/web/src/components/billing/SubscriptionGate.tsx
-msgid "Choose how to use Rakazo"
-msgstr "Escolha como usar o Rakazo"
+msgid "Choose how to use Superbot"
+msgstr "Escolha como usar o Superbot"
 
 #: apps/web/src/pages/shell/bots/agent-import.tsx
 msgid "Choose your {home} folder, or a backup of it."
@@ -3017,8 +3017,8 @@ msgstr "Conecte sua IA"
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts
-msgid "Connect your own API key in Models or choose Rakazo credits in Billing."
-msgstr "Conecte sua própria chave de API em Modelos ou escolha créditos Rakazo em Faturamento."
+msgid "Connect your own API key in Models or choose Superbot credits in Billing."
+msgstr "Conecte sua própria chave de API em Modelos ou escolha créditos Superbot em Faturamento."
 
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/computers.tsx
@@ -5325,8 +5325,8 @@ msgid "Ends {day}"
 msgstr "Termina em {day}"
 
 #: apps/web/src/pages/shell/composer/github-star-prompt.tsx
-msgid "Enjoying Rakazo?"
-msgstr "Está gostando do Rakazo?"
+msgid "Enjoying Superbot?"
+msgstr "Está gostando do Superbot?"
 
 #: apps/mobile/lib/api/user-error.ts
 #: apps/web/src/lib/query/user-error.ts
@@ -6114,8 +6114,8 @@ msgstr "Como verificar"
 
 #: apps/mobile/app/(settings)/signup-survey.tsx
 #: apps/web/src/components/account/SignupSurvey.tsx
-msgid "How will you use Rakazo?"
-msgstr "Como você vai usar o Rakazo?"
+msgid "How will you use Superbot?"
+msgstr "Como você vai usar o Superbot?"
 
 #: apps/mobile/components/models/compatible-endpoint-form.tsx
 msgid "http://127.0.0.1:8000/v1"
@@ -7836,8 +7836,8 @@ msgid "Not in {organizationName}. They'll only see this Space."
 msgstr "Não está em {organizationName}. Verá apenas este Espaço."
 
 #: apps/web/src/pages/shell/bots/import-status.ts
-msgid "Not in Rakazo's catalog"
-msgstr "Fora do catálogo do Rakazo"
+msgid "Not in Superbot's catalog"
+msgstr "Fora do catálogo do Superbot"
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/pages/plugins/plugin-browse.tsx
@@ -7886,12 +7886,12 @@ msgstr "Não enviada. Toque para tentar de novo"
 
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
 #: apps/web/src/pages/shell/bots/import-status.ts
-msgid "Not supported in Rakazo"
-msgstr "Não compatível com o Rakazo"
+msgid "Not supported in Superbot"
+msgstr "Não compatível com o Superbot"
 
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
-msgid "Not used by Rakazo"
-msgstr "Não usado pelo Rakazo"
+msgid "Not used by Superbot"
+msgstr "Não usado pelo Superbot"
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/components/integrations/McpServerHealthLine.tsx
@@ -8121,8 +8121,8 @@ msgstr "Abrir a navegação"
 #: apps/web/src/pages/auth/Invite.tsx
 #: apps/web/src/pages/auth/JoinOrganization.tsx
 #: apps/web/src/pages/SharedPage.tsx
-msgid "Open Rakazo"
-msgstr "Abrir o Rakazo"
+msgid "Open Superbot"
+msgstr "Abrir o Superbot"
 
 #: apps/mobile/lib/composer/composer-dictation.ts
 #: apps/mobile/lib/thread/thread-voice.ts
@@ -8381,8 +8381,8 @@ msgstr "Cole uma chave de substituição"
 
 #: apps/mobile/components/models/compatible-endpoint-form.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-msgid "Paste the OpenAI-compatible address from your server. Rakazo adds /v1 if needed."
-msgstr "Cole o endereço compatível com OpenAI do seu servidor. Rakazo adiciona /v1 se necessário."
+msgid "Paste the OpenAI-compatible address from your server. Superbot adds /v1 if needed."
+msgstr "Cole o endereço compatível com OpenAI do seu servidor. Superbot adiciona /v1 se necessário."
 
 #: apps/web/src/pages/shell/bots/agent-import.tsx
 msgid "Paste the reply"
@@ -8714,19 +8714,19 @@ msgstr "Citar seleção"
 #: apps/mobile/app/bot-settings.tsx
 #: apps/web/src/pages/settings/AccountSettingsOverlay.tsx
 #: apps/web/src/pages/shell/bots/avatar-studio-popover.tsx
-msgid "Rakazo"
-msgstr "Rakazo"
+msgid "Superbot"
+msgstr "Superbot"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/mobile/components/models/model-role-settings.tsx
 #: apps/web/src/pages/model-settings/ModelRoleSettings.tsx
 #: apps/web/src/pages/onboarding/use-onboarding-model.ts
-msgid "Rakazo credits"
-msgstr "Créditos do Rakazo"
+msgid "Superbot credits"
+msgstr "Créditos do Superbot"
 
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
-msgid "rakazo-shared and IDs starting with bot- are reserved for Rakazo."
-msgstr "rakazo-shared e IDs que começam com bot- são reservados para o Rakazo."
+msgid "This peer ID is reserved. Choose a different ID."
+msgstr "Este ID de par está reservado. Escolha outro ID."
 
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/web/src/pages/shell/chat/message-hover-actions.tsx
@@ -8772,8 +8772,8 @@ msgid "Recall from banks"
 msgstr "Recuperar dos bancos"
 
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
-msgid "Recall from this peer; save to Rakazo’s own peers."
-msgstr "Consultar este peer; salvar nos próprios peers do Rakazo."
+msgid "Recall from this peer; save to Superbot’s own peers."
+msgstr "Consultar este peer; salvar nos próprios peers do Superbot."
 
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Recall only"
@@ -9390,8 +9390,8 @@ msgstr "Voltar à caixa de entrada"
 
 #: apps/web/src/pages/integrations/McpOAuthCallback.tsx
 #: apps/web/src/pages/integrations/SlackInstallCallback.tsx
-msgid "Return to Rakazo"
-msgstr "Retorno a Rakazo"
+msgid "Return to Superbot"
+msgstr "Retorno a Superbot"
 
 #: apps/web/src/lib/models/model-connection-preflight.ts
 msgid "Review provider settings and test again."
@@ -10202,8 +10202,8 @@ msgstr "Entre em <0>{0}</0> e cole o código aqui."
 
 #: apps/mobile/app/sign-in.tsx
 #: apps/web/src/pages/auth/Auth.tsx
-msgid "Sign in to Rakazo"
-msgstr "Entrar no Rakazo"
+msgid "Sign in to Superbot"
+msgstr "Entrar no Superbot"
 
 #: apps/mobile/lib/api/user-error.ts
 #: apps/web/src/lib/query/user-error.ts
@@ -10234,8 +10234,8 @@ msgid "Sign up"
 msgstr "Cadastre-se"
 
 #: apps/mobile/app/sign-in.tsx
-msgid "Sign up for Rakazo"
-msgstr "Cadastre-se no Rakazo"
+msgid "Sign up for Superbot"
+msgstr "Cadastre-se no Superbot"
 
 #: apps/web/src/pages/plugins/PluginsOverlay.tsx
 msgid "Sign-in cancelled. Retry in Manage MCP servers."
@@ -10565,8 +10565,8 @@ msgid "Start recording"
 msgstr "Começar a gravar"
 
 #: apps/mobile/app/paywall.tsx
-msgid "Start using Rakazo"
-msgstr "Comece a usar o Rakazo"
+msgid "Start using Superbot"
+msgstr "Comece a usar o Superbot"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/billing/ModelCredits.tsx
@@ -10902,8 +10902,8 @@ msgid "That isn't a Grok Bot export. Paste the Bot's whole reply."
 msgstr "Isso não é uma exportação do Grok Bot. Cole a resposta completa do Bot."
 
 #: apps/mobile/lib/api/endpoint.ts
-msgid "That URL did not look like a Rakazo server"
-msgstr "Essa URL não parece ser de um servidor Rakazo"
+msgid "That URL did not look like a Superbot server"
+msgstr "Essa URL não parece ser de um servidor Superbot"
 
 #: apps/mobile/lib/api/endpoint.ts
 msgid "That URL is missing a host"
@@ -11037,8 +11037,8 @@ msgstr "O link compartilhado deixará de funcionar"
 
 #: apps/mobile/app/meeting-transcript.tsx
 #: apps/web/src/pages/shell/meetings/meeting-transcript.tsx
-msgid "The transcript will be removed from Rakazo."
-msgstr "A transcrição será removida do Rakazo."
+msgid "The transcript will be removed from Superbot."
+msgstr "A transcrição será removida do Superbot."
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/billing/ModelCredits.tsx
@@ -11197,8 +11197,8 @@ msgid "This device"
 msgstr "Este dispositivo"
 
 #: apps/web/src/lib/bots/agent-import-errors.ts
-msgid "This export is newer than Rakazo can read. Update Rakazo and try again."
-msgstr "Esta exportação é mais recente do que o Rakazo consegue ler. Atualize o Rakazo e tente novamente."
+msgid "This export is newer than Superbot can read. Update Superbot and try again."
+msgstr "Esta exportação é mais recente do que o Superbot consegue ler. Atualize o Superbot e tente novamente."
 
 #: apps/web/src/lib/bots/agent-import-errors.ts
 msgid "This export is too large to import."
@@ -11373,8 +11373,8 @@ msgstr "Este Espaço tem o próprio cofre. Os bots dele salvam e usam itens lá,
 
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
-msgid "This subscription sign-in is not available in Rakazo yet. Use a deployment credential or choose another provider."
-msgstr "Este login de assinatura ainda não está disponível no Rakazo. Use uma credencial de implantação ou escolha outro provedor."
+msgid "This subscription sign-in is not available in Superbot yet. Use a deployment credential or choose another provider."
+msgstr "Este login de assinatura ainda não está disponível no Superbot. Use uma credencial de implantação ou escolha outro provedor."
 
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
@@ -11795,8 +11795,8 @@ msgid "Update progress"
 msgstr "Progresso da atualização"
 
 #: apps/web/src/lib/integrations/meeting-calendar-connect.ts
-msgid "Update Rakazo to connect your calendar from the desktop app."
-msgstr "Atualize o Rakazo para conectar sua agenda pelo app para desktop."
+msgid "Update Superbot to connect your calendar from the desktop app."
+msgstr "Atualize o Superbot para conectar sua agenda pelo app para desktop."
 
 #: apps/mobile/lib/api/client-update.ts
 #: apps/web/src/lib/platform/client-update.ts
@@ -11965,8 +11965,8 @@ msgstr "Use a Entrada protegida para senhas."
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/billing/ModelCredits.tsx
-msgid "Use Rakazo credits"
-msgstr "Usar créditos do Rakazo"
+msgid "Use Superbot credits"
+msgstr "Usar créditos do Superbot"
 
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "Use space default"
@@ -12213,8 +12213,8 @@ msgstr "Que bom ter você de volta"
 #: apps/mobile/app/(settings)/_layout.tsx
 #: apps/mobile/app/sign-in.tsx
 #: apps/web/src/components/account/SignupSurvey.tsx
-msgid "Welcome to Rakazo"
-msgstr "Boas-vindas ao Rakazo"
+msgid "Welcome to Superbot"
+msgstr "Boas-vindas ao Superbot"
 
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
 msgid "What about its memories?"
@@ -12226,8 +12226,8 @@ msgstr "O que este espaço pode usar?"
 
 #: apps/mobile/app/(settings)/signup-survey.tsx
 #: apps/web/src/components/account/SignupSurvey.tsx
-msgid "What do you most want Rakazo to help with?"
-msgstr "Com o que você mais quer que o Rakazo ajude?"
+msgid "What do you most want Superbot to help with?"
+msgstr "Com o que você mais quer que o Superbot ajude?"
 
 #: apps/web/src/pages/shell/chat/message-cards.tsx
 msgid "What do you want me on first?"

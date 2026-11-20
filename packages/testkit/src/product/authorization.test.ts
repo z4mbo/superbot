@@ -362,6 +362,10 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["threads/send", { botId: "missing-bot", text: "Nope" }],
       ["threads/send", { groupId: "missing-group", text: "Nope" }],
       [
+        "threads/appendLocalHistory",
+        { botId: "missing-bot", operationId: crypto.randomUUID(), text: "A local note" },
+      ],
+      [
         "threads/sendWithRoutines",
         { botId: "missing-bot", clientNonce: "nope", routineIds: ["missing-routine"] },
       ],
@@ -767,6 +771,10 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["threads/messages", { botId: ownerBot.id, before: 1 }],
       ["threads/subscribe", { botId: ownerBot.id, cursor: -1 }],
       ["threads/send", { botId: ownerBot.id, text: "intruder message" }],
+      [
+        "threads/appendLocalHistory",
+        { botId: ownerBot.id, operationId: crypto.randomUUID(), text: "A local note" },
+      ],
       ["threads/send", { botId: ownerBot.id, artifactIds: [ownerArtifact.id] }],
       ["threads/stop", { botId: ownerBot.id }],
       ["threads/stopHelper", { botId: ownerBot.id, messageId: "missing-message" }],
@@ -836,6 +844,15 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["threads/messages", { groupId: ownerGroup.id, before: 1 }],
       ["threads/subscribe", { groupId: ownerGroup.id, cursor: -1 }],
       ["threads/send", { groupId: ownerGroup.id, text: "intruder group message" }],
+      [
+        "threads/appendLocalHistory",
+        {
+          groupId: ownerGroup.id,
+          operationId: crypto.randomUUID(),
+          text: "A local prompt",
+          reply: "A local reply",
+        },
+      ],
       ["threads/stop", { groupId: ownerGroup.id }],
       ["threads/followUp", { groupId: ownerGroup.id, text: "intruder follow-up" }],
       ["threads/markRead", { groupId: ownerGroup.id }],

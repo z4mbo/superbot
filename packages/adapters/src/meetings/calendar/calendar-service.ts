@@ -446,7 +446,7 @@ export class MeetingCalendarService {
                 sessionId,
                 meetingUrl: link.url,
                 platform: link.platform,
-                botName: `${bot.name.slice(0, 88)} · Rakazo`,
+                botName: `${bot.name.slice(0, 88)} · Superbot`,
                 expiresAt,
               });
               if ((await selectedCalendarRule(prisma, connectionId, event))?.botId !== bot.id) {

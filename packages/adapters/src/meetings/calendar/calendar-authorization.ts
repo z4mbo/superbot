@@ -225,7 +225,7 @@ export class CalendarAuthorization {
             ) {
               throw new ClientError(
                 "SERVICE_UNAVAILABLE",
-                "Calendar sign-in could not be confirmed. Check the connection in Rakazo.",
+                "Calendar sign-in could not be confirmed. Check the connection in Superbot.",
                 undefined,
                 { cause: error },
               );
