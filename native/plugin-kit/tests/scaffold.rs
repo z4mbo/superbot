@@ -36,6 +36,11 @@ fn binary_scaffolds_and_validates_mcp_app() {
     let manifest: Value =
         serde_json::from_slice(&fs::read(dir.path().join("plugin.json")).unwrap()).unwrap();
     assert_eq!(manifest, example);
+    assert_eq!(
+        fs::read(dir.path().join("temperature.html")).unwrap(),
+        include_bytes!("../../../examples/plugins/marketplace-unit-converter/temperature.html")
+            .as_slice()
+    );
     assert!(dir.path().join("server.ts").is_file());
     assert!(dir.path().join("README.md").is_file());
 }
