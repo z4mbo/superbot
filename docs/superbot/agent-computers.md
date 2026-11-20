@@ -50,11 +50,22 @@ computer on the person's own machine as "Works on your computer".
 
 ## Terminal
 
-Providers report a terminal (`terminalAvailable`), and `computer.terminalUrl` opens one for the
-person holding control. No client shows it at present. The web app removed its terminal view, and
-the native app has none. The address carries a framed websocket protocol
-(`packages/contracts/src/computers/terminal.ts`), not a page, so showing it needs a terminal
-client rather than the screen view.
+When a running computer's provider reports a terminal (`terminalAvailable`), the desktop app's
+**Computer** tab shows **Terminal** beside **Watch**. It opens a shell in the agent's working
+folder, inside the side panel. Opening it takes control of the computer, as **Take control** does
+on its screen, so the agent's own actions wait meanwhile. **Computer** in its toolbar closes the
+shell and hands control back. Escape goes to the shell. Paste with Ctrl+Shift+V, and scroll back
+with the wheel. While another member has control, **Terminal** is not offered.
+
+The app opens the terminal's socket itself through the server's screen proxy, the same path as
+**Watch**. `computer.terminalUrl` with `nativeSession` returns the address and a socket proof. It
+gives them only to a signed-in session that holds control. The proxy then checks that session,
+the member's place in the Space and the control lease on every connection. Handing back control
+ends the shell, and its proof no longer opens a socket. The frames follow
+`packages/contracts/src/computers/terminal.ts`.
+
+The web app has no terminal view. **Watch** stays available in both apps, and a person who takes
+control there can open the computer's own terminal on its desktop.
 
 ## Checking it without keys or credits
 

@@ -27,8 +27,10 @@ superbot-features = { path = "../features" }
 superbot-t3-inbox = { path = "../t3-inbox" }
 superbot-workspace-panel = { path = "../workspace-panel" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"] }
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "handshake", "rustls-tls-native-roots"] }
 url = "2"
 uuid = { version = "1", features = ["v4"] }
+vt100 = "0.16"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 webview2-com = "0.39"

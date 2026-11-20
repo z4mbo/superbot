@@ -69,6 +69,16 @@ impl Drop for CancelOnDrop {
     }
 }
 
+/// Work that runs on the network runtime for as long as its owner keeps this, such as a
+/// terminal's open socket. Dropping it stops the work.
+pub struct Owned {
+    _cancel: CancelOnDrop,
+}
+
+pub fn spawn_owned(work: impl Future<Output = ()> + Send + 'static) -> Owned {
+    Owned { _cancel: CancelOnDrop(runtime().spawn(work).abort_handle()) }
+}
+
 pub fn follow(client: Client, space_id: String, target: Target, cursor: i64) -> LiveStream<ThreadEvent> {
     reconnect(
         cursor,

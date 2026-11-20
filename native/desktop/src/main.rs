@@ -10,6 +10,7 @@ mod files;
 mod fonts;
 mod outbox;
 mod runtime;
+mod terminal;
 mod theme;
 mod transcript;
 mod ui;
