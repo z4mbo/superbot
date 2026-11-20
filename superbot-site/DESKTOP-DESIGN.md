@@ -1,6 +1,6 @@
 # Superbot desktop design (GPUI)
 
-Owner: design. Status: v1, 2026-11-19. Implementing agents follow this file; if a rule
+Owner: design. Status: v1, 2026-11-19; presence and motion (§3.2, §3.5, §3.6, §6) 2026-11-20. Implementing agents follow this file; if a rule
 blocks the right thing, change the rule here first and say why in the same change.
 
 The visual source of truth is the OpenMausBot fork `z4mbo/bot`, branch `simple-only`,
@@ -84,7 +84,8 @@ Asks from design to the client/runtime owners (UI code must not invent these):
 
 ## 2. Principles (carried over from OpenMausBot `DESIGN.md` §1–2)
 
-1. Calm by default: no blinking, counting or competing unless the person must act.
+1. Calm by default: no blinking, counting or competing unless the person must act. (Bot faces
+   blink now and then only in the open conversation, §3.2; that is presence, not a call for attention.)
 2. Three places only: **sidebar** (spaces, bots, conversations), **chat**, **side panel**
    (one bot's details, or a plugin's details). Full-width **pages** (Marketplace, Plugin
    creator) temporarily replace the chat area; they are not a fourth place.
@@ -113,7 +114,7 @@ Implement one `Theme` struct (a GPUI `Global`) with these fields; components rea
 | `inset`                | search field             | `#1b1b1b`             | `#e9e9e9`             |
 | `control`              | chip on a card           | `#282828`             | `#e3e3e3`             |
 | `composer`             | composer pill            | `#1f1f1f`             | `#ffffff`             |
-| `composer_ring`        | its 1px ring             | `#2a2a2a`             | `#1c1c1c1f`           |
+| `composer_ring`        | its 1px ring             | `ink` 10%, 22% hover  | `ink` 10%, 22% hover  |
 | `menu`                 | menus, popovers          | `#1f1f1f`             | `#ffffff`             |
 | `menu_hover`           |                          | `#f5f5f50f`           | `#1c1c1c0f`           |
 | `menu_active`          |                          | `#f5f5f514`           | `#1c1c1c14`           |
@@ -131,7 +132,8 @@ Implement one `Theme` struct (a GPUI `Global`) with these fields; components rea
 | `danger` / `_ink`      | destructive, errors      | `#ff5667` / `#ffffff` | `#cd2834` / `#ffffff` |
 | `bubble_user` / `_ink` | the person's own bubbles | `#5a5a5a` / `#f5f5f5` | `#1c1c1c` / `#fcfcfc` |
 
-Hover fill = `ink` at 6% alpha, pressed = 8%, on every surface. Hierarchy comes from the
+Hover fill = `ink` at 6% alpha on every surface; pressed fills per control family are in §3.6.
+Hierarchy comes from the
 three ink levels, never from a fourth grey. Accent is rare; the primary button is a neutral
 ink pill (`ink` fill, `app` text). Skin follows the OS appearance
 (`window.appearance()`), with a manual override in Settings.
@@ -142,10 +144,35 @@ Used only for things owned by one bot: its avatar plate, that chat's Send button
 Allow once button on its approval cards. The person's own bubbles stay neutral
 (`bubble_user`), as in OpenMausBot's default Simple mode.
 
-**Built-in bot avatar**: a full circle in the identity colour with a white face,
-scaled so the disc is 62% of the plate. In the icon's 1024 units: disc centre (512, 530),
-radius 318; two eyes 62 × 150, radius 31, at x 428 and x 566, y 400, filled with the plate
-colour. A bot with its own image shows the image instead. No initials.
+**Built-in bot face**: a lit sphere in the identity colour with the app icon's two vertical
+eyes. It fills its slot; there is no plate. Code: `native/avatars/src/face.rs`. Fractions of the
+diameter `d`, origin at the slot's top start:
+
+- Body: circle, `linear_gradient(150°, mix(C, white, 0.16), mix(C, black, 0.22))`, light at the
+  top start. `C` and the eye colour come from `identity_paint` (Staff White: body `ink`, eyes `app`).
+- Rim (d ≥ 20): inset shadows, black α 0.22 / 0.16 (Midnight / Daylight) at (0, −0.04d) blur 0.10d,
+  and white α 0.18 / 0.30 at (0, 0.03d) blur 0.05d.
+- Shine (d ≥ 20): ellipse 0.40d × 0.24d centred (0.36d, 0.22d), white α 0.30 / 0.36 fading to 0
+  downward; halved on a light body.
+- Contact shadow (d ≥ 42, never on the back face of a group pair): black α 0.40 / 0.14 at
+  (0, 0.05d), blur 0.10d, spread −0.06d.
+- Eyes: 0.14d × 0.21d pills, centres x 0.5d ± 0.15d, y 0.47d; whole pixels below 24.
+- Gaze (rows, tiles, the main bot card, the header pill, the new-conversation face): pointer
+  offset over `clamp(4d, 64, 160)`, chased at rate 10/s. Eyes move 0.09d across and 0.07d up or
+  down, narrow by up to 20% toward the edge, and the shine moves 0.03d the other way, so the
+  head turns on the sphere. Press: eyes recentre and squash (height ×0.82) in 70ms, back in 160ms.
+- Blink: height to 12% in 60ms, hold 30ms, back in 120ms. Only the open conversation's faces,
+  every 4.5–8s per bot; also on pointer entry, when waiting starts and when the model changes.
+- States (asleep > failed > waiting > working > rest, 240ms between them): **working**, eyes
+  read side to side (0.07d, 2.4s loop, each bot at its own phase, 30fps); **waiting for you**,
+  eyes 10% larger, still; **failed** (only if the bot summary reports it), eyes lowered and half
+  shut; **asleep** (exactly while the "Connect an AI model" banner shows), eyes closed as thin
+  horizontal pills. Status dots stay in every state.
+- Reduced motion: no gaze, blink, squash or loop; light and shadow stay.
+
+A bot with its own image shows the image instead. No initials. Faces redraw only while
+something on them moves; a sidebar of 2,000 bots with 40 visible and 10 working keeps every
+frame under 8.3ms.
 
 The application icon has a horizontally centred white circle that fills the bottom of its black tile. Two equal vertical
 eyes sit at the same height on either side of the centre. Platform launchers, the web
@@ -158,7 +185,9 @@ bot name, then by server colour, then by id. The mark is drawn in a square 1.55 
 not change: tile 56, row 42 (36 of layout), header pill 22, new conversation 64, working
 line 28, plugin page 28, workspace panel 40 and 32, mention list 20, group pair 0.68 ×.
 
-- A named bot with `primaryTile` appears first in the tile strip even on a fresh import. The installed Grok Bot 1.2.3 reference uses a 95 × 92px tile with 12px corners. A 60px avatar sits 4px from the top, with a 16px orange star badge at its lower right and a 2px ring in the tile colour. Search shows the bot in the results list.
+- A named bot with `primaryTile` becomes the main bot card (§6) even on a fresh import, ahead of
+  the first pinned bot. No badge marks it. Search shows the bot in the results list.
+- The pack wins whole: none of the built-in face's light, shine or shadow is applied to a mark.
 - Rest: the still pose. Over a sidebar row, a tile or the header pill the mark turns toward
   the pointer (about 0.75 s), follows it, and turns back when the pointer leaves or presses.
   A bot at work (its sidebar status, the open chat, an activity run) loops its working
@@ -216,7 +245,8 @@ setup script live only in that folder, never in this repository or a build.
 | Menu item                                | 14 / 18                         | 400              | ink                                 |
 | Body, row previews, day stamps           | 13 / 18                         | 400              | ink or ink_secondary                |
 | Names in lists and the header pill       | 14 / 20                         | 500              | ink                                 |
-| Composer field                           | 14 / 20                         | 400              | ink, placeholder ink at 36%         |
+| Main bot card name (§6)                  | 15 / 22                         | 600              | ink                                 |
+| Composer field                           | 14 / 20                         | 400              | ink, placeholder ink_secondary      |
 | Speaker names (multiplayer)              | 13 / 18                         | 600              | identity colour, else ink_secondary |
 | Meta, hints, group labels                | 12 / 16                         | 400 (labels 500) | ink_tertiary                        |
 | Keycaps, tiny badges                     | 11 / 14                         | 400              | ink_secondary                       |
@@ -241,31 +271,78 @@ Counters, timers and versions use tabular figures (`font_features: tnum`).
 - Borders 1px `hairline`; panes meet on a 0.5px `edge` line.
 - Only floating things cast shadows (menus, popovers, dialogs, toasts):
   Midnight `0 8 24 rgba(0,0,0,0.5)` + 1px `hairline`; Daylight `0 8 24 rgba(0,0,0,0.12)`.
+  The header pill wears the composer's shadows (§7.4); in Midnight both add a 1px inner top
+  light (white α 0.04). Bot faces carry their own light (§3.2).
+- The transcript fades under the floating pieces: 48px at its top from `app` α 0.92 to 0, and
+  24px above the composer from `app` α 0 to 1. Neither takes the pointer.
 - Dialog scrim: `#000000` at 50% (Midnight), 25% (Daylight). Nothing else dims the app.
 - Icons: Lucide, 16px in rows and toolbars, 14px next to 12–13px text, stroke 1.75.
   Bare icons, never in tinted squares. Embed the SVGs you use (Lucide is ISC).
 
 ### 3.5 Motion
 
-| Name    | Use                                      | Duration | Curve                                                 |
-| ------- | ---------------------------------------- | -------- | ----------------------------------------------------- |
-| `pop`   | menus, popovers: 96% → 100% scale + fade | 200ms    | cubic-bezier(0.22, 1, 0.36, 1)                        |
-| `panel` | side panel and pages slide 16px + fade   | 240ms    | same                                                  |
-| `msg`   | new bubble: 4px rise + fade              | 180ms    | same                                                  |
-| `fade`  |                                          | 150ms    | ease-out                                              |
-| hover   | colour/opacity only                      | 120ms    | cubic-bezier(0.4, 0, 0.2, 1), as in the reference CSS |
+Two curves, one `bezier(x1, y1, x2, y2)` function in `native/desktop/src/ui/motion.rs`:
+**standard** `(0.4, 0, 0.2, 1)` for colour and opacity that go and come back, **emphasis**
+`(0.22, 1, 0.36, 1)` for things that enter or move. `Tint` (reversible, "faster reversing")
+lives there too.
 
-300ms ceiling. Nothing scales from zero. The only loop is the live working mark while a
-bot is really working. If the OS asks for reduced motion, every duration becomes 0.
-Use GPUI `with_animation(id, Animation::new(duration).with_easing(...), ...)`.
+| Name           | ms        | Curve    | Use                                                                                       |
+| -------------- | --------- | -------- | ----------------------------------------------------------------------------------------- |
+| `instant`      | 0         | –        | hover entering rows and menu rows; closing menus, popovers, tooltips; focus rings         |
+| `quick`        | 90        | standard | hover leaving sidebar rows and tiles                                                       |
+| `press`        | 60        | standard | into the pressed fill; release goes back with `hover`                                      |
+| `hover`        | 120       | standard | buttons, pill halves, composer ring, tabs, file cards, switch track, empty → ready Send    |
+| `fade`         | 120       | standard | tooltips in (2px), conversation switch (transcript 60% → 100%), working row, model label  |
+| `grow`         | 100       | emphasis | composer height                                                                            |
+| `pop`          | 160       | emphasis | menus and popovers in: fade + 4px from the trigger's side (GPUI does not scale a `div`)  |
+| `slide`        | 160       | emphasis | tab indicator, switch knob, chevron turning 180° while its menu is open                  |
+| `msg`          | 180       | emphasis | a live message at the bottom: 6px rise + fade (4px for the person's own)                  |
+| `panel`        | 200 / 180 | emphasis | side panel width in / out; the chat column narrows with it, the panel's content does not reflow |
+| `state`        | 240       | emphasis | a bot face changing state                                                                  |
+
+Tooltips wait 500ms, or nothing if another closed within the last 600ms. Pages fade, they do
+not slide. If a `panel` frame takes over 12ms with 500 messages on screen, the chat takes its
+final width at once and only the panel moves.
+
+300ms ceiling for anything that is not a loop. Nothing scales from zero. Loops: a working
+bot's face and the working row's shimmer. Never animated: streaming text, a row becoming
+selected, list reordering, unread dots, focus rings, the caret, scrolling (left to the
+platform; "Jump to latest" jumps), window resizing, skin changes, errors, closing.
+If the OS asks for reduced motion, every duration becomes 0 and no loop runs; tooltip delays
+stay. Use GPUI `with_animation(id, Animation::new(duration).with_easing(...), ...)`.
+
+### 3.6 States and focus
+
+Pressed fills: elevated controls (the 36px round buttons, header pill halves) go to
+`mix(composer, ink, 0.12)`; rows to `raised`, a selected row to `raised_hover`; menu rows and
+quiet buttons to `ink` 8–10%. Disabled: opacity 0.4 (0.5 for Send), no hover, out of Tab.
+
+| Family                       | Rest                                   | Hover                                  | Selected / open                         |
+| ---------------------------- | -------------------------------------- | -------------------------------------- | --------------------------------------- |
+| Sidebar rows, pinned tiles   | none                                   | `raised` 50%                           | `raised`                                |
+| Main bot card (§6)           | `ink` 4% + 1px `ink` 6% ring           | `ink` 6% + ring `ink` 10%              | `raised` + ring `ink` 10%               |
+| Round elevated buttons       | `composer` + inset ring `ink` 6%       | `elevated_hover`                       | hover fill held while its menu/page is open |
+| Header pill halves           | none on `composer`                     | `elevated_hover`                       | hover fill held while panel/menu is open |
+| Composer `+`                 | `ink` 4% fill and ring, `ink_tertiary` | `ink` 8%, `ink_secondary`              | `ink` 8% while its menu is open          |
+| Tabs and segmented controls  | `ink_secondary` on a `ink` 5% track    | `ink` text, `ink` 4%                   | `ink` 10% indicator that slides, `ink` 500 |
+| Switches (32 × 18, knob 14)  | off: track `ink` 18%, knob `ink`       | track `ink` 24% / `ink` 86%            | on: track `ink`, knob `app` (monochrome) |
+| File cards                   | `card` + 1px `ink` 8%                  | ring `ink` 16%                         | –                                       |
+
+**Focus** shows only after keyboard input (`window.last_input_was_keyboard()`), always 2px
+`focus`, in one of two forms: **outside** with a 2px gap (radius + 4) on standalone controls
+(round buttons, composer buttons, switches), **inside** at the element's own radius on anything
+in a list or container (rows, tiles, the main bot card, pill halves, tabs, link buttons in
+cards). Menu rows show focus as their hover fill. Text fields show focus as the `ink` 22%
+ring and the caret, never the blue ring. Rows, tiles and both pill halves are Tab stops; a
+focused row shows its `⋯`.
 
 ## 4. Window shell
 
 ```
 ┌──────────────── sidebar ────────────────┬──────────────── chat area ───────────────────┬── side panel ──┐
-│ [traffic lights / 72px]     (⌕)  (+)    │            ( ● Bot name · model ▾ )          │  optional      │
+│ [traffic lights / 84px]     (⌕)  (+)    │            ( ● Bot name · model ▾ )          │  optional      │
 │ ▢ Inbox                                 │                                              │  400 default   │
-│              ◉ main bot tile             │      transcript column, max 960, centred     │  320–960       │
+│ [◉ Main bot  name / latest line   ]     │      transcript column, max 960, centred     │  320–960       │
 │ ◉ Bot row  name / preview          ⋯    │                                              │                │
 │ ◉ Bot row                               │                                              │                │
 │ …                                       │   ╭ (+)  Message Bot name…        (🎙)(➤) ╮   │                │
@@ -273,13 +350,19 @@ Use GPUI `with_animation(id, Animation::new(duration).with_easing(...), ...)`.
 └─────────────────────────────────────────┴──────────────────────────────────────────────┴────────────────┘
 ```
 
-- Default window 1440×900, minimum 760×520. Remember size and position per display.
-- **Title bar**: transparent (`TitlebarOptions { appears_transparent: true,
-  traffic_light_position: Some(point(px(16.), px(18.))) }`). On macOS reserve 72px at the
-  sidebar's start for the traffic lights. On Windows/Linux draw our own caption buttons
-  (minimise, maximise, close; 46×32 each, hover `ink` 6%, close hover `danger` with
+- Default window 1280×820, centred in the display's visible area and never larger than it;
+  minimum 760×520. Remembering size and position per display is To build.
+- **Title bar**: transparent on every platform (`TitlebarOptions { appears_transparent: true,
+  traffic_light_position: Some(point(px(18.), px(19.))) }`, `app_owns_titlebar_drag: true`).
+  On macOS the traffic lights centre 26px from the top, like the Windows caption glyphs, and
+  84px at the sidebar's start stay clear for them (also at the chat header's start while the
+  sidebar is hidden); in full screen nothing is reserved. When the skin is chosen rather than
+  following the system, the window appearance follows the skin so the lights and window edge
+  match it. On Windows/Linux draw our own caption buttons
+  (minimise, maximise, close; 46×52 each, hover `ink` 6%, close hover `danger` with
   `danger_ink`) at the window's top end, over the chat area. The top 52px is a drag region
-  except over controls.
+  except over controls; on macOS the app moves the window itself, and a double click does what
+  the system setting says.
 - **Sidebar**: `panel` fill, default width 354, drag its end edge (12px hit area) between
   92 (avatar rail) and 400; snaps to the rail below 200. Maximum 280 while the side panel is
   open. `Cmd/Ctrl+\` toggles it; below 960px window width it overlays the chat with a scrim.
@@ -357,7 +440,8 @@ On launch: `CredentialStore::load`; if a client comes back, skip this screen. An
 
 ## 6. Sidebar
 
-Top row (60px tall, 12px top padding): traffic-light space, then at the end two 36px round
+Top row (56px tall, 12px top padding): traffic-light space (84px on macOS outside full
+screen, 8px elsewhere), then at the end, 16px from the edge, two 36px round
 icon buttons 10px apart, each a charcoal "elevated control": `composer` fill (`#1f1f1f`
 Midnight, `#ffffff` Daylight), a 1px inset ring of `ink` at 6%, icon in `ink` at 90%
 (`corner-search` 16px: a 5px-radius ring and handle at stroke 1.7; Lucide `plus` at 20px,
@@ -372,21 +456,32 @@ Cmd/Ctrl+Shift+N starts another conversation with it.
   space…". With one Space the account menu carries the same rows under the email. The
   selection persists per server.
 - **Inbox** opens from the account menu. Each bot has its own Inbox tab in the right panel.
-- **Main bot tile** is centred, 95×92, with a 60px avatar, a gold star badge and its name below.
-  Hovering a tile with a preview for 250ms opens a 260px card beside it.
-  Tab focuses pinned tiles. Enter or Space opens the bot, and the Menu key or Shift+F10 opens its actions.
+- **Main bot card**: the first pinned bot (or a pack's `primaryTile` bot) opens the list as a
+  full-width card, x 12–342, 72 tall, radius 12, 8px above and below. Face 48 (§3.2) 12px from
+  the start, vertically centred; from 72px: name 15/22/600 `ink`, 2px above the latest line
+  13/18 `ink_secondary` (`warning` when it waits for you, "Working…" while it works). Status dot
+  and unread dot as on rows. Hover turns the face and reveals the row's 24px `⋯` (Rename…, New
+  conversation, Open details, Unpin, Remove); nothing else. No badge. No pinned bot, no card:
+  nobody is promoted silently. Groups never take it; search hides it; it scrolls with the list.
+  In a narrow rail it becomes a 56 × 56 tile (radius 12, face 44, name in the tooltip).
+- **Other pinned bots** follow as 78 × 92 tiles (radius 8, avatar 56, name below). Hovering one
+  with a preview for 250ms opens a 260px card beside it (`pop`).
+  Tab focuses the card and tiles. Enter or Space opens the bot, and the Menu key or Shift+F10 opens its actions.
 - **Bot rows**: 54px tall, radius 8, 8px inline padding, 10px gap. Avatar 42 with a −3px
   margin, so it takes 36px and names start 66px from the sidebar's edge. Name 14/20/500
   `ink`, 3px above the last-message preview 13/18/400 `ink_secondary`, one line each, the
   pair centred (GPUI rounds that half pixel down; the text column starts 1px lower to land on
-  the browser's pixel rows). Selected row `raised`; hover `raised` at 50%. A 24px `ellipsis`
+  the browser's pixel rows). Selected row `raised`; hover `raised` at 50%, in at once and out
+  in `quick`; pressed and focus in §3.6. A 24px `ellipsis`
   button appears at the row's end on hover, keyboard focus
   and touch: Rename…, New conversation, Open details, Remove. Right-click opens the same
-  menu. Status marks sit on the avatar's bottom-end corner: working (pulsing 8px
-  `success` dot, the only loop), needs you (8px `accent` dot).
+  menu. Status marks sit on the avatar's bottom-end corner: working (8px `success` dot, still;
+  the face carries the motion), needs you (8px `warning` dot).
 - Render the list with `uniform_list` (fixed 54px rows); 2,000 bots must scroll at 120fps.
-- **Footer** (56px): profile button (32px avatar + "You" 13/500) at the start; **Store**
-  icon button (`layout-grid`, 36px) at the end, opening the Marketplace page.
+- **Footer** (60px: 8px top, 16px bottom and sides): profile button (36px avatar + the
+  person's name 14/20/500, 8px apart) at the start; at the end two 36px elevated controls 8px
+  apart: **Plugins** (`apps` 16px), opening the Marketplace page, and **Workspace**
+  (`settings` 16px), opening the workspace panel.
 - Empty (no bots): one line "No bots in this space yet." and a pill "New bot…".
 - Loading: keep the header; reserve rows; show a spinner only after 300ms.
 - Error: inline row "Couldn't load bots." + text button "Try again".
@@ -396,11 +491,22 @@ Cmd/Ctrl+Shift+N starts another conversation with it.
 ### 7.1 Header pill
 
 Centred 10px from the top, 41px tall, `composer` fill, 1px ring of `ink` at 6%, full
-radius, padding 9.5px block, 10px start, 12px end. Contents 8px apart: avatar 22, bot name
-14/20/500, a 1px × 16px `hairline` divider, the
-model name 13/400 `ink_secondary` + `chevron-down` 14 in an agent chat. Clicking the model
-opens its picker. Clicking the bot name opens the side panel.
-No other header buttons.
+radius. Two halves, each its own round button with padding 9px top, 8px bottom, 9px start,
+11px end inside the ring and a hover fill of `composer` mixed 7% toward `ink`: the bot's
+avatar 22 and name 14/20/500, 8px apart; then, in an agent chat, a 1px × 16px divider of
+`ink` at 12% and the model's mark 14, its name 13/400 `ink_secondary` and `chevron-down` 14
+`ink_tertiary`, 4px apart. Clicking the model
+opens its picker (`pop`, 4px down from the pill; the chevron turns 180° in `slide` and the half
+keeps its hover fill while open). After a choice the model label fades in from 40% (`fade`) and
+the bot's faces in the conversation blink once. Clicking the bot name opens the side panel.
+The face in the pill turns toward the pointer; states and focus of both halves are in §3.6.
+
+The Details tab's **Model** row uses the same picker. Its trigger is a quiet pill at the row's
+end: 28 tall, padding 10 / 8, full radius, mark 14, name 13 (`ink` once chosen,
+`ink_secondary` for "Choose a model"), `chevron-down` 14; no fill at rest, `ink` 6% on hover and
+while open; the menu opens below it, aligned to its end.
+No other header buttons. On Windows and Linux a 138px spacer on each side keeps the pill
+clear of the caption buttons; macOS has none.
 
 ### 7.2 Transcript
 
@@ -444,9 +550,12 @@ under reduced motion). It replaces no content and reserves its slot so nothing j
 - Contents: `+` (28px round, `ink` 4% fill and ring, a 20px plus of stroke 2 in
   `ink_tertiary`; opens Attach file… [`artifacts/create` is Live; screen To build]);
   multi-line field 14/20 with 4px block and 2px inline padding, 6px after the `+`, `dir`
-  auto, placeholder "Message {bot name}" in `ink` at 36%, grows to 40% of window height then scrolls; a mic
+  auto, placeholder "Message {bot name}" in `ink_secondary`, grows to 40% of window height then scrolls; a mic
   28px (Planned, hidden); the round 28px **Send** button in the bot's identity colour with
-  `arrow-up` in its ink.
+  `arrow-up` in its ink. While the field is blank, Send stays in the bot's colour but quiet
+  (fill identity α 0.14, arrow identity α 0.55, not a Tab stop), and fills in `hover` time when
+  text arrives; in a group the identity is `ink`. The composer's height follows its text in
+  `grow`.
 - Send is disabled (50% opacity) when the field is blank or over 100,000 UTF-16 units
   (`InvalidMessage`); over the limit, a 12px `danger` count shows at the field's end.
 - Enter sends, Shift+Enter breaks a line, IME composition never sends. Up arrow in an
@@ -493,7 +602,8 @@ Start-aligned, `composer` fill, radius 18, 440px wide. Answered with `threads/an
 
 - New conversation: the bot's 64px avatar, its name 20/600 and one line 15/22
   `ink_secondary` "What should {name} do?", centred 30% from the top; the composer stays
-  where it always is.
+  where it always is. The face follows the pointer anywhere in the chat area and looks down
+  toward the composer while the focused field holds text.
 - History failed: inline card in the column, "Couldn't load this conversation." + "Try
   again".
 
@@ -741,7 +851,8 @@ selected. An `superbot://` link handler is Planned; do not register one yet.
 
 - **Transcript**: every bubble not from me is start-aligned. Above the first bubble of a
   run: speaker name 13/600 in the bot's identity colour (bots) or `ink_secondary`
-  (people), with a 20px avatar at the bubble's start. My bubbles stay end-aligned with no
+  (people), inset 12px to line up with the bubble's text, 4px above it, with no avatar.
+  Bubbles not from me use `card`. My bubbles stay end-aligned with no
   name. A member joining or leaving is a centred 12px `ink_tertiary` line.
 - **Group conversations**: the header pill shows up to 3 overlapping 24px bot avatars
   (2px `panel` ring) and the group's name. `@` in the composer opens a 30px-row menu of
@@ -785,9 +896,10 @@ No new toggles.
 
 ## 15. Accessibility (GPUI)
 
-- Focus: every interactive element has a `FocusHandle`, a visible 2px `focus` ring
-  offset 2px (menu rows show focus as their hover fill), and is reachable with Tab in
-  reading order. Never trap Tab except in dialogs; Escape returns focus to the opener.
+- Focus: every interactive element has a `FocusHandle`, a visible 2px `focus` ring after
+  keyboard input (outside with a 2px gap, or inside in lists and containers, §3.6; menu rows
+  show focus as their hover fill; text fields as their ring and caret), and is reachable with
+  Tab in reading order. Never trap Tab except in dialogs; Escape returns focus to the opener.
 - Hover-only controls (row `⋯`, bubble actions, Copy) also show on keyboard focus.
 - Contrast: text 4.5:1, focus ring and control edges 3:1 on every surface, both skins.
 - Right-to-left: mirror the shell (sidebar on the end side) and directional icons.
