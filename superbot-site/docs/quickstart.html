@@ -97,6 +97,7 @@ cargo install --path native/plugin-kit --locked
 superbot server http://127.0.0.1:5173
 superbot login</code></pre>
       </figure>
+      <p>The desktop installers build and install both tools too: <code>scripts/install-native.ps1</code> on Windows, <code>bash scripts/install-native-macos.sh</code> on macOS, and <code>bash scripts/install-native-linux.sh</code> on Linux. On a Linux machine without a desktop, <code>bash scripts/install-native-linux.sh --cli-only</code> installs just the two commands in <code>~/.local/bin</code>; sign-in needs an unlocked Secret Service in your D-Bus session.</p>
       <p>Both programs share the server address and the saved session, which lives in your system credential store. If your account belongs to more than one Space, add <code>--space</code> with the Space's exact name or ID to each command.</p>
 
       <h2 id="scaffold">Step 3: Create the app</h2>
