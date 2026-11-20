@@ -4,6 +4,7 @@ mod approvals;
 mod local_app_chat;
 mod local_chat;
 mod roster;
+mod workspaces;
 
 use std::{
     io::{self, IsTerminal, Write},
@@ -51,6 +52,9 @@ enum Command {
     Logout,
     /// List available spaces and agents
     List,
+    /// Create, join, and manage workspaces
+    #[command(subcommand)]
+    Workspaces(workspaces::WorkspaceCommand),
     /// Import agent names from a local JSON file into the selected Space
     ImportBots {
         file: std::path::PathBuf,
@@ -110,6 +114,15 @@ async fn run(args: Args) -> Result<()> {
                 }
             }
             return Ok(());
+        }
+        Some(Command::Workspaces(command)) => {
+            return workspaces::run(
+                client,
+                args.server.is_some(),
+                args.space.as_deref(),
+                command,
+            )
+            .await;
         }
         Some(Command::ImportBots { file, dry_run }) => {
             let destination = args

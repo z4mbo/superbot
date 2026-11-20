@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fs, path::Path};
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{ensure, Context, Result};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use superbot_client::Client;
@@ -70,19 +70,7 @@ pub async fn import(
     names: Vec<String>,
     dry_run: bool,
 ) -> Result<()> {
-    let spaces = client.list_spaces().await?;
-    let space = if let Some(space) = spaces.iter().find(|s| s.id == destination) {
-        space
-    } else {
-        let mut matches = spaces
-            .iter()
-            .filter(|s| super::name_matches(&s.name, destination));
-        let space = matches.next().context("No matching Space on this server")?;
-        if matches.next().is_some() {
-            bail!("Several Spaces have that name. Use --space with the Space ID.");
-        }
-        space
-    };
+    let space = crate::workspaces::resolve_space(&client, destination).await?;
     let service = Features::new(client);
     let api = service.space(space.id.clone());
     let active = api.list_bots().await?;

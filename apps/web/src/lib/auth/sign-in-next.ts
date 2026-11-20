@@ -22,6 +22,7 @@ export function signInNext(next: string | null): string | null {
   }
   // A connector sign-in started on another device lands here signed out; finish it after sign-in.
   if (
+    next === "/workspaces" ||
     next === "/integrations/setup" ||
     next === "/admin/plugins" ||
     next === "/admin/access" ||
@@ -40,5 +41,5 @@ export function signInNext(next: string | null): string | null {
 
 /** Where a new account starts: an invite it came for, otherwise onboarding. */
 export function newAccountDestination(next: string | null): string {
-  return next && INVITE_PATH.test(next) ? next : "/onboarding";
+  return next && INVITE_PATH.test(next) ? next : "/workspaces";
 }

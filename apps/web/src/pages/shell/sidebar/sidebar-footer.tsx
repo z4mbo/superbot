@@ -43,6 +43,7 @@ type Props = {
   usage?: string | null;
   onUsage?: () => void;
   onInvite?: () => void;
+  onWorkspaces?: () => void;
   onLogOut: () => void;
   signingOut: boolean;
   logOutError: string | null;
@@ -76,6 +77,7 @@ export function SidebarFooter({
   usage,
   onUsage,
   onInvite,
+  onWorkspaces,
   onLogOut,
   signingOut,
   logOutError,
@@ -156,6 +158,17 @@ export function SidebarFooter({
               onSwitch={onSwitchOrganization}
               onCreate={onCreateOrganization}
             />
+            {onWorkspaces ? (
+              <Button
+                variant="ghost"
+                size="lg"
+                className="w-full justify-start gap-2.5 font-normal"
+                onClick={onWorkspaces}
+              >
+                <UserRound className="text-muted-foreground" strokeWidth={1.75} />
+                <Trans>Workspaces</Trans>
+              </Button>
+            ) : null}
             {mini ? (
               <Button
                 variant="ghost"

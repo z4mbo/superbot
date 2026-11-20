@@ -569,6 +569,12 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
           ) : null}
         </>
       )}
+      <a
+        href="/welcome/"
+        className="block text-center text-body-sm text-muted-foreground underline"
+      >
+        <Trans>Discover Superbot</Trans>
+      </a>
     </AuthFrame>
   );
 }

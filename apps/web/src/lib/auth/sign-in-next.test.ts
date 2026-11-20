@@ -29,6 +29,6 @@ it("returns to integration setup, plugin admin, MCP sign-in and invite links onl
 it("starts a new account in onboarding unless it came for an invite or invitation", () => {
   expect(newAccountDestination("/invite/abc_DEF-123")).toBe("/invite/abc_DEF-123");
   expect(newAccountDestination("/join/abc_DEF-123")).toBe("/join/abc_DEF-123");
-  expect(newAccountDestination("/integrations/setup")).toBe("/onboarding");
-  expect(newAccountDestination(null)).toBe("/onboarding");
+  expect(newAccountDestination("/integrations/setup")).toBe("/workspaces");
+  expect(newAccountDestination(null)).toBe("/workspaces");
 });

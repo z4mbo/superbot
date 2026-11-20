@@ -432,6 +432,11 @@ function ShellSidebarFooter({
           setMenuOpen(false);
           openSettings("usage");
         }}
+        onWorkspaces={() => {
+          setMenuOpen(false);
+          closeMobileSidebar();
+          navigate("/workspaces");
+        }}
         onInvite={
           referral
             ? () => {

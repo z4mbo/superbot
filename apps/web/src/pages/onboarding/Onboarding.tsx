@@ -1,6 +1,6 @@
-import { useLingui } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { useEffect, useId, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { AccountMenu } from "../../components/account/AccountMenu";
 import { SignupSurvey } from "../../components/account/SignupSurvey";
 import { PageLoading } from "../../components/PageLoading";
@@ -98,6 +98,9 @@ export function OnboardingPage() {
   return (
     <div className="min-h-full bg-background px-6 py-12" data-rakazo-surface="onboarding">
       <AccountMenu signingOut={signingOut} onLogOut={() => void logOut()} />
+      <Link to="/workspaces" className="text-body text-muted-foreground underline">
+        <Trans>Workspaces</Trans>
+      </Link>
       <div className="mx-auto w-full max-w-[560px]">
         {step === "survey" ? <SignupSurvey onDone={() => setSurveyDone(true)} /> : null}
         {step === "model" ? <ModelStep model={model} fieldId={fieldId} /> : null}
