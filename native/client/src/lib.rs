@@ -6,7 +6,7 @@ mod protocol;
 mod server_selection;
 
 use std::pin::Pin;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use eventsource_stream::Eventsource;
 use futures_util::{Stream, StreamExt};
@@ -17,14 +17,14 @@ use uuid::Uuid;
 
 pub use credentials::CredentialStore;
 pub use local_history::LocalHistoryReceipt;
-pub use server_selection::{remember_space, remembered_space};
 pub use protocol::{
     Agent, Error, Message, MessageAuthor, SendReceipt, Space, ThreadEvent, ThreadSnapshot,
-    ThreadTarget,
+    ThreadTarget, SERVER_UNREACHABLE,
 };
 pub use server_selection::{
     remember_server, remember_sign_in_server, selected_server, settings_directory,
 };
+pub use server_selection::{remember_space, remembered_space};
 
 pub const DEFAULT_SERVER: &str = "http://127.0.0.1:5173";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -499,6 +499,14 @@ async fn checked(response: Response) -> Result<Response, Error> {
         return Ok(response);
     }
     let status = response.status().as_u16();
+    if (502..=504).contains(&status) {
+        let retry_after = response
+            .headers()
+            .get(header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| protocol::retry_after(value, SystemTime::now()));
+        return Err(Error::Unavailable { retry_after });
+    }
     let payload = tokio::time::timeout(REQUEST_TIMEOUT, response.json::<Value>()).await;
     Err(Error::server(
         status,

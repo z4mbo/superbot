@@ -1,5 +1,11 @@
+use std::time::{Duration, SystemTime};
+
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+pub const SERVER_UNREACHABLE: &str =
+    "Couldn't reach the server. Check that it is running and try again.";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -13,6 +19,8 @@ pub enum Error {
     InvalidMessage,
     #[error("Could not reach Superbot: {0}")]
     Transport(reqwest::Error),
+    #[error("{SERVER_UNREACHABLE}")]
+    Unavailable { retry_after: Option<Duration> },
     #[error("Superbot returned HTTP {status}: {message}")]
     Server {
         status: u16,
@@ -34,14 +42,7 @@ impl Error {
     }
 
     pub fn is_retryable(&self) -> bool {
-        matches!(
-            self,
-            Self::Transport(_)
-                | Self::Server {
-                    status: 502..=504,
-                    ..
-                }
-        )
+        matches!(self, Self::Transport(_) | Self::Unavailable { .. })
     }
 
     pub(crate) fn transport(error: reqwest::Error) -> Self {
@@ -55,6 +56,9 @@ impl Error {
             .and_then(Value::as_u64)
             .filter(|status| (400..=599).contains(status))
             .map_or(status, |status| status as u16);
+        if (502..=504).contains(&status) {
+            return Self::Unavailable { retry_after: None };
+        }
         let code = rpc.get("code").and_then(Value::as_str).map(str::to_owned);
         let message = rpc
             .get("message")
@@ -74,6 +78,44 @@ impl Error {
             code,
             message,
         }
+    }
+}
+
+pub(crate) fn retry_after(value: &str, now: SystemTime) -> Option<Duration> {
+    let value = value.trim();
+    if !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Some(Duration::from_secs(value.parse().unwrap_or(u64::MAX)));
+    }
+    let date = DateTime::parse_from_rfc2822(value).ok()?;
+    Some(
+        date.signed_duration_since(DateTime::<Utc>::from(now))
+            .to_std()
+            .unwrap_or_default(),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retry_after_accepts_seconds_and_http_dates() {
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(784_111_777);
+        assert_eq!(retry_after(" 3 ", now), Some(Duration::from_secs(3)));
+        assert_eq!(
+            retry_after("Sun, 06 Nov 1994 08:49:40 GMT", now),
+            Some(Duration::from_secs(3))
+        );
+        assert_eq!(
+            retry_after("Sun, 06 Nov 1994 08:49:36 GMT", now),
+            Some(Duration::ZERO)
+        );
+        assert_eq!(retry_after("soon", now), None);
+        assert_eq!(retry_after("-2", now), None);
+        assert_eq!(
+            retry_after("999999999999999999999999", now),
+            Some(Duration::from_secs(u64::MAX))
+        );
     }
 }
 

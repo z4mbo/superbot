@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 async-stream = "0.3"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 eventsource-stream = "0.2"
 futures-util = "0.3"
 keyring = "3.6"

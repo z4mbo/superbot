@@ -27,6 +27,7 @@ pub use conversation::Chat;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Session {
+    /// A saved session is being checked, or its check stopped with an error.
     Restoring,
     SignedOut,
     SignedIn,
@@ -352,21 +353,13 @@ impl Desktop {
             return;
         };
         let work = async move {
-            let Some(client) = CredentialStore::load(&client).await? else {
-                return Ok(None);
-            };
-            let api = Api::new(client);
-            match tokio::try_join!(api.me(), api.initial_navigation()) {
-                Ok((me, navigation)) => {
-                    let navigation = onboarding::resumed(&api, &me, navigation).await?;
-                    Ok(Some((api, me, navigation)))
-                }
-                Err(error) if error.is_unauthorized() => {
-                    CredentialStore::delete(&api.client).await.ok();
-                    Ok(None)
-                }
-                Err(error) => Err(error),
-            }
+            CredentialStore::restore(&client, |client| async move {
+                let api = Api::new(client);
+                let (me, navigation) = tokio::try_join!(api.me(), api.initial_navigation())?;
+                let navigation = onboarding::resumed(&api, &me, navigation).await?;
+                Ok((api, me, navigation))
+            })
+            .await
         };
         self.call(window, cx, work, |this, result, window, cx| match result {
             Ok(Some((api, me, navigation))) => {
@@ -375,7 +368,9 @@ impl Desktop {
             }
             Ok(None) => this.session = Session::SignedOut,
             Err(error) => {
-                this.session = Session::SignedOut;
+                if matches!(error, Error::InvalidSession) {
+                    this.session = Session::SignedOut;
+                }
                 this.sign_in.error = Some(api::explain(&error));
             }
         });

@@ -7382,6 +7382,7 @@ name = "superbot-client"
 version = "0.1.0"
 dependencies = [
  "async-stream",
+ "chrono",
  "eventsource-stream",
  "futures-util",
  "keyring",

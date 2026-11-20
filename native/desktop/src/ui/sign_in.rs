@@ -121,10 +121,13 @@ impl Desktop {
         div()
             .size_full()
             .flex()
+            .flex_col()
             .items_center()
             .justify_center()
+            .gap_5()
             .window_control_area(WindowControlArea::Drag)
             .child(agent_face(theme.identity_for("blue"), px(56.)))
+            .children(self.sign_in.error.clone().map(|error| error_line(error, theme).w(px(360.))))
             .into_any_element()
     }
 }
