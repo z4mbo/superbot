@@ -77,41 +77,43 @@ pub fn traffic_lights_reserve(_window: &Window) -> Pixels {
     px(0.)
 }
 
-/// Moves the window from an empty strip. macOS gives the app ownership of presses in the title bar.
-pub fn drag_region(strip: Div, id: &'static str, _window: &mut Window, _cx: &mut App) -> Stateful<Div> {
+/// The app owns macOS title-bar presses, and GPUI's Linux backends ignore caption hit tests.
+pub const MANUAL_WINDOW_DRAG: bool = cfg!(any(target_os = "macos", target_os = "linux"));
+
+/// Moves the window from an empty strip.
+pub fn drag_region(strip: Div, id: &'static str, window: &mut Window, cx: &mut App) -> Stateful<Div> {
     let strip = strip.id(id);
-    #[cfg(not(target_os = "macos"))]
-    return strip.window_control_area(WindowControlArea::Drag);
-    #[cfg(target_os = "macos")]
-    {
-        let window = _window;
-        let state = window.use_keyed_state(id, _cx, |_, _| false);
-        strip
-            .on_mouse_down_out(window.listener_for(&state, |should_move, _, _, _| *should_move = false))
-            .on_mouse_down(
-                MouseButton::Left,
-                window.listener_for(&state, |should_move, _, window, cx| {
-                    *should_move = !window.default_prevented();
-                    if *should_move {
-                        gpui_kit::base::GlobalState::suppress_text_selection(cx);
-                    }
-                }),
-            )
-            .on_mouse_up(
-                MouseButton::Left,
-                window.listener_for(&state, |should_move, _, _, _| *should_move = false),
-            )
-            .on_mouse_move(window.listener_for(&state, |should_move, event: &MouseMoveEvent, window, cx| {
-                if event.pressed_button != Some(MouseButton::Left) {
-                    *should_move = false;
-                } else if std::mem::take(should_move) {
-                    gpui_kit::base::TextSelection::end(window, cx);
-                    cx.stop_active_drag(window);
-                    window.start_window_move();
-                }
-            }))
-            .on_double_click(|_, window, _| window.titlebar_double_click())
+    if !MANUAL_WINDOW_DRAG {
+        return strip.window_control_area(WindowControlArea::Drag);
     }
+    let state = window.use_keyed_state(id, cx, |_, _| false);
+    let strip = strip
+        .on_mouse_down_out(window.listener_for(&state, |should_move, _, _, _| *should_move = false))
+        .on_mouse_down(
+            MouseButton::Left,
+            window.listener_for(&state, |should_move, _, window, cx| {
+                *should_move = !window.default_prevented();
+                if *should_move {
+                    gpui_kit::base::GlobalState::suppress_text_selection(cx);
+                }
+            }),
+        )
+        .on_mouse_up(
+            MouseButton::Left,
+            window.listener_for(&state, |should_move, _, _, _| *should_move = false),
+        )
+        .on_mouse_move(window.listener_for(&state, |should_move, event: &MouseMoveEvent, window, cx| {
+            if event.pressed_button != Some(MouseButton::Left) {
+                *should_move = false;
+            } else if std::mem::take(should_move) {
+                gpui_kit::base::TextSelection::end(window, cx);
+                cx.stop_active_drag(window);
+                window.start_window_move();
+            }
+        }));
+    #[cfg(target_os = "macos")]
+    let strip = strip.on_double_click(|_, window, _| window.titlebar_double_click());
+    strip
 }
 
 /// A full page beside the sidebar. Every page shares one inset and one width, and its top strip

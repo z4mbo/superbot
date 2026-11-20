@@ -10,7 +10,7 @@ use superbot_features::local_app_records::{AppField, AppValue, AppValues, Grante
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::agent_panel::round_button;
-use crate::ui::{chip, drag_region, empty_line, error_line, field_box, icon, pill_button, Tone, Type};
+use crate::ui::{chip, drag_region, empty_line, error_line, field_box, icon, pill_button, Tone, Type, MANUAL_WINDOW_DRAG};
 
 use super::{has_dates, today, Addition, Chosen, Save};
 
@@ -152,7 +152,7 @@ impl Desktop {
             .child(
                 round_button("app-assist-close", "x", false, &theme, |button| {
                     button
-                        .when(cfg!(target_os = "macos"), |button| button.occlude())
+                        .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
                         .tooltip(|window, cx| Tooltip::new("Close").build(window, cx))
                         .on_click(cx.listener(|this, _, _, cx| this.close_app_assist(cx)))
                 }),

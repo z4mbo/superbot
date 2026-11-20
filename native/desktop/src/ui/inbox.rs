@@ -11,7 +11,7 @@ use crate::api::{self, Target};
 use crate::app::Desktop;
 use crate::clock;
 use crate::theme::{radius, ActiveTheme, Theme};
-use crate::ui::{drag_region, error_line, icon, Type};
+use crate::ui::{drag_region, error_line, icon, Type, MANUAL_WINDOW_DRAG};
 
 /// The reference's 320, and room for the caption buttons that share its header off macOS.
 const PANEL_WIDTH: Pixels = if cfg!(target_os = "macos") { px(320.) } else { px(360.) };
@@ -252,7 +252,7 @@ impl Desktop {
                 header.child(
                     crate::ui::agent_panel::round_button("inbox-mark-all", "check-check", false, &theme, |button| {
                         button
-                            .when(cfg!(target_os = "macos"), |button| button.occlude())
+                            .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
                             .tooltip(|window, cx| {
                                 gpui_kit::component::tooltip::Tooltip::new("Mark all as read").build(window, cx)
                             })
@@ -263,7 +263,7 @@ impl Desktop {
             .child(
                 crate::ui::agent_panel::round_button("inbox-close", "x", false, &theme, |button| {
                     button
-                        .when(cfg!(target_os = "macos"), |button| button.occlude())
+                        .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
                         .tooltip(|window, cx| gpui_kit::component::tooltip::Tooltip::new("Close inbox").build(window, cx))
                         .on_click(cx.listener(|this, _, _, cx| this.toggle_inbox(cx)))
                 }),
