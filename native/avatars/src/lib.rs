@@ -56,6 +56,9 @@ pub struct Avatars {
     engine: Option<Arc<engine::Engine>>,
     #[cfg(feature = "local-engine")]
     looks: Mutex<HashMap<(String, String, String, Option<String>, Option<String>), Look>>,
+    /// Watched marks the engine is turning toward the pointer.
+    #[cfg(feature = "local-engine")]
+    held: std::collections::HashSet<SharedString>,
     /// Frames of marks no longer drawn, freed at the next draw.
     #[cfg(feature = "local-engine")]
     orphans: Arc<Mutex<Vec<Arc<RenderImage>>>>,
@@ -115,6 +118,8 @@ impl Avatars {
             engine: None,
             #[cfg(feature = "local-engine")]
             looks: Mutex::default(),
+            #[cfg(feature = "local-engine")]
+            held: Default::default(),
             #[cfg(feature = "local-engine")]
             orphans: Arc::default(),
         }
@@ -225,6 +230,7 @@ pub fn follow(key: &SharedString, position: Point<Pixels>, cx: &mut App) -> bool
             [x - reach, y - reach, reach * 2., reach * 2.],
             [f32::from(position.x), f32::from(position.y)],
         );
+        cx.global_mut::<Avatars>().held.insert(key.clone());
         return false;
     }
     let x = (f32::from(position.x - center.x) / watched.reach).clamp(-1., 1.);
@@ -242,7 +248,10 @@ pub fn rest(key: &SharedString, cx: &mut App) -> bool {
     if let Some(avatars) = cx.try_global::<Avatars>() {
         if let (Some(live), Some(engine)) = (avatars.watched.get(key).and_then(|watched| watched.live), avatars.live())
         {
-            engine.release(live);
+            let engine = engine.clone();
+            if cx.global_mut::<Avatars>().held.remove(key) {
+                engine.release(live);
+            }
             return false;
         }
     }
@@ -255,6 +264,15 @@ pub fn rest(key: &SharedString, cx: &mut App) -> bool {
         gaze.release(now);
     }
     true
+}
+
+/// Turns a watched mark back to rest once the pointer has left the window. On Windows,
+/// gpui-pre-windows 0.3.12 reports leaving the window only as the window's hover state and never
+/// as a mouse exit, so a region the pointer left by the window edge would stay hovered.
+fn release_outside_window(key: &SharedString, window: &mut Window, cx: &mut App) {
+    if cfg!(target_os = "windows") && !window.is_window_hovered() && rest(key, cx) {
+        window.on_next_frame(|window, _| window.refresh());
+    }
 }
 
 /// Makes `region` (the row, tile or pill around a watched mark) turn the mark toward the pointer
@@ -363,7 +381,8 @@ impl RenderOnce for Mark {
                 let rate = frames.gaze_rate;
                 slot.child(
                     canvas(
-                        move |bounds, _, cx| {
+                        move |bounds, window, cx| {
+                            release_outside_window(&key, window, cx);
                             if cx.try_global::<Avatars>().is_some_and(Avatars::has_pack) {
                                 let watched = Watched { bounds, reach: side / 2., rate, live: None };
                                 cx.global_mut::<Avatars>().watched.insert(key, watched);
@@ -467,9 +486,10 @@ impl Mark {
         let slot = match self.watch.clone() {
             Some(watch) => slot.child(
                 canvas(
-                    move |bounds, _, cx| {
+                    move |bounds, window, cx| {
                         let watched = Watched { bounds, reach: side / 2., rate: 0., live: Some(key) };
-                        cx.global_mut::<Avatars>().watched.insert(watch, watched);
+                        cx.global_mut::<Avatars>().watched.insert(watch.clone(), watched);
+                        release_outside_window(&watch, window, cx);
                     },
                     |_, _, _, _| {},
                 )
