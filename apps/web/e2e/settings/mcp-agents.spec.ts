@@ -77,7 +77,7 @@ test("a server the user adds reaches every bot until they pick some", async ({
     });
   });
 
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await openIntegrationsAdd(page, "Manage MCP servers");
   await page.getByLabel("Server name").fill("Search Console");
   await page.getByLabel("Server URL").fill(server.endpoint!);
@@ -182,7 +182,7 @@ test("shows each server's bots and state with several bots", async ({ page }, te
     }),
   );
 
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await openIntegrationsAdd(page, "Manage MCP servers");
   const rows = page.getByTestId("mcp-server");
   await expect(rows).toHaveCount(servers.length);

@@ -10,7 +10,7 @@ plugin with the same name or slug opens as an ordinary app and can't reach T3.
 
 ## Set up the inbox
 
-1. In **Store → Discover**, install **T3 Code inbox** in the Space where bots
+1. In **Store → Plugins → Discover**, install **T3 Code inbox** in the Space where bots
    should propose work.
 2. On its page, grant **Requests** and **Request guide** to each bot that
    proposes requests. Keep **Dispatches** ungranted, so only you write
@@ -18,7 +18,7 @@ plugin with the same name or slug opens as an ordinary app and can't reach T3.
 
 ## Connect T3 and start a request
 
-1. Open **Store → Installed → T3 Code inbox**.
+1. Open **Store → Plugins → Installed → T3 Code inbox**.
 2. Paste the MCP URL from T3's **Use T3 Code in another app (MCP)** settings
    and choose **Connect T3**. It must be an `https://` address ending in
    `/mcp`, or `http://127.0.0.1:PORT/mcp` on this computer. In the T3 page

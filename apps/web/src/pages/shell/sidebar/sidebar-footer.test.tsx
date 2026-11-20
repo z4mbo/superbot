@@ -134,7 +134,7 @@ it("opens integrations and keeps the existing account actions", async () => {
   const onIntegrations = vi.fn();
   await render("Demo User", undefined, onIntegrations, vi.fn());
   const connect = [...host.querySelectorAll("button")].find((button) =>
-    button.textContent?.includes("Connect apps"),
+    button.textContent?.includes("Store"),
   )!;
   await act(async () => connect.click());
   expect(onIntegrations).toHaveBeenCalledOnce();
@@ -162,7 +162,7 @@ it("falls back when app artwork fails and accepts replacement artwork", async ()
     { name: "Slack", logo: "https://example.test/slack.svg" },
   ]);
   const pill = [...host.querySelectorAll("button")].find((button) =>
-    button.textContent?.includes("Connect apps"),
+    button.textContent?.includes("Store"),
   )!;
   await act(async () => pill.querySelector("img")!.dispatchEvent(new Event("error")));
   expect(pill.querySelector("img")).toBeNull();
