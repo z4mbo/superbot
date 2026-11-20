@@ -37,6 +37,7 @@ struct Watched {
     reach: f32,
     rate: f32,
     /// The engine's own mark, when a local avatar engine draws it.
+    #[cfg(feature = "local-engine")]
     live: Option<u64>,
 }
 
@@ -237,7 +238,7 @@ pub fn follow(key: &SharedString, position: Point<Pixels>, cx: &mut App) -> bool
             [f32::from(position.x), f32::from(position.y)],
         );
         cx.global_mut::<Avatars>().held.insert(key.clone());
-        return true;
+        return false;
     }
     let x = (f32::from(position.x - center.x) / watched.reach).clamp(-1., 1.);
     let y = (-f32::from(position.y - center.y) / watched.reach).clamp(-1., 1.);
@@ -276,9 +277,22 @@ pub fn rest(key: &SharedString, cx: &mut App) -> bool {
 /// gpui-pre-windows 0.3.12 reports leaving the window only as the window's hover state and never
 /// as a mouse exit, so a region the pointer left by the window edge would stay hovered.
 fn release_outside_window(key: &SharedString, window: &mut Window, cx: &mut App) {
-    if cfg!(target_os = "windows") && !window.is_window_hovered() && rest(key, cx) {
-        window.on_next_frame(|window, _| window.refresh());
+    if cfg!(target_os = "windows") && !window.is_window_hovered() {
+        if rest(key, cx) {
+            window.on_next_frame(|window, _| window.refresh());
+        }
+        pulse_for_input(window, cx);
     }
+}
+
+/// Pointer input for marks the engine draws waits for the next pulse rather than redrawing.
+fn pulse_for_input(window: &mut Window, cx: &mut App) {
+    #[cfg(feature = "local-engine")]
+    if cx.try_global::<Avatars>().and_then(Avatars::live).is_some_and(|engine| engine.animating()) {
+        start_pulse(window, cx);
+    }
+    #[cfg(not(feature = "local-engine"))]
+    let _ = (window, cx);
 }
 
 /// Makes `region` (the row, tile or pill around a watched mark) turn the mark toward the pointer
@@ -290,16 +304,19 @@ pub fn watch_region(region: Stateful<Div>, key: SharedString) -> Stateful<Div> {
             if follow(&key, event.position, cx) {
                 window.refresh();
             }
+            pulse_for_input(window, cx);
         })
         .on_hover(move |hovered, window, cx| {
             if !hovered && rest(&leaving, cx) {
                 window.refresh();
             }
+            pulse_for_input(window, cx);
         })
         .on_mouse_down(MouseButton::Left, move |_, window, cx| {
             if rest(&pressing, cx) {
                 window.refresh();
             }
+            pulse_for_input(window, cx);
         })
 }
 
@@ -390,7 +407,13 @@ impl RenderOnce for Mark {
                         move |bounds, window, cx| {
                             release_outside_window(&key, window, cx);
                             if cx.try_global::<Avatars>().is_some_and(Avatars::has_pack) {
-                                let watched = Watched { bounds, reach: side / 2., rate, live: None };
+                                let watched = Watched {
+                                    bounds,
+                                    reach: side / 2.,
+                                    rate,
+                                    #[cfg(feature = "local-engine")]
+                                    live: None,
+                                };
                                 cx.global_mut::<Avatars>().watched.insert(key, watched);
                             }
                         },
