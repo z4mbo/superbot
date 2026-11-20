@@ -5,11 +5,11 @@ import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type * as RemoteMcp from "@rakazo/adapters/remote-mcp";
 import type { createApp } from "@rakazo/api/app";
 import type { RpcInput, RpcOutput, RpcPath } from "@rakazo/contracts";
 import { MCP_APP_MIME_TYPE } from "@rakazo/contracts";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type * as RemoteMcp from "../../../adapters/src/mcp/remote-mcp.js";
 import { discardBotIntroRun } from "../discard-bot-intro.js";
 import { sessionCookieHeader } from "../index.js";
 import { asSystem } from "../system-db.js";
@@ -18,7 +18,7 @@ const fixtureNetwork = vi.hoisted(() => ({
   remote: undefined as Pick<RemoteMcp.RemoteMcpOptions, "fetch" | "resolveHostname"> | undefined,
 }));
 
-vi.mock("../../../adapters/src/mcp/remote-mcp.js", async (importOriginal) => {
+vi.mock("@rakazo/adapters/remote-mcp", async (importOriginal) => {
   const remote = await importOriginal<typeof RemoteMcp>();
   return {
     ...remote,
