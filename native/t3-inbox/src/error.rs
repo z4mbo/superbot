@@ -26,8 +26,8 @@ pub enum T3Error {
         /// T3 refused a launch only because the project has no default model.
         needs_model: bool,
     },
-    #[error("This T3 project has no default model, and no provider in T3 can run. Sign in to a provider or set a default model in T3, then try again.")]
-    NoRunnableProvider,
+    #[error("This T3 project has no default model. Choose one in the project's settings in T3, then start the request again.")]
+    NoDefaultModel,
     #[error("T3 answered in an unexpected way. Check T3 before trying again.")]
     Unexpected,
     #[error("This request was already started with a different project or brief. Open the first start in T3.")]

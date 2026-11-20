@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 
 /**
@@ -15,15 +13,11 @@ import { createInterface } from "node:readline";
  * Usage: node infra/superbot/verify-t3-inbox-real.mjs PROBE_EXE MCP_URL SERVER_LOG PROJECT_TITLE
  * SERVER_LOG is the disposable server's output, which holds its `/pair#token=` link.
  *
- * By default it stops before launching: a launch starts a turn on a provider the server can run,
- * and a provider CLI can reach this computer's signed-in account even when the server has its
- * own profile directories. Pass --launch only for a server whose providers are
- * known to be signed out or fake.
+ * It never calls t3_thread_launch. A launch starts a turn on a provider of the T3 computer, and a
+ * provider CLI can use that computer's signed-in account and history even when the server has
+ * its own profile directories. Launches are checked only against the fake T3 server.
  */
-const launch = process.argv.includes("--launch");
-const [probe, mcpUrl, serverLog, projectTitle] = process.argv
-  .slice(2)
-  .filter((arg) => arg !== "--launch");
+const [probe, mcpUrl, serverLog, projectTitle] = process.argv.slice(2);
 assert(
   probe && mcpUrl && serverLog && projectTitle,
   "Usage: PROBE_EXE MCP_URL SERVER_LOG PROJECT_TITLE",
@@ -31,7 +25,6 @@ assert(
 const credential = /\/pair#token=([A-Za-z0-9_.~-]+)/.exec(await readFile(serverLog, "utf8"))?.[1];
 assert(credential, "the disposable server printed its pairing link");
 const origin = new URL(mcpUrl).origin;
-const directory = await mkdtemp(join(tmpdir(), "t3-inbox-real-"));
 const child = spawn(resolve(probe), [], { stdio: ["pipe", "pipe", "inherit"], windowsHide: true });
 const lines = createInterface({ input: child.stdout })[Symbol.asyncIterator]();
 const transcript = [];
@@ -54,7 +47,6 @@ async function t3(path, body) {
   return { status: response.status, body: await response.json().catch(() => null) };
 }
 
-let tokenText;
 try {
   const begun = await ask({ cmd: "begin_sign_in", url: mcpUrl });
   assert.equal(begun.ok, true, begun.message);
@@ -131,76 +123,12 @@ try {
   console.log(
     `PASS t3_project_list returned ${listed.projects.length} project(s), including the disposable one`,
   );
-  if (!launch) {
-    console.log(
-      "STOP before t3_thread_launch: pass --launch for a server with only signed-out or fake providers",
-    );
-    process.exitCode = 0;
-  } else {
-    const scope = {
-      server: "http://127.0.0.1:1",
-      space: "space-real-check",
-      installation: "install-real-check",
-      dir: directory,
-    };
-    const record = randomUUID();
-    const request = {
-      cmd: "start",
-      ...scope,
-      record,
-      project: project.id,
-      title: "Superbot inbox check",
-      brief: "List the files in this project and report them. Do not change anything.",
-    };
-    const first = await ask(request);
-    if (!first.ok) {
-      console.log(`INFO first start: ${first.kind}: ${first.message}`);
-      for (const file of await readdir(directory)) {
-        if (file.endsWith(".dispatch.json"))
-          console.log("INFO the plan was kept for a retry with the same request ID");
-      }
-    }
-    assert.equal(first.ok, true, first.message);
-    const receipt = first.receipt;
-    const link = new URL(receipt["thread-link"]);
-    console.log(
-      `PASS t3_thread_launch started a Supervised thread: status ${receipt.status}, link ${link.protocol}//${link.host}${link.pathname.replace(/[^/]+$/, "<thread>")}`,
-    );
 
-    const replayed = await ask(request);
-    assert.deepEqual(replayed, first, "a repeat with a saved receipt returns it");
-    for (const file of await readdir(directory)) {
-      if (file.endsWith(".receipt.json")) await rm(join(directory, file));
-    }
-    const relaunched = await ask(request);
-    assert.equal(relaunched.ok, true, relaunched.message);
-    assert.equal(relaunched.operationId, first.operationId);
-    assert.equal(
-      relaunched.receipt["thread-id"],
-      receipt["thread-id"],
-      "T3 returned the same thread for the same request ID",
-    );
-    console.log(
-      "PASS a lost receipt was retried with the same clientRequestId and T3 returned the original thread",
-    );
-
-    const moved = await ask({ ...request, project: `${project.id}-other` });
-    assert.equal(moved.kind, "IntentConflict");
-    console.log(`THREAD ${receipt["thread-id"]}`);
+  for (const text of transcript) {
+    assert(!text.includes(credential), "the pairing credential stays out of the probe output");
   }
-
-  tokenText = credential;
-  for (const text of [
-    ...transcript,
-    ...(await Promise.all(
-      (await readdir(directory)).map((file) => readFile(join(directory, file), "utf8")),
-    )),
-  ]) {
-    assert(!text.includes(tokenText), "the pairing credential stays out of output and files");
-  }
-  console.log("PASS no pairing credential or token reached the probe output or local ledger");
+  console.log("PASS no pairing credential reached the probe output");
 } finally {
   child.stdin.end();
   await new Promise((done) => child.once("close", done));
-  await rm(directory, { recursive: true, force: true });
 }

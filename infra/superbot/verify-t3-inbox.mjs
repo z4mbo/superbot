@@ -141,22 +141,29 @@ try {
 
   fake.emulator.noDefaultModel = true;
   const launched = fake.launches().length;
-  const fallback = await ask(request(randomUUID()));
-  assert.equal(fallback.ok, true, fallback.message);
-  const [refused, chosen] = fake.launches().slice(launched);
-  assert.equal(refused.args.modelSelection, undefined);
-  assert.deepEqual(chosen.args.modelSelection, { instanceId: "agent-b", model: "model-a" });
-  assert.equal(chosen.args.clientRequestId, refused.args.clientRequestId);
-  const providers = fake.emulator.providers;
-  fake.emulator.providers = providers.map((provider) => ({
-    ...provider,
-    constraints: ["Signed out."],
-  }));
-  assert.equal((await ask(request(randomUUID()))).kind, "NoRunnableProvider");
-  fake.emulator.providers = providers;
+  const capabilities = () =>
+    fake.emulator.calls.filter(({ tool }) => tool === "orchestrator_capabilities").length;
+  const asked = capabilities();
+  const unset = request(randomUUID());
+  const refused = await ask(unset);
+  assert.equal(refused.kind, "NoDefaultModel");
+  assert.match(refused.message, /default model/);
+  const [attempt] = fake.launches().slice(launched);
+  assert.equal(
+    fake.launches().length,
+    launched + 1,
+    "one launch, never a second with another model",
+  );
+  assert.equal(attempt.args.modelSelection, undefined);
+  assert.equal(capabilities(), asked, "the app never looks for a provider to run instead");
   fake.emulator.noDefaultModel = false;
+  const chosen = await ask(unset);
+  assert.equal(chosen.ok, true, chosen.message);
+  const [, afterSetting] = fake.launches().slice(launched);
+  assert.equal(afterSetting.args.clientRequestId, attempt.args.clientRequestId);
+  assert.equal(afterSetting.args.modelSelection, undefined);
   console.log(
-    "PASS without a default model the start used T3's first runnable model under the same request ID, and said so when none can run",
+    "PASS a project without a default model was refused with what to set, and the retry after setting it reused the request ID",
   );
 
   fake.seen.issuer = "http://127.0.0.1:1";

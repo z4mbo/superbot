@@ -30,12 +30,11 @@ plugin with the same name or slug opens as an ordinary app and can't reach T3.
 5. The request then shows **Started** with T3's status at launch. Use
    **Open in T3** to follow the thread and handle its approvals in T3.
 
-T3 runs the thread in Supervised mode with the project's workspace settings.
-It uses the project's default model. When the project has none, the app asks
-T3 for its providers and uses the first model of the first one that can run,
-as Superbot's hosted T3 Code agents do. That provider runs with the account it
-is signed in to on the T3 computer. The app sends only the request's title and
-brief.
+T3 runs the thread in Supervised mode with the project's default model and
+workspace settings. The app never picks a model or provider. If the project has
+no default model, the start stops and asks you to choose one in T3. Start the
+request again afterwards; it reuses the same T3 request ID. The app sends only
+the request's title and brief.
 
 ## Retries and receipts
 
@@ -72,9 +71,8 @@ Every error says what to check:
 - **T3 refused t3_thread_launch (code): T3's reason**: T3 rejected the
   launch, for example because the project is gone. The reason is T3's own
   first line. Check T3.
-- **No provider in T3 can run**: the project has no default model and every
-  provider is signed out or disabled. Sign in to one or set a default model
-  in T3.
+- **This T3 project has no default model**: choose one in the project's
+  settings in T3, then start the request again.
 - **T3 didn't answer**: start the request again. It reuses the same T3 request
   ID, so T3 can't start it twice.
 
@@ -83,8 +81,9 @@ Every error says what to check:
 The bridge probe signs in to a loopback T3 that serves T3's OAuth and the
 shared T3 MCP emulator. It then exercises lost replies, receipt replay,
 conflicting retries, concurrent starts, a changed grant, a revoked grant and a
-missing project. It also covers a project with no default model, a T3 with no
-runnable provider, and a sign-in answer naming another issuer. It also checks
+missing project. It also covers a project with no default model, which is
+refused without trying another model, and a sign-in answer naming another
+issuer. It also checks
 that no token reaches the ledger or the output.
 
 ```powershell
@@ -107,18 +106,17 @@ node --import tsx infra/superbot/verify-chat.mjs "C:/path/to/postgresql/bin" tar
 
 ### Against a real T3 Code server
 
-`verify-t3-inbox-real.mjs` drives the same probe against a running, disposable
-T3 Code server. The owner signs in with the one-time `/pair#token=` link the
+`verify-t3-inbox-real.mjs` checks sign-in and project listing against a
+running, disposable T3 Code server. The owner signs in with the one-time `/pair#token=` link the
 server printed. The script then approves Supervised access on T3's consent API,
 as the owner choosing **Approve** on T3's page would. It checks discovery,
 registration, the approval page's client name and callback, the issuer and PKCE
 exchange, and `t3_project_list`. It never prints a code, state or token.
 
-It stops before `t3_thread_launch` unless you pass `--launch`. A launch starts
-a turn on a provider the server can run. A provider CLI can use this
-computer's signed-in account even when the server has its own profile
-directories, so pass `--launch` only for a server whose providers are signed
-out or fake.
+It never launches a thread. A launch starts a turn on a provider of the T3
+computer, and a provider CLI can use that computer's signed-in account and
+history even when the server has its own profile directories. Launches, retries
+and receipts are checked only against the fake T3 server above.
 
 ```powershell
 t3 --base-dir C:path	odisposable --host 127.0.0.1 --port PORT --no-browser --auto-bootstrap-project-from-cwd C:path	odisposable-project > server.log
