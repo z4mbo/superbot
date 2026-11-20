@@ -19,6 +19,15 @@ The execution identity includes the registry's `grantId` for each granted part.
 Removing a grant and adding it again creates a fresh identity. Outstanding
 approvals for the removed grant cannot authorize the new one.
 
+A granted `app` part provides `list_records` and `add_record` in an
+owner-started direct conversation. The tool schema comes from the installed
+version's field definitions. The list can filter by date and returns the same
+total as the personal app. An addition goes through one-time approval.
+The server derives the write's operation ID from the tool effect so retrying
+the same effect can only add one record. The human app also supports removal.
+Both paths use the same installation and database row. The database checks the
+current grant when the bot reads or writes, including after an approval wait.
+
 Discovery fetches tool schemas only for granted MCP parts. Each call asks
 through the standard approval card with the destination and arguments. After
 approval, the worker reconnects through the guarded Streamable HTTP transport,
