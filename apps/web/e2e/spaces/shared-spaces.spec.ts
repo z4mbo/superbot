@@ -58,6 +58,8 @@ test("an owner invites someone by link and both see the space's members", async 
   await expect(inviteePage.getByText("Ada Owner invited you")).toBeVisible();
   await captureScreenshot(inviteePage, testInfo, "space-invite");
   await inviteePage.getByRole("button", { name: "Join", exact: true }).click();
+  await expect(inviteePage.getByRole("heading", { name: "Workspaces" })).toBeVisible();
+  await inviteePage.getByRole("button", { name: "Open Home" }).click();
   await inviteePage.waitForURL(/\/app/);
 
   const inviteeSidebar = inviteePage.locator("aside").first();

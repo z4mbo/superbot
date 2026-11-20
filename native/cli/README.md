@@ -62,6 +62,26 @@ In chat, press Enter to send a line. Superbot prints message text and agent run
 errors. `/back` returns to the picker, or exits a directly opened chat. `/quit`
 exits from either mode.
 
+### Create and share a workspace
+
+Sign in to the server first. Every account starts with its own Personal Space.
+Each additional workspace has its own membership and starts with its creator.
+
+~~~powershell
+superbot workspaces list
+superbot workspaces create "Weekend plans"
+superbot workspaces invite --space "Weekend plans"
+superbot workspaces join "<invite URL>"
+superbot workspaces members --space "Weekend plans"
+superbot workspaces leave --space "Weekend plans"
+~~~
+
+An invite link is valid for seven days and can be claimed once. The person who
+used it can reopen it while they remain a member. After leaving, ask the owner
+for a new invite. Use a Space ID if names are ambiguous. Join uses the origin
+in the invite and that origin?s saved session. Workspace commands work before
+a model is connected.
+
 ### Local models on Windows and macOS
 
 In the desktop app, select an installed CLI model for the bot. On the same
