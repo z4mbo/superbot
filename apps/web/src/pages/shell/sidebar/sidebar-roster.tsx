@@ -409,12 +409,12 @@ export function SidebarRoster({
                       mini
                         ? "mx-auto size-12 justify-center rounded-xl"
                         : compact
-                          ? "w-full min-h-11 gap-2 rounded-xl px-2.5 py-1.5"
-                          : "w-full gap-3 rounded-xl px-2.5 py-[10px]"
+                          ? "w-full min-h-11 gap-2 rounded-sm px-2.5 py-1.5"
+                          : "w-full min-h-13.5 gap-2.5 rounded-sm px-2.5 py-[7px]"
                     } text-start ${
                       selected || rosterDropKey === rowDropKey
                         ? "bg-sidebar-accent"
-                        : "group-hover/row:bg-accent"
+                        : "group-hover/row:bg-sidebar-accent/50"
                     }`}
                   >
                     {mini ? (
@@ -460,7 +460,7 @@ export function SidebarRoster({
                             <span
                               dir="auto"
                               data-roster-bot-name={item.kind === "bot" ? "" : undefined}
-                              className={`max-w-full shrink-0 truncate text-body-sm text-foreground ${
+                              className={`max-w-full shrink-0 truncate text-body text-foreground ${
                                 item.chat.unread ? "font-semibold" : "font-medium"
                               }`}
                             >
@@ -524,7 +524,7 @@ export function SidebarRoster({
                           <div
                             dir="auto"
                             data-roster-preview={!workStatusLabel ? "true" : undefined}
-                            className={`mt-1 truncate text-label ${
+                            className={`mt-0.5 truncate text-body-sm ${
                               workStatusLabel
                                 ? "font-semibold text-status-working"
                                 : item.chat.unread

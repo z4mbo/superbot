@@ -230,7 +230,7 @@ export function HoldToTalkControls({
       <>
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           aria-label={t`Discard recording`}
           onClick={talk.cancel}
           className="shrink-0 rounded-full text-muted-foreground hover:text-foreground"
@@ -238,7 +238,7 @@ export function HoldToTalkControls({
           <Trash2 size={16} strokeWidth={1.8} />
         </Button>
         <Button
-          size="icon"
+          size="icon-sm"
           aria-label={t`Send recording`}
           disabled={talk.transcribing}
           onClick={talk.submit}
@@ -272,7 +272,7 @@ export function HoldToTalkControls({
       <IconTooltip label={t`Hold to talk, release to send`}>
         <Button
           variant="outline"
-          size="icon"
+          size="icon-sm"
           aria-label={t`Hold to talk`}
           disabled={disabled}
           {...talk.buttonProps}

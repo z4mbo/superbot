@@ -69,7 +69,7 @@ import { useComposerTriggers } from "./use-composer-triggers";
 export const LARGE_PASTE_THRESHOLD = 4_000;
 
 const ATTACHMENT_ACCEPT = attachmentPickerAccept(navigator.userAgent);
-const COMPOSER_TEXT = "rk-scroll whitespace-pre-wrap break-words px-0.5 py-0.5 text-body-lg";
+const COMPOSER_TEXT = "rk-scroll whitespace-pre-wrap break-words px-0.5 py-0.5 text-body";
 const ComposerBody = memo(function Composer({
   artifactTarget,
   activeName,
@@ -626,7 +626,7 @@ const ComposerBody = memo(function Composer({
       aria-label={t`Message composer`}
       data-dragging={draggingFiles ? "files" : undefined}
       {...dropHandlers}
-      className={`relative z-30 m-0 min-w-0 border-0 ${docked ? "p-0" : "px-3 pb-4 pt-0 md:px-[max(1.5rem,calc((100%_-_60rem)/2))] md:pb-6"} [&>*]:pointer-events-auto ${fileDragActive ? "pointer-events-auto" : "pointer-events-none"} ${
+      className={`relative z-30 m-0 min-w-0 border-0 ${docked ? "p-0" : "px-3 pb-4 pt-0 md:px-[max(1.5rem,calc((100%_-_60rem)/2))]"} [&>*]:pointer-events-auto ${fileDragActive ? "pointer-events-auto" : "pointer-events-none"} ${
         draggingFiles ? "rounded-[14px] ring-2 ring-inset ring-ring" : ""
       }`}
     >
@@ -718,14 +718,14 @@ const ComposerBody = memo(function Composer({
         ref={composerBarRef}
         data-testid="composer-bar"
         data-expanded={expanded}
-        className={`grid grid-cols-[auto_minmax(0,1fr)_auto] content-end items-center rounded-[26px] border border-border pe-2.5 ps-3 transition-colors focus-within:border-input ${
-          docked ? "bg-card" : "bg-background dark:bg-card"
+        className={`grid grid-cols-[auto_minmax(0,1fr)_auto] content-end items-center border border-foreground/10 pe-2 ps-2 transition-colors hover:border-input focus-within:border-input ${
+          docked ? "bg-card" : "bg-popover"
         } ${
           expanded
-            ? "gap-x-2 gap-y-2 pb-[9px] pt-3"
+            ? "gap-x-2 gap-y-2 rounded-[18px] pb-[9px] pt-3"
             : docked
-              ? "gap-x-3 py-[5px] ps-2 pe-2"
-              : "gap-x-3.5 py-[9px]"
+              ? "gap-x-3 rounded-[22px] py-[5px]"
+              : "gap-x-1.5 rounded-[22px] py-[7px]"
         }`}
       >
         <input
@@ -739,15 +739,15 @@ const ComposerBody = memo(function Composer({
         <Button
           ref={attachButtonRef}
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           aria-label={t`Attach file`}
           disabled={disabled}
           onClick={() => fileInputRef.current?.click()}
-          className={`col-start-1 shrink-0 rounded-full border border-border bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
+          className={`col-start-1 shrink-0 rounded-full border border-foreground/4 bg-foreground/4 text-faint-foreground transition-colors hover:bg-foreground/8 hover:text-foreground ${
             expanded ? "row-start-2" : ""
           }`}
         >
-          <Plus size={16} strokeWidth={2} />
+          <Plus className="size-5" strokeWidth={2} />
         </Button>
         <div
           ref={composerFieldRef}
