@@ -1154,7 +1154,7 @@ export class McpConnector implements ConnectorProvider {
     credentialDir?: string;
     launchSecrets?: string[];
   }> {
-    let session = new McpSession({ name: `rakazo-${server.slug}`, elicitation: true });
+    let session = new McpSession({ name: `superbot-${server.slug}`, elicitation: true });
     let credentialDir: string | undefined;
     const launchSecrets: string[] = [];
     // Hoisted so a throw after the secret is decoded can still hand the material out.
@@ -1371,7 +1371,7 @@ export class McpConnector implements ConnectorProvider {
           if (!authProvider || !isRejectedTokenError(error)) throw error;
           await authProvider.replaceRejectedToken();
           await closeMcpResource(() => session.close());
-          session = new McpSession({ name: `rakazo-${server.slug}`, elicitation: true });
+          session = new McpSession({ name: `superbot-${server.slug}`, elicitation: true });
           await connect();
         }
       }
