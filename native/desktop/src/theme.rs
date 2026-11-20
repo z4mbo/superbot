@@ -1,6 +1,9 @@
 use gpui_kit::component::{Theme as KitTheme, ThemeMode};
 use gpui_kit::{hsla, point, px, rgb, rgba, App, BoxShadow, Global, Hsla, Pixels, SharedString, WindowAppearance};
 
+#[cfg(target_os = "macos")]
+use gpui_kit::Point;
+
 use crate::fonts::Fonts;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -351,6 +354,14 @@ pub mod radius {
 /// on Windows 11, which puts that line 354px from the edge the person sees.
 pub const SIDEBAR_WIDTH: Pixels = px(354.);
 pub const CAPTION_WIDTH: Pixels = px(138.);
+
+/// Top-left of the macOS close button, in window coordinates.
+#[cfg(target_os = "macos")]
+pub const TRAFFIC_LIGHTS: Point<Pixels> = point(px(18.), px(19.));
+
+/// Horizontal space for the macOS window buttons and their trailing clearance.
+#[cfg(target_os = "macos")]
+pub const TRAFFIC_LIGHTS_RESERVE: Pixels = px(84.);
 pub const CAPTION_HEIGHT: Pixels = px(52.);
 pub const CHAT_COLUMN: Pixels = px(960.);
 pub const BUBBLE_MAX: Pixels = px(560.);

@@ -13,10 +13,16 @@ use wry::{NewWindowResponse, Rect, WebView, WebViewBuilder};
 
 use super::engine::{self, Host, Missing, Profile};
 use super::policy::{self, Navigate, Popup};
-use crate::theme::{ActiveTheme, Skin, Theme, CAPTION_HEIGHT, CAPTION_WIDTH};
+#[cfg(target_os = "macos")]
+use crate::theme::TRAFFIC_LIGHTS;
+use crate::theme::{ActiveTheme, Skin, Theme, CAPTION_HEIGHT};
+#[cfg(not(target_os = "macos"))]
+use crate::theme::CAPTION_WIDTH;
+#[cfg(target_os = "macos")]
+use crate::ui::traffic_lights_reserve;
 #[cfg(not(target_os = "macos"))]
 use crate::ui::overlays::caption_buttons;
-use crate::ui::{icon, pill_button, Tone, Type};
+use crate::ui::{drag_region, icon, pill_button, Tone, Type};
 
 const TITLE: &str = "Superbot workspace";
 
@@ -59,8 +65,13 @@ pub fn open(server: Url, profile: String, url: String, cx: &mut App) {
         titlebar: Some(TitlebarOptions {
             title: Some(TITLE.into()),
             appears_transparent: true,
+            #[cfg(target_os = "macos")]
+            traffic_light_position: Some(TRAFFIC_LIGHTS),
+            #[cfg(not(target_os = "macos"))]
             traffic_light_position: None,
         }),
+        #[cfg(target_os = "macos")]
+        app_owns_titlebar_drag: true,
         ..Default::default()
     };
     let (start, folder) = (url.clone(), profile.clone());
@@ -223,34 +234,27 @@ impl WebWorkspace {
         }
     }
 
-    fn render_toolbar(&self, theme: &Theme, cx: &mut Context<Self>) -> Div {
+    fn render_toolbar(&self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let elsewhere = self.elsewhere();
-        div()
-            .h(CAPTION_HEIGHT)
-            .flex_shrink_0()
-            .map(
-                |bar| {
-                    if cfg!(target_os = "macos") {
-                        bar.pl(px(84.)).pr_3()
-                    } else {
-                        bar.pl_4().pr(CAPTION_WIDTH + px(8.))
-                    }
-                },
-            )
+        let bar = div().h(CAPTION_HEIGHT).flex_shrink_0();
+        #[cfg(target_os = "macos")]
+        let bar = bar.pl(traffic_lights_reserve(window).max(px(8.))).pr_3();
+        #[cfg(not(target_os = "macos"))]
+        let bar = bar.pl_4().pr(CAPTION_WIDTH + px(8.));
+        bar
             .flex()
             .items_center()
             .gap_1()
             .border_b_1()
             .border_color(theme.hairline.opacity(0.5))
             .child(
-                div()
+                drag_region(div(), "web-toolbar-drag", window, cx)
                     .flex_1()
                     .min_w_0()
                     .h_full()
                     .flex()
                     .items_center()
                     .gap_2()
-                    .window_control_area(WindowControlArea::Drag)
                     .child(div().name().truncate().child(self.title.clone()))
                     .children(elsewhere.clone().map(|host| {
                         div()
@@ -319,7 +323,7 @@ impl Render for WebWorkspace {
             .font_family(theme.font.clone())
             .text_size(px(13.))
             .line_height(px(18.))
-            .child(self.render_toolbar(&theme, cx))
+            .child(self.render_toolbar(&theme, window, cx))
             .children(self.render_failure(&theme, cx));
         #[cfg(not(target_os = "macos"))]
         let frame = frame.child(caption_buttons(window, &theme));

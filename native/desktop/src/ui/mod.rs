@@ -21,6 +21,8 @@ pub mod store;
 pub mod tile_preview;
 pub mod workspace;
 
+#[cfg(target_os = "macos")]
+use gpui_kit::component::InteractiveElementExt as _;
 use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
@@ -66,14 +68,60 @@ pub trait Type: Styled + Sized {
 
 impl<T: Styled + Sized> Type for T {}
 
+/// Room for the macOS window buttons, which are hidden in full screen.
+pub fn traffic_lights_reserve(_window: &Window) -> Pixels {
+    #[cfg(target_os = "macos")]
+    if !_window.is_fullscreen() {
+        return crate::theme::TRAFFIC_LIGHTS_RESERVE;
+    }
+    px(0.)
+}
+
+/// Moves the window from an empty strip. macOS gives the app ownership of presses in the title bar.
+pub fn drag_region(strip: Div, id: &'static str, _window: &mut Window, _cx: &mut App) -> Stateful<Div> {
+    let strip = strip.id(id);
+    #[cfg(not(target_os = "macos"))]
+    return strip.window_control_area(WindowControlArea::Drag);
+    #[cfg(target_os = "macos")]
+    {
+        let window = _window;
+        let state = window.use_keyed_state(id, _cx, |_, _| false);
+        strip
+            .on_mouse_down_out(window.listener_for(&state, |should_move, _, _, _| *should_move = false))
+            .on_mouse_down(
+                MouseButton::Left,
+                window.listener_for(&state, |should_move, _, window, cx| {
+                    *should_move = !window.default_prevented();
+                    if *should_move {
+                        gpui_kit::base::GlobalState::suppress_text_selection(cx);
+                    }
+                }),
+            )
+            .on_mouse_up(
+                MouseButton::Left,
+                window.listener_for(&state, |should_move, _, _, _| *should_move = false),
+            )
+            .on_mouse_move(window.listener_for(&state, |should_move, event: &MouseMoveEvent, window, cx| {
+                if event.pressed_button != Some(MouseButton::Left) {
+                    *should_move = false;
+                } else if std::mem::take(should_move) {
+                    gpui_kit::base::TextSelection::end(window, cx);
+                    cx.stop_active_drag(window);
+                    window.start_window_move();
+                }
+            }))
+            .on_double_click(|_, window, _| window.titlebar_double_click())
+    }
+}
+
 /// A full page beside the sidebar. Every page shares one inset and one width, and its top strip
 /// moves the window, clear of the caption buttons.
-pub fn page(content: impl IntoElement) -> Div {
+pub fn page(content: impl IntoElement, window: &mut Window, cx: &mut App) -> Div {
     div()
         .size_full()
         .flex()
         .flex_col()
-        .child(div().h(px(52.)).flex_shrink_0().window_control_area(WindowControlArea::Drag))
+        .child(drag_region(div().h(px(52.)).flex_shrink_0(), "page-drag", window, cx))
         .child(
             div()
                 .flex_1()

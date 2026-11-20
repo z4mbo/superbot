@@ -15,10 +15,12 @@ use crate::theme::{radius, ActiveTheme, Theme, BUBBLE_MAX, CAPTION_WIDTH, CHAT_C
 use crate::transcript::{place, Entry, Join, Part, Place, Speaker};
 use superbot_avatars::{Bot, ChatTone, Mark};
 
+#[cfg(target_os = "macos")]
+use crate::ui::traffic_lights_reserve;
 use crate::ui::focus::{self, Ring};
 use crate::ui::motion::{Colors, Pointer};
 use crate::ui::{
-    bot_avatar_with, bot_ink, chat_tone, error_line, face_state, icon, pill_button, AvatarSlot, Tone, Type,
+    bot_avatar_with, bot_ink, chat_tone, drag_region, error_line, face_state, icon, pill_button, AvatarSlot, Tone, Type,
 };
 
 mod composer;
@@ -31,7 +33,7 @@ impl Desktop {
         self.sync_app_assist(window, cx);
         let theme = cx.skin().clone();
         let Some(chat) = self.chat.as_ref() else {
-            return self.render_no_conversation(&theme, cx);
+            return self.render_no_conversation(&theme, window, cx);
         };
         let target = chat.target.clone();
         self.prepare_face_blink(&target, window, cx);
@@ -94,7 +96,7 @@ impl Desktop {
         area.size_full()
             .flex()
             .flex_col()
-            .child(self.render_chat_header(&target, &theme, cx))
+            .child(self.render_chat_header(&target, &theme, window, cx))
             .child(div().flex_1().min_h_0().child(transcript))
             .child(self.render_composer(&target, &theme, window, cx))
             .into_any_element()
@@ -122,12 +124,12 @@ impl Desktop {
         superbot_avatars::conversation_blink(scope, id, model.map(Into::into), agent.waiting_on_you(), window, cx);
     }
 
-    fn render_no_conversation(&mut self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+    fn render_no_conversation(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         div()
             .size_full()
             .flex()
             .flex_col()
-            .child(div().h(px(52.)).window_control_area(WindowControlArea::Drag))
+            .child(drag_region(div().h(px(52.)), "empty-chat-drag", window, cx))
             .child(
                 div()
                     .flex_1()
@@ -150,7 +152,9 @@ impl Desktop {
             .into_any_element()
     }
 
-    fn render_chat_header(&mut self, target: &Target, theme: &Theme, cx: &mut Context<Self>) -> Div {
+    fn render_chat_header(
+        &mut self, target: &Target, theme: &Theme, window: &mut Window, cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
         let name = self.target_name(target);
         let elevated = Colors::elevated(theme);
         let watch = SharedString::from("head");
@@ -215,16 +219,20 @@ impl Desktop {
             .when_some(model, |pill, model| {
                 pill.child(div().w(px(1.)).h(px(16.)).flex_shrink_0().bg(theme.ink_at(0.12))).child(model)
             });
-        div()
+        let left = px(20.);
+        #[cfg(target_os = "macos")]
+        let left = if self.sidebar_hidden(window) { left.max(traffic_lights_reserve(window)) } else { left };
+        let caption_space = !docked && !cfg!(target_os = "macos");
+        drag_region(div(), "chat-header-drag", window, cx)
             .flex()
             .items_center()
             .justify_center()
-            .px_5()
+            .pl(left)
+            .pr_5()
             .py_2p5()
-            .window_control_area(WindowControlArea::Drag)
-            .when(!docked, |header| header.child(div().w(CAPTION_WIDTH).flex_shrink_0()))
+            .when(caption_space, |header| header.child(div().w(CAPTION_WIDTH).flex_shrink_0()))
             .child(div().flex_1().min_w_0().flex().when(!docked, |row| row.justify_center()).child(pill))
-            .when(!docked, |header| header.child(div().w(CAPTION_WIDTH).flex_shrink_0()))
+            .when(caption_space, |header| header.child(div().w(CAPTION_WIDTH).flex_shrink_0()))
     }
 
     fn chat_tone(&self, theme: &Theme, cx: &App) -> Option<ChatTone> {
