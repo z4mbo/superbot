@@ -28,6 +28,31 @@ fn item(
 }
 
 impl Desktop {
+    /// The Spaces to switch between, the current one checked, then the way to make another.
+    fn space_items(&self) -> Vec<Item> {
+        let current = self.space_id();
+        let mut items: Vec<Item> = self
+            .spaces
+            .iter()
+            .map(|space| {
+                let id = space.id.clone();
+                Item::Row {
+                    id: "space",
+                    glyph: if space.shared { "users" } else { "user" },
+                    label: space.name.clone(),
+                    chosen: current.as_deref() == Some(space.id.as_str()),
+                    danger: false,
+                    act: Box::new(move |this, window, cx| this.switch_space(id.clone(), window, cx)),
+                }
+            })
+            .collect();
+        items.push(Item::Separator);
+        items.push(item("new-space", "plus", "New space…", |this, window, cx| {
+            this.open_dialog(DialogKind::NewSpace, window, cx)
+        }));
+        items
+    }
+
     pub fn render_menu(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let theme = cx.skin().clone();
         let menu = self.menu.as_ref()?;
@@ -42,29 +67,17 @@ impl Desktop {
                 return Some(self.render_model_menu(&bot_id, cx));
             }
             MenuKind::Spaces => {
-                let current = self.space_id();
                 let mut items = vec![Item::Label("Spaces".into())];
-                for space in &self.spaces {
-                    let id = space.id.clone();
-                    items.push(Item::Row {
-                        id: "space",
-                        glyph: if space.shared { "users" } else { "user" },
-                        label: space.name.clone(),
-                        chosen: current.as_deref() == Some(space.id.as_str()),
-                        danger: false,
-                        act: Box::new(move |this, window, cx| this.switch_space(id.clone(), window, cx)),
-                    });
-                }
-                items.push(Item::Separator);
-                items.push(item("new-space", "plus", "New space…", |this, window, cx| {
-                    this.open_dialog(DialogKind::NewSpace, window, cx)
-                }));
+                items.extend(self.space_items());
                 (items, Anchor::TopLeft)
             }
             MenuKind::Profile => {
                 let email = self.me.as_ref().map(|me| me.email.clone()).unwrap_or_default();
-                let items = vec![
-                    Item::Label(email),
+                let spaces = match self.spaces.len() > 1 {
+                    true => Vec::new(),
+                    false => self.space_items().into_iter().chain([Item::Separator]).collect(),
+                };
+                let items = [Item::Label(email)].into_iter().chain(spaces).chain([
                     item("inbox", "inbox", self.inbox.menu_label(), |this, _, cx| this.toggle_inbox(cx)),
                     item("manage", "settings", "Manage workspace", |this, window, cx| {
                         this.show(View::Workspace, window, cx)
@@ -76,8 +89,8 @@ impl Desktop {
                     }),
                     Item::Separator,
                     item("sign-out", "log-out", "Sign out", |this, window, cx| this.sign_out(window, cx)),
-                ];
-                (items, Anchor::BottomLeft)
+                ]);
+                (items.collect(), Anchor::BottomLeft)
             }
             MenuKind::Agent(agent_id) => {
                 let pinned = self.agent(agent_id).is_some_and(|agent| agent.pinned);
