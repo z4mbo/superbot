@@ -180,9 +180,9 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
     await page.getByTestId("user-menu-trigger").click();
     await page.getByRole("button", { name: "Skills", exact: true }).click();
   };
-  const skillsDialog = page.getByRole("dialog", { name: "Skills", exact: true });
+  const skillsDialog = page.getByRole("dialog", { name: "Store", exact: true });
   const closeSkills = () =>
-    skillsDialog.getByRole("button", { name: "Close skills", exact: true }).click();
+    skillsDialog.getByRole("button", { name: "Close store", exact: true }).click();
   await openSkills();
   const knowledge = skillsDialog.getByTestId("your-skills");
   const builtinSkill = knowledge.getByRole("button", { name: /Interrogate/ });

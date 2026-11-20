@@ -199,7 +199,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await expect(detail.getByText("Send email", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "11a3-plugin-tools");
 
-  await page.getByRole("button", { name: "Close integrations" }).click();
+  await page.getByRole("button", { name: "Close store" }).click();
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   await expect(page.getByPlaceholder("Search apps")).toBeVisible();
   const gmailTileAgain = page.getByTestId("connection-tile-gmail");
@@ -327,7 +327,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   ).toBeVisible();
   await captureScreenshot(page, testInfo, "02-graphql-installed");
 
-  await page.getByRole("button", { name: "Close integrations" }).click();
+  await page.getByRole("button", { name: "Close store" }).click();
 
   await page.getByText("Chief").first().click();
   await openBotPanel(page);

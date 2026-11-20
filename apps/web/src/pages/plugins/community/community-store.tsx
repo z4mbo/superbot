@@ -34,7 +34,8 @@ export function CommunityStore({
   activeBotId?: string;
   /** A plugin to show first, picked from elsewhere. */
   initialSlug?: string;
-  onBack: () => void;
+  /** Shown with a title and a way back when the store is opened from another view. */
+  onBack?: () => void;
 }) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
@@ -211,7 +212,7 @@ export function CommunityStore({
 
   return (
     <div data-testid="community-store" className="space-y-6">
-      <ViewTitle title={<Trans>Community plugins</Trans>} onBack={onBack} />
+      {onBack ? <ViewTitle title={<Trans>Community plugins</Trans>} onBack={onBack} /> : null}
       <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
         <TabsList>
           <TabsTrigger value="discover" className="px-3">

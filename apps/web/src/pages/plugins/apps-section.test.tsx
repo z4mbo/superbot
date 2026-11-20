@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { PluginsOverlay } from "./PluginsOverlay";
+import { AppsSection } from "./apps-section";
 import { SourceFormView, useSourceForm } from "./source-form";
 
 const api = vi.hoisted(() => ({
@@ -187,7 +187,7 @@ it("offers the public catalog for a search and sends nothing there until it is p
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <PluginsOverlay onClose={() => {}} />
+        <AppsSection onOpenCommunity={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -226,7 +226,7 @@ it("keeps complete Unicode initials in the connected-app marks", async () => {
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <PluginsOverlay onClose={() => {}} />
+        <AppsSection onOpenCommunity={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -273,7 +273,7 @@ it("opens both Unicode fallback screenshot targets through browse and manage", a
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <PluginsOverlay onClose={() => {}} />
+        <AppsSection onOpenCommunity={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -344,7 +344,7 @@ it("leads from an app that is also a chat app here to messaging, and says nothin
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <PluginsOverlay onClose={() => {}} onOpenMessaging={onOpenMessaging} />
+        <AppsSection onOpenCommunity={() => {}} onOpenMessaging={onOpenMessaging} />
       </QueryClientProvider>,
     ),
   );
@@ -358,7 +358,7 @@ it("leads from an app that is also a chat app here to messaging, and says nothin
   expect(onOpenMessaging).toHaveBeenCalledOnce();
 });
 
-it("shows community plugins beside the catalog and narrows them with the search", async () => {
+it("finds community plugins from the Apps search and opens them in Plugins", async () => {
   const diary = {
     id: "kcal-diary-v1",
     slug: "kcal-diary",
@@ -384,18 +384,27 @@ it("shows community plugins beside the catalog and narrows them with the search"
     items: !input.query || "kcal diary".includes(input.query.toLowerCase()) ? [diary] : [],
     nextAfter: null,
   }));
+  const onOpenCommunity = vi.fn();
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <PluginsOverlay onClose={() => {}} />
+        <AppsSection onOpenCommunity={onOpenCommunity} />
       </QueryClientProvider>,
     ),
   );
+  await vi.waitFor(() => expect(searchBox().disabled).toBe(false));
+  expect(host.querySelector("[data-testid=community-picks]")).toBeNull();
+  await type(searchBox(), "kcal");
   await vi.waitFor(() =>
     expect(host.querySelector("[data-testid=community-picks]")?.textContent).toContain(
       "Kcal diary",
     ),
   );
+  const pick = [
+    ...host.querySelectorAll<HTMLButtonElement>("[data-testid=community-picks] button"),
+  ].find((button) => button.textContent === "Add")!;
+  await act(async () => pick.click());
+  expect(onOpenCommunity).toHaveBeenCalledWith("kcal-diary");
 
   await type(searchBox(), "weather");
   await vi.waitFor(() =>
@@ -445,7 +454,7 @@ it("offers the server's connector presets when there is no managed catalog, even
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <PluginsOverlay onClose={() => {}} />
+        <AppsSection onOpenCommunity={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -504,7 +513,7 @@ it("offers a connector preset once, as the managed app, when the catalog also co
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <PluginsOverlay onClose={() => {}} />
+        <AppsSection onOpenCommunity={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -521,4 +530,74 @@ it("offers a connector preset once, as the managed app, when the catalog also co
       ),
     ).toEqual(["Code host", "Connect Code host"]),
   );
+});
+
+it("leads Apps with what is already connected and sends an added preset to its management", async () => {
+  api.connections.catalog.mockResolvedValue([
+    {
+      connectorId: "fixture",
+      slug: "notes",
+      name: "Notes",
+      logo: null,
+      connected: true,
+      noAuth: false,
+    },
+    {
+      connectorId: "fixture",
+      slug: "mail",
+      name: "Mail",
+      logo: null,
+      connected: false,
+      noAuth: false,
+    },
+  ]);
+  api.capabilities.sourcePresets.mockResolvedValue([
+    { id: "tracker", name: "Tracker", url: "https://mcp.tracker.example.test/mcp", signIn: true },
+    { id: "code-host", name: "Code host", url: "https://mcp.code.example.test/mcp" },
+    { id: "wiki", name: "Wiki", url: "https://mcp.wiki.example.test/mcp", signIn: true },
+  ]);
+  const server = (id: string, endpoint: string, oauthStatus: string) => ({
+    id,
+    name: id,
+    slug: id,
+    endpoint,
+    enabled: true,
+    installId: null,
+    oauthClientId: null,
+    oauthStatus,
+    health: { status: "unknown" },
+  });
+  api.mcp.servers.list.mockResolvedValue([
+    server("tracker", "https://mcp.tracker.example.test/mcp", "connected"),
+    server("wiki", "https://mcp.wiki.example.test/mcp", "reconnect"),
+  ]);
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <AppsSection onOpenCommunity={() => {}} />
+      </QueryClientProvider>,
+    ),
+  );
+  const connected = () => host.querySelector('[data-testid="connected-apps"]');
+  await vi.waitFor(() => expect(connected()?.textContent).toContain("Tracker"));
+  expect(connected()?.textContent).toContain("Notes");
+  expect(connected()?.textContent).not.toContain("Wiki");
+  const presetLabels = () =>
+    [...host.querySelectorAll('[data-testid="source-preset"] button')].map((button) =>
+      button.getAttribute("aria-label"),
+    );
+  expect(presetLabels()).toEqual(
+    expect.arrayContaining([
+      "Manage Tracker, connected",
+      "Manage Wiki, not connected yet",
+      "Connect Code host",
+    ]),
+  );
+
+  const wiki = [...host.querySelectorAll<HTMLButtonElement>("button")].find(
+    (button) => button.getAttribute("aria-label") === "Manage Wiki, not connected yet",
+  )!;
+  await act(async () => wiki.click());
+  await vi.waitFor(() => expect(searchBox()).toBeNull());
+  expect(host.querySelector('[data-testid="integrations-source-form"]')).toBeNull();
 });

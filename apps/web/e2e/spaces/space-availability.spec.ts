@@ -54,7 +54,7 @@ test("a new space chooses what it can use, and a skill can be limited to some sp
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
   await page.getByTestId("user-menu-trigger").click();
   await page.getByRole("button", { name: "Skills", exact: true }).click();
-  const skills = page.getByRole("dialog", { name: "Skills", exact: true });
+  const skills = page.getByRole("dialog", { name: "Store", exact: true });
   const yours = skills.getByTestId("your-skills");
   await yours.getByRole("button", { name: /weekly-review/ }).click();
   const availability = yours.getByTestId("availability");

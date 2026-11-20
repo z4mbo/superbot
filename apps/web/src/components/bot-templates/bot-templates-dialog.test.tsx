@@ -51,7 +51,7 @@ vi.mock("@rakazo/ui-web", () => {
 vi.mock("../integrations/plugin-marketplace", () => ({ PluginLogo: () => null, ROW_HOVER: "" }));
 
 import { useSpaceQueries } from "../../lib/query/query";
-import { BotTemplatesDialog } from "./bot-templates-dialog";
+import { BotTemplatesPanel } from "./bot-templates-dialog";
 
 const template: BotTemplateListing = {
   id: "weekly-digest",
@@ -83,7 +83,7 @@ async function render(listed: BotTemplateListing = template) {
   const tree = (open: boolean) => (
     <QueryClientProvider client={client}>
       <Roster />
-      {open ? <BotTemplatesDialog onClose={() => undefined} onOpenBot={onOpenBot} /> : null}
+      {open ? <BotTemplatesPanel onOpenBot={onOpenBot} /> : null}
     </QueryClientProvider>
   );
   await act(async () => root.render(tree(true)));
