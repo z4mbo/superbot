@@ -52,14 +52,14 @@ async function ico(input: Buffer, name: string, sizes: number[]) {
   await writeFile(path(name), Buffer.concat([header, ...frames]));
 }
 
-async function webIcons(app: string, rounded: Buffer, square: Buffer, installIcon = square) {
+async function webIcons(app: string, rounded: Buffer, square: Buffer) {
   const publicDir = `apps/${app}/public`;
   await png(rounded, `${publicDir}/favicon-16x16.png`, 16);
   await png(rounded, `${publicDir}/favicon-32x32.png`, 32);
   await png(rounded, `${publicDir}/favicon.png`, 128);
   await png(square, `${publicDir}/apple-touch-icon.png`, 180);
-  await png(installIcon, `${publicDir}/icon-192.png`, 192);
-  await png(installIcon, `${publicDir}/icon-512.png`, 512);
+  await png(square, `${publicDir}/icon-192.png`, 192);
+  await png(square, `${publicDir}/icon-512.png`, 512);
   await ico(rounded, `${publicDir}/favicon.ico`, [16, 32, 48]);
 }
 await webIcons("www", marketingMark, marketingSquare);
@@ -74,11 +74,7 @@ const logo = path("superbot-site/assets/logo.svg");
 const mark = await sharp(logo, { density: 288 }).resize(1024, 1024).png().toBuffer();
 const opaque = await sharp(mark).flatten({ background: "black" }).png().toBuffer();
 await copyFile(logo, path("apps/web/public/superbot-mark.svg"));
-const maskable = await sharp(await padded(mark, 960))
-  .flatten({ background: "black" })
-  .png()
-  .toBuffer();
-await webIcons("web", mark, opaque, maskable);
+await webIcons("web", mark, opaque);
 await png(mark, "apps/desktop/assets/icon.png", 1024);
 await ico(mark, "native/desktop/assets/superbot.ico", [16, 20, 24, 32, 40, 48, 64, 128, 256]);
 await copyFile(path("native/desktop/assets/superbot.ico"), path("apps/desktop/assets/icon.ico"));
@@ -109,9 +105,8 @@ const face = await sharp({
   .joinChannel(faceMask, { raw: { width: 1024, height: 1024, channels: 1 } })
   .png()
   .toBuffer();
-const adaptive = await padded(face, 760);
-await writeFile(path("apps/mobile/assets/adaptive-icon.png"), adaptive);
-await writeFile(path("apps/mobile/assets/monochrome-icon.png"), adaptive);
+await writeFile(path("apps/mobile/assets/adaptive-icon.png"), face);
+await writeFile(path("apps/mobile/assets/monochrome-icon.png"), face);
 await sharp({ create: { width: 1024, height: 1024, channels: 3, background: "black" } })
   .png()
   .toFile(path("apps/mobile/assets/icon-background.png"));

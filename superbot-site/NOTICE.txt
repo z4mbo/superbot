@@ -12,8 +12,8 @@ Third-party notices
    Copyright 2026 Milind Soni and OpenMausBot contributors
    Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
 
-   Changes: the Superbot app icon has a centred white circle and two forward-facing
-   eyes on a black tile. Tokens were transcribed into plain CSS custom properties
+   Changes: the Superbot app icon has a white circle filling the bottom of a black
+   tile and two centred, forward-facing eyes. Tokens were transcribed into plain CSS custom properties
    and a GPUI theme specification.
 
 2. Icons drawn inline in the HTML pages

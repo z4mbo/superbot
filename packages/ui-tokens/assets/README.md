@@ -2,17 +2,17 @@
 
 Edit [the Superbot logo](../../../superbot-site/assets/logo.svg) and run
 `pnpm --filter @rakazo/ui-tokens export:brand` to regenerate the platform icons.
-The white circle is centred on both axes. The two eyes have equal dimensions,
-opposite horizontal offsets and the same vertical centre.
+The white circle is horizontally centred and fills the bottom edge of the tile.
+The two eyes have equal dimensions, opposite horizontal offsets and the same vertical centre.
 
 The native Linux launcher and the website use the SVG. Windows uses a multi-size
 ICO, and the native Mac installer builds its ICNS from a 1024-pixel PNG with Dock
 margins. Electron on macOS and Expo on iOS use the generated face in
 `Superbot.icon`. The Apple Watch target uses the opaque mobile icon.
 
-Android composites the adaptive foreground on a black background. The face fits
-inside the launcher's mask, and the themed launcher and notification use its alpha
-silhouette. The mobile splash uses the rounded mark so both eyes remain visible
+Android composites the adaptive foreground on a black background. The eyes sit
+inside the launcher's safe area. The themed launcher and notification use the
+face's alpha silhouette. The mobile splash uses the rounded mark so both eyes remain visible
 in light and dark appearances.
 
 ## Rakazo artwork
