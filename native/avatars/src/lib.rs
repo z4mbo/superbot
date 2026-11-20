@@ -193,7 +193,7 @@ fn engine_look(avatars: &Avatars, pack: &Pack, bot: Bot) -> Option<Look> {
     if let Some(look) = avatars.looks.lock().ok()?.get(&key) {
         return Some(look.clone());
     }
-    let chosen = engine.look(bot.id, bot.name, bot.color, (shape.as_deref(), color.as_deref()))?;
+    let chosen = engine.look(bot.id, pack.engine_name(bot.name), bot.color, (shape.as_deref(), color.as_deref()))?;
     let (paint, hue) = pack.paint(&chosen.color)?;
     let fallback = pack.look(bot.id, bot.name, bot.color, bot.picked);
     let look = Look { shape: chosen.shape, paint, hue, phase: fallback.phase, seed: chosen.seed };
