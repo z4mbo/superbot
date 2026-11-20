@@ -39,6 +39,13 @@ pub fn write(
                     .as_slice(),
             ),
             (
+                manifest_path.with_file_name("temperature.html"),
+                include_bytes!(
+                    "../../../examples/plugins/marketplace-unit-converter/temperature.html"
+                )
+                .as_slice(),
+            ),
+            (
                 manifest_path.with_file_name("README.md"),
                 include_bytes!("mcp-app-readme.md").as_slice(),
             ),
