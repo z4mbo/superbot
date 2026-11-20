@@ -6,8 +6,8 @@ import {
   embeddableScreenUrl,
   fromScreenPage,
   isProxiedScreenPage,
-  nextLoadedScreenUrl,
   readScreenUrl,
+  retainScreenLink,
   retainScreenSource,
   SCREEN_URL_RENEW_MS,
   screenPageState,
@@ -159,17 +159,27 @@ describe("screen stream identity", () => {
     ).toBe("https://other.example/novnc/session/view/1710000000000.aaaToken/embed.html");
   });
 
-  it("keeps a visible screen on the loaded URL when the capability refreshes early", () => {
-    const held = view("aaaToken");
-    const refreshed = view("bbbToken");
-    expect(nextLoadedScreenUrl(held, refreshed, true, now)).toBe(held);
-    expect(nextLoadedScreenUrl(held, refreshed, false, now)).toBeNull();
-    expect(nextLoadedScreenUrl(null, refreshed, true, now)).toBe(refreshed);
-    expect(nextLoadedScreenUrl(held, control("cccToken"), true, now)).toBe(control("cccToken"));
-    const renewing = view("oldToken", now + 10 * 60_000);
-    expect(nextLoadedScreenUrl(renewing, view("newToken", now + 70 * 60_000), true, now)).toBe(
-      view("newToken", now + 70 * 60_000),
-    );
+  it("keeps a visible screen's URL and credential paired through refreshes", () => {
+    const nativeSession = { credential: "initial", refreshAt: now + 120_000 };
+    const held = { url: view("aaaToken"), nativeSession };
+    const refreshed = {
+      url: view("bbbToken"),
+      nativeSession: { ...nativeSession, credential: "refreshed" },
+    };
+    expect(retainScreenLink(held, refreshed, now)).toBe(held);
+    expect(retainScreenLink(held, null, now)).toBeNull();
+    expect(retainScreenLink(null, refreshed, now)).toBe(refreshed);
+    const takenOver = {
+      url: control("cccToken"),
+      nativeSession: { ...nativeSession, credential: "control" },
+      controlLeaseId: "1",
+    };
+    expect(retainScreenLink(held, takenOver, now)).toBe(takenOver);
+    const newLease = { ...takenOver, url: control("newLease"), controlLeaseId: "2" };
+    expect(retainScreenLink(takenOver, newLease, now)).toBe(newLease);
+    const renewing = { ...held, url: view("oldToken", now + 10 * 60_000) };
+    const renewed = { ...refreshed, url: view("newToken", now + 70 * 60_000) };
+    expect(retainScreenLink(renewing, renewed, now)).toBe(renewed);
   });
 
   it("renews a reused seal before its original expiry", () => {
@@ -244,7 +254,7 @@ describe("computer copy", () => {
 describe("readScreenUrl", () => {
   it("returns the first URL without retrying", async () => {
     const request = vi.fn().mockResolvedValue({ url: "https://screen.example/embed" });
-    await expect(readScreenUrl(request)).resolves.toBe("https://screen.example/embed");
+    await expect(readScreenUrl(request)).resolves.toEqual({ url: "https://screen.example/embed" });
     expect(request).toHaveBeenCalledOnce();
   });
 
@@ -254,9 +264,9 @@ describe("readScreenUrl", () => {
       .mockRejectedValueOnce(new Error("rpc computer/screenUrl failed"))
       .mockResolvedValue({ url: "https://screen.example/embed" });
     const sleep = vi.fn().mockResolvedValue(undefined);
-    await expect(readScreenUrl(request, { attempts: 3, delayMs: 25, sleep })).resolves.toBe(
-      "https://screen.example/embed",
-    );
+    await expect(readScreenUrl(request, { attempts: 3, delayMs: 25, sleep })).resolves.toEqual({
+      url: "https://screen.example/embed",
+    });
     expect(request).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(25);
   });
@@ -267,9 +277,9 @@ describe("readScreenUrl", () => {
       .mockResolvedValueOnce({ url: null })
       .mockResolvedValueOnce({ url: "https://screen.example/embed" });
     const sleep = vi.fn().mockResolvedValue(undefined);
-    await expect(readScreenUrl(request, { attempts: 3, sleep })).resolves.toBe(
-      "https://screen.example/embed",
-    );
+    await expect(readScreenUrl(request, { attempts: 3, sleep })).resolves.toEqual({
+      url: "https://screen.example/embed",
+    });
     expect(request).toHaveBeenCalledTimes(2);
   });
 

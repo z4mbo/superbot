@@ -62,8 +62,10 @@ impl ComputerStatus {
 /// Where to load an agent's screen. The address carries the screen's capability: it is passed
 /// only to the screen view and never logged, so this type has no `Debug`.
 #[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ComputerScreen {
     pub url: Option<String>,
+    pub screen_session: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -89,7 +91,7 @@ impl SpaceFeatures<'_> {
 
     /// The screen to show: interactive while this account holds control, view only otherwise.
     pub async fn computer_screen(&self, bot_id: &str) -> Result<ComputerScreen, Error> {
-        self.call("computer/screenUrl", json!({ "botId": bot_id }))
+        self.call("computer/screenUrl", json!({ "botId": bot_id, "nativeSession": true }))
             .await
     }
 

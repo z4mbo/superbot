@@ -1,16 +1,21 @@
 import { useLingui } from "@lingui/react/macro";
 import { useMemo, useState } from "react";
-import { rpc } from "../api/api";
+import { currentApiBase, rpc } from "../api/api";
 import { computerBootErrorDetail, errorText } from "../api/user-error";
-import type { ComputerStatus } from "./computer";
-import { COMPUTER_LIFECYCLE_TIMEOUT_MS, readScreenUrl, SCREEN_URL_OPEN_ATTEMPTS } from "./computer";
+import type { ComputerStatus, ScreenLink } from "./computer";
+import {
+  COMPUTER_LIFECYCLE_TIMEOUT_MS,
+  isTrustedScreenDocument,
+  readScreenUrl,
+  SCREEN_URL_OPEN_ATTEMPTS,
+} from "./computer";
 import { createComputerRefresh } from "./computer-refresh";
 
 /** A bot's computer status and screen link, kept fresh, and the boot that starts it. */
 export function useComputerBoot(botId: string | undefined) {
   const { t } = useLingui();
   const [computer, setComputer] = useState<ComputerStatus | null>(null);
-  const [screenUrl, setScreenUrl] = useState<string | null>(null);
+  const [screen, setScreen] = useState<ScreenLink | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [readyBotId, setReadyBotId] = useState<string | null>(null);
   const [bootingCount, setBootingCount] = useState(0);
@@ -22,15 +27,26 @@ export function useComputerBoot(botId: string | undefined) {
       createComputerRefresh({
         readStatus: () => rpc("computer/status", { botId: botId ?? "" }),
         readScreen: (attempts) =>
-          readScreenUrl(() => rpc("computer/screenUrl", { botId: botId ?? "" }), {
-            attempts,
-          }),
+          readScreenUrl(
+            async () => {
+              const apiBase = currentApiBase();
+              const link = await rpc("computer/screenUrl", {
+                botId: botId ?? "",
+                nativeSession: true,
+              });
+              if (apiBase !== currentApiBase()) return { url: null };
+              return link.screenSession && !isTrustedScreenDocument(link.url, apiBase)
+                ? { url: link.url }
+                : link;
+            },
+            { attempts },
+          ),
         onStatus: (status) => {
           setComputer(status);
           // Another client may have started it since this one failed.
           if (status.state === "running") setBootFailed(false);
         },
-        onScreen: setScreenUrl,
+        onScreen: setScreen,
         onReady: () => setReadyBotId(botId ?? null),
         onInitialError: (err) => setError(errorText(err)),
       }),
@@ -48,7 +64,7 @@ export function useComputerBoot(botId: string | undefined) {
   }) {
     if (!botId || !refreshController.isActive()) return false;
     const action = refreshController.beginAction();
-    const needsBoot = force || computer?.state !== "running" || !screenUrl;
+    const needsBoot = force || computer?.state !== "running" || !screen;
     let starting = needsBoot;
     const showBooting = showProgress && needsBoot;
     if (showBooting) {
@@ -107,8 +123,8 @@ export function useComputerBoot(botId: string | undefined) {
   return {
     computer,
     setComputer,
-    screenUrl,
-    setScreenUrl,
+    screen,
+    setScreen,
     error,
     setError,
     readyBotId,

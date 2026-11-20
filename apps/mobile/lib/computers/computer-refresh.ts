@@ -1,5 +1,6 @@
 import type { ComputerStatus } from "@rakazo/contracts";
 import { isRetryableError } from "@rakazo/core";
+import type { ScreenLink } from "./computer";
 import { SCREEN_URL_RENEW_MS, screenRenewReadAt } from "./computer";
 
 export { SCREEN_URL_RENEW_MS };
@@ -20,6 +21,7 @@ function screenKey(status: ComputerStatus) {
     status.kind,
     status.controlHolder,
     status.controlBotId,
+    status.controlLeaseId,
     status.screenAvailable,
     status.screenWidth,
     status.screenHeight,
@@ -30,9 +32,9 @@ function screenKey(status: ComputerStatus) {
 /** One polling lifecycle per mounted computer target. Explicit refreshes supersede older reads. */
 export function createComputerRefresh(options: {
   readStatus: () => Promise<ComputerStatus>;
-  readScreen: (attempts: number) => Promise<string | null>;
+  readScreen: (attempts: number) => Promise<ScreenLink | null>;
   onStatus: (status: ComputerStatus) => void;
-  onScreen: (url: string | null) => void;
+  onScreen: (screen: ScreenLink | null) => void;
   onReady: () => void;
   onInitialError: (error: unknown) => void;
 }) {
@@ -82,12 +84,12 @@ export function createComputerRefresh(options: {
       options.onStatus(status);
       if (screenStale(status, !poll)) {
         try {
-          const url = await options.readScreen(screenAttempts);
+          const screen = await options.readScreen(screenAttempts);
           if (!current()) return;
           screenLoaded = true;
           screenStatus = screenKey(status);
-          screenReadAt = screenRenewReadAt(url, Date.now());
-          options.onScreen(url);
+          screenReadAt = screenRenewReadAt(screen?.url ?? null, Date.now());
+          options.onScreen(screen && { ...screen, controlLeaseId: status.controlLeaseId });
         } catch {
           // Keep the last URL after a failed read; a successful null clears it.
         }
