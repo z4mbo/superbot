@@ -1,5 +1,7 @@
-//! Drives the desktop's T3 Code inbox steps against a fixture T3 endpoint. Reads one JSON
-//! command per line on stdin and answers one JSON line on stdout. Tokens never reach stdout.
+//! Drives the desktop's T3 Code inbox steps against a T3 endpoint. Reads one JSON command per
+//! line on stdin and answers one JSON line on stdout. Tokens never reach stdout. `sign_in`
+//! follows the authorization redirect itself; `begin_sign_in` returns the authorization page
+//! for a caller that approves it as the operator would, then `finish_sign_in` waits for it.
 
 use std::io::{BufRead, Write};
 
@@ -53,6 +55,7 @@ async fn run_start(grant: &Grant, command: &Value) -> Value {
 #[tokio::main]
 async fn main() {
     let mut grant: Option<Grant> = None;
+    let mut pending: Option<tokio::task::JoinHandle<Result<Grant, T3Error>>> = None;
     let stdin = std::io::stdin();
     for line in stdin.lock().lines() {
         let Ok(line) = line else { break };
@@ -65,6 +68,25 @@ async fn main() {
                     answer
                 }
                 Err(error) => failure(&error),
+            },
+            ("begin_sign_in", _) => match begin_sign_in(command["url"].as_str().unwrap_or_default()).await {
+                Ok(started) => {
+                    let authorization_url = started.authorization_url.to_string();
+                    pending = Some(tokio::spawn(started.finish()));
+                    json!({ "ok": true, "authorizationUrl": authorization_url })
+                }
+                Err(error) => failure(&error),
+            },
+            ("finish_sign_in", _) => match pending.take() {
+                Some(waiting) => match waiting.await.unwrap_or(Err(T3Error::SignInDenied)) {
+                    Ok(signed) => {
+                        let answer = json!({ "ok": true, "place": signed.place(), "debug": format!("{signed:?}") });
+                        grant = Some(signed);
+                        answer
+                    }
+                    Err(error) => failure(&error),
+                },
+                None => json!({ "ok": false, "kind": "Usage" }),
             },
             ("use_token", Some(current)) => {
                 grant = Some(Grant {

@@ -28,6 +28,9 @@ struct ResourceMetadata {
 
 #[derive(Deserialize)]
 struct ServerMetadata {
+    issuer: Option<String>,
+    #[serde(default)]
+    authorization_response_iss_parameter_supported: bool,
     authorization_endpoint: String,
     token_endpoint: String,
     registration_endpoint: Option<String>,
@@ -52,6 +55,9 @@ pub struct PendingSignIn {
     listener: TcpListener,
     redirect_uri: String,
     state: String,
+    /// RFC 9207: the issuer the callback must name, and whether it must name one.
+    issuer: String,
+    issuer_required: bool,
     verifier: String,
     client_id: String,
     token_endpoint: Url,
@@ -143,6 +149,8 @@ pub async fn begin_sign_in(endpoint: &str) -> Result<PendingSignIn, T3Error> {
         }
     }
     let server = server.ok_or(T3Error::SignInUnsupported)?;
+    let issuer_name = server.issuer.clone().unwrap_or_else(|| issuer.as_str().trim_end_matches('/').to_owned());
+    http.same_origin(&Url::parse(&issuer_name).map_err(|_| T3Error::Unexpected)?)?;
     if !server.code_challenge_methods_supported.is_empty()
         && !server.code_challenge_methods_supported.iter().any(|method| method == "S256")
     {
@@ -204,6 +212,8 @@ pub async fn begin_sign_in(endpoint: &str) -> Result<PendingSignIn, T3Error> {
         listener,
         redirect_uri,
         state,
+        issuer: issuer_name,
+        issuer_required: server.authorization_response_iss_parameter_supported,
         verifier,
         client_id,
         token_endpoint,
@@ -212,13 +222,36 @@ pub async fn begin_sign_in(endpoint: &str) -> Result<PendingSignIn, T3Error> {
     })
 }
 
+#[derive(Debug, PartialEq)]
 enum Callback {
     Code(String),
     Denied,
+    /// The response names another issuer, or none where T3 promised one: a mix-up.
+    WrongIssuer,
     Other,
 }
 
-async fn answer(stream: &mut TcpStream, state: &str) -> Callback {
+/// What a request to the loopback listener means for this sign-in.
+fn callback_from(method: &str, target: &str, state: &str, issuer: &str, issuer_required: bool) -> Callback {
+    let Some(url) = Url::parse("http://127.0.0.1").and_then(|base| base.join(target)).ok() else {
+        return Callback::Other;
+    };
+    let param = |name: &str| url.query_pairs().find(|(key, _)| key == name).map(|(_, value)| value.into_owned());
+    if method != "GET" || url.path() != "/callback" || param("state").as_deref() != Some(state) {
+        return Callback::Other;
+    }
+    match param("iss") {
+        Some(named) if named.trim_end_matches('/') != issuer.trim_end_matches('/') => return Callback::WrongIssuer,
+        None if issuer_required => return Callback::WrongIssuer,
+        _ => {}
+    }
+    match param("code") {
+        Some(code) if !code.is_empty() => Callback::Code(code),
+        _ => Callback::Denied,
+    }
+}
+
+async fn answer(stream: &mut TcpStream, state: &str, issuer: &str, issuer_required: bool) -> Callback {
     let mut buffer = vec![0u8; 8192];
     let mut read = 0;
     let line = loop {
@@ -235,19 +268,10 @@ async fn answer(stream: &mut TcpStream, state: &str) -> Callback {
     };
     let mut parts = line.split(' ');
     let (method, target) = (parts.next().unwrap_or_default(), parts.next().unwrap_or_default());
-    let url = Url::parse("http://127.0.0.1").and_then(|base| base.join(target)).ok();
-    let callback = match url.filter(|url| method == "GET" && url.path() == "/callback") {
-        Some(url) if url.query_pairs().any(|(key, value)| key == "state" && value == state) => {
-            match url.query_pairs().find(|(key, _)| key == "code") {
-                Some((_, code)) if !code.is_empty() => Callback::Code(code.into_owned()),
-                _ => Callback::Denied,
-            }
-        }
-        _ => Callback::Other,
-    };
+    let callback = callback_from(method, target, state, issuer, issuer_required);
     let (status, text) = match callback {
         Callback::Code(_) => ("200 OK", "Signed in. Return to Superbot."),
-        Callback::Denied => ("400 Bad Request", "Sign-in denied. Return to Superbot."),
+        Callback::Denied | Callback::WrongIssuer => ("400 Bad Request", "Sign-in denied. Return to Superbot."),
         Callback::Other => ("404 Not Found", "Not found."),
     };
     let reply = format!(
@@ -265,9 +289,10 @@ impl PendingSignIn {
         let wait = async {
             loop {
                 let Ok((mut stream, _)) = self.listener.accept().await else { continue };
-                match answer(&mut stream, &self.state).await {
+                match answer(&mut stream, &self.state, &self.issuer, self.issuer_required).await {
                     Callback::Code(code) => return Ok(code),
                     Callback::Denied => return Err(T3Error::SignInDenied),
+                    Callback::WrongIssuer => return Err(T3Error::SignInRejected),
                     Callback::Other => continue,
                 }
             }
@@ -304,7 +329,21 @@ impl PendingSignIn {
 mod tests {
     use url::Url;
 
-    use super::{challenge, resource_metadata, server_metadata_urls};
+    use super::{callback_from, challenge, resource_metadata, server_metadata_urls, Callback};
+
+    #[test]
+    fn the_callback_must_name_the_discovered_issuer() {
+        let issuer = "http://127.0.0.1:3773";
+        let back = |query: &str, required| callback_from("GET", &format!("/callback?{query}"), "s1", issuer, required);
+        let code = Callback::Code("c1".into());
+        assert_eq!(back("code=c1&state=s1&iss=http%3A%2F%2F127.0.0.1%3A3773", true), code);
+        assert_eq!(back("code=c1&state=s1", false), code);
+        assert_eq!(back("code=c1&state=s1", true), Callback::WrongIssuer);
+        assert_eq!(back("code=c1&state=s1&iss=https%3A%2F%2Fevil.example", false), Callback::WrongIssuer);
+        assert_eq!(back("error=access_denied&state=s1&iss=http%3A%2F%2F127.0.0.1%3A3773", true), Callback::Denied);
+        assert_eq!(back("code=c1&state=other", true), Callback::Other);
+        assert_eq!(callback_from("POST", "/callback?code=c1&state=s1", "s1", issuer, false), Callback::Other);
+    }
 
     #[test]
     fn the_pkce_challenge_is_the_rfc_7636_example() {

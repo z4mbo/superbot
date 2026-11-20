@@ -19,8 +19,15 @@ pub enum T3Error {
     GrantRejected,
     #[error("T3 didn't answer {0}. Try again: the same request is reused, so it can't start twice.")]
     NoReply(&'static str),
-    #[error("T3 couldn't do {tool}{detail}. Check T3 before trying again.")]
-    Tool { tool: &'static str, detail: String },
+    #[error("T3 refused {tool}{detail}. Check T3 before trying again.")]
+    Tool {
+        tool: &'static str,
+        detail: String,
+        /// T3 refused a launch only because the project has no default model.
+        needs_model: bool,
+    },
+    #[error("This T3 project has no default model, and no provider in T3 can run. Sign in to a provider or set a default model in T3, then try again.")]
+    NoRunnableProvider,
     #[error("T3 answered in an unexpected way. Check T3 before trying again.")]
     Unexpected,
     #[error("This request was already started with a different project or brief. Open the first start in T3.")]

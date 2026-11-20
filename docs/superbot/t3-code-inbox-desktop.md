@@ -30,8 +30,12 @@ plugin with the same name or slug opens as an ordinary app and can't reach T3.
 5. The request then shows **Started** with T3's status at launch. Use
    **Open in T3** to follow the thread and handle its approvals in T3.
 
-T3 runs the thread in Supervised mode with the project's default model and
-workspace settings. The app sends only the request's title and brief.
+T3 runs the thread in Supervised mode with the project's workspace settings.
+It uses the project's default model. When the project has none, the app asks
+T3 for its providers and uses the first model of the first one that can run,
+as Superbot's hosted T3 Code agents do. That provider runs with the account it
+is signed in to on the T3 computer. The app sends only the request's title and
+brief.
 
 ## Retries and receipts
 
@@ -65,8 +69,12 @@ Every error says what to check:
   endpoint, or T3 needs an update.
 - **T3 no longer accepts this connection**: the grant expired or was revoked.
   Disconnect, then connect again.
-- **T3 couldn't do t3_thread_launch (orchestration_error)**: T3 rejected the
-  launch, for example because the project is gone. Check T3.
+- **T3 refused t3_thread_launch (code): T3's reason**: T3 rejected the
+  launch, for example because the project is gone. The reason is T3's own
+  first line. Check T3.
+- **No provider in T3 can run**: the project has no default model and every
+  provider is signed out or disabled. Sign in to one or set a default model
+  in T3.
 - **T3 didn't answer**: start the request again. It reuses the same T3 request
   ID, so T3 can't start it twice.
 
@@ -75,7 +83,9 @@ Every error says what to check:
 The bridge probe signs in to a loopback T3 that serves T3's OAuth and the
 shared T3 MCP emulator. It then exercises lost replies, receipt replay,
 conflicting retries, concurrent starts, a changed grant, a revoked grant and a
-missing project. It also checks that no token reaches the ledger or the output.
+missing project. It also covers a project with no default model, a T3 with no
+runnable provider, and a sign-in answer naming another issuer. It also checks
+that no token reaches the ledger or the output.
 
 ```powershell
 cargo build --locked -p superbot-t3-inbox --example t3_inbox_probe
@@ -93,4 +103,24 @@ that a conflicting receipt is refused.
 ```powershell
 cargo build --locked -p superbot-cli -p superbot-desktop
 node --import tsx infra/superbot/verify-chat.mjs "C:/path/to/postgresql/bin" target/debug/superbot.exe target/debug/superbot-desktop.exe --t3-inbox
+```
+
+### Against a real T3 Code server
+
+`verify-t3-inbox-real.mjs` drives the same probe against a running, disposable
+T3 Code server. The owner signs in with the one-time `/pair#token=` link the
+server printed. The script then approves Supervised access on T3's consent API,
+as the owner choosing **Approve** on T3's page would. It checks discovery,
+registration, the approval page's client name and callback, the issuer and PKCE
+exchange, and `t3_project_list`. It never prints a code, state or token.
+
+It stops before `t3_thread_launch` unless you pass `--launch`. A launch starts
+a turn on a provider the server can run. A provider CLI can use this
+computer's signed-in account even when the server has its own profile
+directories, so pass `--launch` only for a server whose providers are signed
+out or fake.
+
+```powershell
+t3 --base-dir C:path	odisposable --host 127.0.0.1 --port PORT --no-browser --auto-bootstrap-project-from-cwd C:path	odisposable-project > server.log
+node infra/superbot/verify-t3-inbox-real.mjs target/debug/examples/t3_inbox_probe.exe http://127.0.0.1:PORT/mcp server.log disposable-project
 ```

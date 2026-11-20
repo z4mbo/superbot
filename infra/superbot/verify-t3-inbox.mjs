@@ -139,6 +139,31 @@ try {
     "PASS a revoked grant and a missing project returned actionable errors without a thread",
   );
 
+  fake.emulator.noDefaultModel = true;
+  const launched = fake.launches().length;
+  const fallback = await ask(request(randomUUID()));
+  assert.equal(fallback.ok, true, fallback.message);
+  const [refused, chosen] = fake.launches().slice(launched);
+  assert.equal(refused.args.modelSelection, undefined);
+  assert.deepEqual(chosen.args.modelSelection, { instanceId: "agent-b", model: "model-a" });
+  assert.equal(chosen.args.clientRequestId, refused.args.clientRequestId);
+  const providers = fake.emulator.providers;
+  fake.emulator.providers = providers.map((provider) => ({
+    ...provider,
+    constraints: ["Signed out."],
+  }));
+  assert.equal((await ask(request(randomUUID()))).kind, "NoRunnableProvider");
+  fake.emulator.providers = providers;
+  fake.emulator.noDefaultModel = false;
+  console.log(
+    "PASS without a default model the start used T3's first runnable model under the same request ID, and said so when none can run",
+  );
+
+  fake.seen.issuer = "http://127.0.0.1:1";
+  assert.equal((await ask({ cmd: "sign_in", url: fake.url })).kind, "SignInRejected");
+  delete fake.seen.issuer;
+  console.log("PASS a sign-in answer naming another issuer was refused");
+
   const saved = await Promise.all(
     (await readdir(directory)).map((file) => readFile(join(directory, file), "utf8")),
   );
