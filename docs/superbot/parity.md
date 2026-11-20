@@ -1,5 +1,7 @@
 # Superbot parity inventory
 
+The [November 20 Rakazo comparison](rakazo-comparison.md) covers the full trees, RPC contracts and hosted harness after integrating upstream `9c773a5aa`. The entries below also document earlier client and reference-app checks.
+
 ## Baselines and evidence
 
 - **Installed Windows Grok Bot:** executable product version **1.2.3.0**, packaged `package.json` version **1.2.3**. Read the installed `resources/app.asar` header and selected packaged JavaScript directly. The entry point is `dist/electron-main/main.cjs`. The renderer loads `dist/renderer/assets/index.eager-app-DodVIpEt.js`, with `dist/electron-preload/preload.cjs` and separate main-process, local execution, node-coordinator and meeting-recorder bundles. Bundle identifiers below establish shipped code, with account access, backend behavior and current rollout unknown. The packaged avatar engine was also compared against the private local study copy. Personal appearance files stay on the user's devices.
