@@ -55,9 +55,11 @@ entries without an approval card. Ask it to add a 220 kcal snack. The approval
 card shows the values, and nothing is saved until you choose **Allow once**. A
 Space set to **Never ask** refuses the addition. The bot gets these actions
 only in a direct chat with the installer, in a turn the installer's own message
-started. Group conversations and turns started by someone else get none. A
-turn answered by a model CLI installed on the person's computer receives only
-the prompt, so it can't use record apps either.
+started. With a supported local model, open `superbot <agent>` and enter
+`/apps` to see its granted apps. For example, if the diary is item 1,
+`/app 1 --date 2026-04-03 How many calories did I log?` sends the selected day's
+total and up to five records to that model. A proposed addition shows its
+field values and requires typing `save`. This interaction stays outside the shared chat.
 
 Revoking the grant keeps the entries. Each version keeps its own entries, and
 switching back to a version shows its earlier entries again. Uninstalling

@@ -73,7 +73,7 @@
         </table>
       </div>
 
-      <p>There are no commands for record app entries. People add and remove entries in the Superbot app, and programs use the <a href="api.html#records">registry API</a>.</p>
+      <p>Manage releases and grants with <code>superbot-plugin</code>. To use a granted app with a local model, open <code>superbot &lt;agent&gt;</code> and enter <code>/apps</code>. Programs can read and write entries through the <a href="api.html#records">registry API</a>.</p>
 
       <h2 id="lists">Lists</h2>
       <p><code>list SCOPE [--after CURSOR] [--limit N]</code>, where <code>N</code> is 1 to 50 (default 20). When there's another page, the JSON includes <code>nextAfter</code>; pass it as <code>--after</code> with the same scope and filters.</p>
