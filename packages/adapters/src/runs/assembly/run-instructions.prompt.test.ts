@@ -1,5 +1,57 @@
 import { describe, expect, it } from "vitest";
-import { connectedPluginsInstruction, taughtSkillsInstruction } from "./run-instructions.prompt.js";
+import { selectBuiltinToolsForRun } from "../tools/run-tool-selection.js";
+import {
+  connectedPluginsInstruction,
+  disabledBuiltinsForTurnInstructions,
+  taughtSkillsInstruction,
+  userTurnInstructions,
+} from "./run-instructions.prompt.js";
+
+describe("userTurnInstructions", () => {
+  it.each([
+    { trigger: "user", fleetManagement: true, expected: true },
+    { trigger: "user", fleetManagement: false, expected: false },
+    { trigger: "created", fleetManagement: true, expected: false },
+  ])(
+    "includes bot creation guidance: $expected for $trigger with fleet management $fleetManagement",
+    ({ trigger, fleetManagement, expected }) => {
+      const offered = selectBuiltinToolsForRun({
+        graphicalToolsAllowed: false,
+        groupId: null,
+        trigger,
+        semanticMemoryEnabled: false,
+        messagingChannelRun: false,
+        fleetManagement,
+      });
+      const instructions = userTurnInstructions({
+        botInstructions: "",
+        groupContext: undefined,
+        messagingContext: undefined,
+        redactedMemoryContext: undefined,
+        redactedScratchpadContext: undefined,
+        hasHistoricalContext: false,
+        computerInstruction: "",
+        pageBrowserAllowed: false,
+        workspaceInstruction: "",
+        agentEnvironmentInstruction: undefined,
+        botDirectory: undefined,
+        pluginLine: undefined,
+        agentSkillsLine: undefined,
+        taughtSkillsLine: undefined,
+        replyGuidance: "",
+        disabledBuiltinTools: disabledBuiltinsForTurnInstructions(new Set(), offered),
+      }).join("\n");
+
+      if (expected) {
+        expect(instructions).toContain(
+          "If the user asked to create a bot, call spawn_bot once and stop.",
+        );
+      } else {
+        expect(instructions).not.toContain("spawn_bot");
+      }
+    },
+  );
+});
 
 describe("connectedPluginsInstruction", () => {
   it("names each connected plugin and prefers its tools to browsing", () => {

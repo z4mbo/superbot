@@ -382,7 +382,7 @@ export const fleetTools: ConnectorTool[] = [
   {
     name: "message_bot",
     description:
-      'Send an update, question or result to another of the user\'s bots. Only this tool delivers it: a message written in your reply, such as "[to Comms] …", never reaches them. Delivery is async, so keep working; send no acknowledgements or repeats.',
+      'Send an update, question or result to another bot in this Space. Only this tool delivers it: a message written in your reply, such as "[to Comms] …", never reaches them. Delivery is async, so keep working; send no acknowledgements or repeats.',
     inputSchema: {
       type: "object",
       properties: {

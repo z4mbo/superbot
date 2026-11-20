@@ -68,6 +68,7 @@ import {
 import { fleetPrepareDeps } from "../turn/run-model.js";
 import { refusal } from "../turn/tool-refusal.js";
 import { BUILTIN_AGENT_TOOL_NAMES, FLEET_WRITE_TOOL_NAMES_SET } from "./run-tool-selection.js";
+import { disabledBuiltinToolUnavailableReason } from "./run-tool-selection.prompt.js";
 import { holdSharedPageSave } from "./run-tools-pages.js";
 import { scheduleCreateRefusal } from "./run-tools-tasks.js";
 import { USER_COMPUTER_TOOLS } from "./run-tools-user-computer.js";
@@ -485,21 +486,33 @@ export async function prepareToolRequest(
     FLEET_WRITE_TOOL_NAMES_SET.has(name) ||
     name === "archive_bot" ||
     (name === "update_bot" && argumentGiven(args.bot_id));
-  if (fleetWrite || name === "list_fleet") {
+  const managesExistingBots = fleetWrite || name === "list_fleet";
+  const createsBot = name === "spawn_bot";
+  if (managesExistingBots || createsBot) {
     if (isSubagentToolExecution(executionId))
       return refusal("helper_bot_management", "Helpers cannot use bot management tools.");
-    // The run-start snapshot is not enough: the owner can turn the switch off mid-run.
-    const live = await deps.prisma.bot.findUnique({
-      where: { id: bot.id },
-      select: { fleetManagement: true },
-    });
-    if (!live?.fleetManagement)
-      return refusal("tool_disabled", "This tool is disabled for this bot.");
-    if (!ctx.source.ownerStartedRun)
+    // Approved creation replays settle through the handler, which checks inside the write.
+    // A new request also checks here to keep a revoked tool from asking for approval.
+    if (!(createsBot && nextApprovedTool === name)) {
+      const live = await deps.prisma.bot.findUnique({
+        where: { id: bot.id },
+        select: { fleetManagement: true },
+      });
+      if (!live?.fleetManagement)
+        return refusal(
+          "tool_disabled",
+          createsBot
+            ? disabledBuiltinToolUnavailableReason(name)
+            : "This tool is disabled for this bot.",
+        );
+    }
+    if (managesExistingBots && !ctx.source.ownerStartedRun)
       return refusal("run_not_owner_started", "Bot management tools need a run you started.");
-    // Text from a channel or webhook may have asked for it, so it goes through the approval mode,
-    // and an Always allow rule saved for calls the owner asked for does not skip it.
-    if (fleetWrite && (await ctx.trust.receivedOutsideMessage())) {
+    // Outside text may have asked for the change. A saved allow rule cannot skip its approval.
+    if (
+      (createsBot && (run.trigger === "webhook" || ctx.source.messagingChannelRun)) ||
+      ((fleetWrite || createsBot) && (await ctx.trust.receivedOutsideMessage()))
+    ) {
       request.heldForApproval = true;
       request.ignoresAllowRules = true;
     }
