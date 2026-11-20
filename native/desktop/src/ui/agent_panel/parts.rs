@@ -42,6 +42,7 @@ pub(super) fn tabs(current: PanelTab, theme: &Theme, cx: &mut Context<Desktop>) 
                 if let Some(panel) = this.agent_panel.as_mut() {
                     panel.tab = tab;
                     panel.editing = None;
+                    panel.screen = None;
                 }
                 this.sync_agent_info(window, cx);
                 cx.notify();

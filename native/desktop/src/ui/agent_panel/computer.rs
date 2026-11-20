@@ -80,6 +80,34 @@ impl Desktop {
         };
         let retry = matches!(panel.computer, Some(ComputerView::Failed(_)));
         let float = theme.panel.opacity(0.8);
+        let watch = match &panel.computer {
+            Some(ComputerView::Ready(status))
+                if on && status.offered() && status.screen_available && !status.runs_on_user_machine =>
+            {
+                let hover = theme.ink_at(0.1);
+                Some(
+                    div()
+                        .id("agent-computer-watch")
+                        .h_7()
+                        .px(px(10.))
+                        .flex()
+                        .items_center()
+                        .gap_1p5()
+                        .rounded_full()
+                        .border_1()
+                        .border_color(theme.ink_at(0.1))
+                        .bg(float)
+                        .meta()
+                        .text_color(theme.ink)
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(hover))
+                        .on_click(cx.listener(|this, _, window, cx| this.open_screen(window, cx)))
+                        .child(icon("monitor", px(13.), theme.ink))
+                        .child("Watch"),
+                )
+            }
+            _ => None,
+        };
         let screen = div()
             .relative()
             .mt(px(10.))
@@ -97,40 +125,39 @@ impl Desktop {
             .child(mark)
             .child(div().body().font_weight(FontWeight::MEDIUM).text_color(theme.ink).child(title))
             .children(hint.map(|hint| div().body().text_color(theme.ink_secondary).max_w(px(320.)).child(hint)))
-            .children(action.map(|action| {
-                let (glyph, label) = match action {
-                    CardAction::Power { start, label } => (if start { "play" } else { "square" }, label),
-                    CardAction::TurnOn => ("power", if busy { "Turning on…" } else { "Turn on" }),
-                };
-                let tools = computer_tools_set(bot, true);
-                div()
-                    .id("agent-computer-power")
-                    .absolute()
-                    .bottom(px(10.))
-                    .right(px(10.))
-                    .h_7()
-                    .px(px(10.))
-                    .flex()
-                    .items_center()
-                    .gap_1p5()
-                    .rounded_full()
-                    .border_1()
-                    .border_color(theme.ink_at(0.1))
-                    .bg(float)
-                    .meta()
-                    .text_color(theme.ink)
-                    .when(!busy, |button| {
-                        let hover = theme.ink_at(0.1);
-                        button.cursor_pointer().hover(move |style| style.bg(hover))
-                    })
-                    .when(busy, |button| button.opacity(0.6))
-                    .on_click(cx.listener(move |this, _, window, cx| match action {
-                        CardAction::Power { start, .. } => this.switch_computer(start, window, cx),
-                        CardAction::TurnOn => this.change_agent(Change::DisabledTools(tools.clone()), window, cx),
-                    }))
-                    .child(icon(glyph, px(13.), theme.ink))
-                    .child(label.to_owned())
-            }))
+            .child(div().absolute().bottom(px(10.)).right(px(10.)).flex().gap_2().children(watch).children(action.map(
+                |action| {
+                    let (glyph, label) = match action {
+                        CardAction::Power { start, label } => (if start { "play" } else { "square" }, label),
+                        CardAction::TurnOn => ("power", if busy { "Turning on…" } else { "Turn on" }),
+                    };
+                    let tools = computer_tools_set(bot, true);
+                    div()
+                        .id("agent-computer-power")
+                        .h_7()
+                        .px(px(10.))
+                        .flex()
+                        .items_center()
+                        .gap_1p5()
+                        .rounded_full()
+                        .border_1()
+                        .border_color(theme.ink_at(0.1))
+                        .bg(float)
+                        .meta()
+                        .text_color(theme.ink)
+                        .when(!busy, |button| {
+                            let hover = theme.ink_at(0.1);
+                            button.cursor_pointer().hover(move |style| style.bg(hover))
+                        })
+                        .when(busy, |button| button.opacity(0.6))
+                        .on_click(cx.listener(move |this, _, window, cx| match action {
+                            CardAction::Power { start, .. } => this.switch_computer(start, window, cx),
+                            CardAction::TurnOn => this.change_agent(Change::DisabledTools(tools.clone()), window, cx),
+                        }))
+                        .child(icon(glyph, px(13.), theme.ink))
+                        .child(label.to_owned())
+                },
+            )))
             .when(retry, |screen| {
                 screen.child(
                     crate::ui::pill_button("agent-computer-retry", "Try again", crate::ui::Tone::Quiet, true, theme)

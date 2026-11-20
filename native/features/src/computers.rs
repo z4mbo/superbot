@@ -49,12 +49,27 @@ pub struct ComputerStatus {
     /// Another person has control, so this viewer only watches.
     #[serde(default)]
     pub controlled_by_other: bool,
+    /// This account's own control lease, sent only to the person holding control.
+    pub control_lease_id: Option<String>,
 }
 
 impl ComputerStatus {
     pub fn offered(&self) -> bool {
         self.kind != NO_COMPUTER_KIND
     }
+}
+
+/// Where to load an agent's screen. The address carries the screen's capability: it is passed
+/// only to the screen view and never logged, so this type has no `Debug`.
+#[derive(Clone, Deserialize)]
+pub struct ComputerScreen {
+    pub url: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComputerControl {
+    pub lease_id: String,
 }
 
 impl SpaceFeatures<'_> {
@@ -70,6 +85,36 @@ impl SpaceFeatures<'_> {
 
     pub async fn stop_computer(&self, bot_id: &str) -> Result<ComputerStatus, Error> {
         self.call("computer/stop", json!({ "botId": bot_id })).await
+    }
+
+    /// The screen to show: interactive while this account holds control, view only otherwise.
+    pub async fn computer_screen(&self, bot_id: &str) -> Result<ComputerScreen, Error> {
+        self.call("computer/screenUrl", json!({ "botId": bot_id }))
+            .await
+    }
+
+    pub async fn take_computer_control(&self, bot_id: &str) -> Result<ComputerControl, Error> {
+        self.call("computer/takeover", json!({ "botId": bot_id }))
+            .await
+    }
+
+    /// Hands back the control `lease_id` names; a late call never ends newer control.
+    pub async fn release_computer_control(
+        &self,
+        bot_id: &str,
+        lease_id: &str,
+    ) -> Result<(), Error> {
+        self.acknowledge(
+            "computer/release",
+            json!({ "botId": bot_id, "leaseId": lease_id }),
+        )
+        .await
+    }
+
+    /// Keeps the computer awake, and this account's control alive, while its screen is open.
+    pub async fn computer_heartbeat(&self, bot_id: &str) -> Result<(), Error> {
+        self.acknowledge("computer/heartbeat", json!({ "botId": bot_id }))
+            .await
     }
 }
 

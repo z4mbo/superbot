@@ -25,6 +25,7 @@ impl Desktop {
                     .on_click(cx.listener(|this, _, _, cx| {
                         if let Some(panel) = this.agent_panel.as_mut() {
                             panel.settings = !panel.settings;
+                            panel.screen = None;
                             panel.editing = None;
                         }
                         cx.notify();
@@ -63,6 +64,14 @@ impl Desktop {
             }
         };
         let problem = self.agent_panel.as_ref().and_then(|panel| panel.problem.clone());
+        let showing_screen = self.agent_panel.as_ref().is_some_and(|panel| panel.screen.is_some());
+        let screen = match bot.as_ref() {
+            Some(bot) if showing_screen => {
+                let name = bot.name.clone();
+                Some(self.render_screen(&name, window, &theme, cx))
+            }
+            _ => None,
+        };
 
         Some(
             div()
@@ -77,17 +86,20 @@ impl Desktop {
                 .border_color(theme.ink_at(0.06))
                 .occlude()
                 .child(header)
-                .child(
-                    div()
-                        .id("agent-panel-body")
-                        .flex_1()
-                        .min_h_0()
-                        .overflow_y_scroll()
-                        .px_4()
-                        .pb(px(28.))
-                        .children(problem.map(|problem| div().pt_3().child(error_line(problem, &theme))))
-                        .child(body),
-                )
+                .children(screen)
+                .when(!showing_screen, |panel| {
+                    panel.child(
+                        div()
+                            .id("agent-panel-body")
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_y_scroll()
+                            .px_4()
+                            .pb(px(28.))
+                            .children(problem.map(|problem| div().pt_3().child(error_line(problem, &theme))))
+                            .child(body),
+                    )
+                })
                 .into_any_element(),
         )
     }

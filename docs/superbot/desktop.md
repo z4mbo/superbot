@@ -61,6 +61,8 @@ Click the bot's name or avatar in the pill at the top of its chat to open the ri
 
 Open the **Computer** tab to see the current state, select the shared team computer or a dedicated one, and start or stop it. **Turn on** enables computer tools for the chosen agent. Starting a computer also requires a host configured to run agent computers. [NixOS hosting](nixos-hosting.md#enable-isolated-agent-computers)
 
+Once the computer is running, choose **Watch** to see its screen inside the sidebar. Choose **Take control** to send keyboard and pointer input, then **Hand back** when finished. Closing the panel or switching agents also hands back control. After an abrupt disconnect, the server expires the control lease.
+
 When an agent waits on you, its question appears as a card in the conversation. Type an answer and press Enter, pick one of its options, or enter a requested key or code in the masked field; **Dismiss** turns a key request down. The value is sent once and never shown again. In a shared Space only the person who started the run can answer its cards. Website logins, payment cards and contacts are entered in the web app.
 
 While connected, the sidebar picks up other Space members' agent and group changes and chat activity, including activity outside the open conversation. A refresh preserves the selected chat, composer focus and typed text, and an open rename draft. The desktop catches up on reconnect. It uses these signals to refresh the sidebar. System chat alerts and other workspace panels have their own update behavior.

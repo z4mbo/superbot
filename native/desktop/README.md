@@ -64,6 +64,7 @@ radii from `theme::radius`, text sizes from the `Type` trait in `src/ui/mod.rs`.
   each agent. Create plugin writes a manifest (skills and connectors) and submits it; New
   version starts from the last one.
 - **Workspace.** The management panel from `superbot-workspace-panel`, mounted in the page.
+- **Agent computer.** Open the agent's name in chat, select **Computer**, then **Watch**. The panel embeds the server's signed screen using WebView2 on Windows or WKWebView on macOS. **Take control** enables input. **Hand back**, closing the panel, or leaving the conversation releases control.
 - **Shared Space updates.** The sidebar subscribes to server notifications, refreshes the
   agent and group lists on changes, and catches up on reconnect. An open chat keeps its
   focus and its draft when another member edits the Space.

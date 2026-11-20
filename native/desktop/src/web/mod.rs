@@ -1,8 +1,8 @@
-//! The full Superbot web client in a window this app owns, for the surfaces the native views do not
-//! draw. It is the server's own web app in Microsoft Edge WebView2, never a native view.
+//! Embedded Superbot workspace on Windows and agent computer screen on Windows and macOS.
 
-#[cfg(any(target_os = "windows", test))]
+#[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod policy;
+pub mod screen;
 #[cfg(target_os = "windows")]
 mod window;
 
