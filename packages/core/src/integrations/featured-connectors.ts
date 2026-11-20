@@ -1,4 +1,12 @@
-import type { ConnectionCatalogItem } from "@rakazo/contracts";
+import type { ConnectionCatalogItem, McpSourcePreset } from "@rakazo/contracts";
+
+export const MCP_SOURCE_PRESETS: McpSourcePreset[] = [
+  { id: "atlassian", name: "Atlassian", url: "https://mcp.atlassian.com/v2/mcp", signIn: true },
+  { id: "github", name: "GitHub", url: "https://api.githubcopilot.com/mcp/" },
+  { id: "linear", name: "Linear", url: "https://mcp.linear.app/mcp", signIn: true },
+  { id: "notion", name: "Notion", url: "https://mcp.notion.com/mcp", signIn: true },
+  { id: "executor", name: "Executor", defaultUrl: "https://mcp.executor.sh/mcp", signIn: true },
+];
 
 export const FEATURED_CONNECTOR_IDS = [
   "gmail",

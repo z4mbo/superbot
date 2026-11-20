@@ -21,6 +21,17 @@ import {
 } from "./installed-connectors.js";
 
 describe("MCP source presets", () => {
+  it("binds a fixed preset's bearer credential to the published service endpoint", () => {
+    const fixed = MCP_SOURCE_PRESETS.filter((preset) => preset.url);
+    expect(fixed.length).toBeGreaterThan(0);
+    for (const preset of fixed) {
+      expect(applyMcpSourcePreset("https://elsewhere.example/mcp", { preset: preset.id })).toEqual({
+        source: preset.url,
+        config: { preset: preset.id, auth: { type: "bearer" } },
+      });
+    }
+  });
+
   it("stores an open-URL preset as a custom bearer source", () => {
     const open = MCP_SOURCE_PRESETS.find((preset) => !preset.url)!;
     expect(applyMcpSourcePreset("https://mine.example/mcp", { preset: open.id })).toEqual({
