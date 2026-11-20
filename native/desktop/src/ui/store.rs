@@ -365,7 +365,7 @@ impl Desktop {
         } else {
             self.render_store_home(&theme, window, cx)
         };
-        page(body).into_any_element()
+        page(body, window, cx).into_any_element()
     }
 
     /// Reads what the open section shows, unless it was read already.

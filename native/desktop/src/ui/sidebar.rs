@@ -8,7 +8,7 @@ use crate::app::{Desktop, MenuKind, View};
 use crate::theme::{mix, radius, ActiveTheme, Theme, SIDEBAR_WIDTH};
 use crate::ui::corner::Corner;
 use crate::ui::tile_preview::tile_preview;
-use crate::ui::{bot_avatar, empty_line, icon, person_face, Type};
+use crate::ui::{bot_avatar, drag_region, empty_line, icon, person_face, traffic_lights_reserve, Type};
 
 impl Desktop {
     pub fn render_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -88,27 +88,29 @@ impl Desktop {
             .into_any_element()
     }
 
-    fn render_sidebar_top(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Div {
+    fn render_sidebar_top(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Stateful<Div> {
         let creating = self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::New) || self.creating_agent();
         let search = self.corner_control(Corner::Search, self.search_open, theme, window, cx);
         let new = self.corner_control(Corner::New, creating, theme, window, cx);
         let space = self.space.as_ref().map(|space| space.name.clone()).filter(|_| self.spaces.len() > 1);
         let hover = theme.ink_at(0.06);
-        div()
+        let tooltip = !cfg!(target_os = "macos")
+            || !self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::Spaces);
+        let left = traffic_lights_reserve(window).max(px(8.));
+        drag_region(div(), "sidebar-drag", window, cx)
             .h(px(56.))
             .flex_shrink_0()
             .flex()
             .items_start()
             .gap_2p5()
-            .pl_2()
+            .pl(left)
             .pr_4()
             .pt_3()
-            .window_control_area(WindowControlArea::Drag)
             .children(space.map(|space| {
                 let name = StyledText::new(space.clone());
                 let layout = name.layout().clone();
                 let name = InteractiveText::new("space-name", name).tooltip(move |_, window, cx| {
-                    (layout.text() != space).then(|| Tooltip::new(space.clone()).build(window, cx))
+                    (tooltip && layout.text() != space).then(|| Tooltip::new(space.clone()).build(window, cx))
                 });
                 div()
                     .id("space-switcher")

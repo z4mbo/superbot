@@ -23,6 +23,18 @@ impl Desktop {
         panel.update(cx, |panel, _| panel.set_local_cli(local));
         #[cfg(not(target_os = "macos"))]
         panel.update(cx, |panel, _| panel.set_caption_width(crate::theme::CAPTION_WIDTH));
+        #[cfg(target_os = "macos")]
+        panel.update(cx, |panel, _| {
+            panel.set_window_drag_strip(|window, cx| {
+                crate::ui::drag_region(div(), "workspace-drag", window, cx)
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .right_0()
+                    .h(crate::theme::CAPTION_HEIGHT)
+                    .into_any_element()
+            });
+        });
         let events = cx.subscribe_in(&panel, window, |this, _, event: &PanelEvent, window, cx| match event {
             PanelEvent::OpenBot { bot_id } => this.open(Target::Agent(bot_id.clone()), window, cx),
             PanelEvent::OpenGroup { group_id } => this.open(Target::Group(group_id.clone()), window, cx),

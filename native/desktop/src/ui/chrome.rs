@@ -6,14 +6,23 @@ use crate::ui::agent_panel::agent_panel_needs_sidebar_space;
 #[cfg(not(target_os = "macos"))]
 use crate::ui::overlays::caption_buttons;
 
+impl Desktop {
+    pub(super) fn sidebar_hidden(&self, window: &Window) -> bool {
+        !self.inbox.open
+            && self.view == View::Chat
+            && self.agent_panel.is_some()
+            && agent_panel_needs_sidebar_space(window.viewport_size().width)
+    }
+}
+
 impl Render for Desktop {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.skin().clone();
         let content = match self.session {
-            Session::Restoring => self.render_restoring(cx),
-            Session::SignedOut => self.render_sign_in(cx),
+            Session::Restoring => self.render_restoring(window, cx),
+            Session::SignedOut => self.render_sign_in(window, cx),
             Session::SignedIn if self.onboarding.page.is_some() => {
-                self.render_onboarding(cx).unwrap_or_else(|| div().into_any_element())
+                self.render_onboarding(window, cx).unwrap_or_else(|| div().into_any_element())
             }
             Session::SignedIn => {
                 let main = match self.view {
@@ -22,10 +31,7 @@ impl Render for Desktop {
                     View::Workspace => self.render_workspace(window, cx),
                 };
                 self.sync_inbox(window, cx);
-                let hide_sidebar = self.view == View::Chat
-                    && self.agent_panel.is_some()
-                    && !self.inbox.open
-                    && agent_panel_needs_sidebar_space(window.viewport_size().width);
+                let hide_sidebar = self.sidebar_hidden(window);
                 let side = match self.render_inbox_panel(window, cx) {
                     Some(inbox) => Some(inbox),
                     None if self.view == View::Chat => {

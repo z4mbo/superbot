@@ -4,11 +4,11 @@ use gpui_kit::*;
 use crate::app::onboarding::{Joining, Page};
 use crate::app::{Desktop, DialogKind};
 use crate::theme::{radius, ActiveTheme, Theme};
-use crate::ui::{agent_face, error_line, icon, pill_button, Tone, Type};
+use crate::ui::{agent_face, drag_region, error_line, icon, pill_button, Tone, Type};
 
 impl Desktop {
     /// The step shown in place of the workspace, while one is open.
-    pub fn render_onboarding(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub fn render_onboarding(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         let theme = cx.skin().clone();
         let page = self.onboarding.page.as_ref()?;
         let body = match page {
@@ -16,12 +16,11 @@ impl Desktop {
             Page::Join { state, .. } => render_join(state, &theme, cx),
         };
         Some(
-            div()
+            drag_region(div(), "onboarding-drag", window, cx)
                 .size_full()
                 .flex()
                 .items_center()
                 .justify_center()
-                .window_control_area(WindowControlArea::Drag)
                 .child(div().w(px(380.)).flex().flex_col().items_center().gap_5().occlude().child(body))
                 .into_any_element(),
         )

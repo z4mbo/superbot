@@ -147,9 +147,11 @@ impl Desktop {
                     Item::Row { id, glyph, label, chosen, danger, act } => {
                         let ink = if danger { theme.danger } else { theme.ink };
                         let hover = theme.ink_at(0.06);
+                        let wrap_name = cfg!(target_os = "macos") && id == "space";
                         div()
                             .id((id, index))
-                            .h_8()
+                            .when(wrap_name, |row| row.min_h_8().py_1())
+                            .when(!wrap_name, |row| row.h_8())
                             .px_2()
                             .flex()
                             .items_center()
@@ -165,7 +167,7 @@ impl Desktop {
                                 cx.notify();
                             }))
                             .child(icon(glyph, px(16.), if danger { theme.danger } else { theme.ink_secondary }))
-                            .child(div().flex_1().min_w_0().truncate().child(label))
+                            .child(div().flex_1().min_w_0().when(!wrap_name, |name| name.truncate()).child(label))
                             .when(chosen, |row| row.child(icon("check", px(14.), theme.ink_secondary)))
                             .into_any_element()
                     }
