@@ -7,7 +7,6 @@ import type {
   McpSourcePreset,
 } from "@rakazo/contracts";
 import { MCP_OAUTH_CLIENT_REQUIRED, mcpServerConnection } from "@rakazo/contracts";
-import type { connectedAppMarks } from "@rakazo/core";
 import {
   CONNECTION_CATALOG_PAGE_SIZE,
   catalogItemKey,
@@ -48,14 +47,12 @@ type OverlayView = "browse" | "manage" | "github" | "source" | "browseMcp" | "do
 
 /** The Store's Apps: every connection, the server's presets, and what is already connected. */
 export function AppsSection({
-  onConnectedAppsChange,
   onOpenMcp,
   onOpenMessaging,
   onOpenPlugins,
   activeBotId,
   actions,
 }: {
-  onConnectedAppsChange?: (apps: ReturnType<typeof connectedAppMarks>) => void;
   onOpenMcp?: () => void;
   onOpenMessaging?: () => void;
   /** Opens one plugin, or all of them, in the Store's Plugins. */
@@ -84,7 +81,6 @@ export function AppsSection({
     activeBotId,
     detailKey,
     closeDetail,
-    onConnectedAppsChange,
   });
   const {
     mcpServers,

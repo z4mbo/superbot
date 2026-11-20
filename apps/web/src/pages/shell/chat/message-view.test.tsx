@@ -282,13 +282,11 @@ function renderAuthored(message: ThreadMessage, meId = "user-b") {
   return { bubble, row: bubble.parentElement };
 }
 
-it("names someone else's message and keeps it on the people side", () => {
+it("puts someone else's message at the start and uses the card surface", () => {
   const { bubble, row } = renderAuthored(authored);
 
-  expect(container.textContent).toBe("AnaBook the table");
-  expect(row.className).toContain("justify-end");
-  expect(bubble.className).toContain("bg-muted");
-  expect(bubble.className).not.toContain("bg-chat-user");
+  expect(row.classList).toContain("justify-start");
+  expect(bubble.classList).toContain("bg-card");
 });
 
 it("keeps my own message unnamed on the right", () => {
@@ -299,17 +297,52 @@ it("keeps my own message unnamed on the right", () => {
   expect(bubble.className).toContain("bg-chat-user");
 });
 
-it("names the person a reply quotes instead of saying You", () => {
+it("rounds only the sender-side corners of the first and last text bubbles", () => {
+  const message = {
+    ...authored,
+    blocks: [
+      { kind: "text", text: "First" },
+      { kind: "text", text: "Middle" },
+      { kind: "text", text: "Last" },
+    ] satisfies ThreadMessage["blocks"],
+  };
+  renderView(message.role, message.blocks, {
+    message,
+    meId: ana.id,
+    joinAbove: true,
+    joinBelow: true,
+  });
+  const bubbles = [...container.querySelectorAll('[data-testid="message-user-bubble"]')];
+  expect(
+    bubbles.map((bubble) => [...bubble.classList].filter((name) => name.endsWith("[6px]"))),
+  ).toEqual([["rounded-se-[6px]"], [], ["rounded-ee-[6px]"]]);
+});
+
+it("joins both start-side corners of a middle bot bubble and hides the repeated name", () => {
+  renderView("bot", [{ kind: "text", text: "Middle" }], {
+    joinAbove: true,
+    joinBelow: true,
+    speakerName: "Helper",
+  });
+  const bubble = container.querySelector('[data-testid="message-bot-bubble"]');
+  expect(bubble?.classList).toContain("rounded-ss-[6px]");
+  expect(bubble?.classList).toContain("rounded-es-[6px]");
+  expect(container.textContent).toBe("Middle");
+});
+
+it("names the person a reply quotes and isolates the direction of the excerpt", () => {
+  const excerpt = "בדקתי את הטיוטה (סעיף 2).";
   renderAuthored({
     ...authored,
     author: undefined,
     replyToMessageId: "parent",
-    replyPreview: { role: "user", author: ana, text: "Find us a restaurant" },
+    replyPreview: { role: "user", author: ana, text: excerpt },
   });
 
-  expect(container.querySelector('[data-testid="reply-parent-preview"]')?.textContent).toContain(
-    "Ana: Find us a restaurant",
-  );
+  const preview = container.querySelector('[data-testid="reply-parent-preview"]');
+  expect(preview?.textContent).toContain(`Ana: ${excerpt}`);
+  expect(preview?.querySelector("bdi")?.textContent).toBe(excerpt);
+  expect(preview?.parentElement?.classList).toContain("justify-end");
 });
 
 it("speaks the message it renders", () => {

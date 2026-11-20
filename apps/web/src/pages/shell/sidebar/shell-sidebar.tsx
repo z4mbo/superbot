@@ -79,7 +79,6 @@ export function ShellSidebar({
   chatMenu,
   roster,
   archived,
-  footerLogos,
   user,
   boardEnabled,
   navLinks,
@@ -109,7 +108,6 @@ export function ShellSidebar({
   chatMenu: ChatMenuState;
   roster: ReactNode;
   archived: ReactNode;
-  footerLogos: Array<{ name: string; logo?: string | null }>;
   user: User | undefined;
   boardEnabled: boolean;
   navLinks: NavLink[];
@@ -308,7 +306,6 @@ export function ShellSidebar({
         </div>
         <ShellSidebarFooter
           mini={mini}
-          logos={footerLogos}
           user={user}
           boardEnabled={boardEnabled}
           navLinks={navLinks}
@@ -326,7 +323,6 @@ export function ShellSidebar({
 
 function ShellSidebarFooter({
   mini,
-  logos,
   user,
   boardEnabled,
   navLinks,
@@ -338,7 +334,6 @@ function ShellSidebarFooter({
   openSpaceChat,
 }: {
   mini: boolean;
-  logos: Array<{ name: string; logo?: string | null }>;
   user: User | undefined;
   boardEnabled: boolean;
   navLinks: NavLink[];
@@ -388,7 +383,6 @@ function ShellSidebarFooter({
       ) : null}
       <SidebarFooter
         mini={mini}
-        logos={logos}
         name={userName}
         initials={initials}
         image={user?.image}

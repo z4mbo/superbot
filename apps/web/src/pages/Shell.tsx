@@ -720,7 +720,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
       }),
     [archivedBots, bots, transcriptMembers],
   );
-  const { composerMentionTargets, footerLogos, setFooterLogos } = useComposerMentions({
+  const { composerMentionTargets } = useComposerMentions({
     rpc,
     queries,
     bots,
@@ -1152,7 +1152,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
             />
           </>
         }
-        footerLogos={footerLogos}
         user={session.data?.user}
         boardEnabled={hasLab(bootstrapMe?.labs, "board")}
         navLinks={desktopBridge() ? [] : (bootstrapMe?.navLinks ?? [])}
@@ -1528,7 +1527,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
           activeBotId={activeBotId.current}
           stdioEnabled={bootstrapMe?.mcpStdioEnabled === true}
           messagingEnabled={messagingSurfaceEnabled}
-          onConnectedAppsChange={setFooterLogos}
           onOpenBot={(bot) => {
             openCreatedBot(bot);
             // As after any new bot: the Space's sections and counts come from the server.

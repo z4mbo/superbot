@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { Bot, Routine } from "@rakazo/contracts";
-import { deferred } from "@rakazo/core/test-async";
+import { deferred, flush } from "@rakazo/core/test-async";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -27,7 +27,13 @@ const bots = Array.from({ length: 100 }, (_, index) => ({
 const rows = (botId: string, name = botId) =>
   [{ id: `routine-${botId}`, botId, name, crons: [] }] as unknown as Routine[];
 const key = (space: string, botId: string) => [space, "routines", botId];
-function fixture(space: string) {
+function fixture(
+  space: string,
+  connections: {
+    catalog: () => Promise<unknown[]>;
+    list: () => Promise<unknown[]>;
+  } = { catalog: async () => [], list: async () => [] },
+) {
   const batch = vi.fn(async ({ botIds }: { botIds: string[] }) =>
     [...botIds].reverse().map((botId) => ({ botId, routines: rows(botId, space) })),
   );
@@ -35,7 +41,7 @@ function fixture(space: string) {
   const props = {
     rpc: {
       routines: { listForMentions: batch, list: single },
-      connections: { catalog: async () => [], list: async () => [] },
+      connections,
     },
     queries: {
       routines: {
@@ -134,4 +140,52 @@ it("keeps per-bot cache data and one-bot invalidation while batching the cold ro
   expect(queryClient.getQueryData(key("space-a", "bot-99"))).toEqual(rows("bot-99", "space-a"));
   expect(other.batch).toHaveBeenCalledTimes(1);
   act(() => root.unmount());
+});
+
+it("offers connected apps in mentions and refreshes them when the Store closes", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const connection = {
+    id: "notes-account",
+    displayName: "Team notes",
+    provider: "notes",
+    status: "connected",
+  };
+  const list = vi.fn().mockResolvedValue([connection]);
+  const { props } = fixture("space-apps", {
+    catalog: async () => [{ connectorId: "fixture", slug: "notes", name: "Notes" }],
+    list,
+  });
+  const root = createRoot(document.createElement("div"));
+  const render = (integrationsOpen: boolean) =>
+    act(async () =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Probe props={{ ...props, bots: bots.slice(0, 1), integrationsOpen }} />
+        </QueryClientProvider>,
+      ),
+    );
+  const expectAppMention = async (name: string) => {
+    await act(async () => {
+      await vi.waitFor(() =>
+        expect(
+          queryClient.getQueryData(["space-apps", "connections", "with-connections"]),
+        ).toMatchObject({ connections: [{ displayName: name }] }),
+      );
+      await flush();
+    });
+    expect(
+      latest.composerMentionTargets.filter((target) => target.kind === "connector"),
+    ).toMatchObject([{ name, authStatus: "connected", connectionId: "notes-account" }]);
+  };
+  try {
+    await render(false);
+    await expectAppMention("Team notes");
+
+    await render(true);
+    list.mockResolvedValue([{ ...connection, displayName: "Project notes" }]);
+    await render(false);
+    await expectAppMention("Project notes");
+  } finally {
+    act(() => root.unmount());
+  }
 });
