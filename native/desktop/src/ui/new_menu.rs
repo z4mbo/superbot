@@ -80,7 +80,7 @@ impl Desktop {
         if let Some(focus) = self.create.menu_focus.as_ref() {
             sheet = sheet.track_focus(focus);
         }
-        let sheet = menu_enter("new-menu-enter", sheet, |sheet, remaining| {
+        let sheet = menu_enter("new-menu-enter", sheet, cx, |sheet, remaining| {
             sheet.relative().top(px(-4. * remaining))
         });
         div()

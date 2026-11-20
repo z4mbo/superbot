@@ -1,7 +1,6 @@
 use chrono::{Duration, NaiveDate};
 use gpui_kit::component::input::Input;
 use gpui_kit::component::spinner::Spinner;
-use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::Sizable as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
@@ -10,6 +9,7 @@ use superbot_features::local_app_records::{AppField, AppValue, AppValues, Grante
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::agent_panel::round_button;
+use crate::ui::tooltip;
 use crate::ui::{chip, drag_region, empty_line, error_line, field_box, icon, pill_button, Tone, Type, MANUAL_WINDOW_DRAG};
 
 use super::{has_dates, today, Addition, Chosen, Save};
@@ -120,7 +120,7 @@ impl Desktop {
                 .border_color(theme.ink_at(0.04))
                 .cursor_pointer()
                 .hover(move |style| style.bg(hover))
-                .tooltip(|window, cx| Tooltip::new("Apps").build(window, cx))
+                .map(|button| tooltip::on(button, "Apps"))
                 .on_click(cx.listener(move |this, _, window, cx| {
                     if open {
                         this.close_app_assist(cx)
@@ -149,15 +149,15 @@ impl Desktop {
             .pl_4()
             .pr(px(13.))
             .child(div().flex_1().min_w_0().section().child("Apps"))
-            .child(
-                round_button("app-assist-close", "x", false, &theme, |button| {
-                    button
-                        .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
-                        .tooltip(|window, cx| Tooltip::new("Close").build(window, cx))
-                        .on_click(cx.listener(|this, _, _, cx| this.close_app_assist(cx)))
-                }),
-            )
-            .when(cfg!(not(target_os = "macos")), |header| header.mr(crate::theme::CAPTION_WIDTH));
+            .child(round_button("app-assist-close", "x", false, &theme, |button| {
+                button
+                    .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
+                    .map(|button| tooltip::on(button, "Close"))
+                    .on_click(cx.listener(|this, _, _, cx| this.close_app_assist(cx)))
+            }))
+            .when(cfg!(not(target_os = "macos")), |header| {
+                header.mr(crate::theme::CAPTION_WIDTH)
+            });
 
         let problem = panel.problem.clone();
         let body = match &panel.chosen {
@@ -276,9 +276,9 @@ impl Desktop {
             .flex()
             .items_center()
             .gap_3()
-            .child(
-                round_button("assist-back", "chevron-left", false, theme, |button| {
-                    button.tooltip(|window, cx| Tooltip::new("All apps").build(window, cx))
+            .child(round_button("assist-back", "chevron-left", false, theme, |button| {
+                button
+                    .map(|button| tooltip::on(button, "All apps"))
                     .on_click(cx.listener(|this, _, _, cx| this.leave_app(cx)))
                 }),
             )

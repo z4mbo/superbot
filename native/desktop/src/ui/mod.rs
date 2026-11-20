@@ -19,6 +19,7 @@ pub mod sidebar;
 pub mod sign_in;
 pub mod store;
 pub mod tile_preview;
+mod tooltip;
 pub mod workspace;
 
 #[cfg(target_os = "macos")]

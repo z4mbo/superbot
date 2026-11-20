@@ -9,11 +9,12 @@ use super::marks::Mark;
 use super::{level_label, Act, Gutter, Line, Spot, Trailing};
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
-use crate::ui::chat::tooltip;
+use crate::ui::chrome::SegmentTrack;
 use crate::ui::focus::{self, Ring};
 use crate::ui::motion::{Colors, Pointer};
 use crate::ui::new_menu::menu_shadow;
 use crate::ui::overlays::menu_enter;
+use crate::ui::tooltip;
 use crate::ui::{icon, Type};
 
 /// A maker's mark, quiet until the pointer is over `lift`: a brand colour at 60%, a black
@@ -56,7 +57,7 @@ fn gutter(gutter: Gutter, lift: Option<SharedString>, theme: &Theme) -> Div {
 }
 
 impl Desktop {
-    fn model_line(&self, line: Line, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+    fn model_line(&self, line: Line, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let hover = theme.ink_at(0.06);
         let highlight = self.model_menu.highlight;
         match line {
@@ -97,19 +98,23 @@ impl Desktop {
                 div().px_2().pt_0p5().pb_1p5().meta().text_color(theme.ink_tertiary).child(text).into_any_element()
             }
             Line::Effort { first, levels, current } => {
+                let track = SegmentTrack::new("model-effort-track", theme, window, cx);
                 let pill = |index: usize, level: Option<ThinkingLevel>, cx: &mut Context<Self>| {
                     let pressed = level == current;
                     let lit = highlight == Some(Spot { row: first + index, star: false });
                     let button = div()
                         .id(("model-effort", index))
                         .h(px(32.))
-                        .px_1p5()
-                        .flex_1()
+                        .px(px(2.))
+                        .flex_auto()
+                        .min_w_0()
                         .flex()
                         .items_center()
                         .justify_center()
                         .rounded_full()
                         .body()
+                        .role(Role::Tab)
+                        .aria_selected(pressed)
                         .cursor_pointer()
                         .truncate()
                         .when(pressed, |pill| pill.font_weight(FontWeight::MEDIUM))
@@ -118,16 +123,15 @@ impl Desktop {
                             cx.listener(move |this, _, window, cx| this.model_menu_act(Act::Effort(level), window, cx)),
                         )
                         .child(level_label(level));
-                    let resting = if pressed { 0.10 } else { 0.0 };
-                    let fill = Colors::ink(theme, resting, if pressed { resting } else { 0.04 }, 0.08);
+                    let fill = Colors::ink(theme, 0., if pressed { 0. } else { 0.04 }, 0.08);
                     let text = Colors::new(if pressed { theme.ink } else { theme.ink_secondary }, theme.ink, theme.ink);
-                    focus::decorate(button)
+                    focus::decorate(track.button(button, pressed))
                         .tint(Pointer::BUTTON, move |button, levels| button.bg(fill.sample(levels)).text_color(text.sample(levels)))
                         .into_any_element()
                 };
                 let pills: Vec<_> =
                     levels.into_iter().enumerate().map(|(index, level)| pill(index, level, cx)).collect();
-                div().m_1().p(px(3.)).flex().rounded_full().bg(theme.ink_at(0.05)).children(pills).into_any_element()
+                track.element().m_1().children(pills).into_any_element()
             }
             Line::Row { nav, label, meta, gutter: mark, trailing, star, quiet } => {
                 let lit = highlight.is_some_and(|spot| spot.row == nav && !spot.star);
@@ -242,7 +246,8 @@ impl Desktop {
 
     /// The agent's model in a popover like the Simple menu: the current model pinned, then each
     /// source's suggestions, thinking where the model takes it, and the way to manage models.
-    pub fn render_model_menu(&mut self, bot_id: &str, viewport: Size<Pixels>, cx: &mut Context<Self>) -> AnyElement {
+    pub fn render_model_menu(&mut self, bot_id: &str, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let viewport = window.viewport_size();
         let theme = cx.skin().clone();
         let hover = theme.ink_at(0.06);
         let trigger = self.model_menu.bounds(self.model_menu.trigger).get();
@@ -301,8 +306,16 @@ impl Desktop {
                 .child(div().flex_1().min_w_0().body().child(Input::new(&input).appearance(false).bordered(false)))
                 .children(clear)
         });
-        let lines: Vec<AnyElement> = sheet.lines.into_iter().map(|line| self.model_line(line, &theme, cx)).collect();
-        let footer: Vec<AnyElement> = sheet.footer.into_iter().map(|line| self.model_line(line, &theme, cx)).collect();
+        let lines: Vec<AnyElement> = sheet
+            .lines
+            .into_iter()
+            .map(|line| self.model_line(line, &theme, window, cx))
+            .collect();
+        let footer: Vec<AnyElement> = sheet
+            .footer
+            .into_iter()
+            .map(|line| self.model_line(line, &theme, window, cx))
+            .collect();
 
         let mut sheet = div()
             .id("model-menu")
@@ -352,7 +365,7 @@ impl Desktop {
         }
 
         let saving = self.model_menu.saving;
-        let sheet = menu_enter("model-menu-enter", sheet, move |sheet, remaining| {
+        let sheet = menu_enter("model-menu-enter", sheet, cx, move |sheet, remaining| {
             sheet
                 .relative()
                 .top(px(-4. * remaining))

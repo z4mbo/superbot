@@ -191,7 +191,7 @@ impl Desktop {
                 .justify_center()
                 .rounded_full()
                 .hover(move |style| style.bg(hover))
-                .tooltip(|window, cx| Tooltip::new("Download").build(window, cx))
+                .map(|button| tooltip::on(button, "Download"))
                 .on_click(cx.listener(move |this, _, window, cx| {
                     cx.stop_propagation();
                     this.fetch_file(file.clone(), false, window, cx);

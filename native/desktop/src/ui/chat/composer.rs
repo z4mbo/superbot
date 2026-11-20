@@ -15,9 +15,8 @@ use crate::outbox::Attachment;
 use crate::theme::{radius, Theme, CHAT_COLUMN};
 use crate::ui::focus::{self, Ring};
 use crate::ui::motion::{self, Colors, Levels, Pointer, Tint, Tween};
+use crate::ui::tooltip;
 use crate::ui::{error_line, icon, pill_button, Tone, Type};
-
-use super::tooltip;
 
 /// The lift shared by the header and composer, in CSS `box-shadow` terms.
 pub(super) fn floating_shadow(theme: &Theme) -> Vec<BoxShadow> {
@@ -87,6 +86,27 @@ struct ComposerMotion {
     input_width: Pixels,
     height: Tween<Pixels>,
     ready: Tint,
+}
+
+impl ComposerMotion {
+    fn update_visuals(
+        &mut self,
+        height: Pixels,
+        has_content: bool,
+        instant_height: bool,
+        reduced_motion: bool,
+        now: Instant,
+    ) -> (Pixels, f32, bool) {
+        let span = motion::duration(motion::GROW, instant_height || reduced_motion);
+        let lerp = |from, to, progress| from + (to - from) * progress;
+        self.height.aim(height, now, span, motion::EMPHASIS, lerp);
+        self.ready.aim(has_content, now, reduced_motion);
+        (
+            self.height.sample(now, motion::EMPHASIS, lerp),
+            self.ready.level(now),
+            self.height.moving(now) || self.ready.moving(now),
+        )
+    }
 }
 
 fn editor_height(rows: usize, line: Pixels, viewport_height: Pixels) -> Pixels {
@@ -191,19 +211,11 @@ impl Desktop {
             let resized = state.viewport != viewport || state.input_width != input_width;
             state.viewport = viewport;
             state.input_width = input_width;
-            let span = motion::duration(motion::GROW, resized || still);
-            let lerp = |from, to, progress| from + (to - from) * progress;
-            state
-                .height
-                .aim(wanted_height, now, span, motion::EMPHASIS, lerp);
-            state.ready.aim(has_content, now, still);
-            if state.height.moving(now) || state.ready.moving(now) {
+            let (height, ready, moving) = state.update_visuals(wanted_height, has_content, resized, still, now);
+            if moving {
                 window.request_animation_frame();
             }
-            (
-                state.height.sample(now, motion::EMPHASIS, lerp),
-                state.ready.level(now),
-            )
+            (height, ready)
         });
         if first_layout {
             // Keep the kit's wrapping and internal scroll, and let this view own its visible height.
@@ -411,6 +423,7 @@ impl Desktop {
                 let sheet = crate::ui::overlays::menu_enter(
                     "mentions-enter",
                     self.render_mentions(&list, theme, cx),
+                    cx,
                     |sheet, remaining| sheet.mb(px(8. - 4. * remaining)),
                 );
                 deferred(sheet).with_priority(1)
@@ -499,9 +512,29 @@ impl Desktop {
 
 #[cfg(test)]
 mod tests {
-    use gpui_kit::{px, rgb, white, Hsla};
+    use gpui_kit::{px, rgb, size, white, Hsla};
 
-    use super::{editor_height, send_paint};
+    use super::{editor_height, motion, send_paint, ComposerMotion, Instant, Target, Tint, Tween};
+
+    #[test]
+    fn reduced_motion_finishes_composer_growth_and_send_tint() {
+        let now = Instant::now();
+        let mut composer = ComposerMotion {
+            target: Target::Agent("fixture".into()),
+            viewport: size(px(925.), px(820.)),
+            input_width: px(700.),
+            height: Tween::at_rest(px(20.), now),
+            ready: Tint::default(),
+        };
+        assert_eq!(
+            composer.update_visuals(px(40.), true, false, false, now),
+            (px(20.), 0., true)
+        );
+        assert_eq!(
+            composer.update_visuals(px(40.), true, false, true, now + motion::GROW / 2),
+            (px(40.), 1., false),
+        );
+    }
 
     #[test]
     fn composer_height_reserves_one_line_and_caps_grown_content_at_forty_percent() {

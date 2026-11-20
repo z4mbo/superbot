@@ -1,6 +1,7 @@
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
+use crate::api::Target;
 use crate::app::{Desktop, DialogKind, MenuKind, View};
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::focus::{self, Ring};
@@ -33,14 +34,21 @@ fn item(
 pub(super) fn menu_enter(
     id: &'static str,
     sheet: Stateful<Div>,
+    cx: &App,
     translate: impl Fn(Stateful<Div>, f32) -> Stateful<Div> + 'static,
 ) -> AnyElement {
-    let animation = motion::animation(motion::POP, motion::EMPHASIS).expect("POP has a duration");
-    sheet
-        .with_animation(id, animation, move |sheet, progress| {
-            translate(sheet.opacity(progress), 1. - progress)
-        })
-        .into_any_element()
+    match menu_animation(cx.reduce_motion()) {
+        Some(animation) => sheet
+            .with_animation(id, animation, move |sheet, progress| {
+                translate(sheet.opacity(progress), 1. - progress)
+            })
+            .into_any_element(),
+        None => translate(sheet, 0.).into_any_element(),
+    }
+}
+
+fn menu_animation(reduced_motion: bool) -> Option<Animation> {
+    motion::animation(motion::duration(motion::POP, reduced_motion), motion::EMPHASIS)
 }
 
 impl Desktop {
@@ -72,7 +80,7 @@ impl Desktop {
         items
     }
 
-    pub fn render_menu(&mut self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub fn render_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         let theme = cx.skin().clone();
         let menu = self.menu.as_ref()?;
         let (items, anchor, entry, dy) = match &menu.kind {
@@ -83,7 +91,7 @@ impl Desktop {
             }
             MenuKind::Model(bot_id) => {
                 let bot_id = bot_id.clone();
-                return Some(self.render_model_menu(&bot_id, window.viewport_size(), cx));
+                return Some(self.render_model_menu(&bot_id, window, cx));
             }
             MenuKind::Spaces => {
                 let mut items = vec![Item::Label("Spaces".into())];
@@ -114,9 +122,23 @@ impl Desktop {
             MenuKind::Agent(agent_id) => {
                 let pinned = self.agent(agent_id).is_some_and(|agent| agent.pinned);
                 let (rename, pin, archive) = (agent_id.clone(), agent_id.clone(), agent_id.clone());
+                let (conversation, details) = (agent_id.clone(), agent_id.clone());
                 let items = vec![
                     item("rename", "pencil", "Rename…", move |this, window, cx| {
                         this.open_dialog(DialogKind::RenameAgent(rename.clone()), window, cx)
+                    }),
+                    item(
+                        "new-conversation",
+                        "plus",
+                        "New conversation",
+                        move |this, window, cx| {
+                            this.open_agent_chat(&conversation, window, cx);
+                            this.new_conversation(window, cx);
+                        },
+                    ),
+                    item("open-details", "settings", "Open details", move |this, window, cx| {
+                        this.open_agent_chat(&details, window, cx);
+                        this.open_agent_details(window, cx);
                     }),
                     item("pin", "pin", if pinned { "Unpin" } else { "Pin" }, move |this, window, cx| {
                         this.set_pinned(pin.clone(), !pinned, window, cx)
@@ -193,7 +215,7 @@ impl Desktop {
                 }
             }));
 
-        let sheet = menu_enter(entry, sheet, move |sheet, remaining| {
+        let sheet = menu_enter(entry, sheet, cx, move |sheet, remaining| {
             sheet.relative().top(px(dy * remaining))
         });
         Some(
@@ -222,6 +244,12 @@ impl Desktop {
                 )
                 .into_any_element(),
         )
+    }
+
+    fn open_agent_chat(&mut self, agent: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.view != View::Chat || self.chat.as_ref().and_then(|chat| chat.target.agent()) != Some(agent) {
+            self.open(Target::Agent(agent.to_owned()), window, cx);
+        }
     }
 
     pub fn render_dialog(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
@@ -331,6 +359,17 @@ impl Desktop {
                 })
                 .into_any_element(),
         )
+    }
+}
+
+#[cfg(test)]
+mod motion_tests {
+    use super::menu_animation;
+
+    #[test]
+    fn reduced_motion_omits_menu_entry_animation() {
+        assert!(menu_animation(false).is_some());
+        assert!(menu_animation(true).is_none());
     }
 }
 

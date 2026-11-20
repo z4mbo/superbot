@@ -65,11 +65,7 @@ impl Desktop {
                 .when(!menu_open, |button| button.opacity(0.).group_hover(group.clone(), |style| style.opacity(1.)))
                 .when(menu_open, |button| button.bg(theme.ink_at(0.06)))
                 .hover(move |style| style.bg(hover))
-                .when(!menu_open, |button| {
-                    button.tooltip(move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new(label.clone()).build(window, cx)
-                    })
-                })
+                .when(!menu_open, |button| tooltip::on(button, label))
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     cx.stop_propagation();
                     this.open_conversation_menu(&agent, &thread, event.position(), cx);

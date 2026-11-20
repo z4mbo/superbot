@@ -314,7 +314,7 @@ impl Desktop {
                     let text = note.text.clone();
                     let forget =
                         trash_button(SharedString::from(format!("{id}-forget")), !page.busy, theme)
-                            .tooltip(|window, cx| Tooltip::new("Forget").build(window, cx))
+                            .map(|button| tooltip::on(button, "Forget"))
                             .when(!page.busy, |button| {
                                 button.on_click(cx.listener(move |this, _, window, cx| {
                                     this.forget_memory_note(note.clone(), window, cx)
