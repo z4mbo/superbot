@@ -44,23 +44,29 @@ export function injectScreenDocumentAccess(
   const assetPath = prefix + ${JSON.stringify(`${SCREEN_ASSET_SEGMENT}${assetProof}/`)};
   const proof = ${JSON.stringify(SCREEN_SOCKET_PROTOCOL_PREFIX + socketProof)};
   const WebSocket = window.WebSocket;
-  window.WebSocket = class extends WebSocket {
-    constructor(url, protocols = []) {
+  window.WebSocket = new Proxy(WebSocket, {
+    construct(Socket, [url, protocols = []], newTarget) {
       const target = new URL(url, document.baseURI);
       const path = target.pathname.replace(/^\\/{2,}/, "/");
-      if (target.host === location.host && path.startsWith(prefix + "/")) {
+      const proxied = target.host === location.host && path.startsWith(prefix + "/");
+      if (proxied) {
         target.pathname = path.startsWith(assetPath)
           ? prefix + "/" + path.slice(assetPath.length)
           : path;
         protocols = [...(typeof protocols === "string" ? [protocols] : protocols), proof];
       }
-      super(target, protocols);
+      // noVNC checks for send and the other raw-channel methods on the socket's immediate prototype.
+      const socket = Reflect.construct(Socket, [target, protocols], newTarget);
+      if (proxied) {
+        const readProtocol = Object.getOwnPropertyDescriptor(Socket.prototype, "protocol").get;
+        Object.defineProperty(socket, "protocol", { configurable: true, get() {
+          const selected = readProtocol.call(this);
+          return selected === proof ? "" : selected;
+        } });
+      }
+      return socket;
     }
-    get protocol() {
-      const selected = super.protocol;
-      return selected === proof ? "" : selected;
-    }
-  };
+  });
 })();
 </script>`;
   const head = /<head(?:\s[^>]*)?>/i;
