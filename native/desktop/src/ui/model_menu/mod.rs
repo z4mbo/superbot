@@ -1,5 +1,8 @@
 mod local;
+pub(crate) mod marks;
 mod view;
+
+pub(crate) use view::mark_icon;
 
 use std::cell::Cell;
 use std::collections::HashSet;
@@ -16,6 +19,7 @@ use superbot_workspace_panel::Section;
 use crate::api;
 use crate::app::{Desktop, Menu, MenuKind};
 use local::{probe_local, Favorites, LocalGroup};
+use marks::{model_mark, Mark};
 
 /// Past this many models the menu offers a search field, as the Simple menu does.
 const SEARCH_AFTER: usize = 12;
@@ -108,8 +112,8 @@ pub(super) struct Stop {
 #[derive(Clone, Copy)]
 pub(super) enum Gutter {
     Blank,
-    Hosted,
-    Local,
+    Hosted(Option<&'static Mark>),
+    Local(Option<&'static Mark>),
     Thinking,
     Manage,
     Recheck,
@@ -164,6 +168,22 @@ fn favorite_key(pick: &Pick) -> String {
         Pick::Hosted(option) => format!("{}\n{}", option.provider, option.model_id),
         Pick::Local(model) => format!("local:{}\n{}", model.provider, model.id),
     }
+}
+
+impl Pick {
+    fn mark(&self) -> Option<&'static Mark> {
+        match self {
+            Pick::Main => None,
+            Pick::Hosted(option) => model_mark(Some(&option.provider), Some(&option.model_id), Some(&option.label)),
+            Pick::Local(model) => model_mark(Some(&model.provider), Some(&model.id), Some(&model.label)),
+        }
+    }
+}
+
+/// A group's mark when all its models share a maker, as the web picker heads its sections.
+fn group_mark(rows: &[Choice]) -> Option<&'static Mark> {
+    let first = rows.first()?.pick.mark()?;
+    rows.iter().all(|row| row.pick.mark().is_some_and(|mark| std::ptr::eq(mark, first))).then_some(first)
 }
 
 fn matches(query: &str, texts: &[&str]) -> bool {
@@ -339,6 +359,25 @@ impl Desktop {
         self.model_menu.query.as_ref().map(|query| query.read(cx).value().trim().to_lowercase()).unwrap_or_default()
     }
 
+    fn main_model_mark(&self) -> Option<&'static Mark> {
+        let (provider, model_id, _) = self.agent_info.main_choice()?;
+        model_mark(Some(&provider), Some(&model_id), self.agent_info.main_model_label().as_deref())
+    }
+
+    /// The maker's mark beside the model a chat with `bot_id` answers with.
+    pub(crate) fn chat_model_mark(&self, bot_id: &str) -> Option<&'static Mark> {
+        if let Some(model) = self.selected_local_model() {
+            return Pick::Local(model).mark();
+        }
+        let bot = self.agent_info.bot(bot_id)?;
+        match bot.model_provider.as_deref().zip(bot.model_id.as_deref()) {
+            Some((provider, model_id)) => {
+                model_mark(Some(provider), Some(model_id), self.chat_model_label(bot_id).as_deref())
+            }
+            None => self.main_model_mark(),
+        }
+    }
+
     fn local_engine_name(&self, model: &InstalledModel) -> String {
         self.model_menu
             .local
@@ -373,19 +412,18 @@ impl Desktop {
                 None => sources.push((option.source.clone(), false, vec![choice])),
             }
         }
-        let locals: Vec<Choice> = self
-            .model_menu
-            .local
-            .iter()
-            .flatten()
-            .flat_map(|group| group.models.iter().map(move |model| (group.engine, model)))
-            .map(|(engine, model)| {
-                let pick = Pick::Local(model.clone());
-                Choice { key: favorite_key(&pick), pick, label: model.label.clone(), meta: Some(engine.to_owned()) }
-            })
-            .collect();
-        if !locals.is_empty() {
-            sources.push((LOCAL_GROUP.to_owned(), true, locals));
+        for group in self.model_menu.local.iter().flatten() {
+            let rows: Vec<Choice> = group
+                .models
+                .iter()
+                .map(|model| {
+                    let pick = Pick::Local(model.clone());
+                    Choice { key: favorite_key(&pick), pick, label: model.label.clone(), meta: None }
+                })
+                .collect();
+            if !rows.is_empty() {
+                sources.push((group.engine.to_owned(), true, rows));
+            }
         }
         let total: usize = sources.iter().map(|(_, _, rows)| rows.len()).sum();
         let search = total > SEARCH_AFTER;
@@ -413,7 +451,7 @@ impl Desktop {
                 Some((
                     model.label.clone(),
                     format!("{} on this computer", self.local_engine_name(model)),
-                    Gutter::Local,
+                    Gutter::Local(Pick::Local(model.clone()).mark()),
                 ))
             } else if let Some((provider, model_id)) = &own {
                 let label = options
@@ -421,11 +459,13 @@ impl Desktop {
                     .find(|option| option.is(provider, model_id))
                     .map(|option| option.label.clone())
                     .unwrap_or_else(|| model_id.clone());
-                Some((label, format!("{name}'s model, used in all its chats"), Gutter::Hosted))
+                let mark = model_mark(Some(provider), Some(model_id), Some(&label));
+                Some((label, format!("{name}'s model, used in all its chats"), Gutter::Hosted(mark)))
             } else {
+                let mark = self.main_model_mark();
                 main_label
                     .clone()
-                    .map(|label| (label, "Main model, for agents without their own".to_owned(), Gutter::Hosted))
+                    .map(|label| (label, "Main model, for agents without their own".to_owned(), Gutter::Hosted(mark)))
             };
             let pinned = current.is_some();
             if let Some((label, meta, gutter)) = current {
@@ -460,6 +500,7 @@ impl Desktop {
 
         let mut results = 0;
         for (source, is_local, rows) in sources {
+            let mark = group_mark(&rows);
             let holds_current = rows.iter().any(|row| is_current(&row.pick));
             let (shown, toggle): (Vec<Choice>, Option<(bool, usize)>) = if query.is_empty() {
                 let total = rows.len();
@@ -492,7 +533,7 @@ impl Desktop {
                 continue;
             }
             results += shown.len();
-            lines.push(Line::Label(source.clone(), if is_local { Gutter::Local } else { Gutter::Hosted }));
+            lines.push(Line::Label(source.clone(), if is_local { Gutter::Local(mark) } else { Gutter::Hosted(mark) }));
             for choice in shown {
                 let current = is_current(&choice.pick);
                 let starred_now = live.is_some_and(|live| live.contains(&choice.key));

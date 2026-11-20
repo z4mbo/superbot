@@ -127,12 +127,18 @@ impl Desktop {
             }))
             .child(self.target_face(target, px(22.), Some(watch), theme, cx))
             .child(div().name().truncate().child(name));
+        let mark = target.agent().and_then(|id| self.chat_model_mark(id));
         let model = model.map(|label| {
             self.model_menu_button(crate::ui::model_menu::ModelTrigger::Header, cx)
+                .group("chat-model")
                 .min_w_0()
                 .flex()
                 .items_center()
                 .gap_1()
+                .children(mark.map(|mark| {
+                    let lift = if choosing { None } else { Some(SharedString::from("chat-model")) };
+                    crate::ui::model_menu::mark_icon(mark, px(14.), lift, theme).mr(px(2.))
+                }))
                 .pt(px(9.))
                 .pb(px(8.))
                 .pl(px(9.))
