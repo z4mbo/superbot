@@ -31,9 +31,17 @@ current grant when the bot reads or writes, including after an approval wait.
 Discovery fetches tool schemas only for granted MCP parts. Each call asks
 through the standard approval card with the destination and arguments. After
 approval, the worker reconnects through the guarded Streamable HTTP transport,
-checks that the current tool schema matches the approved schema and rechecks
-the live grant before sending each HTTP request. Private addresses and
-redirects are refused. A request already sent may finish after revocation.
+checks that the current tool schema and declared UI resource URI match the
+approved route, and rechecks the live grant before sending each HTTP request.
+Private addresses and redirects are refused. A request already sent may
+finish after revocation.
+
+After a successful chat call, the worker can read the approved `ui://`
+resource through the same MCP session. It accepts a matching
+`text/html;profile=mcp-app` document within the MCP App size limit. The
+existing sandboxed viewer loads the document as a hidden artifact from the
+conversation containing the card. An absent or invalid document leaves the
+tool result available to the bot.
 
 Registry execution has no command runner, package installer, local network
 override or plugin credentials. The test fixture starts the first-party sample

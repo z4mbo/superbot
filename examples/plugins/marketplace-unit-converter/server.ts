@@ -1,8 +1,13 @@
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
 const serverInfo = { name: "marketplace-unit-converter", version: "1.0.0" };
 const protocolVersions = ["2025-11-25", "2025-06-18", "2025-03-26"];
 const units = ["celsius", "fahrenheit"];
+const appUri = "ui://unit-converter/temperature.html";
+const mimeType = "text/html;profile=mcp-app";
+const appResource = { uri: appUri, name: "Temperature conversion", mimeType };
+const appHtml = readFileSync(new URL("temperature.html", import.meta.url), "utf8");
 const tool = {
   name: "convert_temperature",
   description: "Convert a temperature between Celsius and Fahrenheit.",
@@ -17,13 +22,19 @@ const tool = {
     additionalProperties: false,
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
+  _meta: { ui: { resourceUri: appUri } },
 };
 
 type Request = {
   jsonrpc?: unknown;
   id?: string | number | null;
   method?: string;
-  params?: { name?: string; arguments?: Record<string, unknown>; protocolVersion?: string };
+  params?: {
+    name?: string;
+    arguments?: Record<string, unknown>;
+    protocolVersion?: string;
+    uri?: string;
+  };
 };
 
 function convert(args: Record<string, unknown> | undefined) {
@@ -61,7 +72,7 @@ function respond(request: Request) {
           protocolVersion:
             protocolVersions.find((version) => version === request.params?.protocolVersion) ??
             protocolVersions[0],
-          capabilities: { tools: {} },
+          capabilities: { tools: {}, resources: {} },
           serverInfo,
         },
       };
@@ -74,6 +85,13 @@ function respond(request: Request) {
         return { ...envelope, result: convert(request.params.arguments) };
       }
       return { ...envelope, error: { code: -32602, message: "Unknown tool" } };
+    case "resources/list":
+      return { ...envelope, result: { resources: [appResource] } };
+    case "resources/read":
+      if (request.params?.uri === appUri) {
+        return { ...envelope, result: { contents: [{ uri: appUri, mimeType, text: appHtml }] } };
+      }
+      return { ...envelope, error: { code: -32002, message: "Resource not found" } };
     default:
       return { ...envelope, error: { code: -32601, message: "Unknown method" } };
   }

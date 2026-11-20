@@ -11,7 +11,7 @@ import { artifactCacheSession } from "./artifact-cache-session";
 import { artifactCacheFileName, artifactShareFileName } from "./artifact-file";
 import { ARTIFACT_DOWNLOAD_TIMEOUT_MS } from "./artifacts";
 
-export type MobileArtifactTarget = { botId: string } | { groupId: string };
+export type MobileArtifactTarget = { botId: string; threadId?: string } | { groupId: string };
 
 /** Writes an artifact's bytes to its cache file; no network call. */
 export function writeArtifactCacheFile(
@@ -87,6 +87,7 @@ function requestKey(target: MobileArtifactTarget, artifactId: string, mimeType: 
   return JSON.stringify([
     "botId" in target ? "bot" : "group",
     "botId" in target ? target.botId : target.groupId,
+    ...("botId" in target && target.threadId ? [target.threadId] : []),
     artifactId,
     mimeType,
   ]);
@@ -108,6 +109,9 @@ async function cacheMobileArtifact(
     `endpoint-${encodeURIComponent(scope.context.apiBase)}`,
     `user-${encodeURIComponent(scope.userId)}`,
     `target-${encodeURIComponent("botId" in target ? `bot:${target.botId}` : `group:${target.groupId}`)}`,
+    ...("botId" in target && target.threadId
+      ? [`thread-${encodeURIComponent(target.threadId)}`]
+      : []),
     `artifact-${encodeURIComponent(artifactId)}`,
     `mime-${encodeURIComponent(mimeType)}`,
   );

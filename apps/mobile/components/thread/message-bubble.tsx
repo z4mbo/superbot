@@ -180,14 +180,12 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
           canAnswer={props.canAnswer}
         />
       );
-    if (first.kind === "app")
-      return (
-        <McpAppCard
-          key={`app-${index}`}
-          block={first}
-          target={props.groupId ? { groupId: props.groupId } : { botId: props.botId }}
-        />
-      );
+    if (first.kind === "app") {
+      const target = props.groupId
+        ? { groupId: props.groupId }
+        : { botId: props.botId, threadId: message.threadId };
+      return <McpAppCard key={`app-${index}`} block={first} target={target} />;
+    }
     return isSpecialMessageBlock(first) ? (
       <SpecialMessageCard
         key={first.kind === "subagent" ? first.agentId : `${first.kind}-${index}`}

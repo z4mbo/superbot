@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Temperature conversion</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font: 16px system-ui, sans-serif;
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        background: Canvas;
+        color: CanvasText;
+      }
+      output {
+        display: block;
+        font-size: 1.5rem;
+        font-weight: 600;
+      }
+      button {
+        margin-top: 8px;
+        padding: 4px 8px;
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <output aria-live="polite">Waiting for conversion</output>
+    <button type="button" hidden>Show more precision</button>
+    <script>
+      const output = document.querySelector("output");
+      const precision = document.querySelector("button");
+      const symbols = { celsius: "°C", fahrenheit: "°F" };
+      let conversion;
+      let detailed = false;
+
+      function post(message) {
+        parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+      }
+
+      function render() {
+        const value = conversion.value.toLocaleString(undefined, {
+          maximumFractionDigits: detailed ? 12 : 2,
+        });
+        output.textContent = `${value} ${symbols[conversion.unit]}`;
+        precision.textContent = detailed ? "Round to two decimals" : "Show more precision";
+      }
+
+      precision.addEventListener("click", () => {
+        detailed = !detailed;
+        render();
+      });
+      window.addEventListener("message", ({ source, data }) => {
+        if (source !== parent || data?.jsonrpc !== "2.0") return;
+        if (data.id === 1 && data.result) {
+          document.documentElement.dataset.theme = data.result.hostContext?.theme;
+          post({ method: "ui/notifications/initialized" });
+        } else if (data.method === "ui/notifications/tool-result") {
+          const result = data.params?.structuredContent;
+          if (Number.isFinite(result?.value) && Object.hasOwn(symbols, result.unit)) {
+            conversion = result;
+            precision.hidden = false;
+            render();
+          }
+        } else if (data.method === "ui/notifications/host-context-changed") {
+          if (data.params?.theme) document.documentElement.dataset.theme = data.params.theme;
+        } else if (data.method === "ui/resource-teardown") {
+          post({ id: data.id, result: {} });
+        }
+      });
+      new ResizeObserver(() =>
+        post({ method: "ui/notifications/size-changed", params: { height: document.body.offsetHeight } })
+      ).observe(document.body);
+      post({
+        id: 1,
+        method: "ui/initialize",
+        params: {
+          appInfo: { name: "temperature-conversion", version: "1.0.0" },
+          appCapabilities: { availableDisplayModes: ["inline"] },
+          protocolVersion: "2026-01-26",
+        },
+      });
+    </script>
+  </body>
+</html>
