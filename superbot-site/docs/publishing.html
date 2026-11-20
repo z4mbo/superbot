@@ -3,12 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Review, install and grants</title>
-  <meta name="description" content="How a Superbot plugin version is reviewed, installed into a Space, granted to bots and updated.">
+  <title>Review, install and versions</title>
+  <meta name="description" content="How a Superbot plugin version is submitted and reviewed, installed for an account in a Space, granted to bots, updated to a new version and uninstalled.">
   <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="../assets/base.css">
   <link rel="stylesheet" href="../assets/site.css">
   <script src="../assets/site.js"></script>
@@ -19,8 +17,10 @@
     <div class="bar">
       <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
       <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
         <a href="../#status" class="hide-sm">Status</a>
         <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
         </button>
@@ -30,123 +30,128 @@
 
   <div class="docs">
     <nav class="docs-nav" aria-label="Docs">
-      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Review, install and grants
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Review, install and versions
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <div id="docs-nav-links" class="docs-nav-links">
-        <h4>Plugins</h4>
-        <a href="./">Build a plugin</a>
-        <a href="manifest.html">Manifest reference</a>
-        <a href="publishing.html" aria-current="page">Review, install and grants</a>
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html" aria-current="page">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
         <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
         <a href="cli.html">superbot-plugin commands</a>
         <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
       </div>
     </nav>
 
     <main id="main" class="prose">
-      <div class="crumb">Plugins</div>
-      <h1>Review, install and grants</h1>
-      <p class="lede">A version moves from pending to approved or rejected once. After approval, people install it into a Space and choose, bot by bot, which parts that bot may use.</p>
-      <p>On desktop, open <b>Plugins</b> at the bottom of the sidebar. In the web app, open the account menu, choose <b>Integrations</b> and select <b>Community</b>. Both stores show the registry of the server you signed into.</p>
+      <div class="crumb">Publish</div>
+      <h1>Review, install and versions</h1>
+      <p class="lede">A version moves from pending to approved or rejected once. After approval, people install it for themselves, grant parts bot by bot, and move to newer versions when they choose.</p>
 
-      <h2 id="review">Review</h2>
-      <p>Choose <b>Create plugin</b>, describe what the plugin does and add its skills or tool endpoints. Submit a version for review. A deployment reviewer can inspect its parts in <b>Review</b> and approve it or return a reason for rejection. To address feedback, publish a new version of the same plugin.</p>
-      <p>Already have a <code>plugin.json</code> from <code>superbot-plugin init</code>? On desktop, choose <b>Open file…</b> to load its description and parts. Set the registry identifier and version in the form. <b>Save file…</b> writes a manifest you can check with <code>superbot-plugin validate plugin.json</code>.</p>
+      <h2 id="where">Where the store is</h2>
+      <p>On desktop, open <b>Plugins</b> at the bottom of the sidebar. In the web app, open the account menu and choose <b>Integrations → Community</b>. Both show the registry of the server you signed in to, with <b>Discover</b>, <b>Installed</b> and <b>Create plugin</b>, and <b>Review</b> for reviewers.</p>
+
+      <h2 id="submit">Submit a version</h2>
+      <p>In <b>Create plugin</b>, describe the plugin, add its apps, skills or tool endpoints, set the identifier and version, and choose <b>Submit for review</b>. From a terminal:</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin validate
+superbot-plugin publish water-log 1
+superbot-plugin status VERSION_ID</code></pre>
+      </figure>
+      <p>On desktop, <b>Open file…</b> loads a <code>plugin.json</code> from <code>superbot-plugin init</code> into the form, and <b>Save file…</b> writes the form back in the same format. The identifier and version aren't in the manifest; you set them when you submit.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th scope="col">Status</th><th scope="col">Who sees it</th><th scope="col">What happens next</th></tr></thead>
           <tbody>
-            <tr><td><code>pending</code></td><td class="muted">The publisher, and deployment admins in the review queue</td><td class="muted">An admin approves or rejects it. It can't be installed.</td></tr>
-            <tr><td><code>approved</code></td><td class="muted">Everyone signed in to the server, through <code>discover</code></td><td class="muted">People can install it. It never changes.</td></tr>
-            <tr><td><code>rejected</code></td><td class="muted">The publisher, with the reviewer's reason</td><td class="muted">Fix it and submit a higher version number.</td></tr>
+            <tr><td><code>pending</code></td><td class="muted">The publisher, and reviewers in the queue</td><td class="muted">A reviewer approves or rejects it. It can't be installed</td></tr>
+            <tr><td><code>approved</code></td><td class="muted">Everyone signed in to the server, in <b>Discover</b></td><td class="muted">People can install it. It never changes</td></tr>
+            <tr><td><code>rejected</code></td><td class="muted">The publisher, with the reviewer's reason</td><td class="muted">Fix it and submit a higher version number</td></tr>
           </tbody>
         </table>
       </div>
-      <ul>
-        <li>The server operator lists verified reviewers in <code>SUPERBOT_ADMIN_EMAILS</code>. Publishers can't review their own submissions unless they are admins.</li>
-        <li>A decision is final. A rejection needs a reason of 1 to 2,000 characters.</li>
-        <li>The first submission reserves the slug for its publisher, and a rejected version keeps it reserved.</li>
-      </ul>
+      <p>Your first submission reserves the slug on that server for your account, and a rejected version keeps it reserved.</p>
+
+      <h2 id="review">Review</h2>
+      <p>Reviewers are verified accounts the operator lists in <code>SUPERBOT_ADMIN_EMAILS</code>. In <b>Review</b>, they inspect every part, including skill instructions, record app fields and tool endpoints, then approve or give a reason for rejecting. Approval checks each tool endpoint against the public-address policy. A decision is final; a rejection needs a reason of 1 to 2,000 characters.</p>
       <figure class="code">
-        <div class="code-head"><span>shell, as a deployment admin</span><button class="copy" type="button" data-copy>Copy</button></div>
+        <div class="code-head"><span>shell, as a reviewer</span><button class="copy" type="button" data-copy>Copy</button></div>
 <pre><code>superbot-plugin list submissions
 superbot-plugin review VERSION_ID approved
-superbot-plugin review VERSION_ID rejected --reason "Clarify the skill instructions"</code></pre>
+superbot-plugin review VERSION_ID rejected --reason "Name the unit in the Amount label"</code></pre>
       </figure>
+      <p>When reviewing, check that each part does one job a person can grant on its own, that skills ask for nothing secret, and that labels say what a bot will see.</p>
 
       <h2 id="install">Install</h2>
-      <p>In <b>Discover</b>, search by name or description. Open a result to inspect the skill instructions and remote tool destinations before choosing <b>Install</b>.</p>
-      <p>Installing puts an approved version into the selected Space for your account. Installing the same version again returns the same installation. An installation is pinned to its exact version.</p>
+      <p>In <b>Discover</b>, search by name or description and open a result to see its parts before choosing <b>Install</b>. The installation belongs to your account in the selected Space, pinned to that exact version. Installing the same version again returns the same installation.</p>
       <figure class="code">
         <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
-<pre><code>superbot-plugin list discover --slug release-notes
+<pre><code>superbot-plugin list discover --query "water"
 superbot-plugin install VERSION_ID
 superbot-plugin list installations</code></pre>
       </figure>
 
       <h2 id="grants">Grants</h2>
-      <p>Open the plugin under <b>Installed</b>. Select a bot and turn on the parts it needs. Turn a part off to revoke that bot's grant. Other bots keep their own settings.</p>
-      <p>A new installation starts with no grants: no bot can use any part yet. A grant gives one bot one part.</p>
+      <p>Open the plugin under <b>Installed</b>, select a bot and turn on the parts it needs. A new installation has no grants, and each bot needs its own.</p>
       <figure class="code">
         <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
 <pre><code>superbot-plugin agents
-superbot-plugin set-grants INSTALLATION_ID BOT_ID summary tracker</code></pre>
+superbot-plugin set-grants INSTALLATION_ID BOT_ID drinks</code></pre>
       </figure>
-      <ul>
-        <li>Each call replaces that bot's whole list of parts for the installation. Leave the part ids out to revoke them all.</li>
-        <li>Other bots need their own grants.</li>
-        <li>Removing a grant and adding it back creates a new grant, so approvals that were waiting on the old one don't carry over.</li>
-      </ul>
+      <p>Each call replaces that bot's whole list for the installation; leave the part ids out to revoke them all. What a granted bot can then do is in <a href="permissions.html">People, bots and permissions</a>.</p>
 
-      <h2 id="runtime">What a granted bot can do</h2>
-      <ul>
-        <li><b>Skills</b> reach the bot as Markdown it can read, treated as untrusted input.</li>
-        <li><b>Tools</b> are listed for the bot, and every call shows an approval card with the tool, its endpoint and the exact arguments. Nothing is sent until a person chooses <b>Allow once</b>. In a Space set to Never ask, calls are refused.</li>
-        <li>After approval the server checks the grant again, checks the tool's schema still matches what was approved, and refuses redirects and private addresses. A request already sent may finish after a grant is revoked.</li>
-        <li><b>Record apps</b> give the bot two actions on the installer's entries: list them, with the total, and add one. Listing needs no approval. Every addition shows an approval card with the values to save, and nothing is saved until a person chooses <b>Allow once</b>. In a Space set to Never ask, additions are refused. Bots can't remove entries.</li>
-      </ul>
-
-      <h2 id="apps">Record app data and versions</h2>
-      <ul>
-        <li><b>Whose data it is.</b> Entries belong to one installation: one account in one Space. Other members of the Space don't see them, even when they install the same app.</li>
-        <li><b>When a bot can use it.</b> The installer's own direct chats can use the part while its grant is active. With a supported local model, <code>/apps</code> in the Superbot CLI lets the person choose which app to share with the model. The recent records and its answer stay outside the shared conversation.</li>
-        <li><b>Editing.</b> Entries can't be changed in place. Remove one and add a corrected entry. Removing erases the entry's values for good.</li>
-        <li><b>Totals.</b> With a <code>summaryField</code>, the total covers every matching entry for the chosen day, or for all dates, even when the list shows only the first page.</li>
-        <li><b>Grants.</b> Turning off a bot's part stops that bot reading or adding. The entries stay.</li>
-        <li><b>Versions.</b> Each version of an app keeps its own entries. After a switch you see the new version's entries. Switching back shows the earlier ones again.</li>
-        <li><b>Uninstall.</b> Uninstalling permanently deletes the installation's entries for every version.</li>
-      </ul>
-
-      <h2 id="update">Updating and uninstalling</h2>
-      <ol>
-        <li>Publish a higher version number and have it approved.</li>
-        <li>Open the installation in the store, choose an approved version and confirm the switch. On the command line use <code>superbot-plugin switch-version INSTALLATION_ID CURRENT_VERSION_ID TARGET_VERSION_ID</code>.</li>
-        <li>Choose which agents can use the new release. Switching clears the previous grants in the same transaction. If the switch fails, the current release and grants stay in place.</li>
+      <h2 id="versions">Ship a new version</h2>
+      <ol class="steps">
+        <li>Publish a higher version number and have it approved. Keep part and field ids the same when they do the same job.</li>
+        <li>Each installer chooses when to move: open the installation, choose the approved version and confirm. From a terminal, <code>superbot-plugin switch-version INSTALLATION_ID CURRENT_VERSION_ID TARGET_VERSION_ID</code>.</li>
+        <li>Switching keeps the installation and clears its grants in the same step, so the installer reviews the new version and grants again. If the switch fails, nothing changes. If the current version changed meanwhile, list installations again and retry.</li>
       </ol>
-      <p>To remove the installation and its grants, use <code>superbot-plugin uninstall INSTALLATION_ID</code>. For a record app, this also deletes its entries.</p>
+
+      <h2 id="apps">Record app data</h2>
+      <p>Each version of a record app keeps its own entries. After a switch the installer sees the new version's entries, and switching back shows the earlier ones again. Turning off a grant keeps the entries. More in <a href="record-apps.html#data">Record apps</a>.</p>
+
+      <h2 id="uninstall">Uninstall</h2>
+      <p>Uninstalling removes the installation and every grant it has, and permanently deletes a record app's entries for every version. Leaving the Space does the same.</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin uninstall INSTALLATION_ID</code></pre>
+      </figure>
 
       <nav class="pager" aria-label="Pages">
-        <a href="manifest.html"><small>Previous</small><span>Manifest reference</span></a>
-        <a class="next" href="cli.html"><small>Next</small><span>superbot-plugin commands</span></a>
+        <a href="permissions.html"><small>Previous</small><span>People, bots and permissions</span></a>
+        <a class="next" href="example-calorie-diary.html"><small>Next</small><span>Calorie diary</span></a>
       </nav>
     </main>
 
     <aside class="toc" aria-label="On this page">
       <h4>On this page</h4>
+      <a href="#where">Where the store is</a>
+      <a href="#submit">Submit a version</a>
       <a href="#review">Review</a>
       <a href="#install">Install</a>
       <a href="#grants">Grants</a>
-      <a href="#runtime">What a granted bot can do</a>
+      <a href="#versions">Ship a new version</a>
       <a href="#apps">Record app data</a>
-      <a href="#update">Updating and uninstalling</a>
+      <a href="#uninstall">Uninstall</a>
     </aside>
   </div>
 
   <footer class="site-footer">
     <div class="bar">
       <span>Superbot. Open source.</span>
-      <nav aria-label="Footer"><a href="../">Home</a><a href="api.html">Registry API</a><a href="../NOTICE.txt">Notices</a></nav>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
     </div>
   </footer>
 </body>

@@ -3,12 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Build a plugin</title>
-  <meta name="description" content="Write a Superbot plugin with superbot-plugin: a manifest with skills, tools or record apps, submitted for review and granted to bots per part.">
+  <title>Superbot developer docs</title>
+  <meta name="description" content="Build Superbot plugins: record apps, skills and MCP tools in one reviewed manifest, granted to bots part by part.">
   <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="../assets/base.css">
   <link rel="stylesheet" href="../assets/site.css">
   <script src="../assets/site.js"></script>
@@ -19,8 +17,10 @@
     <div class="bar">
       <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
       <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
         <a href="../#status" class="hide-sm">Status</a>
         <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
         </button>
@@ -30,230 +30,121 @@
 
   <div class="docs">
     <nav class="docs-nav" aria-label="Docs">
-      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Build a plugin
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Overview
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <div id="docs-nav-links" class="docs-nav-links">
-        <h4>Plugins</h4>
-        <a href="./" aria-current="page">Build a plugin</a>
-        <a href="manifest.html">Manifest reference</a>
-        <a href="publishing.html">Review, install and grants</a>
+        <h4>Get started</h4>
+        <a href="./" aria-current="page">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
         <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
         <a href="cli.html">superbot-plugin commands</a>
         <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
       </div>
     </nav>
 
     <main id="main" class="prose">
-      <div class="crumb">Plugins</div>
-      <h1>Build a plugin</h1>
-      <p class="lede">A Superbot plugin is one JSON manifest that adds skills, tools or record apps to the bots people choose. This guide takes you from an empty folder to an approved version with the <code>superbot-plugin</code> command.</p>
+      <div class="crumb">Get started</div>
+      <h1>Build for Superbot</h1>
+      <p class="lede">A Superbot plugin is one JSON manifest. It can give bots instructions, connect them to your service, or add a record app that people and their bots keep together. A reviewer approves each version, and people choose which bot gets which part.</p>
 
-      <div class="note" role="note">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-        <div><p>In the desktop app, open <b>Plugins</b> and choose <b>Create plugin</b>. Use <b>Add app</b> to define a record app with text, date or number fields and an optional total. You can also add skills and MCP tools to the same plugin. After you submit a version, <b>Yours</b> shows its review status. The CLI and <a href="api.html">registry API</a> use the same manifest format.</p></div>
+      <h2 id="start">Start here</h2>
+      <div class="cards">
+        <a class="card-link" href="quickstart.html">
+          <b>Quickstart</b>
+          <span>Run a server on your machine and ship a record app to a bot.</span>
+        </a>
+        <a class="card-link" href="example-calorie-diary.html">
+          <b>Calorie diary</b>
+          <span>The bundled record app, from install to daily totals.</span>
+        </a>
+        <a class="card-link" href="example-t3-code-inbox.html">
+          <b>T3 Code inbox</b>
+          <span>Bots propose coding work; you start it in T3 Code.</span>
+        </a>
+        <a class="card-link" href="manifest.html">
+          <b>Manifest reference</b>
+          <span>Every field and limit of schema version 1.</span>
+        </a>
       </div>
 
-      <h2 id="what">What a plugin can add</h2>
-      <ul>
-        <li><b>Skills</b>: Markdown instructions that teach a bot when and how to do something. Up to 16,000 characters each. Bots read them as untrusted input.</li>
-        <li><b>Tools</b>: a remote MCP server reached over Streamable HTTP at a public HTTPS address. A person approves every call after seeing its destination and arguments.</li>
-        <li><b>Record apps</b>: a list of entries with fields you declare, such as a date, a meal and its calories. Superbot stores the entries and shows them in its own form and list. You write no code and run no server.</li>
-      </ul>
-      <p>A plugin has 1 to 16 parts, in any mix. It cannot carry credentials, HTTP headers, commands, packages, hooks or any field the schema doesn't name. The server stores the manifest and never runs code from it.</p>
-
-      <h2 id="apps">Record apps in plain terms</h2>
-      <p>A record app is a small database with a fixed set of fields. The person who installs it adds and removes entries in Superbot. A bot they grant it to can read the same entries and propose new ones. Superbot draws the form, list and total. For a custom interactive view in chat, an MCP tool can serve an MCP App resource. Superbot opens that view inside a sandbox after the user approves the tool call.</p>
+      <h2 id="parts">What a plugin can add</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th scope="col">Part</th><th scope="col">What you write</th><th scope="col">Where it runs</th><th scope="col">What a granted bot gets</th></tr></thead>
+          <thead><tr><th scope="col">Part</th><th scope="col">What you write</th><th scope="col">What runs</th><th scope="col">What a granted bot gets</th></tr></thead>
           <tbody>
-            <tr><td>Skill</td><td class="muted">Markdown instructions</td><td class="muted">Nothing runs</td><td class="muted">Instructions it can read</td></tr>
-            <tr><td>Tool</td><td class="muted">An MCP server you host</td><td class="muted">Your HTTPS server</td><td class="muted">Your server's tools, each call approved by a person</td></tr>
-            <tr><td>Record app</td><td class="muted">A list of fields</td><td class="muted">Entries are stored by the Superbot server</td><td class="muted">List entries, and add one after a person approves it</td></tr>
+            <tr><td><a href="record-apps.html">Record app</a></td><td class="muted">A list of fields and an optional total</td><td class="muted">Superbot stores the entries and draws the form</td><td class="muted">List entries; add one after a person approves</td></tr>
+            <tr><td><a href="manifest.html#skill">Skill</a></td><td class="muted">Markdown instructions, up to 16,000 characters</td><td class="muted">Nothing</td><td class="muted">Instructions to read, as untrusted input</td></tr>
+            <tr><td><a href="tools.html">Tool</a></td><td class="muted">The address of an MCP server you host</td><td class="muted">Your server, over public HTTPS</td><td class="muted">Your tools, each call approved by a person, with an optional view in chat</td></tr>
           </tbody>
         </table>
       </div>
-      <p>The <code>mcp-app</code> starter of <code>superbot-plugin init</code> is a tool server, not a record app. It writes an MCP server that you host yourself.</p>
+      <p>A plugin has 1 to 16 parts in any mix. The <a href="example-t3-code-inbox.html">T3 Code inbox</a>, for example, has two record apps and a skill.</p>
 
-      <h2 id="install">Install the tools</h2>
-      <p>From the root of a Superbot checkout, with Rust installed:</p>
-      <figure class="code">
-        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
-<pre><code>cargo install --path native/cli --locked
-cargo install --path native/plugin-kit --locked
-superbot login</code></pre>
-      </figure>
-      <p>Both programs share the saved session in your system credential store. For your own server, pass the same <code>--server</code> to both or set <code>SUPERBOT_SERVER</code>. If you belong to more than one Space, add <code>--space</code> with its exact name or ID.</p>
-
-      <h2 id="steps">From folder to approved version</h2>
+      <h2 id="lifecycle">How a plugin reaches a bot</h2>
       <ol class="steps">
-        <li>
-          <b>Create a starter skill.</b>
-          <figure class="code">
-            <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
-<pre><code>mkdir release-notes
-cd release-notes
-superbot-plugin init release-notes --name "Release notes"</code></pre>
-          </figure>
-          This writes <code>plugin.json</code> with one skill part whose id is <code>summary</code>. The slug, <code>release-notes</code> here, is your plugin's permanent global name: 1 to 64 lowercase letters and digits with single hyphens between words. Choose another if it's taken.
-        </li>
-        <li>
-          <b>Edit the manifest.</b> A plugin with a skill and a tool looks like this:
-          <figure class="code">
-            <div class="code-head"><span>plugin.json</span><button class="copy" type="button" data-copy>Copy</button></div>
-<pre><code>{
-  <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>,
-  <span class="tok-k">"name"</span>: <span class="tok-s">"Release notes"</span>,
-  <span class="tok-k">"description"</span>: <span class="tok-s">"Draft release notes from issue summaries."</span>,
-  <span class="tok-k">"parts"</span>: [
-    {
-      <span class="tok-k">"id"</span>: <span class="tok-s">"summary"</span>,
-      <span class="tok-k">"kind"</span>: <span class="tok-s">"skill"</span>,
-      <span class="tok-k">"instructions"</span>: <span class="tok-s">"When asked for release notes, group the issue summaries into Added, Changed and Fixed."</span>
-    },
-    {
-      <span class="tok-k">"id"</span>: <span class="tok-s">"tracker"</span>,
-      <span class="tok-k">"kind"</span>: <span class="tok-s">"mcp"</span>,
-      <span class="tok-k">"transport"</span>: <span class="tok-s">"streamable_http"</span>,
-      <span class="tok-k">"endpoint"</span>: <span class="tok-s">"https://tracker.example.com/mcp"</span>
-    }
-  ]
-}</code></pre>
-          </figure>
-          For a working tool example, run <code>superbot-plugin init temperature-tool --template mcp-app</code> in an empty directory, then start <code>node server.ts</code>. Its README includes a local tool call and public HTTPS deployment steps. Set your manifest endpoint to your deployed address. Every field is in the <a href="manifest.html">manifest reference</a>.
-        </li>
-        <li>
-          <b>Validate it.</b> <code>superbot-plugin validate</code> checks the schema locally without contacting the server. The registry checks the endpoint's safety during review.
-        </li>
-        <li>
-          <b>Publish version 1.</b>
-          <figure class="code">
-            <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
-<pre><code>superbot-plugin publish release-notes 1
-superbot-plugin list mine</code></pre>
-          </figure>
-          The version comes back as JSON with status <code>pending</code>. Your first submission reserves the slug for your account.
-        </li>
-        <li>
-          <b>Wait for review.</b> A deployment admin approves or rejects it. <code>superbot-plugin status VERSION_ID</code> shows the status and any rejection reason.
-        </li>
-        <li>
-          <b>Install and grant.</b> Once approved, anyone signed in to the server can install it into their Space. Installing adds nothing to any bot until someone grants parts to a bot. See <a href="publishing.html">review, install and grants</a>.
-        </li>
+        <li><b>Write</b> the manifest with <code>superbot-plugin init</code> or <b>Create plugin</b> in the store, and check it with <code>superbot-plugin validate</code>.</li>
+        <li><b>Publish</b> a version under a slug. Your first submission reserves the slug on that server.</li>
+        <li><b>Review.</b> A deployment admin approves or rejects the exact version. Approved versions never change.</li>
+        <li><b>Install.</b> Anyone on the server can install an approved version for their own account in a Space. It adds nothing to any bot yet.</li>
+        <li><b>Grant.</b> The installer turns on parts for each bot, one bot at a time.</li>
+        <li><b>Use.</b> Bots read skills and list entries freely. Every tool call and every entry they add waits for <b>Allow once</b>.</li>
       </ol>
+      <p><a href="permissions.html">People, bots and permissions</a> covers each rule.</p>
 
-      <h2 id="calorie-diary">Walk through the Calorie diary</h2>
-      <p>The Calorie diary is an approved record app with the slug <code>kcal-diary</code>. A new server publishes it in the store unless another publisher already holds that slug. Its whole manifest is three fields and a total. The repository keeps it in <code>examples/plugins/kcal-diary/plugin.json</code>, and <code>superbot-plugin init kcal-diary --template kcal-diary</code> writes the same file.</p>
-      <figure class="code">
-        <div class="code-head"><span>plugin.json</span><button class="copy" type="button" data-copy>Copy</button></div>
-<pre><code>{
-  <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>,
-  <span class="tok-k">"name"</span>: <span class="tok-s">"Calorie diary"</span>,
-  <span class="tok-k">"description"</span>: <span class="tok-s">"Log meals and see the total calories for a day."</span>,
-  <span class="tok-k">"parts"</span>: [
-    {
-      <span class="tok-k">"kind"</span>: <span class="tok-s">"app"</span>,
-      <span class="tok-k">"id"</span>: <span class="tok-s">"meals"</span>,
-      <span class="tok-k">"fields"</span>: [
-        {
-          <span class="tok-k">"id"</span>: <span class="tok-s">"date"</span>,
-          <span class="tok-k">"label"</span>: <span class="tok-s">"Date"</span>,
-          <span class="tok-k">"type"</span>: <span class="tok-s">"date"</span>,
-          <span class="tok-k">"required"</span>: <span class="tok-n">true</span>
-        },
-        {
-          <span class="tok-k">"id"</span>: <span class="tok-s">"meal"</span>,
-          <span class="tok-k">"label"</span>: <span class="tok-s">"Meal"</span>,
-          <span class="tok-k">"type"</span>: <span class="tok-s">"text"</span>,
-          <span class="tok-k">"required"</span>: <span class="tok-n">true</span>
-        },
-        {
-          <span class="tok-k">"id"</span>: <span class="tok-s">"kcal"</span>,
-          <span class="tok-k">"label"</span>: <span class="tok-s">"Calories (kcal)"</span>,
-          <span class="tok-k">"type"</span>: <span class="tok-s">"number"</span>,
-          <span class="tok-k">"required"</span>: <span class="tok-n">true</span>
-        }
-      ],
-      <span class="tok-k">"summaryField"</span>: <span class="tok-s">"kcal"</span>
-    }
-  ]
-}</code></pre>
-      </figure>
-      <ol class="steps">
-        <li>
-          <b>Install it.</b> Find <b>Calorie diary</b> in the store's <b>Discover</b> list and choose <b>Install</b>. Nothing is installed for you in advance. The diary belongs to your account in the selected Space, and other members of the Space can't see your entries. They install their own diary.
-        </li>
-        <li>
-          <b>Log meals.</b> <b>Open</b> the diary. Add an entry with a date, a meal and its calories. Use the day arrows or <b>Today</b> to see one day's entries and calories, or <b>All dates</b> for everything. The total counts every matching entry, including entries not yet loaded on the page.
-        </li>
-        <li>
-          <b>Fix a mistake.</b> An entry can't be edited. Remove it and add a corrected one. Only people remove entries. A bot can't remove them.
-        </li>
-        <li>
-          <b>Give a bot access.</b> Under <b>Installed</b>, select one of your bots and turn on the <code>meals</code> part. Other bots stay without access until you turn it on for them too.
-        </li>
-        <li>
-          <b>Ask the bot.</b> In a direct chat with that bot, ask “What have I eaten today?”. The bot can list entries and the total without asking you first. Then ask it to add a 220 kcal snack for today. The approval card shows the values it wants to save. Nothing is saved until you choose <b>Allow once</b>. In a Space set to Never ask, the addition is refused.
-        </li>
-      </ol>
-      <p>Use a direct chat with your bot. With a supported local model, open <code>superbot &lt;agent&gt;</code> and type <code>/apps</code>. If the diary is item 1, try <code>/app 1 --date 2026-04-03 How many calories did I log?</code> Review the fields and type <code>save</code> to accept a proposed addition. Turning off the bot's <code>meals</code> grant keeps your entries. Uninstalling the diary permanently deletes them. <a href="publishing.html#apps">Record app data and versions</a></p>
+      <h2 id="ways">Ways to build</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Tool</th><th scope="col">Good for</th></tr></thead>
+          <tbody>
+            <tr><td><b>Create plugin</b> in the store</td><td class="muted">Writing a record app, skill or tool part with a form and submitting it. On the web: account menu, <b>Integrations → Community</b>. On desktop: <b>Plugins</b></td></tr>
+            <tr><td><a href="cli.html"><code>superbot-plugin</code></a></td><td class="muted">Starters, local validation, publishing, review and grants from a terminal, on Windows, macOS or Linux</td></tr>
+            <tr><td><a href="api.html">Registry API</a></td><td class="muted">Programs that publish, install or read and write record app entries</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>All three use the same manifest, so a <code>plugin.json</code> moves freely between them.</p>
 
-      <h3 id="your-app">Publish your own record app</h3>
-      <p>Anyone with an account on the server can submit a record app. Start from the diary, change the name, description and fields, then submit it under a slug of your own. <code>kcal-diary</code> already belongs to the bundled diary.</p>
-      <figure class="code">
-        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
-<pre><code>mkdir water-log
-cd water-log
-superbot-plugin init water-log --template kcal-diary --name "Water log"
-superbot-plugin validate
-superbot-plugin publish water-log 1</code></pre>
-      </figure>
-      <p><code>validate</code> checks record app fields with the same limits as the server. A deployment admin then reviews the version like any other. Once it is approved, people find it in <b>Discover</b> and install it for themselves. <code>superbot-plugin</code> only writes, checks and submits manifests. It can't open an app or read, add or remove entries.</p>
-
-      <h2 id="writing-skills">Writing a good skill</h2>
+      <h2 id="safety">What a plugin can't do</h2>
       <ul>
-        <li>Say when to use it in the first sentence, then how.</li>
-        <li>Name the tool parts it relies on by their part id, so a bot without that grant knows to ask.</li>
-        <li>Don't ask the bot to reveal, store or send secrets.</li>
-        <li>Write guidance, not rules that override the person. Bots treat skills as untrusted input.</li>
+        <li>Carry credentials, HTTP headers, commands, packages, scripts or install hooks. The server stores the manifest and never runs code from it.</li>
+        <li>Reach a bot that nobody granted it to, or write without a person's approval.</li>
+        <li>Bring its own pages into Superbot. Record apps use Superbot's form and list; a tool's view runs in a sandbox with no access to the app.</li>
+        <li>Reach private or local network addresses. Tool servers must be public HTTPS.</li>
       </ul>
-
-      <h2 id="writing-tools">Writing a good tool server</h2>
-      <ul>
-        <li>Support MCP initialization, <code>tools/list</code> and <code>tools/call</code> over Streamable HTTP. Keep listing free of side effects.</li>
-        <li>Give each tool a short description and a JSON object input schema with its required fields, and validate arguments again on your server.</li>
-        <li>Keep arguments short. People read them in the approval card before every call.</li>
-        <li>Treat the endpoint as public and set your own rate limits. Redirects and private addresses fail at runtime.</li>
-        <li>Publish a new version when the manifest or a tool's contract changes incompatibly.</li>
-      </ul>
-
-      <h2 id="github">Plugins from GitHub repositories</h2>
-      <p>The server Superbot builds on can also install plugins from a public GitHub repository using <code>plugin.json</code> and <code>mcp.json</code> in a different format. That format is documented in <code>docs/build-a-plugin.md</code> in the repository. These pages cover the Superbot store, which uses the manifest above and a review step.</p>
+      <p>The server Superbot builds on can also add plugins from a public GitHub repository, in a different <code>plugin.json</code> and <code>mcp.json</code> format. These docs cover the reviewed Superbot store.</p>
 
       <nav class="pager" aria-label="Pages">
-        <a class="next" href="manifest.html"><small>Next</small><span>Manifest reference</span></a>
+        <a class="next" href="quickstart.html"><small>Next</small><span>Quickstart: a record app</span></a>
       </nav>
     </main>
 
     <aside class="toc" aria-label="On this page">
       <h4>On this page</h4>
-      <a href="#what">What a plugin can add</a>
-      <a href="#apps">Record apps in plain terms</a>
-      <a href="#install">Install the tools</a>
-      <a href="#steps">From folder to approved version</a>
-      <a href="#calorie-diary">Walk through the Calorie diary</a>
-      <a href="#your-app">Publish your own record app</a>
-      <a href="#writing-skills">Writing a good skill</a>
-      <a href="#writing-tools">Writing a good tool server</a>
-      <a href="#github">Plugins from GitHub</a>
+      <a href="#start">Start here</a>
+      <a href="#parts">What a plugin can add</a>
+      <a href="#lifecycle">How a plugin reaches a bot</a>
+      <a href="#ways">Ways to build</a>
+      <a href="#safety">What a plugin can't do</a>
     </aside>
   </div>
 
   <footer class="site-footer">
     <div class="bar">
       <span>Superbot. Open source.</span>
-      <nav aria-label="Footer"><a href="../">Home</a><a href="api.html">Registry API</a><a href="../NOTICE.txt">Notices</a></nav>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
     </div>
   </footer>
 </body>

@@ -4,11 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>superbot-plugin commands</title>
-  <meta name="description" content="Every superbot-plugin command for writing, publishing, reviewing and installing Superbot plugins.">
+  <meta name="description" content="Every superbot-plugin command for writing, validating, publishing, reviewing, installing and granting Superbot plugins, plus the record app commands of superbot chat.">
   <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="../assets/base.css">
   <link rel="stylesheet" href="../assets/site.css">
   <script src="../assets/site.js"></script>
@@ -19,8 +17,10 @@
     <div class="bar">
       <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
       <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
         <a href="../#status" class="hide-sm">Status</a>
         <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
         </button>
@@ -34,13 +34,24 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <div id="docs-nav-links" class="docs-nav-links">
-        <h4>Plugins</h4>
-        <a href="./">Build a plugin</a>
-        <a href="manifest.html">Manifest reference</a>
-        <a href="publishing.html">Review, install and grants</a>
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
         <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
         <a href="cli.html" aria-current="page">superbot-plugin commands</a>
         <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
       </div>
     </nav>
 
@@ -73,7 +84,7 @@
         </table>
       </div>
 
-      <p>Manage releases and grants with <code>superbot-plugin</code>. To use a granted app with a local model, open <code>superbot &lt;agent&gt;</code> and enter <code>/apps</code>. Programs can read and write entries through the <a href="api.html#records">registry API</a>.</p>
+      <p><code>superbot-plugin</code> doesn&#39;t read or write record app entries. People use the store, programs use the <a href="api.html#records">registry API</a>, and local models use the chat commands below.</p>
 
       <h2 id="lists">Lists</h2>
       <p><code>list SCOPE [--after CURSOR] [--limit N]</code>, where <code>N</code> is 1 to 50 (default 20). When there's another page, the JSON includes <code>nextAfter</code>; pass it as <code>--after</code> with the same scope and filters.</p>
@@ -114,26 +125,46 @@
         </table>
       </div>
 
+      <h2 id="chat">Record apps in <code>superbot</code> chat</h2>
+      <p>When a bot answers through a supported local model, open its chat with <code>superbot BOT_NAME</code> and use these commands. See <a href="permissions.html#local">local models</a>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>/apps</code></td><td class="muted">Lists the record apps granted to this bot, numbered.</td></tr>
+            <tr><td><code>/app N [--date YYYY-MM-DD] [REQUEST]</code></td><td class="muted">Shows recent entries of app <code>N</code>, filtered by its first date field. With a request, asks the model about them.</td></tr>
+            <tr><td><code>save</code></td><td class="muted">Saves the entry the model proposed, after you review its fields. Press Enter to skip it.</td></tr>
+            <tr><td><code>/app retry</code></td><td class="muted">Repeats a save that wasn&#39;t confirmed, without creating a second entry.</td></tr>
+            <tr><td><code>/app discard</code></td><td class="muted">Stops retrying a save that wasn&#39;t confirmed.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="errors">Errors</h2>
+      <p>Messages from both programs, with their fixes, are in <a href="errors.html">Errors and fixes</a>.</p>
+
       <nav class="pager" aria-label="Pages">
-        <a href="publishing.html"><small>Previous</small><span>Review, install and grants</span></a>
+        <a href="manifest.html"><small>Previous</small><span>Manifest</span></a>
         <a class="next" href="api.html"><small>Next</small><span>Registry API</span></a>
       </nav>
     </main>
 
     <aside class="toc" aria-label="On this page">
       <h4>On this page</h4>
-      <a href="#global">Options</a>
+      <a href="#global">Options for every command</a>
       <a href="#author">Writing and publishing</a>
       <a href="#lists">Lists</a>
       <a href="#install">Installing and granting</a>
       <a href="#review">Reviewing</a>
+      <a href="#chat">Record apps in superbot chat</a>
+      <a href="#errors">Errors</a>
     </aside>
   </div>
 
   <footer class="site-footer">
     <div class="bar">
       <span>Superbot. Open source.</span>
-      <nav aria-label="Footer"><a href="../">Home</a><a href="api.html">Registry API</a><a href="../NOTICE.txt">Notices</a></nav>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
     </div>
   </footer>
 </body>

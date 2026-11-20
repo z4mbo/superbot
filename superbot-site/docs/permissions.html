@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>People, bots and permissions</title>
+  <meta name="description" content="Who can publish, review, install and grant; what a bot can do with each part; which actions ask a person every time; and how local models use record apps.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">People, bots and permissions
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html" aria-current="page">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Build</div>
+      <h1>People, bots and permissions</h1>
+      <p class="lede">A plugin never acts on its own. A reviewer approves each version, a person installs it for themselves, grants each part to each bot, and approves every write a bot proposes.</p>
+
+      <h2 id="roles">Who can do what</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Role</th><th scope="col">Can</th><th scope="col">How they get it</th></tr></thead>
+          <tbody>
+            <tr><td>Publisher</td><td class="muted">Submit versions under a slug they reserved, see their status and rejection reasons</td><td class="muted">Any signed-in account. The first submission reserves the slug</td></tr>
+            <tr><td>Reviewer</td><td class="muted">See the review queue, approve or reject a pending version once</td><td class="muted">A verified account listed in <code>SUPERBOT_ADMIN_EMAILS</code> by the server operator</td></tr>
+            <tr><td>Installer</td><td class="muted">Install an approved version in the selected Space, grant parts to bots, switch versions, uninstall, use record apps</td><td class="muted">Any member of the Space. The installation belongs to their account</td></tr>
+            <tr><td>Bot</td><td class="muted">Use only the parts granted to it, within the limits below</td><td class="muted">A grant from the installer</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Installations are per account and per Space. Another member of the same Space doesn't see your installation, your grants or your record app entries. Leaving the Space removes your installations there.</p>
+
+      <h2 id="grants">Grants</h2>
+      <ul>
+        <li>A new installation has no grants. A grant gives one bot one part.</li>
+        <li>Setting grants replaces that bot's whole list for the installation. An empty list revokes them all.</li>
+        <li>Removing a grant and adding it back creates a new grant. Approvals still waiting on the old one can't authorize the new one.</li>
+        <li>Switching to another version clears every grant, so you review the new version before granting again.</li>
+        <li>The server checks the live grant again after each approval and before each call. A request already sent to a tool server may still finish after you revoke.</li>
+      </ul>
+
+      <h2 id="approvals">Approvals</h2>
+      <p>Each Space has an approval mode: <b>Ask</b>, <b>Auto</b> or <b>Never ask</b>. Plugin actions follow it with stricter rules:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Bot action</th><th scope="col">Ask and Auto</th><th scope="col">Never ask</th></tr></thead>
+          <tbody>
+            <tr><td>Read a skill</td><td class="muted">Runs</td><td class="muted">Runs</td></tr>
+            <tr><td>List record app entries</td><td class="muted">Runs</td><td class="muted">Runs</td></tr>
+            <tr><td>Add a record app entry</td><td class="muted">Asks every time</td><td class="muted">Refused</td></tr>
+            <tr><td>Call a tool on an MCP server</td><td class="muted">Asks every time</td><td class="muted">Refused</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Writes and tool calls offer only <b>Allow once</b>: there is no rule that allows them in advance, and automatic review never answers for them. The card shows the destination or app and the exact values. Arguments too long to review are refused before the card appears.</p>
+
+      <h2 id="apps">Record app access</h2>
+      <ul>
+        <li>People who installed the app can list, add and remove its entries. Bots can list and propose additions, never remove.</li>
+        <li>A bot gets record app actions only in a direct chat with the installer, in a turn the installer's own message started. Group conversations and turns started by anyone else get none.</li>
+        <li>The bot must belong to the installer, in the same Space.</li>
+        <li>Turning off a grant keeps the entries. Uninstalling deletes them.</li>
+      </ul>
+
+      <h2 id="local">Local models</h2>
+      <p>When a bot answers through a model CLI installed on your computer, Superbot gives that CLI no tools. You decide what it sees instead:</p>
+      <ul>
+        <li><b>Desktop:</b> in the bot's direct chat, choose <b>Apps</b> in the composer, pick the app and review the entries that will go to the model. <b>Ask</b> sends them; <b>Add</b> saves a proposed entry; <b>Skip</b> discards it.</li>
+        <li><b>Terminal:</b> in <code>superbot BOT_NAME</code>, type <code>/apps</code>, then <code>/app 1 --date 2026-11-20 How many calories did I log?</code>. Review a proposed entry and type <code>save</code>, or press Enter to skip. <code>/app retry</code> repeats a save that wasn't confirmed.</li>
+      </ul>
+      <p>The model receives your request, the app's fields, the five most recent matching entries (at most 24 KB) and the total. The exchange stays out of the shared conversation. This works only with local models that support it; others get <i>App assistance requires a selected prompt-only local model.</i></p>
+
+      <h2 id="least">Ask for less</h2>
+      <ul>
+        <li>Split a plugin into parts by what a bot needs, so people can grant only that. The <a href="example-t3-code-inbox.html">T3 Code inbox</a> keeps receipts in a part no bot is granted.</li>
+        <li>Declare only the fields you need. Bots see every field of a granted app.</li>
+        <li>Keep tool arguments short and specific. People read them before every call.</li>
+        <li>Put no secrets in skills or field labels. Skills are untrusted input to the bot, and a manifest can't carry credentials.</li>
+      </ul>
+
+      <h2 id="troubleshoot">Troubleshooting</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Symptom</th><th scope="col">What it means</th><th scope="col">What to do</th></tr></thead>
+          <tbody>
+            <tr><td>The bot says the plugin tool is unavailable</td><td class="muted">The grant was removed, the version changed, or the call came from a group chat or someone else's turn</td><td class="muted">Check the grant under <b>Installed</b> and ask in your direct chat</td></tr>
+            <tr><td>Writes are refused without a card</td><td class="muted">The Space is set to Never ask</td><td class="muted">Switch the Space to Ask or Auto</td></tr>
+            <tr><td>A grant disappeared after an update</td><td class="muted">Switching versions clears grants</td><td class="muted">Review the new version and grant again</td></tr>
+            <tr><td><code>FORBIDDEN</code> on <code>review</code></td><td class="muted">Your account isn't a verified deployment admin</td><td class="muted">Ask the operator to add it to <code>SUPERBOT_ADMIN_EMAILS</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Every error message is listed in <a href="errors.html">Errors and fixes</a>.</p>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="tools.html"><small>Previous</small><span>Tools and MCP views</span></a>
+        <a class="next" href="publishing.html"><small>Next</small><span>Review, install and versions</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#roles">Who can do what</a>
+      <a href="#grants">Grants</a>
+      <a href="#approvals">Approvals</a>
+      <a href="#apps">Record app access</a>
+      <a href="#local">Local models</a>
+      <a href="#least">Ask for less</a>
+      <a href="#troubleshoot">Troubleshooting</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

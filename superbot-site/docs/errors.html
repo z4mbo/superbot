@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Errors and fixes</title>
+  <meta name="description" content="Every error a Superbot plugin author or installer can hit, from manifest validation to registry RPCs and bot tool calls, with its cause and fix.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Errors and fixes
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+        <a href="errors.html" aria-current="page">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Reference</div>
+      <h1>Errors and fixes</h1>
+      <p class="lede">Messages are quoted as Superbot prints them. Find yours with your browser's search, then read the cause and the fix beside it.</p>
+
+      <h2 id="how">How errors arrive</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Where</th><th scope="col">Shape</th></tr></thead>
+          <tbody>
+            <tr><td><code>superbot-plugin validate</code>, desktop <b>Open file…</b></td><td class="muted">A sentence naming the part or field to fix. Nothing is sent to the server</td></tr>
+            <tr><td>Registry API</td><td class="muted">A status and a message: <code>BAD_REQUEST</code> 400, <code>UNAUTHORIZED</code> 401, <code>FORBIDDEN</code> 403, <code>NOT_FOUND</code> 404, <code>CONFLICT</code> 409. <code>superbot-plugin</code> prints the message</td></tr>
+            <tr><td>A bot's tool call</td><td class="muted">The bot receives an error result and tells you in chat. No data changes</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="manifest">Manifest validation</h2>
+      <p><code>superbot-plugin validate</code> and the server apply the same rules. <i>N</i> is the part's or field's position, counting from 1.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Message</th><th scope="col">Fix</th></tr></thead>
+          <tbody>
+            <tr><td>Superbot plugins can't carry secrets or commands. Remove “<i>key</i>”.</td><td class="muted">Delete the field. Use OAuth on your own server if it needs sign-in</td></tr>
+            <tr><td>Superbot plugins have no “<i>key</i>” field. Remove it.</td><td class="muted">Only the fields in the <a href="manifest.html">manifest reference</a> are allowed, at every level</td></tr>
+            <tr><td>This file uses schemaVersion <i>n</i>. Superbot reads schemaVersion 1.</td><td class="muted">Set <code>"schemaVersion": 1</code></td></tr>
+            <tr><td>This file is too large to be a plugin manifest.</td><td class="muted">Shorten skill instructions; each part has its own limit</td></tr>
+            <tr><td>Add at least one skill, connector or app.</td><td class="muted">Add a part to <code>parts</code></td></tr>
+            <tr><td>A plugin can have 16 parts.</td><td class="muted">Split it into two plugins</td></tr>
+            <tr><td>Part <i>N</i> needs a “kind” of skill, mcp or app.</td><td class="muted">Set <code>kind</code></td></tr>
+            <tr><td>Part <i>N</i> needs an identifier in lowercase letters, digits and single hyphens.</td><td class="muted">Use an id like <code>meals</code> or <code>issue-tracker</code></td></tr>
+            <tr><td>Two parts are called <i>id</i>. Give each its own identifier.</td><td class="muted">Rename one part</td></tr>
+            <tr><td>Part <i>N</i>'s instructions can be at most 16,000 characters.</td><td class="muted">Shorten the skill or split it into two skills</td></tr>
+            <tr><td>Part <i>N</i>: use a public HTTPS address without keys, tokens or a ?query.</td><td class="muted">Use <code>https://</code>, no credentials, query or fragment</td></tr>
+            <tr><td>Part <i>N</i> needs at least one field. / Part <i>N</i> can have 16 fields.</td><td class="muted">Keep 1 to 16 fields per app</td></tr>
+            <tr><td>“<i>type</i>” isn't a field type. Use text, number or date.</td><td class="muted">Change <code>type</code></td></tr>
+            <tr><td>“required” must be true or false.</td><td class="muted">Write <code>true</code> or <code>false</code> without quotes</td></tr>
+            <tr><td>Two fields of part <i>N</i> are called <i>id</i>. Give each its own identifier.</td><td class="muted">Rename one field</td></tr>
+            <tr><td>Field <i>N</i> of part <i>N</i>: a label can be at most 120 characters.</td><td class="muted">Shorten the label</td></tr>
+            <tr><td>Part <i>N</i> totals “<i>id</i>”, which isn't one of its number fields.</td><td class="muted">Point <code>summaryField</code> at a <code>number</code> field, or remove it</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="cli">superbot-plugin</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Message</th><th scope="col">Fix</th></tr></thead>
+          <tbody>
+            <tr><td>No saved session for this server. Run superbot login first.</td><td class="muted">Run <code>superbot login</code> for the same server, or pass the same <code>--server</code> to both programs</td></tr>
+            <tr><td>Session expired or rejected. Run superbot login for this server</td><td class="muted">Sign in again</td></tr>
+            <tr><td>Rejection requires --reason</td><td class="muted">Add <code>--reason "…"</code> when rejecting</td></tr>
+            <tr><td>Supply at most 16 part IDs</td><td class="muted">A plugin has at most 16 parts; pass each once</td></tr>
+            <tr><td>A message about choosing a Space</td><td class="muted">You belong to several Spaces. Pass <code>--space</code> with an exact name or ID</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="registry">Registry API</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Status and message</th><th scope="col">Cause</th><th scope="col">Fix</th></tr></thead>
+          <tbody>
+            <tr><td><code>CONFLICT</code> Plugin slug or version is already reserved</td><td class="muted">Someone else owns the slug, or you already submitted that version</td><td class="muted">Choose another slug, or a higher version number</td></tr>
+            <tr><td><code>CONFLICT</code> Plugin version is already reviewed</td><td class="muted">A version is decided once</td><td class="muted">Publish a new version</td></tr>
+            <tr><td><code>FORBIDDEN</code> Admins only</td><td class="muted"><code>review</code> or <code>submissions</code> from an account that isn't a verified deployment admin</td><td class="muted">See <a href="local-development.html#reviewer">become a reviewer</a></td></tr>
+            <tr><td><code>NOT_FOUND</code> Plugin version not found / Approved plugin version not found</td><td class="muted">Wrong id, or the version isn't approved yet</td><td class="muted">Check <code>list mine</code> or <code>list discover</code></td></tr>
+            <tr><td><code>CONFLICT</code> A different version is already installed</td><td class="muted">You installed another version of this plugin in this Space</td><td class="muted">Use <code>switch-version</code></td></tr>
+            <tr><td><code>CONFLICT</code> The installed plugin version changed</td><td class="muted">The <code>expectedVersionId</code> is stale</td><td class="muted">List installations again and retry with the current <code>plugin.id</code></td></tr>
+            <tr><td><code>NOT_FOUND</code> Plugin installation not found</td><td class="muted">Not your installation in the selected Space, or it was uninstalled</td><td class="muted">Check <code>list installations</code> and <code>--space</code></td></tr>
+            <tr><td><code>NOT_FOUND</code> Bot not found in this Space</td><td class="muted">The bot id is from another Space</td><td class="muted">Use an id from <code>superbot-plugin agents</code></td></tr>
+            <tr><td><code>BAD_REQUEST</code> The installed version does not contain every requested part</td><td class="muted">A part id in <code>set-grants</code> doesn't exist in this version</td><td class="muted">Use the part ids from the installed manifest</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="records">Record app entries</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Status and message</th><th scope="col">Cause</th><th scope="col">Fix</th></tr></thead>
+          <tbody>
+            <tr><td><code>NOT_FOUND</code> Installed app part not found</td><td class="muted">The part id isn't an <code>app</code> part of the installed version</td><td class="muted">Check the manifest's part ids</td></tr>
+            <tr><td><code>BAD_REQUEST</code> App record contains an unknown field</td><td class="muted"><code>values</code> names a field the app doesn't declare</td><td class="muted">Remove it</td></tr>
+            <tr><td><code>BAD_REQUEST</code> Missing required field "<i>id</i>"</td><td class="muted">A required value is missing</td><td class="muted">Add it</td></tr>
+            <tr><td><code>BAD_REQUEST</code> Invalid <i>type</i> value for field "<i>id</i>"</td><td class="muted">Wrong type, blank text, or out of range</td><td class="muted">See <a href="record-apps.html#fields">field types</a></td></tr>
+            <tr><td><code>BAD_REQUEST</code> This app has no date field</td><td class="muted"><code>date</code> was passed to an app without one</td><td class="muted">Leave <code>date</code> out</td></tr>
+            <tr><td><code>BAD_REQUEST</code> Invalid app record cursor</td><td class="muted"><code>after</code> isn't an entry of this app</td><td class="muted">Pass the <code>nextAfter</code> you received, with the same <code>date</code></td></tr>
+            <tr><td><code>CONFLICT</code> This app record operation has already been used</td><td class="muted">An <code>operationId</code> reused with other values, or after its entry was removed</td><td class="muted">Use a new UUID for each new entry; reuse it only to retry the same one</td></tr>
+            <tr><td><code>FORBIDDEN</code> The bot no longer has this app grant</td><td class="muted">The grant was removed or the version changed during the call</td><td class="muted">Grant the part again</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="runtime">Bot tool calls</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">What the bot reports</th><th scope="col">Cause</th><th scope="col">Fix</th></tr></thead>
+          <tbody>
+            <tr><td>This marketplace plugin tool is unavailable.</td><td class="muted">No live grant for this bot, a changed version or tool schema, an unreachable or redirecting tool server, or a chat where record apps aren't available</td><td class="muted">Check the grant, your endpoint, and that you asked in your own direct chat</td></tr>
+            <tr><td>Marketplace app writes require approval. This space is set to Never ask.</td><td class="muted">Never ask refuses additions</td><td class="muted">Switch the Space to Ask or Auto</td></tr>
+            <tr><td>Marketplace MCP calls require approval. This space is set to Never ask.</td><td class="muted">Never ask refuses tool calls</td><td class="muted">Switch the Space to Ask or Auto</td></tr>
+            <tr><td>The marketplace call is too long to review.</td><td class="muted">The arguments are too long for an approval card</td><td class="muted">Make the tool take shorter arguments</td></tr>
+            <tr><td>A record app message such as Missing required field</td><td class="muted">The values the bot proposed don't fit your fields</td><td class="muted">The bot can correct them; clearer labels help</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="local">Local models</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Message</th><th scope="col">Fix</th></tr></thead>
+          <tbody>
+            <tr><td>App assistance requires a selected prompt-only local model.</td><td class="muted">Select a supported local model for the bot on this computer</td></tr>
+            <tr><td>This server doesn't support local app assistance.</td><td class="muted">Update the server</td></tr>
+            <tr><td><code>FORBIDDEN</code> This agent's app access is unavailable</td><td class="muted">The bot isn't yours, or its grant changed. Check the grant and run <code>/apps</code> again</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="api.html"><small>Previous</small><span>Registry API</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#how">How errors arrive</a>
+      <a href="#manifest">Manifest validation</a>
+      <a href="#cli">superbot-plugin</a>
+      <a href="#registry">Registry API</a>
+      <a href="#records">Record app entries</a>
+      <a href="#runtime">Bot tool calls</a>
+      <a href="#local">Local models</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>
