@@ -5,8 +5,8 @@ use std::time::Duration;
 use tokio::sync::mpsc::unbounded_channel;
 use url::Url;
 
-use super::control::ControlLease;
 use super::*;
+use crate::control::ControlLease;
 use crate::runtime::network;
 use crate::web::screen::{parent_window, ScreenDocument, ScreenFailure, ScreenState, ScreenView};
 
@@ -228,21 +228,21 @@ impl Desktop {
 
     /// Takes control of the computer, or hands it back, then reloads the screen for the new role.
     fn switch_control(&mut self, take: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(controls) = self.api.as_ref().map(|api| api.controls.clone()) else { return };
         let Some(screen) = self.agent_panel.as_mut().and_then(|panel| panel.screen.as_mut()) else { return };
         if screen.busy {
             return;
         }
         screen.busy = true;
         let serial = screen.serial;
-        let owner = screen.owner.clone();
-        let agent = screen.agent_id.clone();
+        let taking = take.then(|| ControlLease::acquire(&controls, screen.owner.clone(), screen.agent_id.clone()));
         let held = if take { None } else { screen.lease.take() };
         screen.handing_back = !take;
         let work = async move {
-            match (take, held) {
-                (true, _) => ControlLease::acquire(owner, agent).await.map(Some),
-                (false, Some(lease)) => lease.release().await.map(|()| None),
-                (false, None) => Ok(None),
+            match (taking, held) {
+                (Some(taking), _) => taking.await.map(Some),
+                (None, Some(lease)) => lease.release().await.map(|()| None),
+                (None, None) => Ok(None),
             }
         };
         self.call(window, cx, work, move |this, result, window, cx| {
@@ -433,7 +433,8 @@ mod tests {
         });
         let client = superbot_client::Client::new(&origin).unwrap().with_token("test.signature").unwrap();
         let owner = (super::Features::new(client), "space-a".into());
-        let granted = super::ControlLease::acquire(owner, "bot-a".into()).await.unwrap();
+        let controls = crate::control::Controls::default();
+        let granted = super::ControlLease::acquire(&controls, owner, "bot-a".into()).await.unwrap();
         drop(granted);
         tokio::time::timeout(super::Duration::from_secs(5), server).await.unwrap().unwrap();
     }

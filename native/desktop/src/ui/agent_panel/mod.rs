@@ -18,7 +18,6 @@ use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::{bot_avatar, bot_ink, error_line, icon, Type};
 
 mod computer;
-mod control;
 mod conversations;
 mod files;
 mod knowledge;
