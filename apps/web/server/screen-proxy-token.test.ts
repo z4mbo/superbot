@@ -110,10 +110,13 @@ async function close(server: Server) {
 function get(origin: string, path: string) {
   const { hostname, port } = new URL(origin);
   const answer = deferred<string>();
-  httpRequestFn({ hostname, port, path, method: "GET" }, (response) => {
-    answer.resolve(`${response.statusCode ?? 0}`);
-    response.resume();
-  })
+  httpRequestFn(
+    { hostname, port, path, method: "GET", headers: { cookie: "session=fake" } },
+    (response) => {
+      answer.resolve(`${response.statusCode ?? 0}`);
+      response.resume();
+    },
+  )
     .on("error", (error) => answer.reject(error))
     .end();
   return answer.promise;
@@ -136,7 +139,7 @@ function upgrade(origin: string, path: string) {
   socket.on("error", (error) => answer.reject(error));
   socket.on("close", () => answer.resolve(head.split("\r\n")[0] ?? ""));
   socket.end(
-    `GET ${path} HTTP/1.1\r\nHost: ${hostname}:${port}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n`,
+    `GET ${path} HTTP/1.1\r\nHost: ${hostname}:${port}\r\nOrigin: ${origin}\r\nCookie: session=fake\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n`,
   );
   return answer.promise;
 }

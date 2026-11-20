@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 import type { ScreenCapabilityScope } from "./screen-capability.js";
 import {
   issueScreenCapability,
+  issueScreenProof,
   openScreenCapability,
   REMOTE_SCREEN_CAPABILITY_MIN_REMAINING_MS,
   SCREEN_PROXY_TTL_MS,
   sealScreenCapability,
+  verifyScreenProof,
 } from "./screen-capability.js";
 
 const scope: ScreenCapabilityScope = {
@@ -27,6 +29,17 @@ const path = (url: string, interactive = false) =>
       100,
     ),
   ).pathname;
+
+it("limits the native proof to two minutes and to the exact screen document path", () => {
+  const document = path("http://127.0.0.1:49152/embed.html");
+  const origin = "https://app.example";
+  const proof = issueScreenProof(document, "fake-secret", origin, "native", 100)!;
+  const verify = (url: string, now: number) =>
+    verifyScreenProof(proof, url, "fake-secret", origin, "native", now);
+  expect(verify(`${document}?autoconnect=true`, 120_099)).toBe(true);
+  expect(verify(document.replace("embed.html", "vnc.html"), 120_099)).toBe(false);
+  expect(verify(document, 120_100)).toBe(false);
+});
 describe("sealed screen capabilities", () => {
   it("seals provider credentials for page, asset, and websocket requests", () => {
     const upstream = "https://screen.example/vnc.html?path=websockify%3Ftoken%3Dfake-socket";

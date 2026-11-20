@@ -11,7 +11,11 @@ import { gzipSync } from "node:zlib";
 import { expect, test } from "@playwright/test";
 import {
   addScreenProxyCapability,
+  issueScreenProof,
   openScreenCapability,
+  SCREEN_SESSION_HEADER,
+  SCREEN_SOCKET_PROTOCOL_PREFIX,
+  verifyScreenProof,
 } from "@rakazo/core/node/screen-capability";
 import { screenProbeUrl } from "@rakazo/core/screen-reconnect";
 import type { Plugin, ViteDevServer } from "vite";
@@ -25,6 +29,7 @@ const scope = {
   controlLeaseId: null,
 };
 const secret = "fake-screen-proxy-browser-test-secret";
+const sessionCookie = "app-session=fake-session";
 const providerHeaders = { cookie: "provider_auth=fake-provider-credential" };
 const screenHtml = `<!doctype html><title>Fake screen</title>
 <script type="module">
@@ -56,6 +61,9 @@ const screenHtml = `<!doctype html><title>Fake screen</title>
   const socketUrl = new URL('./websockify', location.href);
   socketUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const socket = new WebSocket(socketUrl);
+  if (new URL(location.href).searchParams.get("view_only") === "false") {
+    socket.onopen = () => socket.send("fixture-control-input");
+  }
   socket.onmessage = (event) => {
     result.socket = event.data;
     socket.close();
@@ -75,11 +83,11 @@ async function close(server: Server) {
   );
 }
 
-function sendUpgrade(url: URL) {
+function sendUpgrade(url: URL, origin = url.origin, cookie = sessionCookie, protocol = "") {
   const client = connect(Number(url.port), url.hostname);
   client.on("error", () => {});
   client.write(
-    `GET ${url.pathname}${url.search} HTTP/1.1\r\nHost: ${url.host}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n`,
+    `GET ${url.pathname}${url.search} HTTP/1.1\r\nHost: ${url.host}\r\nOrigin: ${origin}\r\nCookie: ${cookie}\r\n${protocol ? `Sec-WebSocket-Protocol: ${protocol}\r\n` : ""}Connection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n`,
   );
   return client;
 }
@@ -101,13 +109,16 @@ for (const mode of ["development", "preview"] as const) {
   test.describe(`screen response isolation in ${mode}`, () => {
     let origin: string;
     let screenUrl: string;
+    let controlUrl: string;
     let otherPageUrl: string;
+    let redirectUrl: string;
     let stop: () => Promise<void>;
     let httpServer: Server;
 
     let authorized = true;
     let assetAttempts = 0;
     let upstreamRequests = 0;
+    let controlInputs = 0;
     let upstreamUpgraded: ((path: string) => void) | undefined;
     let authorityReached: (() => void) | undefined;
     let authorityHold: Promise<void> | undefined;
@@ -116,6 +127,8 @@ for (const mode of ["development", "preview"] as const) {
       await mkdir(path.join(root, "dist"));
       const upstream = createHttpServer((req, res) => {
         upstreamRequests += 1;
+        expect(req.headers[SCREEN_SESSION_HEADER]).toBeUndefined();
+        expect(req.headers.authorization).toBeUndefined();
         if (req.headers.cookie !== providerHeaders.cookie) {
           res.writeHead(403).end("Provider authentication required");
           return;
@@ -126,7 +139,9 @@ for (const mode of ["development", "preview"] as const) {
           `sandbox allow-scripts allow-same-origin allow-pointer-lock; frame-ancestors ${origin}`,
         );
         res.setHeader("Set-Cookie", "app-session=attacker; Path=/");
-        if (req.url === "/core/rfb.js") {
+        if (req.url?.startsWith("/redirect.html")) {
+          res.writeHead(302, { Location: "https://other.example/" }).end();
+        } else if (req.url === "/core/rfb.js") {
           if (assetAttempts++ === 0) {
             res.destroy();
             return;
@@ -147,7 +162,9 @@ for (const mode of ["development", "preview"] as const) {
         }
       });
       upstream.on("upgrade", (req, socket) => {
-        upstreamUpgraded?.(new URL(req.url ?? "/", "http://upstream").pathname);
+        expect(req.headers["sec-websocket-protocol"]).toBeUndefined();
+        const upstreamUrl = new URL(req.url ?? "/", "http://upstream");
+        upstreamUpgraded?.(upstreamUrl.pathname);
         if (req.headers.cookie !== providerHeaders.cookie) {
           socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
           return;
@@ -159,7 +176,13 @@ for (const mode of ["development", "preview"] as const) {
           `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\nSet-Cookie: app-session=attacker; Path=/\r\n\r\n`,
         );
         socket.write(Buffer.from([0x81, 2, 111, 107]));
-        socket.on("data", () => socket.end(Buffer.from([0x88, 0])));
+        socket.on("data", (chunk) => {
+          if (chunk[0] === 0x81 && upstreamUrl.searchParams.get("view_only") === "false") {
+            controlInputs++;
+            return;
+          }
+          socket.end(Buffer.from([0x88, 0]));
+        });
         socket.on("error", () => socket.destroy());
         socket.on("end", () => socket.destroy());
       });
@@ -196,7 +219,22 @@ for (const mode of ["development", "preview"] as const) {
         for await (const chunk of req) chunks.push(Buffer.from(chunk));
         const body = JSON.parse(Buffer.concat(chunks).toString());
         const capability = openScreenCapability(body.path, secret);
-        if (!authorized || !capability || req.headers.authorization !== `Bearer ${secret}`) {
+        const authenticated =
+          body.access?.cookie === sessionCookie ||
+          (body.access?.origin === origin &&
+            verifyScreenProof(
+              body.access.proof ?? "",
+              body.path,
+              secret,
+              origin,
+              body.access.purpose,
+            ));
+        if (
+          !authorized ||
+          !authenticated ||
+          !capability ||
+          req.headers.authorization !== `Bearer ${secret}`
+        ) {
           res.writeHead(403).end();
           return;
         }
@@ -227,6 +265,22 @@ for (const mode of ["development", "preview"] as const) {
         // A loopback upstream serving /vnc.html stands in for E2B, Daytona, Boat and Railway.
         screenUrl = addScreenProxyCapability(
           `${upstreamOrigin}/vnc.html`,
+          secret,
+          origin,
+          scope,
+          undefined,
+          providerHeaders,
+        );
+        controlUrl = addScreenProxyCapability(
+          `${upstreamOrigin}/vnc.html?view_only=false`,
+          secret,
+          origin,
+          scope,
+          undefined,
+          providerHeaders,
+        );
+        redirectUrl = addScreenProxyCapability(
+          `${upstreamOrigin}/redirect.html`,
           secret,
           origin,
           scope,
@@ -293,6 +347,7 @@ for (const mode of ["development", "preview"] as const) {
     }) => {
       const response = await request.get(screenUrl, {
         headers: {
+          cookie: sessionCookie,
           "if-modified-since": "Wed, 21 Oct 2026 01:05:20 GMT",
           "if-none-match": '"cached"',
         },
@@ -307,13 +362,15 @@ for (const mode of ["development", "preview"] as const) {
       request,
     }) => {
       const before = upstreamRequests;
-      const allowed = await request.get(screenProbeUrl(screenUrl), { maxRedirects: 0 });
+      expect((await request.get(screenProbeUrl(screenUrl))).status()).toBe(403);
+      const headers = { cookie: sessionCookie };
+      const allowed = await request.get(screenProbeUrl(screenUrl), { headers, maxRedirects: 0 });
       expect(allowed.status()).toBe(204);
       expect(allowed.headers()["cache-control"]).toBe("no-store");
       expect(await allowed.body()).toHaveLength(0);
       authorized = false;
       try {
-        const refused = await request.get(screenProbeUrl(screenUrl), { maxRedirects: 0 });
+        const refused = await request.get(screenProbeUrl(screenUrl), { headers, maxRedirects: 0 });
         expect(refused.status()).toBe(403);
         expect(await refused.body()).toHaveLength(0);
       } finally {
@@ -372,17 +429,80 @@ for (const mode of ["development", "preview"] as const) {
       expect((await request.get(`${origin}/app`)).status()).toBe(200);
     });
 
-    test("HTML that is not a noVNC page is passed through unchanged", async ({ page }) => {
+    test("other screen documents authenticate without the noVNC storage shim", async ({ page }) => {
       await page.goto(`${origin}/app`);
       const response = await page.goto(otherPageUrl);
       await expect(page.locator("body")).toContainText('"socket":"ok"');
-      expect(response?.headers()["content-encoding"]).toBe("gzip");
+      expect(response?.headers()["content-encoding"]).toBeUndefined();
       expect(JSON.parse(await page.locator("body").innerText())).toMatchObject({
         storage: "blocked",
         session: "blocked",
         webcodecs: true,
         realStorage: "SecurityError",
       });
+    });
+
+    test("requires the browser session or a native handoff and refuses upstream redirects", async ({
+      request,
+      page,
+    }) => {
+      const count = upstreamRequests;
+      const beforeInput = controlInputs;
+      expect((await request.get(controlUrl)).status()).toBe(403);
+      expect((await request.get(screenUrl.replace("/vnc.html", "/core/rfb.js"))).status()).toBe(
+        403,
+      );
+      expect(
+        (await request.get(controlUrl, { headers: { cookie: "app-session=other" } })).status(),
+      ).toBe(403);
+      expect(
+        (
+          await request.get(controlUrl, {
+            headers: { cookie: sessionCookie, origin: "https://other.example" },
+          })
+        ).status(),
+      ).toBe(403);
+      expect(upstreamRequests).toBe(count);
+      const proof = (url: string) =>
+        issueScreenProof(new URL(url).pathname, secret, origin, "native")!;
+      const credentials = { [SCREEN_SESSION_HEADER]: proof(controlUrl) };
+      expect((await request.get(redirectUrl, { headers: credentials })).status()).toBe(403);
+      const redirect = await request.get(redirectUrl, {
+        headers: { [SCREEN_SESSION_HEADER]: proof(redirectUrl) },
+        maxRedirects: 0,
+      });
+      expect(redirect.status()).toBe(502);
+      expect(redirect.headers().location).toBeUndefined();
+      await page.route(controlUrl, (route) => route.continue({ headers: credentials }));
+      expect((await page.goto(controlUrl))?.status()).toBe(200);
+      await expect(page.locator("body")).toContainText('"socket":"ok"');
+      await expect.poll(() => controlInputs).toBe(beforeInput + 1);
+    });
+
+    test("rejects upgrades with missing or wrong sessions and foreign origins", async () => {
+      const socket = new URL(controlUrl);
+      socket.pathname = socket.pathname.replace("/vnc.html", "/websockify");
+      const upgrades: string[] = [];
+      upstreamUpgraded = (path) => upgrades.push(path);
+      const proof =
+        SCREEN_SOCKET_PROTOCOL_PREFIX + issueScreenProof(socket.pathname, secret, origin, "socket");
+      const assetProof =
+        SCREEN_SOCKET_PROTOCOL_PREFIX + issueScreenProof(socket.pathname, secret, origin, "asset");
+      try {
+        for (const [caller, cookie, protocol] of [
+          [origin, "", ""],
+          [origin, "app-session=other", ""],
+          ["null", sessionCookie, ""],
+          ["null", "", assetProof],
+          ["https://other.example", sessionCookie, proof],
+        ]) {
+          const rejected = sendUpgrade(socket, caller, cookie, protocol);
+          await new Promise<void>((resolve) => rejected.once("close", () => resolve()));
+        }
+        expect(upgrades).toEqual([]);
+      } finally {
+        upstreamUpgraded = undefined;
+      }
     });
 
     test("revocation blocks replay and closes an already connected socket", async ({
@@ -407,7 +527,9 @@ for (const mode of ["development", "preview"] as const) {
       }, screenUrl);
       authorized = false;
       try {
-        expect((await request.get(screenUrl)).status()).toBe(403);
+        expect(
+          (await request.get(screenUrl, { headers: { cookie: sessionCookie } })).status(),
+        ).toBe(403);
         await expect
           .poll(() =>
             page.evaluate(() => (window as unknown as { screenClosed: boolean }).screenClosed),

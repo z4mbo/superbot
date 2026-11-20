@@ -1,5 +1,6 @@
 import {
   addScreenProxyCapability,
+  issueScreenProof,
   SCREEN_TARGET_ENDPOINT,
 } from "@rakazo/core/node/screen-capability";
 import type { PrismaClient } from "@rakazo/db";
@@ -14,7 +15,11 @@ const scope = {
   botGeneration: 0,
   computerGeneration: 0,
   controlLeaseId: "lease",
+  sessionId: "session",
+  spaceId: "space",
 };
+const origin = "https://app.example";
+const cookie = "session=test";
 function fixture(
   interactive = false,
   upstream = `http://127.0.0.1:49152/embed.html?view_only=${!interactive}`,
@@ -22,43 +27,65 @@ function fixture(
 ) {
   const computer = {
     screenGeneration: 0,
+    spaceId: "space",
     providerRef: "fake-provider",
     state: "running",
     controlHolder: "user",
     controlLeaseId: "lease",
     controlBotId: "bot",
+    controlUserId: "owner",
+    userId: "owner",
     controlLeaseExpiresAt: new Date(Date.now() + 60_000),
   };
   const bot = {
     id: "bot",
+    spaceId: "space",
     computerId: "computer",
     archivedAt: null as Date | null,
     screenGeneration: 0,
     computer,
   };
+  const live = { member: true, session: true };
   const findFirst = vi.fn(async ({ where }) =>
-    Object.entries(where).every(([key, value]) => bot[key as keyof typeof bot] === value)
+    live.member &&
+    where.space.memberships.some.userId === "owner" &&
+    Object.entries(where).every(
+      ([key, value]) =>
+        key === "space" ||
+        (key === "computer"
+          ? where.computer.spaceId === computer.spaceId
+          : bot[key as keyof typeof bot] === value),
+    )
       ? bot
       : null,
   );
-  const app = new Hono();
-  mountScreenTarget(app, { bot: { findFirst } } as unknown as PrismaClient, secret);
-  const url = addScreenProxyCapability(
-    upstream,
-    secret,
-    "https://app.example",
-    scope,
-    undefined,
-    headers,
+  const session = vi.fn(async ({ where }) =>
+    live.session &&
+    where.id === "session" &&
+    where.expiresAt.gt instanceof Date &&
+    where.user.deactivatedAt === null
+      ? { userId: "owner" }
+      : null,
   );
+  const readSessionId = vi.fn(async (value: string) =>
+    value === cookie ? "session" : value === "session=other" ? "other" : undefined,
+  );
+  const app = new Hono();
+  mountScreenTarget(
+    app,
+    { bot: { findFirst }, session: { findFirst: session } } as unknown as PrismaClient,
+    secret,
+    readSessionId,
+  );
+  const url = addScreenProxyCapability(upstream, secret, origin, scope, undefined, headers);
   const path = new URL(url).pathname;
-  const request = (value = path, credential = secret) =>
+  const request = (value = path, credential = secret, access: object | null = { cookie }) =>
     app.request(SCREEN_TARGET_ENDPOINT, {
       method: "POST",
       headers: { authorization: `Bearer ${credential}`, "content-type": "application/json" },
-      body: JSON.stringify({ path: value }),
+      body: JSON.stringify({ path: value, access }),
     });
-  return { bot, computer, findFirst, path, request };
+  return { bot, computer, findFirst, live, path, request };
 }
 
 describe("screen capability lifecycle authorization", () => {
@@ -77,6 +104,55 @@ describe("screen capability lifecycle authorization", () => {
     expect((await request()).status).toBe(200);
     expect((await request(path.replace("/embed.html", "/websockify"))).status).toBe(200);
     expect((await request()).headers.get("cache-control")).toBe("no-store");
+  });
+  it.each([false, true])(
+    "requires the issuing session and current Space membership (control=%s)",
+    async (control) => {
+      const { path, request, live, computer } = fixture(control);
+      expect((await request()).status).toBe(200);
+      expect((await request(path, secret, null)).status).toBe(403);
+      expect((await request(path, secret, { cookie: "session=other" })).status).toBe(403);
+      if (control) {
+        computer.controlUserId = "other";
+        expect((await request()).status).toBe(403);
+        computer.controlUserId = "owner";
+      }
+      live.member = false;
+      expect((await request()).status).toBe(403);
+      live.member = true;
+      computer.spaceId = "other";
+      expect((await request()).status).toBe(403);
+      computer.spaceId = scope.spaceId;
+      live.session = false;
+      expect((await request()).status).toBe(403);
+    },
+  );
+  it("scopes native, asset, and socket proofs to the original URL and origin", async () => {
+    const { path, request, live } = fixture(true);
+    const socketPath = path.replace("/embed.html", "/websockify");
+    const proof = issueScreenProof(path, secret, origin, "native")!;
+    expect((await request(path, secret, { purpose: "native", origin, proof })).status).toBe(200);
+    expect((await request(socketPath, secret, { purpose: "native", origin, proof })).status).toBe(
+      403,
+    );
+    expect((await request(socketPath, secret, { purpose: "socket", origin, proof })).status).toBe(
+      403,
+    );
+    const access = {
+      purpose: "socket",
+      origin,
+      proof: issueScreenProof(path, secret, origin, "socket"),
+    };
+    expect((await request(socketPath, secret, access)).status).toBe(200);
+    expect(
+      (await request(socketPath, secret, { ...access, origin: "https://other.example" })).status,
+    ).toBe(403);
+    expect((await fixture(true).request(undefined, secret, access)).status).toBe(403);
+    live.member = false;
+    expect((await request(socketPath, secret, access)).status).toBe(403);
+    live.member = true;
+    live.session = false;
+    expect((await request(socketPath, secret, access)).status).toBe(403);
   });
   it("requires the proxy credential before looking up a capability", async () => {
     const { request, findFirst, path } = fixture();
@@ -166,7 +242,12 @@ describe("screen capability lifecycle authorization", () => {
   });
   it("refuses a body that isn't a path with 403", async () => {
     const app = new Hono();
-    mountScreenTarget(app, { bot: { findFirst: vi.fn() } } as unknown as PrismaClient, secret);
+    mountScreenTarget(
+      app,
+      { bot: { findFirst: vi.fn() } } as unknown as PrismaClient,
+      secret,
+      vi.fn(),
+    );
     for (const body of ["not json", "null", "{}", '{"path":1}', '{"path":["/novnc"]}']) {
       const response = await app.request(SCREEN_TARGET_ENDPOINT, {
         method: "POST",

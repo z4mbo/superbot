@@ -35,7 +35,7 @@ import {
   foldComputerCommands,
 } from "@rakazo/contracts";
 import { ACTIVE_RUN_STATUSES, ClientError, computerUsingRuns, scrollDirection } from "@rakazo/core";
-import { addScreenProxyCapability } from "@rakazo/core/node/screen-capability";
+import { addScreenProxyCapability, issueScreenProof } from "@rakazo/core/node/screen-capability";
 import type { ComputerRunEnd } from "@rakazo/db";
 import {
   expireComputerExecutionLeases,
@@ -646,6 +646,8 @@ export function computerRoutes(ctx: RouterContext) {
               botGeneration: bot.screenGeneration,
               computerGeneration: computer.screenGeneration,
               controlLeaseId: computer.controlLeaseId,
+              sessionId: context.sessionId,
+              spaceId: context.actor.spaceId,
             },
             undefined,
             session.headers,
@@ -685,21 +687,35 @@ export function computerRoutes(ctx: RouterContext) {
         if (!session?.url) return { url: null };
         if (!input.preview) scheduleComputerSleep(deps.jobs, bot.computer.id);
         const viewUrl = withViewOnly(session.url, !holder);
+        const url = addScreenProxyCapability(
+          viewUrl,
+          deps.env.screenProxySecret,
+          deps.env.webOrigin,
+          {
+            botId: bot.id,
+            computerId: computer.id,
+            botGeneration: bot.screenGeneration,
+            computerGeneration: computer.screenGeneration,
+            controlLeaseId: computer.controlLeaseId,
+            sessionId: context.sessionId,
+            spaceId: context.actor.spaceId,
+          },
+          undefined,
+          session.headers,
+        );
+        const screenUrl = new URL(url);
+        const screenSession =
+          input.nativeSession && context.sessionId
+            ? issueScreenProof(
+                screenUrl.pathname,
+                deps.env.screenProxySecret,
+                screenUrl.origin,
+                "native",
+              )
+            : undefined;
         return {
-          url: addScreenProxyCapability(
-            viewUrl,
-            deps.env.screenProxySecret,
-            deps.env.webOrigin,
-            {
-              botId: bot.id,
-              computerId: computer.id,
-              botGeneration: bot.screenGeneration,
-              computerGeneration: computer.screenGeneration,
-              controlLeaseId: computer.controlLeaseId,
-            },
-            undefined,
-            session.headers,
-          ),
+          url,
+          ...(screenSession ? { screenSession } : {}),
           // The view is part of what a screen shows: taking or releasing control changes it.
           ...(session.singleUseSignIn
             ? {
