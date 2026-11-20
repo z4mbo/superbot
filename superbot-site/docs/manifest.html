@@ -97,10 +97,38 @@
       </div>
       <p>The registry checks the endpoint during review. At runtime the server refuses redirects and private addresses, rechecks that the grant is still in place, and asks a person to approve every call after showing the endpoint and the arguments. In a Space set to Never ask, calls are refused.</p>
 
+      <h2 id="app">Record app part</h2>
+      <p>A record app declares fields. The server stores entries with those fields and shows them in Superbot's standard form and list.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Rules</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td class="muted">string</td><td class="muted">See <a href="#ids">part ids</a>.</td></tr>
+            <tr><td><code>kind</code></td><td class="muted">string</td><td class="muted"><code>"app"</code></td></tr>
+            <tr><td><code>fields</code></td><td class="muted">array</td><td class="muted">1 to 16 fields with unique ids.</td></tr>
+            <tr><td><code>summaryField</code></td><td class="muted">string, optional</td><td class="muted">The id of a <code>number</code> field to total.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Each entry in <code>fields</code> has exactly these four properties:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Rules</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td class="muted">string</td><td class="muted">Same pattern as <a href="#ids">part ids</a>. Keep it stable across versions.</td></tr>
+            <tr><td><code>label</code></td><td class="muted">string</td><td class="muted">Up to 120 characters, not blank, without text-direction control characters. Shown in the form and to bots.</td></tr>
+            <tr><td><code>type</code></td><td class="muted">string</td><td class="muted"><code>"text"</code>, <code>"number"</code> or <code>"date"</code>.</td></tr>
+            <tr><td><code>required</code></td><td class="muted">boolean</td><td class="muted">Always written out, <code>true</code> or <code>false</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Saved values follow the field type. Text holds up to 2,000 characters and can't be blank. A number is finite, between −10<sup>12</sup> and 10<sup>12</sup>. A date is a calendar day written <code>YYYY-MM-DD</code>. An optional field may be left out of an entry. The first <code>date</code> field, in manifest order, is the one people and bots filter by day. The total adds up the <code>summaryField</code> of every entry that matches.</p>
+
       <h2 id="not-allowed">What a manifest can't contain</h2>
       <ul>
         <li>API keys, tokens, passwords or HTTP headers. If your server needs sign-in, use OAuth on the server; people sign in when they connect it.</li>
         <li>Commands, packages, scripts or install hooks.</li>
+        <li>Screens, HTML or JavaScript. Superbot draws every record app with its own form and list.</li>
         <li>Local or private addresses such as <code>localhost</code>, <code>127.0.0.1</code> or <code>10.0.0.0/8</code>.</li>
         <li>Any field not listed on this page, at any level.</li>
       </ul>
@@ -140,6 +168,7 @@
       <a href="#ids">Part ids and slugs</a>
       <a href="#skill">Skill part</a>
       <a href="#mcp">Tool part</a>
+      <a href="#app">Record app part</a>
       <a href="#not-allowed">What it can't contain</a>
       <a href="#full">Complete example</a>
     </aside>
