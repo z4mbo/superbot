@@ -6,6 +6,8 @@ For a server model, the API saves a message and queues a run. The worker builds 
 
 The worker selects tools for the bot, the account and the run's origin. Depending on those settings a bot can search the web, use its computer's browser, terminal and files, read a skill, use a connected service or message another bot. Some tools are discovered during the turn. Authorization and approval also apply when a tool executes. A bot's instructions describe the job. Access comes from the installation, grants, connector credentials and Space rules.
 
+On a self-hosted server with one active account and no model usage billing, the operator can use a model CLI installed and signed in on the server as the deployment model. An MCP server lists the worker's tools without executing them. The CLI returns tool calls to Superbot, and the worker handles them, including agent computer calls, with the same authorization and approvals.
+
 For a model CLI selected on this desktop, Superbot builds a prompt with the current bot instructions and recent text from the open conversation. The CLI returns text and Superbot saves the exchange to the server. A local chat has no shell, browser or MCP tools. The separate `/apps` flow can show the owner a granted record app and ask them to confirm a proposed addition. A server worker runs background watches while the desktop is closed. [Hosted and local chat runs](desktop-chat-runs.md)
 
 ## Watch GitHub issues and choose an agent
@@ -38,7 +40,7 @@ The Store's Agents catalog contains reviewed built-in templates. A community aut
 
 | Product | Execution and tools |
 | --- | --- |
-| OpenBot (Nightly Labs) | Local-first teammates with a dedicated workspace, task queues, browser control and agent-to-agent collaboration. It uses Codex App Server and Claude Code directly, and supports other CLIs through ACP. [Project](https://github.com/nightly-labs/openbot) |
+| OpenBot (Nightly Labs) | Local-first teammates with a dedicated workspace, task queues, browser control and agent-to-agent collaboration. It uses Codex App Server and Claude Code directly, and supports other CLIs through ACP. In the default Full access mode, agents can access files, run commands and control the browser without per-action approval after initial consent. [Project README](https://github.com/nightly-labs/openbot/blob/740efbb4dd4a2ee8740e5429dbe8b74e184a1be8/README.md#L16-L19) |
 | OpenMausBot | Local drivers adapt Claude's stream-JSON, Codex's JSON-RPC and Grok's ACP into shared chat events. Its permission broker routes shell and file approvals. Bot computers and connected apps extend the available tools. [Architecture](https://github.com/milind-soni/OpenMausBot#how-it-works) |
 | Rakazo | Its server worker owns runs and exposes approved tools to a Pi agent. Superbot reuses this worker and tool system for server runs. [Upstream runtime](https://github.com/elie222/rakazo/blob/main/packages/adapters/src/runtime/pi/pi-runtime.ts) |
-| Grok Bot | The inspected Windows app packages an Electron client, local execution and a node coordinator. The available evidence does not identify the private server's model loop or complete tool list. [Installed build evidence](parity.md) |
+| Grok Bot | The inspected Windows app packages an Electron client, local execution and a node coordinator. The vendor says the service automatically selects a backend model for each task, with no model picker, and that bots can work on a cloud computer. [Installed build evidence](parity.md) · [Vendor FAQ](https://docs.x.ai/grok-bot/faq#can-i-pick-the-model) · [How Grok Bot works](https://docs.x.ai/grok-bot/how-grok-bot-works) |
