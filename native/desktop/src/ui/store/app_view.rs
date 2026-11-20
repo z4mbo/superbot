@@ -489,14 +489,16 @@ impl Desktop {
                     .when(more, |list| {
                         let loading = app.loading_more;
                         list.child(
-                            pill_button(
-                                "more-records",
-                                if loading { "Loading…" } else { "Show more" },
-                                Tone::Quiet,
-                                !loading,
-                                theme,
-                            )
-                            .on_click(cx.listener(|this, _, window, cx| this.load_records(true, window, cx))),
+                            div().flex().child(
+                                pill_button(
+                                    "more-records",
+                                    if loading { "Loading…" } else { "Show more" },
+                                    Tone::Quiet,
+                                    !loading,
+                                    theme,
+                                )
+                                .on_click(cx.listener(|this, _, window, cx| this.load_records(true, window, cx))),
+                            ),
                         )
                     })
                     .into_any_element()
