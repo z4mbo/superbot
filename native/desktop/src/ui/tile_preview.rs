@@ -8,7 +8,8 @@ use gpui_kit::*;
 use crate::api::{AgentSummary, Target};
 use crate::app::{Desktop, MenuKind};
 use crate::theme::{radius, Theme};
-use crate::ui::{bot_avatar, Type};
+use crate::ui::{bot_avatar_with, AvatarSlot, Type};
+use superbot_avatars::face::FaceState;
 
 const OPEN_DELAY: Duration = Duration::from_millis(250);
 const POP: Duration = Duration::from_millis(200);
@@ -92,6 +93,10 @@ enum TileKey {
     Menu,
 }
 
+pub(super) fn is_menu_key(key: &Keystroke) -> bool {
+    TileKey::of(key) == Some(TileKey::Menu)
+}
+
 impl TileKey {
     fn of(key: &Keystroke) -> Option<Self> {
         match (key.key.as_str(), key.modifiers) {
@@ -105,7 +110,15 @@ impl TileKey {
 
 /// The bot's latest words beside its tile, 8px past its end and 6px below its top: its face and
 /// name, then two lines of what it last said. It never takes the pointer.
-pub fn tile_preview(agent: &AgentSummary, text: String, tile_width: Pixels, theme: &Theme, cx: &App) -> AnyElement {
+pub fn tile_preview(
+    agent: &AgentSummary,
+    text: String,
+    tile_width: Pixels,
+    presence: FaceState,
+    theme: &Theme,
+    cx: &App,
+) -> AnyElement {
+    let slot = AvatarSlot { presence, ..AvatarSlot::default() };
     let card = div()
         .w(WIDTH)
         .px(px(11.))
@@ -120,7 +133,7 @@ pub fn tile_preview(agent: &AgentSummary, text: String, tile_width: Pixels, them
                 .min_w_0()
                 .items_center()
                 .gap_1p5()
-                .child(bot_avatar(agent.avatar(), px(16.), agent.working(), None, theme, cx))
+                .child(bot_avatar_with(agent.avatar(), px(16.), agent.working(), slot, theme, cx))
                 .child(div().min_w_0().name().font_weight(FontWeight::SEMIBOLD).truncate().child(agent.name.clone())),
         )
         .child(div().mt_1().body().text_color(theme.ink_secondary).line_clamp(2).child(text));

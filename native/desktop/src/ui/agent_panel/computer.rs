@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::focus::{self, Ring};
 
 impl Desktop {
     pub(super) fn render_computer(
@@ -53,7 +54,7 @@ impl Desktop {
             ),
             Some(ComputerView::Ready(status)) => {
                 let face = |opacity: f32| {
-                    div().opacity(opacity).child(bot_avatar(avatar, px(44.), false, None, theme, cx)).into_any_element()
+                    div().opacity(opacity).child(self.roster_avatar(avatar, px(44.), theme, cx)).into_any_element()
                 };
                 let (title, start) = match status.state {
                     ComputerState::Running => match &status.busy_bot_name {
@@ -203,7 +204,7 @@ impl Desktop {
             .child(switch(true, color, theme));
         let mode_row = match &panel.computer {
             Some(ComputerView::Ready(status)) if on && status.offered() && !status.runs_on_user_machine => Some(
-                card(theme).child(uses_row).child(
+                card(theme).child(focus::control(uses_row, Ring::TrailingSwitch, theme)).child(
                     div()
                         .flex()
                         .flex_col()

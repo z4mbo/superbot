@@ -11,7 +11,7 @@ use crate::api::{self, Target};
 use crate::app::Desktop;
 use crate::clock;
 use crate::theme::{radius, ActiveTheme, Theme};
-use crate::ui::{bot_avatar, error_line, icon, Type};
+use crate::ui::{error_line, icon, Type};
 
 /// The reference's 320, and room for the caption buttons that share its header off macOS.
 const PANEL_WIDTH: Pixels = if cfg!(target_os = "macos") { px(320.) } else { px(360.) };
@@ -251,17 +251,19 @@ impl Desktop {
             )
             .when(unread, |header| {
                 header.child(
-                    crate::ui::agent_panel::round_button("inbox-mark-all", "check-check", false, &theme)
-                        .tooltip(|window, cx| {
+                    crate::ui::agent_panel::round_button("inbox-mark-all", "check-check", false, &theme, |button| {
+                        button.tooltip(|window, cx| {
                             gpui_kit::component::tooltip::Tooltip::new("Mark all as read").build(window, cx)
                         })
-                        .on_click(cx.listener(|this, _, window, cx| this.mark_inbox_read(window, cx))),
+                        .on_click(cx.listener(|this, _, window, cx| this.mark_inbox_read(window, cx)))
+                    }),
                 )
             })
             .child(
-                crate::ui::agent_panel::round_button("inbox-close", "x", false, &theme)
-                    .tooltip(|window, cx| gpui_kit::component::tooltip::Tooltip::new("Close inbox").build(window, cx))
-                    .on_click(cx.listener(|this, _, _, cx| this.toggle_inbox(cx))),
+                crate::ui::agent_panel::round_button("inbox-close", "x", false, &theme, |button| {
+                    button.tooltip(|window, cx| gpui_kit::component::tooltip::Tooltip::new("Close inbox").build(window, cx))
+                    .on_click(cx.listener(|this, _, _, cx| this.toggle_inbox(cx)))
+                }),
             )
             .when(cfg!(not(target_os = "macos")), |header| header.mr(crate::theme::CAPTION_WIDTH));
 
@@ -417,7 +419,7 @@ impl Desktop {
         let (done_id, open_item) = (item.id.clone(), item.clone());
         let is_done = item.state == InboxState::Done;
         let face = match &agent {
-            Some(agent) => bot_avatar(agent.avatar(), px(18.), false, None, theme, cx),
+            Some(agent) => self.roster_avatar(agent.avatar(), px(18.), theme, cx),
             None => div().size(px(18.)).into_any_element(),
         };
         let dot = div()

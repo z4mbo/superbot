@@ -33,7 +33,7 @@ impl Desktop {
                         .rounded(radius::FIELD)
                         .bg(theme.inset)
                         .border_1()
-                        .border_color(theme.focus)
+                        .border_color(theme.ink_at(0.22))
                         .body()
                         .child(Input::new(&rename.input).appearance(false).bordered(false)),
                 )

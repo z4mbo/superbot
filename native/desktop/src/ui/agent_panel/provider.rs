@@ -1,10 +1,10 @@
+use super::*;
+use crate::ui::focus::{self, Ring};
 use std::collections::{BTreeMap, HashMap};
 
 use superbot_features::{
     ComputerProviderScope, ComputerProviderSettings, ProviderField, ProviderFieldKind, DEFAULT_COMPUTER_PROVIDER,
 };
-
-use super::*;
 
 /// Where computers run, as this account may see and change it: the deployment's choice for an
 /// administrator, otherwise this account's own. `None` while unread or when the read failed,
@@ -361,7 +361,7 @@ impl Desktop {
             ProviderFieldKind::Toggle => {
                 let on = page.picks.get(&field.key).map(String::as_str) == Some("true");
                 let key = field.key.clone();
-                div()
+                let toggle = div()
                     .id(SharedString::from(format!("provider-{}", field.key)))
                     .self_start()
                     .cursor_pointer()
@@ -372,8 +372,8 @@ impl Desktop {
                         });
                         cx.notify();
                     }))
-                    .child(switch(on, theme.ink, theme))
-                    .into_any_element()
+                    .child(switch(on, theme.ink, theme));
+                focus::control(toggle, Ring::OuterPill, theme).into_any_element()
             }
             _ => match page.inputs.get(&field.key) {
                 Some(input) => crate::ui::field_box(theme)

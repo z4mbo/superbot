@@ -230,10 +230,14 @@ fn next_index(key: &str, current: Option<usize>, count: usize) -> Option<usize> 
 }
 
 impl Desktop {
+    pub(crate) fn model_menu_is_open(&self, trigger: ModelTrigger) -> bool {
+        self.model_menu.trigger == trigger
+            && matches!(self.menu.as_ref().map(|menu| &menu.kind), Some(MenuKind::Model(_)))
+    }
+
     pub(crate) fn model_menu_button(&self, trigger: ModelTrigger, cx: &mut Context<Self>) -> Stateful<Div> {
         let bounds = self.model_menu.bounds(trigger).clone();
-        let open = self.model_menu.trigger == trigger
-            && matches!(self.menu.as_ref().map(|menu| &menu.kind), Some(MenuKind::Model(_)));
+        let open = self.model_menu_is_open(trigger);
         let id = match trigger {
             ModelTrigger::Header => "chat-head-model",
             ModelTrigger::Details => "agent-model",

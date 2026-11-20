@@ -145,7 +145,7 @@ fn heading(title: &str, line: Option<String>, theme: &Theme) -> Div {
         .flex_col()
         .items_center()
         .gap_3()
-        .child(agent_face(theme.identity_for("blue"), px(56.)))
+        .child(agent_face(theme.identity_for("blue"), px(56.), theme))
         .child(div().title().text_center().child(title.to_owned()))
         .children(line.map(|line| div().mt(px(-6.)).item().text_color(theme.ink_secondary).child(line)))
 }

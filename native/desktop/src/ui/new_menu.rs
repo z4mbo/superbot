@@ -1,9 +1,10 @@
-use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::app::create::CreateRow;
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme, SIDEBAR_WIDTH};
+use crate::ui::focus;
+use crate::ui::motion::{Colors, Pointer};
 use crate::ui::{icon, Type};
 
 /// Where the sheet hangs: right-aligned with the sidebar's plus button, 6px under it.
@@ -30,7 +31,7 @@ impl Desktop {
     /// The plus button's menu: what can be made from here.
     pub fn render_new_menu(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.skin().clone();
-        let hover = theme.ink_at(0.06);
+        let fills = Colors::ink(&theme, 0., 0.06, 0.08);
         let highlight = self.create.highlight;
         let agent = self.chat.as_ref().and_then(|chat| chat.target.agent()).and_then(|id| self.agent(id)).map(|agent| agent.name.clone());
         let rows = self.create_rows().into_iter().enumerate().flat_map(|(index, row)| {
@@ -50,12 +51,10 @@ impl Desktop {
                 .line_height(px(18.))
                 .text_color(theme.ink)
                 .cursor_pointer()
-                .when(highlight == Some(index), |item| item.bg(hover))
-                .hover(move |style| style.bg(hover))
                 .on_click(cx.listener(move |this, _, window, cx| this.choose_create_row(row, window, cx)))
                 .child(icon(row.glyph(), px(16.), theme.ink_secondary))
-                .child(div().flex_1().min_w_0().truncate().child(label))
-                .into_any_element();
+                .child(div().flex_1().min_w_0().truncate().child(label));
+            let item = focus::decorate(item).fill(Pointer::MENU.held(highlight == Some(index)), fills).into_any_element();
             let separator = (row == CreateRow::NewConversation)
                 .then(|| div().my_0p5().mx_1().h(px(1.)).bg(theme.hairline.opacity(0.5)).into_any_element());
             std::iter::once(item).chain(separator)

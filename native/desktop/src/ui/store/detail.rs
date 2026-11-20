@@ -5,7 +5,7 @@ use crate::api;
 use crate::app::Desktop;
 use crate::theme::Theme;
 use crate::ui::releases::VersionSwitch;
-use crate::ui::{bot_avatar, chip, empty_line, icon, pill_button, Tone, Type};
+use crate::ui::{chip, empty_line, icon, pill_button, Tone, Type};
 
 use super::app_view::{app_parts, humanize};
 use super::confirm::Confirm;
@@ -181,7 +181,7 @@ impl Desktop {
                         .gap_3()
                         .py_1p5()
                         .when(waiting, |row| row.opacity(0.6))
-                        .child(bot_avatar(agent.avatar(), px(28.), false, None, theme, cx))
+                        .child(self.roster_avatar(agent.avatar(), px(28.), theme, cx))
                         .child(div().w(px(180.)).flex_shrink_0().name().truncate().child(agent.name.clone()))
                         .child(div().flex_1().flex().flex_wrap().gap_1p5().children(
                             installation.plugin.manifest.parts.iter().map(|part| {

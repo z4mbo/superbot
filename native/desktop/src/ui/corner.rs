@@ -1,90 +1,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use gpui_kit::*;
 
 use crate::app::Desktop;
-use crate::theme::{mix, Theme};
-
-const DURATION: Duration = Duration::from_millis(120);
-/// How far the fill moves toward ink under the pointer.
-const TINT: f32 = 0.07;
-
-/// The stylesheet's colour transition curve, `cubic-bezier(0.4, 0, 0.2, 1)`.
-fn ease(progress: f32) -> f32 {
-    const X: (f32, f32) = (0.4, 0.2);
-    const Y: (f32, f32) = (0.0, 1.0);
-    let along = |(first, second): (f32, f32), t: f32| {
-        let rest = 1.0 - t;
-        3.0 * rest * rest * t * first + 3.0 * rest * t * t * second + t * t * t
-    };
-    let progress = progress.clamp(0.0, 1.0);
-    let (mut low, mut high) = (0.0_f32, 1.0_f32);
-    for _ in 0..24 {
-        let middle = (low + high) / 2.0;
-        if along(X, middle) < progress {
-            low = middle;
-        } else {
-            high = middle;
-        }
-    }
-    along(Y, (low + high) / 2.0)
-}
-
-/// One control's hover tint, moving the way a CSS transition does: 0 at rest, 1 fully tinted.
-#[derive(Clone, Copy, Debug)]
-pub struct Tint {
-    from: f32,
-    to: f32,
-    began: Option<Instant>,
-    span: Duration,
-    /// The part of a full transition this one covers. A transition turned back part-way runs
-    /// only for as long as it had come (CSS Transitions, "faster reversing").
-    share: f32,
-}
-
-impl Default for Tint {
-    fn default() -> Self {
-        Self { from: 0.0, to: 0.0, began: None, span: Duration::ZERO, share: 1.0 }
-    }
-}
-
-impl Tint {
-    fn progress(&self, now: Instant) -> f32 {
-        match self.began {
-            Some(began) if !self.span.is_zero() => {
-                (now.saturating_duration_since(began).as_secs_f32() / self.span.as_secs_f32()).min(1.0)
-            }
-            _ => 1.0,
-        }
-    }
-
-    pub fn level(&self, now: Instant) -> f32 {
-        self.from + (self.to - self.from) * ease(self.progress(now))
-    }
-
-    pub fn moving(&self, now: Instant) -> bool {
-        self.progress(now) < 1.0
-    }
-
-    /// Heads for tinted or rest from wherever the tint is now. `still` is reduced motion: it arrives at once.
-    pub fn aim(&mut self, tinted: bool, now: Instant, still: bool) {
-        let to = if tinted { 1.0 } else { 0.0 };
-        if to == self.to {
-            return;
-        }
-        if still {
-            *self = Self { from: to, to, ..Self::default() };
-            return;
-        }
-        let eased = ease(self.progress(now));
-        let share = if self.moving(now) { (eased * self.share + 1.0 - self.share).clamp(0.0, 1.0) } else { 1.0 };
-        *self = Self { from: self.level(now), to, began: Some(now), span: DURATION.mul_f32(share), share };
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
+use crate::theme::Theme;
+use crate::ui::motion::Colors;
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Corner {
     Search,
     New,
@@ -109,32 +32,6 @@ impl Corner {
             Self::Plugins => ("icons/apps.svg", px(16.)),
             Self::Workspace => ("icons/settings.svg", px(16.)),
         }
-    }
-}
-
-/// The tints of the sidebar's round controls.
-#[derive(Default)]
-pub struct Tints {
-    hovered: [bool; 4],
-    held: [bool; 4],
-    tints: [Tint; 4],
-}
-
-impl Tints {
-    fn hover(&mut self, corner: Corner, hovered: bool, now: Instant, still: bool) {
-        let index = corner as usize;
-        self.hovered[index] = hovered;
-        self.tints[index].aim(hovered || self.held[index], now, still);
-    }
-
-    /// The tint to draw now, and whether it is still on its way. A control keeps its tint while
-    /// what it opened stays open.
-    fn settle(&mut self, corner: Corner, held: bool, now: Instant, still: bool) -> (f32, bool) {
-        let index = corner as usize;
-        self.held[index] = held;
-        let tint = &mut self.tints[index];
-        tint.aim(self.hovered[index] || held, now, still);
-        (tint.level(now), tint.moving(now))
     }
 }
 
@@ -232,11 +129,34 @@ impl Desktop {
             .flex()
             .items_center()
             .justify_center()
-            .bg(mix(theme.composer, theme.ink, TINT * level))
+            .bg(Colors::elevated(theme).sample(level))
             .border_1()
             .border_color(theme.ink_at(0.06))
             .cursor_pointer()
             .occlude()
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, _, _, cx| {
+                    this.tints.press(corner, true, Instant::now(), cx.reduce_motion());
+                    cx.notify();
+                }),
+            )
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(move |this, _, _, cx| {
+                    if this.tints.press(corner, false, Instant::now(), cx.reduce_motion()) {
+                        cx.notify();
+                    }
+                }),
+            )
+            .on_mouse_up_out(
+                MouseButton::Left,
+                cx.listener(move |this, _, _, cx| {
+                    if this.tints.press(corner, false, Instant::now(), cx.reduce_motion()) {
+                        cx.notify();
+                    }
+                }),
+            )
             .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
                 this.tints.hover(corner, *hovered, Instant::now(), cx.reduce_motion());
                 cx.notify();
@@ -247,7 +167,8 @@ impl Desktop {
 
 #[cfg(test)]
 mod tests {
-    use super::{ease, shrink, Corner, Tint, Tints, DURATION};
+    use super::{shrink, Corner};
+    use crate::ui::motion::{Tint, Tints, HOVER, STANDARD};
     use std::time::{Duration, Instant};
 
     fn near(left: f32, right: f32) -> bool {
@@ -262,7 +183,7 @@ mod tests {
     fn the_curve_is_the_stylesheets_colour_transition() {
         // Points of cubic-bezier(0.4, 0, 0.2, 1) at curve parameters 0, 1/4, 1/2 and 1.
         for (x, y) in [(0.0, 0.0), (0.2125, 0.15625), (0.35, 0.5), (1.0, 1.0)] {
-            assert!(near(ease(x), y), "ease({x}) = {} instead of {y}", ease(x));
+            assert!(near(STANDARD.sample(x), y), "ease({x}) = {} instead of {y}", STANDARD.sample(x));
         }
     }
 
@@ -275,8 +196,8 @@ mod tests {
         assert!(near(tint.level(start), 0.0));
         assert!(near(tint.level(after(start, 42.0)), 0.5));
         assert!(tint.moving(after(start, 119.0)));
-        assert!(near(tint.level(start + DURATION), 1.0));
-        assert!(!tint.moving(start + DURATION));
+        assert!(near(tint.level(start + HOVER), 1.0));
+        assert!(!tint.moving(start + HOVER));
     }
 
     #[test]
@@ -313,12 +234,13 @@ mod tests {
         let start = Instant::now();
         let mut tints = Tints::default();
         tints.hover(Corner::Search, true, start, false);
-        let settled = start + DURATION;
-        assert!(near(tints.settle(Corner::Search, true, settled, false).0, 1.0));
+        let settled = start + HOVER;
+        assert!(near(tints.settle(Corner::Search, true, settled, false).0.hover, 1.0));
         tints.hover(Corner::Search, false, settled, false);
-        let later = settled + DURATION;
-        assert_eq!(tints.settle(Corner::Search, true, later, false), (1.0, false));
+        let later = settled + HOVER;
+        let (levels, moving) = tints.settle(Corner::Search, true, later, false);
+        assert!(near(levels.hover, 1.0) && !moving);
         let (level, moving) = tints.settle(Corner::Search, false, later, false);
-        assert!(near(level, 1.0) && moving, "closing it starts the way back");
+        assert!(near(level.hover, 1.0) && moving, "closing it starts the way back");
     }
 }

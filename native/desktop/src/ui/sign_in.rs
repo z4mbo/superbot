@@ -76,7 +76,7 @@ impl Desktop {
                             .flex_col()
                             .items_center()
                             .gap_3()
-                            .child(agent_face(theme.identity_for("blue"), px(56.)))
+                            .child(agent_face(theme.identity_for("blue"), px(56.), &theme))
                             .child(div().title().child(title)),
                     )
                     .children(form.error.clone().map(|error| error_line(error, &theme)))
@@ -126,7 +126,7 @@ impl Desktop {
             .justify_center()
             .gap_5()
             .window_control_area(WindowControlArea::Drag)
-            .child(agent_face(theme.identity_for("blue"), px(56.)))
+            .child(agent_face(theme.identity_for("blue"), px(56.), theme))
             .children(self.sign_in.error.clone().map(|error| error_line(error, theme).w(px(360.))))
             .into_any_element()
     }
