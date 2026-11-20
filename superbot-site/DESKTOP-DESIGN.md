@@ -147,8 +147,9 @@ scaled so the disc is 62% of the plate. In the icon's 1024 units: disc centre (5
 radius 318; two eyes 62 × 150, radius 31, at x 428 and x 566, y 400, filled with the plate
 colour. A bot with its own image shows the image instead. No initials.
 
-**Application icon**: the white head fills the black rounded tile. Its eyes look almost
-straight ahead with a small tilt. The launcher, web app and site use `assets/logo.svg`.
+The application icon has a white circle centred on a black tile. Two equal vertical
+eyes sit at the same height on either side of the centre. Platform launchers, the web
+app and the site share the artwork in `assets/logo.svg`.
 
 **Local avatar pack** (`native/avatars/README.md`): when the appearance folder holds
 `avatars/pack.json`, every bot avatar is the pack's mark instead of the face, matched by
