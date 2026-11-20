@@ -582,9 +582,9 @@ impl Desktop {
         let tone = self.chat_tone(theme, cx);
         let identity = match target {
             Target::Agent(id) | Target::Conversation { agent: id, .. } => {
-                theme.identity_for(&self.agent(id).map(|agent| agent.color.clone()).unwrap_or_default())
+                theme.identity_paint(self.agent(id).map_or("", |agent| agent.color.as_str()))
             }
-            Target::Group(_) => theme.ink,
+            Target::Group(_) => (theme.ink, theme.app),
         };
         let has_content = has_text || !attachments.is_empty();
         let stopping = (running_local || working && !has_content) && !sending;
@@ -602,8 +602,7 @@ impl Desktop {
         } else if has_content {
             match (target, tone) {
                 (Target::Agent(_) | Target::Conversation { .. }, Some(tone)) => (tone.fill, tone.fill_ink),
-                (Target::Agent(_) | Target::Conversation { .. }, None) => (identity, gpui_kit::white()),
-                (Target::Group(_), _) => (theme.ink, theme.app),
+                _ => identity,
             }
         } else {
             (theme.raised_hover, theme.ink_secondary)
@@ -738,14 +737,17 @@ impl Desktop {
                         .whitespace_nowrap()
                         .overflow_hidden()
                         .item()
-                        .text_color(theme.ink_at(if sending { 0.18 } else { 0.36 }))
+                        .text_color(if sending { theme.ink_at(0.18) } else { theme.ink_secondary })
                         .child(label),
                 )
             })
             .child(field);
         let local_mode = local.is_some();
         let apps = self.app_assist_button(theme, cx);
+        // The id gives the pill its own hover state, so moving the pointer in or out repaints the
+        // ring at once; without one the hover style shows only when something else redraws.
         let pill = div()
+            .id("composer")
             .flex()
             .flex_col()
             .gap_2()
@@ -853,10 +855,19 @@ impl Desktop {
                             .bg(theme.warning.opacity(0.1))
                             .body()
                             .text_color(theme.warning)
-                            .child(div().flex_1().child("Connect an AI model so your agents can reply."))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .line_clamp(2)
+                                    .text_ellipsis()
+                                    .child("Connect an AI model so your agents can reply."),
+                            )
                             .child(
                                 div()
                                     .id("connect-model")
+                                    .flex_shrink_0()
+                                    .whitespace_nowrap()
                                     .body()
                                     .text_color(theme.accent_text)
                                     .cursor_pointer()

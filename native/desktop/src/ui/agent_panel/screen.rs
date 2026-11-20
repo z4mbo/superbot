@@ -454,7 +454,7 @@ mod tests {
     #[test]
     fn the_screen_fills_the_panel_below_its_toolbar() {
         let bounds = screen_bounds(size(px(1280.), px(800.)));
-        assert_eq!(bounds.origin, point(px(712.), px(104.)));
-        assert_eq!(bounds.size, size(px(568.), px(696.)));
+        assert_eq!(bounds.origin, point(px(881.), px(104.)));
+        assert_eq!(bounds.size, size(px(399.), px(696.)));
     }
 }

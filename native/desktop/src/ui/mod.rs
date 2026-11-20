@@ -82,6 +82,10 @@ pub fn page(content: impl IntoElement) -> Div {
 
 /// A bot's face: its colour, two eyes. The only mark in the app that gets a plate.
 pub fn agent_face(color: Hsla, size: Pixels) -> Div {
+    agent_face_with_eyes(color, gpui_kit::white(), size)
+}
+
+fn agent_face_with_eyes(color: Hsla, eyes: Hsla, size: Pixels) -> Div {
     let eye = size * 0.14;
     div()
         .size(size)
@@ -93,7 +97,7 @@ pub fn agent_face(color: Hsla, size: Pixels) -> Div {
         .justify_center()
         .gap(size * 0.16)
         .pb(size * 0.06)
-        .children((0..2).map(|_| div().w(eye).h(eye * 1.5).rounded_full().bg(gpui_kit::white())))
+        .children((0..2).map(|_| div().w(eye).h(eye * 1.5).rounded_full().bg(eyes)))
 }
 
 /// A bot's avatar in a slot of `size`: the local avatar pack's mark when one is installed,
@@ -115,7 +119,10 @@ pub fn bot_avatar(
                 None => mark.into_any_element(),
             }
         }
-        None => agent_face(theme.identity_for(bot.color), size).into_any_element(),
+        None => {
+            let (color, eyes) = theme.identity_paint(bot.color);
+            agent_face_with_eyes(color, eyes, size).into_any_element()
+        }
     }
 }
 
