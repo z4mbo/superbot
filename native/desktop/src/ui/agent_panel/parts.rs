@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn round_button(id: &'static str, glyph: &'static str, active: bool, theme: &Theme) -> Stateful<Div> {
+pub(crate) fn round_button(id: &'static str, glyph: &'static str, active: bool, theme: &Theme) -> Stateful<Div> {
     let hover = theme.elevated_hover();
     div()
         .id(id)
@@ -57,7 +57,9 @@ pub(super) fn tabs(current: PanelTab, theme: &Theme, cx: &mut Context<Desktop>) 
             .rounded_full()
             .bg(theme.ink_at(0.05))
             .child(tab("agent-tab-details", "Details", PanelTab::Details, cx))
-            .child(tab("agent-tab-computer", "Computer", PanelTab::Computer, cx)),
+            .child(tab("agent-tab-library", "Library", PanelTab::Library, cx))
+            .child(tab("agent-tab-computer", "Computer", PanelTab::Computer, cx))
+            .child(tab("agent-tab-inbox", "Inbox", PanelTab::Inbox, cx)),
     )
 }
 

@@ -133,6 +133,8 @@ const MOST_PICKED: usize = 32;
 
 impl Desktop {
     pub fn open(&mut self, target: Target, window: &mut Window, cx: &mut Context<Self>) {
+        let target = self.conversations.resume(target);
+        self.conversations.opened(&target);
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         self.view = View::Chat;
         self.set_workspace_visible(false, window, cx);
@@ -447,6 +449,9 @@ impl Desktop {
     /// and the files stay in the composer until the server takes the message; if it does not,
     /// they are still there to send again.
     pub fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.open_conversation_archived() {
+            return;
+        }
         if self.place().is_some_and(|place| self.local_writes.contains_key(&place)) {
             self.retry_local_write(window, cx);
             return;
@@ -474,7 +479,7 @@ impl Desktop {
         }
         let mentions = match chat.target {
             Target::Group(_) => outbox::mentioned(&text, &chat.conversation.members),
-            Target::Agent(_) => Vec::new(),
+            Target::Agent(_) | Target::Conversation { .. } => Vec::new(),
         };
         let Some(sending) = chat.conversation.outbox.begin(&text, mentions) else { return };
         chat.error = None;
@@ -551,7 +556,7 @@ impl Desktop {
 
     fn local_model_selection(&self) -> Result<Option<InstalledModel>, &'static str> {
         let (Some(cli), Some(chat)) = (self.local_cli(), self.chat.as_ref()) else { return Ok(None) };
-        let Target::Agent(bot) = &chat.target else { return Ok(None) };
+        let Some(bot) = chat.target.agent() else { return Ok(None) };
         cli.selection(bot)
     }
 
@@ -568,8 +573,8 @@ impl Desktop {
         if self.local_writes.contains_key(&place) {
             return;
         }
-        let Target::Agent(bot) = &place.1 else { return };
-        match cli.pending_history(bot) {
+        let Some(key) = place.1.local_key() else { return };
+        match cli.pending_history(&key) {
             Ok(Some(pending)) => {
                 self.local_writes.insert(place, pending.into());
             }
@@ -593,6 +598,7 @@ impl Desktop {
         let chat = self.chat.as_ref()?;
         let outbox = &chat.conversation.outbox;
         if chat.loading
+            || self.conversations.archived(&chat.target)
             || chat.local_turn.is_some()
             || self.local_writes.contains_key(&place)
             || outbox.sending
@@ -650,9 +656,9 @@ impl Desktop {
 
     fn retry_local_write(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(api), Some(place), Some(cli)) = (self.api.clone(), self.place(), self.local_cli()) else { return };
-        let Target::Agent(bot) = &place.1 else { return };
+        let Some(key) = place.1.local_key() else { return };
         let Some(write) = self.local_writes.get_mut(&place).filter(|write| !write.saving) else { return };
-        if let Err(problem) = cli.stage_history(bot, &write.payload) {
+        if let Err(problem) = cli.stage_history(&key, &write.payload) {
             write.problem = Some(problem.into());
             cx.notify();
             return;
@@ -685,8 +691,8 @@ impl Desktop {
                 if let Err(error) = result {
                     write.problem = Some(api::explain(&error));
                 } else {
-                    let Target::Agent(bot) = &place.1 else { return };
-                    if let Err(problem) = cli.clear_history(bot, &write.payload) {
+                    let Some(key) = place.1.local_key() else { return };
+                    if let Err(problem) = cli.clear_history(&key, &write.payload) {
                         write.problem = Some(problem.into());
                         if visible {
                             cx.notify();

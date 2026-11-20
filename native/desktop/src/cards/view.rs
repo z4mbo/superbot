@@ -259,7 +259,7 @@ impl Desktop {
         };
         let busy = cards.busy.contains(&entry.id);
         let bot_id = entry.agent_id.clone().or_else(|| match &chat.target {
-            crate::api::Target::Agent(id) => Some(id.clone()),
+            crate::api::Target::Agent(id) | crate::api::Target::Conversation { agent: id, .. } => Some(id.clone()),
             crate::api::Target::Group(_) => None,
         });
         let open = chosen.is_none() && !busy && bot_id.is_some();

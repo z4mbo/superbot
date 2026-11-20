@@ -4,6 +4,7 @@ pub mod chrome;
 pub mod corner;
 pub mod create_panel;
 pub mod creator;
+pub mod inbox;
 pub mod model_menu;
 pub mod new_menu;
 pub mod overlays;
@@ -11,6 +12,7 @@ pub mod releases;
 pub mod sidebar;
 pub mod sign_in;
 pub mod store;
+pub mod tile_preview;
 pub mod workspace;
 
 use gpui_kit::component::input::{Input, InputState};

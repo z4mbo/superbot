@@ -51,13 +51,19 @@ To use the same type on both clients, copy `typography.json` and its `fonts/` di
 }
 ```
 
-For matching bot avatars, keep the same `avatars/` directory on both clients. It contains `pack.json` and the shape files it references. Import the bot names into the shared Space once. Each client looks up names in its own pack regardless of the new server IDs. The [avatar pack reference](../../native/avatars/README.md) covers name matching, colours, hover and working frames, and chat tints.
+For matching bot avatars, keep the same `avatars/` directory on both clients. It contains `pack.json` and the shape files it references. A private pack with a live engine also needs its complete `avatars/engine/` directory. The desktop runs that engine locally for pointer and work animations. A pack with recorded frames still works on its own. Import the bot names into the shared Space once. Each client looks up names in its own pack regardless of the new server IDs. The [avatar pack reference](../../native/avatars/README.md) covers name matching, colours, hover and working frames, and chat tints.
 
 ## Conversations and shared Spaces
 
 At sign-in, desktop opens a Space you already share when one is available. Otherwise it opens the server's default Space. The upper-left menu selects a different Space, and your choice stays active while you work. Select an agent or group in the sidebar to read its history and follow replies. Search filters the sidebar. To create a bot, choose **+ → New bot** or press Ctrl+N on Windows or Cmd+N on macOS. The bot receives an available name and its chat opens.
 
 Click the bot's name or avatar in the pill at the top of its chat to open the right sidebar. Click its name in the sidebar to rename it. The gear opens the agent's instructions, job and notification settings. The model name in the chat header and the **Model** row in **Details** open the model choice for that particular bot.
+
+Click the avatar in the right sidebar to choose a shape and colour. The selection belongs to the shared bot. Other members see the change, and **Reset** restores the appearance supplied by their local pack.
+
+Choose **+ → New conversation with …** for a separate chat with the open bot. The shortcut is Ctrl+Shift+N on Windows and Cmd+Shift+N on macOS. Switch chats in **Details → Conversations**. Each chat keeps its own messages, files, draft while the app is open, and local CLI history. The bot keeps its model across chats. In **Details → Conversations**, open the row's **⋯** menu to rename, pin or archive an additional conversation. These settings are shared with other members. Archived chats stay readable. Choose **Restore** to write in one again. **Open web workspace** opens the same conversation.
+
+Open **Inbox** from the account menu to see your questions, running work and results in this Space. The **Inbox** tab in the agent sidebar filters them to that bot. Reading an item or moving it to **Done** updates your own inbox. The **Library** tab shows files, pages and apps referenced by the conversation on screen.
 
 Open the **Computer** tab to see the current state, select the shared team computer or a dedicated one, and start or stop it. **Turn on** enables computer tools for the chosen agent. Starting a computer also requires a host configured to run agent computers. [NixOS hosting](nixos-hosting.md#enable-isolated-agent-computers)
 

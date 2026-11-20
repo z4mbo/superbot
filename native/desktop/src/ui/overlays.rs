@@ -33,6 +33,10 @@ impl Desktop {
         let menu = self.menu.as_ref()?;
         let (items, anchor) = match &menu.kind {
             MenuKind::New => return Some(self.render_new_menu(cx)),
+            MenuKind::Conversation { agent, thread } => {
+                let (agent, thread) = (agent.clone(), thread.clone());
+                return Some(self.render_conversation_menu(&agent, &thread, cx));
+            }
             MenuKind::Model(bot_id) => {
                 let bot_id = bot_id.clone();
                 return Some(self.render_model_menu(&bot_id, cx));
@@ -61,6 +65,7 @@ impl Desktop {
                 let email = self.me.as_ref().map(|me| me.email.clone()).unwrap_or_default();
                 let items = vec![
                     Item::Label(email),
+                    item("inbox", "inbox", self.inbox.menu_label(), |this, _, cx| this.toggle_inbox(cx)),
                     item("manage", "settings", "Manage workspace", |this, window, cx| {
                         this.show(View::Workspace, window, cx)
                     }),

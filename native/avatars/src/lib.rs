@@ -3,6 +3,8 @@
 //! the pack's shapes: still at rest, turning toward the pointer over their row, and moving
 //! while they work. Packs are never bundled with the app.
 
+#[cfg(feature = "local-engine")]
+mod engine;
 mod frames;
 mod motion;
 mod pack;
@@ -17,8 +19,7 @@ use gpui_kit::*;
 
 pub use frames::{Frame, Frames};
 pub use motion::{Gaze, Work};
-pub use pack::{parse_hex, ChatTone, Look, Pack, PackError, PackFile, Paint};
-pub use pack::{Choices, Picked};
+pub use pack::{parse_hex, ChatTone, Choices, Look, Pack, PackError, PackFile, Paint, Picked};
 
 /// A bot as the server describes it.
 #[derive(Clone, Copy, Debug)]
@@ -33,6 +34,8 @@ struct Watched {
     bounds: Bounds<Pixels>,
     reach: f32,
     rate: f32,
+    /// The engine's own mark, when a local avatar engine draws it.
+    live: Option<u64>,
 }
 
 /// Gradient marks rasterised for one scale, kept so each frame is drawn the moment it is shown.
@@ -49,6 +52,13 @@ pub struct Avatars {
     watched: HashMap<SharedString, Watched>,
     epoch: Instant,
     rasters: Rasters,
+    #[cfg(feature = "local-engine")]
+    engine: Option<Arc<engine::Engine>>,
+    #[cfg(feature = "local-engine")]
+    looks: Mutex<HashMap<(String, String, String, Option<String>, Option<String>), Look>>,
+    /// Frames of marks no longer drawn, freed at the next draw.
+    #[cfg(feature = "local-engine")]
+    orphans: Arc<Mutex<Vec<Arc<RenderImage>>>>,
 }
 
 impl Global for Avatars {}
@@ -65,7 +75,15 @@ impl Avatars {
                 None
             }
         });
-        cx.set_global(Avatars::with_pack(pack));
+        #[cfg(feature = "local-engine")]
+        let engine = start_engine(appearance, pack.is_some(), cx);
+        #[cfg_attr(not(feature = "local-engine"), allow(unused_mut))]
+        let mut avatars = Avatars::with_pack(pack);
+        #[cfg(feature = "local-engine")]
+        {
+            avatars.engine = engine;
+        }
+        cx.set_global(avatars);
     }
 
     pub fn with_pack(pack: Option<Arc<Pack>>) -> Avatars {
@@ -93,7 +111,18 @@ impl Avatars {
             watched: HashMap::new(),
             epoch: Instant::now(),
             rasters: Rasters::default(),
+            #[cfg(feature = "local-engine")]
+            engine: None,
+            #[cfg(feature = "local-engine")]
+            looks: Mutex::default(),
+            #[cfg(feature = "local-engine")]
+            orphans: Arc::default(),
         }
+    }
+
+    #[cfg(feature = "local-engine")]
+    fn live(&self) -> Option<&Arc<engine::Engine>> {
+        self.engine.as_ref().filter(|engine| engine.running())
     }
 
     pub fn has_pack(&self) -> bool {
@@ -114,14 +143,60 @@ fn load(pack: &Pack, shape: &str, slot: &OnceLock<Option<Arc<Frames>>>) -> Optio
     .clone()
 }
 
+/// Starts the local avatar engine beside the pack, and redraws the windows whenever it draws.
+#[cfg(feature = "local-engine")]
+fn start_engine(appearance: Option<&Path>, has_pack: bool, cx: &mut App) -> Option<Arc<engine::Engine>> {
+    use futures::StreamExt;
+    let avatars = appearance.filter(|_| has_pack)?.join("avatars");
+    let (drawn, mut frames) = futures::channel::mpsc::unbounded();
+    let engine = engine::Engine::start(&avatars, cx.svg_renderer(), drawn)?;
+    cx.spawn(async move |cx| {
+        while frames.next().await.is_some() {
+            cx.update(|cx| cx.refresh_windows());
+        }
+    })
+    .detach();
+    Some(engine)
+}
+
 /// How the pack draws this bot, or `None` to use the built-in face.
 pub fn look(bot: Bot, cx: &App) -> Option<Look> {
     let avatars = cx.try_global::<Avatars>()?;
-    let look = avatars.pack.as_ref()?.look(bot.id, bot.name, bot.color, bot.picked);
+    let pack = avatars.pack.as_ref()?;
+    #[cfg(feature = "local-engine")]
+    if let Some(look) = engine_look(avatars, pack, bot) {
+        return Some(look);
+    }
+    let look = pack.look(bot.id, bot.name, bot.color, bot.picked);
     avatars.frames(&look.shape).map(|_| look)
 }
 
-/// What the appearance editor offers, `None` without a pack.
+/// The engine's look for a bot, in the pack's colours: a shape or colour the person picked,
+/// else the pack's choice for its name, else the engine decides.
+#[cfg(feature = "local-engine")]
+fn engine_look(avatars: &Avatars, pack: &Pack, bot: Bot) -> Option<Look> {
+    let engine = avatars.live()?;
+    let named = pack.choice(bot.name);
+    let shape = bot.picked.shape.filter(|shape| pack.draws(shape)).map(str::to_owned).or_else(|| named?.shape.clone());
+    let color = bot
+        .picked
+        .color
+        .filter(|color| pack.paint(color).is_some())
+        .map(str::to_owned)
+        .or_else(|| named?.color.clone());
+    let key = (bot.id.to_owned(), bot.name.to_owned(), bot.color.to_owned(), shape.clone(), color.clone());
+    if let Some(look) = avatars.looks.lock().ok()?.get(&key) {
+        return Some(look.clone());
+    }
+    let chosen = engine.look(bot.id, bot.name, bot.color, (shape.as_deref(), color.as_deref()))?;
+    let (paint, hue) = pack.paint(&chosen.color)?;
+    let fallback = pack.look(bot.id, bot.name, bot.color, bot.picked);
+    let look = Look { shape: chosen.shape, paint, hue, phase: fallback.phase, seed: chosen.seed };
+    avatars.looks.lock().ok()?.insert(key, look.clone());
+    Some(look)
+}
+
+/// What the appearance editor offers, when a pack is installed.
 pub fn choices(cx: &App) -> Option<Choices> {
     Some(cx.try_global::<Avatars>()?.pack.as_ref()?.choices())
 }
@@ -142,6 +217,16 @@ pub fn follow(key: &SharedString, position: Point<Pixels>, cx: &mut App) -> bool
     let Some(avatars) = cx.try_global::<Avatars>() else { return false };
     let Some(watched) = avatars.watched.get(key) else { return false };
     let center = watched.bounds.center();
+    #[cfg(feature = "local-engine")]
+    if let (Some(live), Some(engine)) = (watched.live, avatars.live()) {
+        let (x, y, reach) = (f32::from(center.x), f32::from(center.y), watched.reach);
+        engine.pointer(
+            live,
+            [x - reach, y - reach, reach * 2., reach * 2.],
+            [f32::from(position.x), f32::from(position.y)],
+        );
+        return false;
+    }
     let x = (f32::from(position.x - center.x) / watched.reach).clamp(-1., 1.);
     let y = (-f32::from(position.y - center.y) / watched.reach).clamp(-1., 1.);
     let rate = watched.rate;
@@ -153,6 +238,14 @@ pub fn follow(key: &SharedString, position: Point<Pixels>, cx: &mut App) -> bool
 
 /// Turns the watched mark `key` back to rest. Returns whether it changed.
 pub fn rest(key: &SharedString, cx: &mut App) -> bool {
+    #[cfg(feature = "local-engine")]
+    if let Some(avatars) = cx.try_global::<Avatars>() {
+        if let (Some(live), Some(engine)) = (avatars.watched.get(key).and_then(|watched| watched.live), avatars.live())
+        {
+            engine.release(live);
+            return false;
+        }
+    }
     let Some(gaze) = cx.try_global::<Avatars>().and_then(|avatars| avatars.gazes.get(key)) else { return false };
     if !gaze.holding() {
         return false;
@@ -199,7 +292,7 @@ pub struct Mark {
 }
 
 impl Mark {
-    /// `ink` is the skin's text colour, for colours the pack draws in it.
+    /// `ink` is the skin's text colour, for colours the pack draws in it unless the pack sets its own.
     pub fn new(id: impl Into<ElementId>, look: Look, size: Pixels, ink: Hsla) -> Mark {
         Mark { id: id.into(), look, size, ink, working: false, watch: None }
     }
@@ -217,9 +310,17 @@ impl Mark {
 }
 
 impl RenderOnce for Mark {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let slot = div().id(self.id.clone()).size(self.size).flex_shrink_0().relative();
         let Some(avatars) = cx.try_global::<Avatars>() else { return slot };
+        let skin_is_dark = self.ink.l > 0.5;
+        if let Some(ink) = avatars.pack.as_ref().and_then(|pack| pack.ink(skin_is_dark)) {
+            self.ink = ink;
+        }
+        #[cfg(feature = "local-engine")]
+        if let (Some(engine), Some(pack)) = (avatars.live().cloned(), avatars.pack.clone()) {
+            return self.render_live(slot, engine, pack, window, cx);
+        }
         let (Some(pack), Some(frames)) = (avatars.pack.clone(), avatars.frames(&self.look.shape)) else { return slot };
         let (epoch, rasters) = (avatars.epoch, avatars.rasters.clone());
         let now = Instant::now();
@@ -264,7 +365,7 @@ impl RenderOnce for Mark {
                     canvas(
                         move |bounds, _, cx| {
                             if cx.try_global::<Avatars>().is_some_and(Avatars::has_pack) {
-                                let watched = Watched { bounds, reach: side / 2., rate };
+                                let watched = Watched { bounds, reach: side / 2., rate, live: None };
                                 cx.global_mut::<Avatars>().watched.insert(key, watched);
                             }
                         },
@@ -302,6 +403,108 @@ impl RenderOnce for Mark {
             layer.child(draw.frame(&pick(settled))).into_any_element()
         };
         slot.child(drawn)
+    }
+}
+
+#[cfg(feature = "local-engine")]
+impl Mark {
+    /// The mark as the local avatar engine draws it, frame by frame on its own thread.
+    fn render_live(
+        self,
+        slot: Stateful<Div>,
+        engine: Arc<engine::Engine>,
+        pack: Arc<Pack>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Stateful<Div> {
+        let side = pack.mark_box(f32::from(self.size));
+        let offset = (f32::from(self.size) - side) / 2.;
+        let style = engine::Style {
+            seed: self.look.seed.clone(),
+            shape: self.look.shape.clone(),
+            side,
+            paint: self.look.paint.clone(),
+            ink: self.ink,
+            scale: window.scale_factor(),
+            reduced: cx.reduce_motion(),
+        };
+        let orphans = cx.global::<Avatars>().orphans.clone();
+        for image in orphans.lock().map(|mut orphans| std::mem::take(&mut *orphans)).unwrap_or_default() {
+            cx.drop_image(image, Some(window));
+        }
+        let mark = window.use_keyed_state(self.id.clone(), cx, |_, _| LiveMark {
+            key: engine.new_key(),
+            engine: engine.clone(),
+            orphans,
+            style: None,
+            working: false,
+            shown: None,
+        });
+        let (key, restyled, rework) = {
+            let mark = mark.read(cx);
+            (mark.key, mark.style.as_ref() != Some(&style), mark.working != self.working)
+        };
+        if restyled {
+            engine.mount(key, style.clone(), self.working);
+        } else if rework {
+            engine.update(key, self.working);
+        }
+        let working = self.working;
+        let (image, replaced) = mark.update(cx, |mark, _| {
+            mark.style = Some(style);
+            mark.working = working;
+            let image = engine.image(key).or_else(|| mark.shown.clone());
+            let replaced = match (&mark.shown, &image) {
+                (Some(shown), Some(image)) if !Arc::ptr_eq(shown, image) => mark.shown.replace(image.clone()),
+                (None, Some(image)) => mark.shown.replace(image.clone()),
+                _ => None,
+            };
+            (image, replaced)
+        });
+        if let Some(replaced) = replaced {
+            cx.drop_image(replaced, Some(window));
+        }
+        let slot = match self.watch.clone() {
+            Some(watch) => slot.child(
+                canvas(
+                    move |bounds, _, cx| {
+                        let watched = Watched { bounds, reach: side / 2., rate: 0., live: Some(key) };
+                        cx.global_mut::<Avatars>().watched.insert(watch, watched);
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            ),
+            None => slot,
+        };
+        match image {
+            Some(image) => {
+                slot.child(img(ImageSource::Render(image)).absolute().left(px(offset)).top(px(offset)).size(px(side)))
+            }
+            None => slot,
+        }
+    }
+}
+
+/// One mark the local avatar engine animates, for as long as its element is drawn.
+#[cfg(feature = "local-engine")]
+struct LiveMark {
+    key: u64,
+    engine: Arc<engine::Engine>,
+    orphans: Arc<Mutex<Vec<Arc<RenderImage>>>>,
+    style: Option<engine::Style>,
+    working: bool,
+    shown: Option<Arc<RenderImage>>,
+}
+
+#[cfg(feature = "local-engine")]
+impl Drop for LiveMark {
+    fn drop(&mut self) {
+        self.engine.unmount(self.key);
+        if let (Some(shown), Ok(mut orphans)) = (self.shown.take(), self.orphans.lock()) {
+            orphans.push(shown);
+        }
     }
 }
 
@@ -351,7 +554,7 @@ impl Drawing {
 
 /// A single-colour frame repainted with a top-to-bottom gradient, sized for its square so the
 /// image is rasterised near the size it is shown at.
-fn gradient_svg(frame: &Frame, stops: &[Hsla], side: f32) -> Vec<u8> {
+pub(crate) fn gradient_svg(frame: &[u8], stops: &[Hsla], side: f32) -> Vec<u8> {
     let svg = String::from_utf8_lossy(frame);
     let Some(open_end) = svg.find('>') else { return frame.to_vec() };
     let count = stops.len().max(2) - 1;

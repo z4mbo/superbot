@@ -103,8 +103,9 @@ impl Desktop {
         let hover = theme.elevated_hover();
         let watch = SharedString::from("head");
         let docked = self.agent_panel.is_some();
+        let choosing = matches!((&self.menu, target), (Some(menu), Target::Agent(id) | Target::Conversation { agent: id, .. }) if menu.kind == crate::app::MenuKind::Model(id.clone()));
         let model = match target {
-            Target::Agent(id) => self.chat_model_label(id),
+            Target::Agent(id) | Target::Conversation { agent: id, .. } => self.chat_model_label(id),
             Target::Group(_) => None,
         };
         let identity = superbot_avatars::watch_region(div().id("chat-head"), watch.clone())
@@ -120,7 +121,7 @@ impl Desktop {
             .cursor_pointer()
             .hover(move |style| style.bg(hover))
             .on_click(cx.listener(|this, _, window, cx| match this.chat.as_ref().map(|chat| &chat.target) {
-                Some(Target::Agent(_)) => this.toggle_agent_panel(window, cx),
+                Some(Target::Agent(_) | Target::Conversation { .. }) => this.toggle_agent_panel(window, cx),
                 _ => this.show(View::Workspace, window, cx),
             }))
             .child(self.target_face(target, px(22.), Some(watch), theme, cx))
@@ -139,7 +140,8 @@ impl Desktop {
                 .rounded_full()
                 .cursor_pointer()
                 .hover(move |style| style.bg(hover))
-                .tooltip(|window, cx| Tooltip::new("Change model").build(window, cx))
+                .when(choosing, |model| model.bg(hover))
+                .when(!choosing, |model| model.tooltip(|window, cx| Tooltip::new("Change model").build(window, cx)))
                 .on_click(cx.listener(|this, _, window, cx| this.choose_agent_model(window, cx)))
                 .child(div().body().text_color(theme.ink_secondary).truncate().child(label))
                 .child(icon("chevron-down", px(14.), theme.ink_tertiary))
@@ -171,14 +173,14 @@ impl Desktop {
 
     fn chat_tone(&self, theme: &Theme, cx: &App) -> Option<ChatTone> {
         match &self.chat.as_ref()?.target {
-            Target::Agent(id) => chat_tone(self.agent(id)?.avatar(), theme, cx),
+            Target::Agent(id) | Target::Conversation { agent: id, .. } => chat_tone(self.agent(id)?.avatar(), theme, cx),
             Target::Group(_) => None,
         }
     }
 
     /// The working bot's own moving mark beside what it is doing, when the avatar pack draws it.
     fn working_presence(&self, theme: &Theme, cx: &App) -> Option<AnyElement> {
-        let Target::Agent(id) = &self.chat.as_ref()?.target else { return None };
+        let Some(id) = self.chat.as_ref()?.target.agent() else { return None };
         let agent = self.agent(id)?;
         let look = superbot_avatars::look(agent.avatar(), cx)?;
         Some(Mark::new("presence", look, px(28.), theme.ink).working(true).into_any_element())
@@ -202,7 +204,7 @@ impl Desktop {
         cx: &App,
     ) -> Div {
         match target {
-            Target::Agent(id) => {
+            Target::Agent(id) | Target::Conversation { agent: id, .. } => {
                 let working = self.chat.as_ref().is_some_and(|chat| chat.working && &chat.target == target)
                     || self.agent(id).is_some_and(|agent| agent.working());
                 let avatar = match self.agent(id) {
@@ -524,6 +526,9 @@ impl Desktop {
     }
 
     fn render_composer(&mut self, target: &Target, theme: &Theme, window: &Window, cx: &mut Context<Self>) -> Div {
+        if let Some(archived) = self.render_archived_composer(theme, cx) {
+            return archived;
+        }
         let chat = self.chat.as_ref();
         let local = self.selected_local_model();
         let running_local = chat.is_some_and(|chat| chat.local_turn.is_some());
@@ -546,7 +551,7 @@ impl Desktop {
         let needs_model = local.is_none() && self.me.as_ref().is_some_and(|me| me.needs_model);
         let tone = self.chat_tone(theme, cx);
         let identity = match target {
-            Target::Agent(id) => {
+            Target::Agent(id) | Target::Conversation { agent: id, .. } => {
                 theme.identity_for(&self.agent(id).map(|agent| agent.color.clone()).unwrap_or_default())
             }
             Target::Group(_) => theme.ink,
@@ -560,20 +565,20 @@ impl Desktop {
             && !running_local
             && (local.is_none() || attachments.is_empty());
         let write_problem = pending.and_then(|write| write.problem.clone());
-        let (fill, ink) = if let (true, Target::Agent(_), Some(tone)) = (stopping, target, tone) {
+        let (fill, ink) = if let (true, Target::Agent(_) | Target::Conversation { .. }, Some(tone)) = (stopping, target, tone) {
             (tone.fill, tone.fill_ink)
         } else if stopping {
             (theme.ink, theme.app)
         } else if has_content {
             match (target, tone) {
-                (Target::Agent(_), Some(tone)) => (tone.fill, tone.fill_ink),
-                (Target::Agent(_), None) => (identity, gpui_kit::white()),
+                (Target::Agent(_) | Target::Conversation { .. }, Some(tone)) => (tone.fill, tone.fill_ink),
+                (Target::Agent(_) | Target::Conversation { .. }, None) => (identity, gpui_kit::white()),
                 (Target::Group(_), _) => (theme.ink, theme.app),
             }
         } else {
             (theme.raised_hover, theme.ink_secondary)
         };
-        let pressed = match tone.filter(|_| matches!(target, Target::Agent(_)) && (has_content || stopping)) {
+        let pressed = match tone.filter(|_| matches!(target, Target::Agent(_) | Target::Conversation { .. }) && (has_content || stopping)) {
             Some(tone) => tone.fill_hover,
             None => mix(fill, theme.app, 0.14),
         };
@@ -678,7 +683,7 @@ impl Desktop {
         let name = self.target_name(target);
         let label = match target {
             _ if local.is_some() => format!("Message {name} using the local model"),
-            Target::Agent(_) => format!("Message {name}"),
+            Target::Agent(_) | Target::Conversation { .. } => format!("Message {name}"),
             Target::Group(_) => format!("Message {name}, @ to ask one bot"),
         };
         let field = Textarea::new(&self.composer)

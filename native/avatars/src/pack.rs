@@ -28,6 +28,9 @@ pub struct PackFile {
     /// Palette colours drawn in the skin's text colour instead of their own.
     #[serde(default)]
     pub ink_colors: Vec<String>,
+    /// What `inkColors` are drawn in per skin, when not the skin's text colour.
+    #[serde(default)]
+    pub ink: Option<SkinInk>,
     /// Colours drawn as a top-to-bottom gradient of these stops.
     #[serde(default)]
     pub gradients: HashMap<String, Vec<String>>,
@@ -48,6 +51,12 @@ pub struct PackFile {
     /// shape and colour the pack draws.
     #[serde(default)]
     pub picker: Option<PickerFile>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct SkinInk {
+    pub light: String,
+    pub dark: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -134,6 +143,8 @@ pub struct Look {
     /// Where this bot starts in a shared animation loop, from 0 to 1, so bots at work move
     /// out of step with each other.
     pub phase: f32,
+    /// What a local avatar engine varies this bot's motion by.
+    pub seed: String,
 }
 
 #[derive(Debug)]
@@ -197,6 +208,10 @@ impl Pack {
         if fallback_shapes.is_empty() || fallback_colors.is_empty() {
             return Err(PackError::Invalid("the fallback needs a shape and a colour the pack draws".into()));
         }
+        if let Some(ink) = &file.ink {
+            parse_hex(&ink.light)?;
+            parse_hex(&ink.dark)?;
+        }
         if let Some(tints) = &file.tint {
             for tone in tints.light.values().chain(tints.dark.values()) {
                 for hex in [&tone.bubble, &tone.ink, &tone.fill, &tone.hover, &tone.fill_ink] {
@@ -242,7 +257,35 @@ impl Pack {
                 colors[(hash >> 8) as usize % colors.len()].clone()
             });
         let hue = self.file.hues.get(&color).cloned().unwrap_or_else(|| color.clone());
-        Look { shape, paint: self.colors[&color].clone(), hue, phase: (hash >> 16) as f32 / 65536. }
+        Look {
+            shape,
+            paint: self.colors[&color].clone(),
+            hue,
+            phase: (hash >> 16) as f32 / 65536.,
+            seed: id.to_owned(),
+        }
+    }
+
+    /// The pack's own choice for a bot's name (any case, surrounding spaces ignored).
+    pub fn choice(&self, name: &str) -> Option<&Choice> {
+        self.bots.get(&fold(name))
+    }
+
+    /// How the pack paints a colour name, and the chat hue that colour uses.
+    pub fn paint(&self, color: &str) -> Option<(Paint, String)> {
+        let hue = self.file.hues.get(color).cloned().unwrap_or_else(|| color.to_owned());
+        self.colors.get(color).map(|paint| (paint.clone(), hue))
+    }
+
+    /// The colour `inkColors` are drawn in for this skin, when the pack sets one.
+    pub fn ink(&self, dark: bool) -> Option<Hsla> {
+        let ink = self.file.ink.as_ref()?;
+        parse_hex(if dark { &ink.dark } else { &ink.light }).ok()
+    }
+
+    /// Whether the pack draws a shape of this name.
+    pub fn draws(&self, shape: &str) -> bool {
+        self.file.shapes.contains_key(shape)
     }
 
     /// The fallback colour closest to a server colour sent as `#rrggbb`.
@@ -497,6 +540,23 @@ mod tests {
         let names: Vec<&str> = choices.colors.iter().map(|(name, _)| name.as_str()).collect();
         assert_eq!(names, ["ink", "lime", "plum", "steel"]);
     }
+    #[test]
+    fn ink_colours_take_the_pack_ink_of_each_skin_when_set() {
+        assert_eq!(pack(json!({})).unwrap().ink(true), None);
+        let pack = pack(json!({ "ink": { "light": "#000", "dark": "#fff" } })).unwrap();
+        assert_eq!(pack.ink(true), Some(parse_hex("#ffffff").unwrap()));
+        assert_eq!(pack.ink(false), Some(parse_hex("#000000").unwrap()));
+        assert!(super::Pack::new(
+            PathBuf::from("pack"),
+            serde_json::from_value(json!({
+                "version": 1, "palette": { "lime": "#0f0" }, "shapes": { "round": "r.json" },
+                "fallback": { "shapes": ["round"], "colors": ["lime"] }, "ink": { "light": "#000", "dark": "white" }
+            }))
+            .unwrap()
+        )
+        .is_err());
+    }
+
     #[test]
     fn hex_colours_accept_short_and_alpha_forms() {
         assert_eq!(parse_hex("#fff").unwrap(), parse_hex("#ffffff").unwrap());

@@ -153,7 +153,7 @@ bot name, then by server colour, then by id. The mark is drawn in a square 1.55 
 not change: tile 56, row 42 (36 of layout), header pill 22, new conversation 64, working
 line 28, plugin page 28, workspace panel 40 and 32, mention list 20, group pair 0.68 ×.
 
-- A named bot with `primaryTile` appears first in the tile strip even on a fresh import. Its 92 × 92px tile uses 6px top padding. The 16px amber crown badge sits at the lower right of the 56px avatar, with a 2px ring in the tile colour. Search shows the bot in the results list.
+- A named bot with `primaryTile` appears first in the tile strip even on a fresh import. The installed Grok Bot 1.2.3 reference uses a 95 × 92px tile with 12px corners. A 60px avatar sits 4px from the top, with a 16px orange star badge at its lower right and a 2px ring in the tile colour. Search shows the bot in the results list.
 - Rest: the still pose. Over a sidebar row, a tile or the header pill the mark turns toward
   the pointer (about 0.75 s), follows it, and turns back when the pointer leaves or presses.
   A bot at work (its sidebar status, the open chat, an activity run) loops its working

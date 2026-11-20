@@ -1,4 +1,5 @@
 pub mod conversation;
+pub mod conversations;
 pub mod create;
 pub mod new_agent;
 
@@ -14,6 +15,7 @@ use crate::api::{self, AgentSummary, Api, CurrentSpace, GroupSummary, Me, Naviga
 use crate::outbox::Drafts;
 use crate::runtime::{follow_space, network, Live};
 use crate::ui::agent_panel::{AgentInfo, AgentPanel};
+use crate::ui::inbox::Inbox;
 use crate::ui::corner::Tints;
 use crate::ui::store::Store;
 use crate::ui::workspace::Workspace;
@@ -62,6 +64,7 @@ pub enum MenuKind {
     Agent(String),
     New,
     Model(String),
+    Conversation { agent: String, thread: String },
 }
 
 pub struct Menu {
@@ -126,11 +129,14 @@ pub struct Desktop {
     pub search: Entity<InputState>,
     pub search_open: bool,
     pub tints: Tints,
+    pub tile_preview: crate::ui::tile_preview::TilePreview,
     pub store: Store,
     pub workspace: Workspace,
     pub agent_panel: Option<AgentPanel>,
+    pub inbox: Inbox,
     pub agent_info: AgentInfo,
     pub model_menu: crate::ui::model_menu::ModelMenu,
+    pub conversations: conversations::Conversations,
     pub menu: Option<Menu>,
     pub dialog: Option<Dialog>,
     /// The Space selection a new agent is being made in.
@@ -180,6 +186,8 @@ impl Desktop {
                     this.dismiss(cx);
                 } else if new_agent::is_new_agent_shortcut(&event.keystroke) {
                     this.new_agent(window, cx);
+                } else if conversations::is_new_conversation_shortcut(&event.keystroke) {
+                    this.new_conversation(window, cx);
                 }
             }),
             cx.observe_window_activation(window, |this, window, cx| {
@@ -213,11 +221,14 @@ impl Desktop {
             search,
             search_open: false,
             tints: Tints::default(),
+            tile_preview: Default::default(),
             store: Store::new(window, cx),
             workspace: Workspace::default(),
             agent_panel: None,
+            inbox: Inbox::default(),
             agent_info: AgentInfo::default(),
             model_menu: Default::default(),
+            conversations: Default::default(),
             menu: None,
             dialog: None,
             creating_agent: None,
@@ -296,7 +307,7 @@ impl Desktop {
         }
     }
 
-    fn open_web_url(&mut self, url: String, cx: &mut Context<Self>) {
+    pub(crate) fn open_web_url(&mut self, url: String, cx: &mut Context<Self>) {
         let (Some(api), Some(me)) = (self.api.as_ref(), self.me.as_ref()) else { return };
         if !crate::web::open(api.client.server(), &me.user_id, &url, cx) {
             cx.open_url(&url);
@@ -312,7 +323,7 @@ impl Desktop {
     /// The name on the open conversation, whichever kind it is.
     pub fn target_name(&self, target: &Target) -> String {
         match target {
-            Target::Agent(id) => self.agent(id).map(|agent| agent.name.clone()),
+            Target::Agent(id) | Target::Conversation { agent: id, .. } => self.agent(id).map(|agent| agent.name.clone()),
             Target::Group(id) => self.groups().iter().find(|group| &group.id == id).map(|group| group.name.clone()),
         }
         .unwrap_or_default()
@@ -520,6 +531,7 @@ impl Desktop {
         self.space = None;
         self.space_selection += 1;
         self.sidebar = Sidebar::default();
+        self.conversations = Default::default();
         self.chat = None;
         self.drafts.clear();
         self.local_writes.clear();
@@ -532,6 +544,7 @@ impl Desktop {
         self.store.forget();
         self.workspace = Workspace::default();
         self.agent_panel = None;
+        self.inbox = Inbox::default();
         self.agent_info = AgentInfo::default();
     }
 
@@ -550,7 +563,7 @@ impl Desktop {
 
     fn conversation_exists(&self, target: &Target) -> bool {
         match target {
-            Target::Agent(id) => self.agent(id).is_some(),
+            Target::Agent(id) | Target::Conversation { agent: id, .. } => self.agent(id).is_some(),
             Target::Group(id) => self.groups().iter().any(|group| &group.id == id),
         }
     }
@@ -596,6 +609,7 @@ impl Desktop {
 
     pub fn reload_space(&mut self, cx: &mut Context<Self>) {
         self.agent_info.stale();
+        self.inbox.stale();
         self.refresh_sidebar(SidebarRead::Navigation, cx);
     }
 
@@ -664,6 +678,7 @@ impl Desktop {
         let Some(api) = self.api.clone() else { return };
         self.space_selection += 1;
         self.sidebar = Sidebar::default();
+        self.conversations = Default::default();
         let selection = self.space_selection;
         self.menu = None;
         self.dialog = None;
@@ -674,6 +689,7 @@ impl Desktop {
         self.store.forget();
         self.workspace = Workspace::default();
         self.agent_panel = None;
+        self.inbox = Inbox::default();
         self.agent_info = AgentInfo::default();
         let work = async move { api.navigation(Some(&space_id)).await };
         self.call(window, cx, work, move |this, result, window, cx| match result {
@@ -874,6 +890,8 @@ impl Desktop {
     pub fn dismiss(&mut self, cx: &mut Context<Self>) -> bool {
         let closed = if self.menu.take().is_some() {
             true
+        } else if self.cancel_rename(cx) {
+            true
         } else if self.dialog.as_ref().is_some_and(|dialog| !dialog.busy) {
             self.dialog = None;
             true
@@ -899,6 +917,12 @@ impl Desktop {
 fn web_app_url(server: &str, open: Option<&Target>) -> String {
     let conversation = match open {
         Some(Target::Agent(id)) => format!("/{id}"),
+        Some(Target::Conversation { agent, thread }) => {
+            let query = url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("threadId", thread)
+                .finish();
+            format!("/{agent}?{query}")
+        }
         Some(Target::Group(id)) => format!("/g/{id}"),
         None => String::new(),
     };
@@ -925,5 +949,9 @@ mod tests {
         assert_eq!(web_app_url(server, None), "https://superbot.example.com/app");
         assert_eq!(web_app_url(server, Some(&Target::Agent("b1".into()))), "https://superbot.example.com/app/b1");
         assert_eq!(web_app_url(server, Some(&Target::Group("g1".into()))), "https://superbot.example.com/app/g/g1");
+        assert_eq!(
+            web_app_url(server, Some(&Target::Conversation { agent: "b1".into(), thread: "t1&2".into() })),
+            "https://superbot.example.com/app/b1?threadId=t1%262"
+        );
     }
 }
