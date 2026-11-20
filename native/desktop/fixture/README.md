@@ -12,8 +12,7 @@ node --import tsx native/desktop/fixture/chat-parity.mjs "C:/path/to/postgresql/
 
 It prints `READY <origin>` and writes `fixture.json` (the origin and both accounts) into the
 output folder once the data is in place, then serves until a file named `stop` appears there.
-Run the desktop against it with `SUPERBOT_SERVER` set to that origin and sign in as the
-owner. Stopping the fixture also removes the session the desktop saved for that origin.
+Set `SUPERBOT_SERVER` to that origin and `SUPERBOT_CONFIG_DIR` to a temporary client settings directory before launching the desktop. Sign in as the fixture owner. Stopping the fixture removes the session the desktop saved for that origin.
 
 | It makes                                                                             | For                                               |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------- |

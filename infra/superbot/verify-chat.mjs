@@ -73,6 +73,7 @@ const env = Object.fromEntries(
   ),
 );
 Object.assign(env, {
+  SUPERBOT_CONFIG_DIR: join(directory, "client-config"),
   NODE_ENV: "test",
   TEMP: scratch,
   TMP: scratch,
