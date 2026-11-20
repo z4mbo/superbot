@@ -1,11 +1,27 @@
 import { RegistryPluginManifestSchema } from "@rakazo/contracts";
+import { ClientError } from "@rakazo/core";
 import {
   JsonColumnMismatchError,
   readJsonColumn,
   reportJsonColumnOnce,
 } from "../database/json-column.js";
 import { runAsTenant } from "../database/row-security.js";
-import type { PrismaClient, RegistryPluginVersion } from "../generated/prisma/client.js";
+import type { Prisma, PrismaClient, RegistryPluginVersion } from "../generated/prisma/client.js";
+
+type InstallationScope = { spaceId: string; userId: string };
+
+/** Locks the owned installation through any grant, pin or app record changes. */
+export async function lockRegistryPluginInstallation(
+  tx: Prisma.TransactionClient,
+  scope: InstallationScope,
+  installationId: string,
+) {
+  const [row] = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM "registry_plugin_installs"
+    WHERE "id" = ${installationId} AND "spaceId" = ${scope.spaceId} AND "userId" = ${scope.userId}
+    FOR UPDATE`;
+  if (!row) throw new ClientError("NOT_FOUND", "Plugin installation not found");
+}
 
 export function readRegistryPluginManifest(row: Pick<RegistryPluginVersion, "id" | "manifest">) {
   return readJsonColumn(
@@ -48,7 +64,15 @@ export async function resolvePluginGrants(
     }
     const part = manifest.parts.find((entry) => entry.id === partId);
     return part
-      ? [{ grantId, installationId: installation.id, versionId: installation.versionId, part }]
+      ? [
+          {
+            grantId,
+            installationId: installation.id,
+            pluginSlug: installation.slug,
+            versionId: installation.versionId,
+            part,
+          },
+        ]
       : [];
   });
 }

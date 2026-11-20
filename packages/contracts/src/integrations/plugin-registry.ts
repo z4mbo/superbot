@@ -12,6 +12,52 @@ const slug = z
 const version = z.number().int().min(1).max(2147483647);
 const status = z.enum(["pending", "approved", "rejected"]);
 
+const appFieldLimit = 16;
+const postgresText = (value: string) => !/[\uD800-\uDFFF]/u.test(value) && !value.includes("\0");
+export const RegistryAppDateSchema = z.iso.date();
+export const RegistryAppTextSchema = z.string().max(2000).trim().min(1).refine(postgresText);
+export const RegistryAppNumberSchema = z
+  .number()
+  .min(-1e12)
+  .max(1e12)
+  .transform((value) => (value === 0 ? 0 : value));
+
+export const RegistryAppPartSchema = z
+  .strictObject({
+    id: slug,
+    kind: z.literal("app"),
+    fields: z
+      .array(
+        z.strictObject({
+          id: slug,
+          label: z
+            .string()
+            .max(120)
+            .trim()
+            .min(1)
+            .refine(postgresText)
+            .regex(/^[^\p{Bidi_Control}]*$/u),
+          type: z.enum(["text", "number", "date"]),
+          required: z.boolean(),
+        }),
+      )
+      .min(1)
+      .max(appFieldLimit)
+      .refine(
+        (fields) => new Set(fields.map((field) => field.id)).size === fields.length,
+        "App field IDs must be unique",
+      ),
+    summaryField: slug.optional(),
+  })
+  .refine(
+    ({ fields, summaryField }) =>
+      summaryField === undefined ||
+      fields.some(({ id, type }) => id === summaryField && type === "number"),
+    { path: ["summaryField"], message: "The summary field must identify a numeric field" },
+  );
+
+export type RegistryAppPart = z.infer<typeof RegistryAppPartSchema>;
+
 export const RegistryPluginPartSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     id: slug,
@@ -27,6 +73,7 @@ export const RegistryPluginPartSchema = z.discriminatedUnion("kind", [
       "Use an HTTPS endpoint without credentials, query parameters, or fragments",
     ),
   }),
+  RegistryAppPartSchema,
 ]);
 
 export const RegistryPluginManifestSchema = z.strictObject({
@@ -68,6 +115,49 @@ const pageInput = {
 
 const page = <Item extends z.ZodType>(item: Item) =>
   z.object({ items: z.array(item), nextAfter: id.nullable() });
+
+const appTarget = { installationId: id.refine(postgresText), partId: slug };
+const appRecordId = z.uuid().transform((value) => value.toLowerCase());
+export const RegistryAppValuesSchema = z
+  .record(slug, z.union([RegistryAppTextSchema, RegistryAppNumberSchema]))
+  .refine((values) => Object.keys(values).length <= appFieldLimit, "Too many app record fields");
+
+/** Date filters match the first date field in manifest order. */
+export const RegistryAppRecordsInputSchema = z.strictObject({
+  ...pageInput,
+  ...appTarget,
+  after: appRecordId.optional(),
+  date: RegistryAppDateSchema.optional(),
+});
+
+export const AddRegistryAppRecordInputSchema = z.strictObject({
+  ...appTarget,
+  operationId: appRecordId,
+  values: RegistryAppValuesSchema,
+});
+
+export const RemoveRegistryAppRecordInputSchema = z.strictObject({
+  ...appTarget,
+  recordId: appRecordId,
+});
+
+export const RegistryAppRecordSchema = z.object({
+  id: appRecordId,
+  values: RegistryAppValuesSchema,
+  createdAt: IsoDate,
+});
+
+/** Total sums every live record matching the filter, independently of pagination. */
+export const RegistryAppRecordsSchema = page(RegistryAppRecordSchema).extend({
+  nextAfter: appRecordId.nullable(),
+  total: z.number().nullable(),
+});
+
+export type RegistryAppRecord = z.infer<typeof RegistryAppRecordSchema>;
+export type RegistryAppRecords = z.infer<typeof RegistryAppRecordsSchema>;
+export type RegistryAppRecordsInput = z.input<typeof RegistryAppRecordsInputSchema>;
+export type AddRegistryAppRecordInput = z.input<typeof AddRegistryAppRecordInputSchema>;
+export type RemoveRegistryAppRecordInput = z.input<typeof RemoveRegistryAppRecordInputSchema>;
 
 export const MAX_REGISTRY_SEARCH_LENGTH = 120;
 
@@ -122,5 +212,10 @@ export const pluginRegistryRpc = {
       )
       .output(installation),
     uninstall: oc.input(z.object({ installationId: id })).output(z.object({ ok: z.literal(true) })),
+    appRecords: oc.input(RegistryAppRecordsInputSchema).output(RegistryAppRecordsSchema),
+    addAppRecord: oc.input(AddRegistryAppRecordInputSchema).output(RegistryAppRecordSchema),
+    removeAppRecord: oc
+      .input(RemoveRegistryAppRecordInputSchema)
+      .output(z.object({ ok: z.literal(true) })),
   },
 };

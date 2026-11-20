@@ -9,12 +9,21 @@ const mcp = {
   endpoint: "https://plugin.example.test/mcp",
 };
 const manifest = { schemaVersion: 1, name: "Release notes", description: "Draft release notes." };
+const app = {
+  id: "tracker-app",
+  kind: "app",
+  fields: [
+    { id: "day", label: "Day", type: "date", required: true },
+    { id: "amount", label: "Amount", type: "number", required: true },
+  ],
+  summaryField: "amount",
+};
 
 describe("Plugin registry manifest", () => {
-  it("accepts declarative skills and HTTPS MCP parts", () => {
-    expect(RegistryPluginManifestSchema.parse({ ...manifest, parts: [skill, mcp] })).toEqual({
+  it("accepts declarative skills, apps and HTTPS MCP parts", () => {
+    expect(RegistryPluginManifestSchema.parse({ ...manifest, parts: [skill, mcp, app] })).toEqual({
       ...manifest,
-      parts: [skill, mcp],
+      parts: [skill, mcp, app],
     });
   });
 
@@ -26,6 +35,13 @@ describe("Plugin registry manifest", () => {
     { ...manifest, parts: [{ ...mcp, endpoint: "http://plugin.example.test/mcp" }] },
     { ...manifest, parts: [{ ...mcp, endpoint: "https://user:pass@plugin.example.test/mcp" }] },
     { ...manifest, parts: [{ ...mcp, endpoint: "https://plugin.example.test/mcp?token=secret" }] },
+    { ...manifest, parts: [{ ...app, summaryField: "day" }] },
+    { ...manifest, parts: [{ ...app, summaryField: "unknown" }] },
+    { ...manifest, parts: [{ ...app, fields: [app.fields[0], app.fields[0]] }] },
+    { ...manifest, parts: [{ ...app, fields: [] }] },
+    { ...manifest, parts: [{ ...app, fields: [{ ...app.fields[0], type: "url" }] }] },
+    { ...manifest, parts: [{ ...app, fields: [{ ...app.fields[0], label: "\u202E" }] }] },
+    { ...manifest, parts: [{ ...app, instructions: "Run a command" }] },
   ])("rejects unsupported or ambiguous manifests", (value) => {
     expect(RegistryPluginManifestSchema.safeParse(value).success).toBe(false);
   });

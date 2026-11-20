@@ -2,9 +2,13 @@ import type { Actor } from "@rakazo/contracts";
 import { ClientError, escapeSearchWildcards } from "@rakazo/core";
 import type { Prisma, RegistryPluginVersion } from "@rakazo/db";
 import {
+  addRegistryAppRecord,
   isUniqueViolation,
   JsonColumnMismatchError,
+  listRegistryAppRecords,
+  lockRegistryPluginInstallation,
   readRegistryPluginManifest,
+  removeRegistryAppRecord,
   reportJsonColumnOnce,
   runAsSystem,
 } from "@rakazo/db";
@@ -125,14 +129,19 @@ export function pluginRegistryRoutes({ deps, authed }: RouterContext) {
         if (input.decision === "approved") {
           const manifest = readRegistryPluginManifest(release);
           await Promise.all(
-            manifest.parts.map((part) =>
-              part.kind === "mcp"
-                ? assertMcpRemoteEndpoint(part.endpoint, {
+            manifest.parts.map((part) => {
+              switch (part.kind) {
+                case "mcp":
+                  return assertMcpRemoteEndpoint(part.endpoint, {
                     remoteConnectors: deps.remoteConnectors,
                     env: { ...deps.env, mcpAllowPrivateEndpoint: false },
-                  })
-                : undefined,
-            ),
+                  });
+                case "skill":
+                case "app":
+                  return undefined;
+              }
+              return part satisfies never;
+            }),
           );
         }
 
@@ -205,6 +214,7 @@ export function pluginRegistryRoutes({ deps, authed }: RouterContext) {
         prisma.$transaction(async (tx) => {
           const { spaceId, userId } = actor;
           await lockInstalls(tx, actor);
+          await lockRegistryPluginInstallation(tx, actor, input.installationId);
           const scope = { id: input.installationId, spaceId, userId };
           const current = await tx.registryPluginInstall.findUnique({
             where: scope,
@@ -242,6 +252,7 @@ export function pluginRegistryRoutes({ deps, authed }: RouterContext) {
         prisma.$transaction(async (tx) => {
           const { spaceId, userId } = actor;
           await lockInstalls(tx, actor);
+          await lockRegistryPluginInstallation(tx, actor, input.installationId);
           const installation = await tx.registryPluginInstall.findFirst({
             where: { id: input.installationId, spaceId, userId },
             include: { release: true },
@@ -287,6 +298,15 @@ export function pluginRegistryRoutes({ deps, authed }: RouterContext) {
         });
         return { ok: true as const };
       }),
+      appRecords: rpc.appRecords.handler(({ context: { actor }, input }) =>
+        listRegistryAppRecords(prisma, actor, input),
+      ),
+      addAppRecord: rpc.addAppRecord.handler(({ context: { actor }, input }) =>
+        addRegistryAppRecord(prisma, actor, input),
+      ),
+      removeAppRecord: rpc.removeAppRecord.handler(({ context: { actor }, input }) =>
+        removeRegistryAppRecord(prisma, actor, input),
+      ),
     },
   };
 }
