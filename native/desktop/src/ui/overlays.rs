@@ -85,7 +85,7 @@ impl Desktop {
                     item("manage", "settings", "Manage workspace", |this, window, cx| {
                         this.show(View::Workspace, window, cx)
                     }),
-                    item("plugins", "apps", "Plugins", |this, window, cx| this.show(View::Store, window, cx)),
+                    item("plugins", "apps", "Store", |this, window, cx| this.show(View::Store, window, cx)),
                     item("web", "app-window", "Open web workspace", |this, _, cx| this.open_web_workspace(cx)),
                     item("web-browser", "external-link", "Open in browser", |this, _, cx| {
                         this.open_web_workspace_in_browser(cx)

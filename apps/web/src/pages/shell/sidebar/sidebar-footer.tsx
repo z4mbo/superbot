@@ -8,9 +8,9 @@ import {
   Download,
   FolderOpen,
   Gauge,
+  LayoutGrid,
   Link2,
   LogOut,
-  Plug,
   Plus,
   ScrollText,
   Settings,
@@ -176,8 +176,8 @@ export function SidebarFooter({
                 className="w-full justify-start gap-2.5 font-normal"
                 onClick={onIntegrations}
               >
-                <Plug className="text-muted-foreground" strokeWidth={1.75} />
-                <Trans>Connect apps</Trans>
+                <LayoutGrid className="text-muted-foreground" strokeWidth={1.75} />
+                <Trans>Store</Trans>
               </Button>
             ) : null}
             {usage ? (
@@ -284,9 +284,9 @@ export function SidebarFooter({
           className="min-w-0 flex-1 justify-between"
         >
           <span ref={labelRef} className="flex min-w-0 items-center gap-2">
-            <Plug className="text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+            <LayoutGrid className="text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
             <span className="truncate">
-              <Trans>Connect apps</Trans>
+              <Trans>Store</Trans>
             </span>
           </span>
           <AppMarkStack

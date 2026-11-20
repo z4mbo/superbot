@@ -9,7 +9,7 @@ test("a member installs the calorie diary, records meals and reopens the day's t
   await page.goto(`/app/${bot.id}`);
   const openDiary = async () => {
     await page.getByTestId("user-menu-trigger").click();
-    await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+    await page.getByRole("button", { name: "Store", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("tab", { name: "Plugins", exact: true }).click();
     await dialog.getByRole("button", { name: /Calorie diary/ }).first().click();

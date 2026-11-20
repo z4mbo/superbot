@@ -29,7 +29,7 @@ test("a failed integrations load offers Retry instead of an empty catalog", asyn
       },
     });
   });
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
 
   const retry = page.getByRole("button", { name: "Retry", exact: true });
   await expect(retry).toBeVisible();
@@ -101,7 +101,7 @@ for (const result of ["empty", "plugin", "unavailable"] as const) {
         },
       });
     });
-    await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+    await page.getByRole("button", { name: "Store", exact: true }).click();
     const loading = page.getByLabel("Loading plugins…", { exact: true });
     const configure = page.getByText("Configure a plugin catalog on the server to connect apps.", {
       exact: true,

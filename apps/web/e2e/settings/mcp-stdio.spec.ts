@@ -89,7 +89,7 @@ test("adds a stdio MCP server with encrypted environment variables", async ({ pa
     });
   });
 
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await openIntegrationsAdd(page, "Manage MCP servers");
 
   await page.getByLabel("Server name").fill("Invoices");

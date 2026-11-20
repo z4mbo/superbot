@@ -84,7 +84,7 @@ test("sidebar rail keeps chats interactive and remembers a dragged width", async
     .toBe(true);
   await captureScreenshot(page, testInfo, "sidebar-mini-action-rail");
   await page.getByTestId("user-menu-trigger").click();
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await expect(page.getByTestId("account-menu-header")).toBeHidden();
   await page.getByRole("button", { name: "Close store", exact: true }).click();
   await page.reload();
