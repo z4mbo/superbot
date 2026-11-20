@@ -60,6 +60,21 @@ New agents default to a dedicated Linux computer. An existing agent keeps its sa
 
 To disable computers, stop the agents' computers in the app, run `host.mjs down` with the enabled environment, remove `SUPERBOT_COMPUTERS_ENABLED` from that file, then run `host.mjs up` with the same project and environment. The agent choices and persisted homes remain in the project volumes.
 
+## Connect external apps
+
+A fresh host offers direct connections to Atlassian, GitHub, Linear and Notion.
+Each person authorizes their own account. The GitHub preset takes a personal access
+token. Linear, Notion and Atlassian use their hosted sign-in pages. Provider plan,
+workspace policy and granted scopes determine which tools the account may use.
+[GitHub remote server](https://github.com/github/github-mcp-server) ·
+[Linear MCP](https://linear.app/docs/mcp) ·
+[Notion MCP](https://developers.notion.com/guides/mcp/get-started-with-mcp) ·
+[Atlassian OAuth](https://developer.atlassian.com/cloud/rovo-mcp/guides/configuring-oauth-2-1/)
+
+For the wider managed app catalog, configure the integration provider in the
+deployment's private environment file and restart the stack. The API and the worker
+need the same provider configuration. [Integration provider settings](../self-host-integrations.md)
+
 ## Enable community plugin review
 
 Choose a verified account on the deployment to moderate submissions. In the environment file created by `init`, set `SUPERBOT_ADMIN_EMAILS` to its email address. Separate multiple reviewers with commas. Run `node infra/superbot/host.mjs up` to apply the setting. In **Plugins**, the reviewer can open **Review** to inspect and approve a publisher's version. An approved version appears in **Discover** on this server. The [plugin toolkit](plugin-toolkit.md) also supports review from the terminal.
