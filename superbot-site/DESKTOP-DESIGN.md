@@ -147,7 +147,7 @@ scaled so the disc is 62% of the plate. In the icon's 1024 units: disc centre (5
 radius 318; two eyes 62 × 150, radius 31, at x 428 and x 566, y 400, filled with the plate
 colour. A bot with its own image shows the image instead. No initials.
 
-The application icon has a white circle centred on a black tile. Two equal vertical
+The application icon has a horizontally centred white circle that fills the bottom of its black tile. Two equal vertical
 eyes sit at the same height on either side of the centre. Platform launchers, the web
 app and the site share the artwork in `assets/logo.svg`.
 
