@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use superbot_features::{computer_file_path, ComputerFile, ComputerFileKind, ControlHolder};
 
-use super::screen::ControlLease;
+use super::control::ControlLease;
 use super::*;
 use crate::files;
 
