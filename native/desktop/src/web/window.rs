@@ -302,7 +302,7 @@ impl Render for WebWorkspace {
     }
 }
 
-fn tool(id: &'static str, glyph: &'static str, label: &'static str, theme: &Theme) -> Stateful<Div> {
+pub(super) fn tool(id: &'static str, glyph: &'static str, label: &'static str, theme: &Theme) -> Stateful<Div> {
     let hover = theme.ink_at(0.06);
     div()
         .id(id)
@@ -322,7 +322,7 @@ fn tool(id: &'static str, glyph: &'static str, label: &'static str, theme: &Them
 }
 
 /// The web view's place in the window: everything under the toolbar.
-fn content(viewport: Size<Pixels>) -> Rect {
+pub(super) fn content(viewport: Size<Pixels>) -> Rect {
     let top = f32::from(CAPTION_HEIGHT);
     Rect {
         position: LogicalPosition::new(0.0, f64::from(top)).into(),
@@ -334,7 +334,7 @@ fn content(viewport: Size<Pixels>) -> Rect {
     }
 }
 
-struct Parent(RawWindowHandle);
+pub(super) struct Parent(pub(super) RawWindowHandle);
 
 impl HasWindowHandle for Parent {
     fn window_handle(&self) -> Result<rwh::WindowHandle<'_>, rwh::HandleError> {
@@ -353,7 +353,7 @@ pub(super) fn runtime_installed() -> bool {
 
 /// One native account's WebView2 profile on one server: its cookies and storage, kept apart from
 /// every browser, other servers and other accounts. Nothing from the desktop's session is copied in.
-fn profile_folder(profile: &str) -> Option<PathBuf> {
+pub(super) fn profile_folder(profile: &str) -> Option<PathBuf> {
     let local = std::env::var_os("LOCALAPPDATA")?;
     Some(PathBuf::from(local).join("Superbot").join("WebView").join(profile))
 }

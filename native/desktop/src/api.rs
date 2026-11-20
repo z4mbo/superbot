@@ -4,9 +4,11 @@ use superbot_client::{Client, Error, ThreadEvent, ThreadTarget};
 
 mod apps;
 mod connections;
+mod sources;
 
 pub use apps::{AppRecord, RecordQuery};
 pub use connections::{next_account_label, CatalogApp, Connection, ConnectionStatus};
+pub use sources::{same_endpoint, Assignment, McpServer, OAuthStatus, ServerState, SignInStart, SourceInstall, SourcePreset, OAUTH_CLIENT_REQUIRED};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Target {

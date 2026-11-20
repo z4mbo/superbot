@@ -1,6 +1,8 @@
 mod app_view;
 mod confirm;
 mod detail;
+mod presets;
+mod server_sign_in;
 mod services;
 
 use gpui_kit::component::input::{Input, InputEvent, InputState};
@@ -63,6 +65,7 @@ pub struct Store {
     pub services: Option<Result<Services, String>>,
     pub services_loading: bool,
     pub sign_in: Option<SignIn>,
+    pub presets: presets::Presets,
     sign_ins: u64,
     _query_changed: Subscription,
 }
@@ -99,6 +102,7 @@ impl Store {
             services_loading: false,
             sign_in: None,
             sign_ins: 0,
+            presets: presets::Presets::default(),
             _query_changed: changed,
         }
     }
@@ -122,6 +126,7 @@ impl Store {
         self.confirming = false;
         self.services = None;
         self.sign_in = None;
+        self.presets.forget();
     }
 
     pub fn settle_confirm(&mut self) {

@@ -59,6 +59,7 @@ fn state(app: &CatalogApp, connections: &[Connection]) -> State {
 impl Desktop {
     pub(super) fn load_services(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
+        self.load_presets(window, cx);
         self.store.services_loading = true;
         let work = async move {
             // Reading the catalog settles finished sign-ins, so the accounts are listed after it.
@@ -196,13 +197,20 @@ impl Desktop {
     }
 
     pub(super) fn render_services(&mut self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+        let presets = self.render_preset_section(theme, cx);
         let services = match &self.store.services {
             None => {
                 let line = if self.store.services_loading { "Loading apps…" } else { "" };
-                return empty_line(line, theme).pt_2().into_any_element();
+                return div()
+                    .flex()
+                    .flex_col()
+                    .gap_6()
+                    .child(empty_line(line, theme).pt_2())
+                    .children(presets)
+                    .into_any_element();
             }
             Some(Err(problem)) => {
-                return div()
+                let problem = div()
                     .flex()
                     .flex_col()
                     .items_start()
@@ -211,18 +219,17 @@ impl Desktop {
                     .child(
                         pill_button("services-retry", "Try again", Tone::Quiet, true, theme)
                             .on_click(cx.listener(|this, _, window, cx| this.load_services(window, cx))),
-                    )
-                    .into_any_element()
+                    );
+                return div().flex().flex_col().gap_6().child(problem).children(presets).into_any_element();
             }
             Some(Ok(services)) => services,
         };
         if services.catalog.is_empty() {
-            return empty_line(
-                "This server has no apps to connect yet. Its admin can add an integration provider.",
-                theme,
-            )
-            .pt_2()
-            .into_any_element();
+            return presets.unwrap_or_else(|| {
+                empty_line("This server has no apps to connect yet. Its admin can add an integration provider.", theme)
+                    .pt_2()
+                    .into_any_element()
+            });
         }
         let query = self.store.query.read(cx).value().trim().to_lowercase();
         let mut shown: Vec<(CatalogApp, State, Vec<Connection>)> = services
@@ -235,7 +242,8 @@ impl Desktop {
             })
             .collect();
         if shown.is_empty() {
-            return empty_line("No app matches that search.", theme).pt_2().into_any_element();
+            return presets
+                .unwrap_or_else(|| empty_line("No app matches that search.", theme).pt_2().into_any_element());
         }
         shown.sort_by_key(|(app, state, _)| (*state == State::Available, app.name.to_lowercase()));
         let (mine, available): (Vec<_>, Vec<_>) =
@@ -253,6 +261,7 @@ impl Desktop {
             .gap_6()
             .when(!mine.is_empty(), |list| list.child(section("Yours", mine)))
             .when(!available.is_empty(), |list| list.child(section("Available", available)))
+            .children(presets)
             .into_any_element()
     }
 
@@ -359,7 +368,7 @@ impl super::Store {
 }
 
 /// An app's mark: its initial on its own colour, as plugins have.
-fn service_mark(name: &str, key: &str, theme: &Theme) -> Div {
+pub(super) fn service_mark(name: &str, key: &str, theme: &Theme) -> Div {
     let initial: String =
         name.chars().find(|letter| letter.is_alphanumeric()).into_iter().flat_map(char::to_uppercase).collect();
     div()
