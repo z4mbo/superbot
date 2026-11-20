@@ -198,25 +198,32 @@ line 28, plugin page 28, workspace panel 40 and 32, mention list 20, group pair 
   above. Group speaker names take the mark's colour.
 - No pack, a broken pack, or a shape whose frames fail to load: the face above, unchanged.
 
-| Name   | Midnight  | Daylight  |
-| ------ | --------- | --------- |
-| green  | `#009957` | `#007f48` |
-| blue   | `#377fe6` | `#1b6adc` |
-| red    | `#d94b52` | `#d12c34` |
-| orange | `#e78531` | `#a95914` |
-| purple | `#8d69ce` | `#8057c8` |
-| cyan   | `#0ea5c6` | `#0a7891` |
-| pink   | `#d84f8b` | `#ca2d72` |
-| yellow | `#d8a729` | `#896a19` |
-| teal   | `#01a492` | `#017c6f` |
-| coral  | `#e5634e` | `#cd361e` |
+| Native identity | Server palette   | Midnight  | Daylight  |
+| --------------- | ---------------- | --------- | --------- |
+| neutral         | Staff White      | `#f5f5f5` | `#1c1c1c` |
+| purple          | Executive Violet | `#8d69ce` | `#8057c8` |
+| green           | Emerald          | `#009957` | `#007f48` |
+| orange          | Forge Orange     | `#e78531` | `#a95914` |
+| teal            | Cyber Cyan       | `#01a492` | `#017c6f` |
+| blue            | Cobalt Blue      | `#377fe6` | `#1b6adc` |
+| yellow          | Amber Gold       | `#d8a729` | `#896a19` |
+| bronze          | Caramel Bronze   | `#a8805a` | `#8a6440` |
+| red             | Crimson Red      | `#d94b52` | `#d12c34` |
+| pink            | Neon Pink        | `#d84f8b` | `#ca2d72` |
+| slate           | Slate Silver     | `#8a94a6` | `#5f6b7d` |
+| cyan            |                  | `#0ea5c6` | `#0a7891` |
+| coral           |                  | `#e5634e` | `#cd361e` |
+
+Staff White takes its fill from `ink` and its eyes from `app` (`#121212` Midnight,
+`#fcfcfc` Daylight). Cyan and coral stay available for local identities. Unrecognised
+avatar values still hash into the original ten colours. The server's current and
+previous hex values match without regard to case or the avatar's shape suffix.
 
 Filled surfaces (own bubble, Send button) follow OpenMausBot `src/lib/user-bubble-tone.ts`:
 keep the colour if white text clears 4.5:1 on it; otherwise take the brightest OKLCH tone
 at the same hue and chroma that does. Yellow-family hues (OKLCH 65–115°) use dark ink
-`#101410` instead. Precompute the 10 × 2 fills at build time into the `Theme`; do not run
+`#101410` instead. Precompute the palette fills at build time into the `Theme`; do not run
 contrast maths per frame. Hover moves the fill 12% away from its ink, pressed 22%.
-Until `Agent.color` exists: `palette[fnv1a(agent.id) % 10]`, stable per bot.
 
 ### 3.3 Type
 
