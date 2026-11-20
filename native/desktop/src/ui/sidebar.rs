@@ -28,8 +28,9 @@ impl Desktop {
                 listed.push(agent.clone());
             }
         }
-        let found = self.search_open.then(|| self.render_message_search(&theme, cx)).flatten();
-        let nothing = pinned.is_empty() && listed.is_empty() && groups.is_empty() && found.is_none();
+        let roster = !(pinned.is_empty() && listed.is_empty() && groups.is_empty());
+        let found = self.search_open.then(|| self.render_message_search(roster, &theme, cx)).flatten();
+        let nothing = !roster && found.is_none();
 
         if pinned.is_empty() {
             self.forget_tile_preview();

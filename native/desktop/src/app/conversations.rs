@@ -217,12 +217,7 @@ impl Desktop {
             let row = Row {
                 open: open == Some(&target),
                 thread: Some(conversation.thread_id.clone()),
-                title: conversation
-                    .title
-                    .clone()
-                    .or_else(|| conversation.preview.clone())
-                    .filter(|title| !title.trim().is_empty())
-                    .unwrap_or_else(|| "New conversation".into()),
+                title: named(conversation).unwrap_or_else(|| "New conversation".into()),
                 when: crate::clock::instant(&conversation.created_at).map(|at| crate::clock::stamp(at, now, &zone)),
                 pinned: conversation.pinned_at.is_some(),
                 archived: conversation.archived_at.is_some(),
@@ -247,6 +242,12 @@ impl Desktop {
             saving: false,
         });
         rows
+    }
+
+    /// What one of the agent's conversations read so far is called, by its title or newest line.
+    pub fn conversation_name(&self, agent: &str, thread: &str) -> Option<String> {
+        let listed = self.conversations.lists.get(agent)?;
+        listed.iter().find(|conversation| conversation.thread_id == thread).and_then(named)
     }
 
     /// Opens the actions of one of the agent's conversations where the pointer is.
@@ -372,6 +373,10 @@ impl Desktop {
         let patch = BotConversationPatch { archived: Some(false), ..Default::default() };
         self.change_conversation(&agent, &thread, patch, None, window, cx);
     }
+}
+
+fn named(conversation: &BotConversation) -> Option<String> {
+    conversation.title.clone().or_else(|| conversation.preview.clone()).filter(|title| !title.trim().is_empty())
 }
 
 #[cfg(test)]
