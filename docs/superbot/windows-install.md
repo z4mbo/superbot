@@ -23,3 +23,13 @@ before connecting, or sign in to a [hosted server](hosting.md).
 To install previously built executables, supply `-BuildDir` with the directory
 containing `superbot-desktop.exe`, `superbot.exe`, and `superbot-plugin.exe`.
 Use `-InstallDir` and `-SkipPath` to test a copy in a separate directory.
+
+## Preview native UI changes while editing
+
+From the checkout root, run this in a PowerShell terminal and leave it open.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/dev-desktop.ps1
+```
+
+The script watches `native/` and the root Cargo manifests. After a successful build it reopens the development window with the updated code. A failed build leaves the last working window open and prints the compiler error in the terminal. Pass `-Server URL` to select a different host for that session, or use your saved server address. Press Ctrl+C to stop the watcher and its window.
