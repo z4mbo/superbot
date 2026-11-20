@@ -414,7 +414,7 @@ export function SidebarRoster({
                     } text-start ${
                       selected || rosterDropKey === rowDropKey
                         ? "bg-sidebar-accent"
-                        : "group-hover/row:bg-sidebar-accent/50"
+                        : "group-hover/row:bg-sidebar-row-hover"
                     }`}
                   >
                     {mini ? (
