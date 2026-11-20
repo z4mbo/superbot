@@ -253,12 +253,20 @@ export async function openUserSettings(
 ) {
   // A reload keeps settings open because the URL holds them; closing clears the URL at once.
   if (!new URL(page.url()).searchParams.has("settings")) {
-    await page.getByTestId("user-menu-trigger").click();
-    // An open bot panel has its own Settings fold, so look only in the account menu.
-    await page
-      .locator('[data-slot="popover-content"]')
-      .getByRole("button", { name: "Settings", exact: true })
-      .click();
+    const footer = page.getByTestId("sidebar-footer");
+    const account = footer.getByTestId("user-menu-trigger");
+    const shortcut = footer.getByRole("button", { name: "Settings", exact: true });
+    await expect(account).toBeVisible();
+    if (await shortcut.isVisible()) {
+      await shortcut.click();
+    } else {
+      await account.click();
+      await page
+        .getByRole("dialog")
+        .filter({ has: page.getByTestId("account-menu-header") })
+        .getByRole("button", { name: "Settings", exact: true })
+        .click();
+    }
   }
   const settings = page.getByTestId("user-settings");
   await expect(settings).toBeVisible();
