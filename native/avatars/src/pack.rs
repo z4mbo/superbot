@@ -44,6 +44,33 @@ pub struct PackFile {
     /// Bot name (any case) to its look; either field may be left out.
     #[serde(default)]
     pub bots: HashMap<String, Choice>,
+    /// What the appearance editor offers, in its order. Without it the editor offers every
+    /// shape and colour the pack draws.
+    #[serde(default)]
+    pub picker: Option<PickerFile>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct PickerFile {
+    #[serde(default)]
+    pub shapes: Vec<String>,
+    #[serde(default)]
+    pub colors: Vec<String>,
+}
+
+/// A shape and colour a person picked for one bot, by the names packs use. A name this pack
+/// does not draw (picked on another computer, or a removed shape) is ignored.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Picked<'a> {
+    pub shape: Option<&'a str>,
+    pub color: Option<&'a str>,
+}
+
+/// The shapes and colours the appearance editor offers, in order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Choices {
+    pub shapes: Vec<String>,
+    pub colors: Vec<(String, Paint)>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -189,23 +216,25 @@ impl Pack {
         self.bots.get(&fold(name)).is_some_and(|choice| choice.primary_tile)
     }
 
-    /// The look of a bot: the pack's own choice for its name, otherwise its server colour
-    /// when the pack has it, and a shape and colour picked by its id.
-    pub fn look(&self, id: &str, name: &str, color: &str) -> Look {
+    /// The look of a bot: what a person picked for it, else the pack's own choice for its name,
+    /// otherwise its server colour when the pack has it, and a shape and colour picked by its id.
+    pub fn look(&self, id: &str, name: &str, color: &str, picked: Picked) -> Look {
         let hash = fnv1a(id.as_bytes());
         let chosen = self.bots.get(&fold(name));
         let fallback = &self.file.fallback;
-        let shape = chosen
-            .and_then(|choice| choice.shape.clone())
-            .filter(|shape| self.file.shapes.contains_key(shape))
+        let picked_shape = picked.shape.filter(|shape| self.file.shapes.contains_key(*shape)).map(str::to_owned);
+        let picked_color = picked.color.filter(|color| self.colors.contains_key(*color)).map(str::to_owned);
+        let shape = picked_shape
+            .or_else(|| {
+                chosen.and_then(|choice| choice.shape.clone()).filter(|shape| self.file.shapes.contains_key(shape))
+            })
             .unwrap_or_else(|| {
                 let shapes: Vec<_> = fallback.shapes.iter().filter(|s| self.file.shapes.contains_key(*s)).collect();
                 shapes[hash as usize % shapes.len()].clone()
             });
         let server = self.file.aliases.get(color).map(String::as_str).unwrap_or(color);
-        let color = chosen
-            .and_then(|choice| choice.color.clone())
-            .filter(|color| self.colors.contains_key(color))
+        let color = picked_color
+            .or_else(|| chosen.and_then(|choice| choice.color.clone()).filter(|color| self.colors.contains_key(color)))
             .or_else(|| self.colors.contains_key(server).then(|| server.to_owned()))
             .or_else(|| self.nearest(server))
             .unwrap_or_else(|| {
@@ -233,6 +262,29 @@ impl Pack {
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(name, _)| name.clone())
+    }
+
+    /// What the appearance editor offers: the pack's `picker` order, keeping only names it
+    /// draws, or every shape and colour it draws in name order.
+    pub fn choices(&self) -> Choices {
+        let picker = self.file.picker.clone().unwrap_or_default();
+        let mut shapes: Vec<String> =
+            picker.shapes.into_iter().filter(|shape| self.file.shapes.contains_key(shape)).collect();
+        if shapes.is_empty() {
+            shapes = self.file.shapes.keys().cloned().collect();
+        }
+        let mut names: Vec<String> =
+            picker.colors.into_iter().filter(|color| self.colors.contains_key(color)).collect();
+        if names.is_empty() {
+            names = self.colors.keys().cloned().collect();
+            names.sort();
+        }
+        let mut seen = std::collections::HashSet::new();
+        shapes.retain(|shape| seen.insert(shape.clone()));
+        seen.clear();
+        names.retain(|color| seen.insert(color.clone()));
+        let colors = names.into_iter().map(|name| (name.clone(), self.colors[&name].clone())).collect();
+        Choices { shapes, colors }
     }
 
     pub fn tone(&self, hue: &str, dark: bool) -> Option<ChatTone> {
@@ -331,7 +383,7 @@ mod tests {
     #[test]
     fn a_named_bot_takes_the_pack_choice_in_any_case_and_spacing() {
         let pack = pack(json!({})).unwrap();
-        let look = pack.look("id-1", "  captain EXAMPLE ", "green");
+        let look = pack.look("id-1", "  captain EXAMPLE ", "green", Picked::default());
         assert_eq!(look.shape, "drop");
         assert!(matches!(look.paint, Paint::Gradient(ref stops) if stops.len() == 3));
         assert_eq!(look.hue, "neutral");
@@ -340,7 +392,7 @@ mod tests {
     #[test]
     fn a_partial_choice_keeps_the_server_colour_through_its_alias() {
         let pack = pack(json!({})).unwrap();
-        let look = pack.look("id-2", "Only Shape", "green");
+        let look = pack.look("id-2", "Only Shape", "green", Picked::default());
         assert_eq!(look.shape, "round");
         assert_eq!(look.paint, Paint::Color(parse_hex("#00ff00").unwrap()));
         assert_eq!(look.hue, "lime");
@@ -349,26 +401,29 @@ mod tests {
     #[test]
     fn an_unknown_bot_is_drawn_the_same_way_every_time_from_its_id() {
         let pack = pack(json!({})).unwrap();
-        let first = pack.look("4f1c", "Somebody New", "no-such-colour");
-        assert_eq!(first, pack.look("4f1c", "Renamed Later", "no-such-colour"));
+        let first = pack.look("4f1c", "Somebody New", "no-such-colour", Picked::default());
+        assert_eq!(first, pack.look("4f1c", "Renamed Later", "no-such-colour", Picked::default()));
         assert!(["round", "drop"].contains(&first.shape.as_str()));
         assert!(matches!(first.paint, Paint::Color(_)));
         let spread: std::collections::HashSet<_> =
-            (0..64).map(|n| pack.look(&format!("bot-{n}"), "x", "").shape).collect();
+            (0..64).map(|n| pack.look(&format!("bot-{n}"), "x", "", Picked::default()).shape).collect();
         assert_eq!(spread.len(), 2);
     }
 
     #[test]
     fn a_server_colour_sent_as_hex_keeps_its_nearest_pack_colour() {
         let pack = pack(json!({})).unwrap();
-        assert_eq!(pack.look("a", "New", "#20e020").paint, Paint::Color(parse_hex("#00ff00").unwrap()));
-        assert_eq!(pack.look("b", "New", "#9a3d8a").hue, "plum");
+        assert_eq!(
+            pack.look("a", "New", "#20e020", Picked::default()).paint,
+            Paint::Color(parse_hex("#00ff00").unwrap())
+        );
+        assert_eq!(pack.look("b", "New", "#9a3d8a", Picked::default()).hue, "plum");
     }
 
     #[test]
     fn ink_colours_follow_the_skin() {
         let pack = pack(json!({ "bots": { "night": { "color": "ink" } } })).unwrap();
-        assert_eq!(pack.look("id", "Night", "").paint, Paint::Ink);
+        assert_eq!(pack.look("id", "Night", "", Picked::default()).paint, Paint::Ink);
     }
 
     #[test]
@@ -403,6 +458,45 @@ mod tests {
         assert!(pack.tone("plum", false).is_none());
     }
 
+    #[test]
+    fn a_picked_look_wins_over_the_pack_choice_and_the_server_colour() {
+        let pack = pack(json!({})).unwrap();
+        let picked = Picked { shape: Some("round"), color: Some("plum") };
+        let look = pack.look("id-1", "Captain Example", "green", picked);
+        assert_eq!(look.shape, "round");
+        assert_eq!(look.hue, "plum");
+        let only_colour = pack.look("id-1", "Captain Example", "green", Picked { shape: None, color: Some("steel") });
+        assert_eq!(only_colour.shape, "drop");
+        assert!(matches!(only_colour.paint, Paint::Gradient(_)));
+    }
+
+    #[test]
+    fn a_picked_name_this_pack_does_not_draw_falls_back_as_if_nothing_was_picked() {
+        let pack = pack(json!({})).unwrap();
+        let unknown = Picked { shape: Some("comet"), color: Some("chartreuse") };
+        assert_eq!(
+            pack.look("id-9", "Somebody", "green", unknown),
+            pack.look("id-9", "Somebody", "green", Picked::default())
+        );
+    }
+
+    #[test]
+    fn the_editor_offers_the_picker_order_and_only_what_the_pack_draws() {
+        let pack = pack(json!({ "picker": { "shapes": ["drop", "comet", "round", "drop"], "colors": ["steel", "ink", "nope", "lime"] } })).unwrap();
+        let choices = pack.choices();
+        assert_eq!(choices.shapes, ["drop", "round"]);
+        let names: Vec<&str> = choices.colors.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(names, ["steel", "ink", "lime"]);
+        assert_eq!(choices.colors[1].1, Paint::Ink);
+    }
+
+    #[test]
+    fn without_a_picker_the_editor_offers_everything_in_name_order() {
+        let choices = pack(json!({})).unwrap().choices();
+        assert_eq!(choices.shapes, ["drop", "round"]);
+        let names: Vec<&str> = choices.colors.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(names, ["ink", "lime", "plum", "steel"]);
+    }
     #[test]
     fn hex_colours_accept_short_and_alpha_forms() {
         assert_eq!(parse_hex("#fff").unwrap(), parse_hex("#ffffff").unwrap());

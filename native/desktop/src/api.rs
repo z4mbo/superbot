@@ -107,6 +107,11 @@ pub struct AgentSummary {
     pub name: String,
     #[serde(default)]
     pub color: String,
+    /// Avatar shape and colour picked for this agent, by pack names.
+    #[serde(default)]
+    pub look_shape: Option<String>,
+    #[serde(default)]
+    pub look_color: Option<String>,
     #[serde(default)]
     pub pinned: bool,
     #[serde(default)]
@@ -129,7 +134,12 @@ impl AgentSummary {
     }
 
     pub fn avatar(&self) -> superbot_avatars::Bot<'_> {
-        superbot_avatars::Bot { id: &self.id, name: &self.name, color: &self.color }
+        superbot_avatars::Bot {
+            id: &self.id,
+            name: &self.name,
+            color: &self.color,
+            picked: superbot_avatars::Picked { shape: self.look_shape.as_deref(), color: self.look_color.as_deref() },
+        }
     }
 }
 
@@ -145,7 +155,7 @@ pub struct GroupMember {
 
 impl GroupMember {
     pub fn avatar(&self) -> superbot_avatars::Bot<'_> {
-        superbot_avatars::Bot { id: &self.bot_id, name: &self.name, color: &self.color }
+        superbot_avatars::Bot { id: &self.bot_id, name: &self.name, color: &self.color, picked: Default::default() }
     }
 }
 

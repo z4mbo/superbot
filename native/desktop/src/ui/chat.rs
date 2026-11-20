@@ -207,7 +207,7 @@ impl Desktop {
                     || self.agent(id).is_some_and(|agent| agent.working());
                 let avatar = match self.agent(id) {
                     Some(agent) => bot_avatar(agent.avatar(), size, working, watch, theme, cx),
-                    None => bot_avatar(Bot { id, name: "", color: "" }, size, false, None, theme, cx),
+                    None => bot_avatar(Bot { id, name: "", color: "", picked: Default::default() }, size, false, None, theme, cx),
                 };
                 div().flex_shrink_0().child(avatar)
             }

@@ -37,6 +37,10 @@ pub(crate) fn avatar(bot: &Bot) -> superbot_avatars::Bot<'_> {
         id: &bot.id,
         name: &bot.name,
         color: &bot.color,
+        picked: superbot_avatars::Picked {
+            shape: bot.look_shape.as_deref(),
+            color: bot.look_color.as_deref(),
+        },
     }
 }
 
