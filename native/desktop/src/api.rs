@@ -371,9 +371,15 @@ struct Page<T> {
 #[derive(Clone)]
 pub struct Api {
     pub client: Client,
+    /// This session's control of agents' computers; it ends with the session.
+    pub controls: crate::control::Controls,
 }
 
 impl Api {
+    pub fn new(client: Client) -> Self {
+        Self { client, controls: crate::control::Controls::default() }
+    }
+
     pub async fn me(&self) -> Result<Me, Error> {
         self.client.rpc("me", None, json!({})).await
     }

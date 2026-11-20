@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use superbot_features::{computer_file_path, ComputerFile, ComputerFileKind, ControlHolder};
 
-use super::control::ControlLease;
 use super::*;
+use crate::control::ControlLease;
 use crate::files;
 
 /// The most rows one folder draws; a folder with more says how many it leaves out.
@@ -369,6 +369,7 @@ impl Desktop {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let Some(controls) = self.api.as_ref().map(|api| api.controls.clone()) else { return };
         let (Some((features, space)), Some(panel)) = (self.features(), self.agent_panel.as_mut()) else { return };
         let access = match &panel.computer {
             Some(ComputerView::Ready(status)) => upload_access(status),
@@ -399,7 +400,7 @@ impl Desktop {
             let space = features.space(space);
             let lease = match borrow {
                 true => match upload_access(&space.computer_status(&target).await?) {
-                    Some(Upload::Borrow) => Some(ControlLease::acquire(owner, target.clone()).await?),
+                    Some(Upload::Borrow) => Some(ControlLease::acquire(&controls, owner, target.clone()).await?),
                     Some(Upload::Held) => None,
                     Some(Upload::Blocked(reason)) => return Ok(Err(blocked_sentence(&reason))),
                     None => return Ok(Err("Start its computer to upload files.".to_owned())),

@@ -1,29 +1,33 @@
-//! This account's control of each agent's computer, shared by every view that needs it: the
-//! screen, the terminal and an upload.
+//! A signed-in session's control of each agent's computer, shared by every view that needs it:
+//! the screen, the terminal and an upload.
 //!
 //! The server answers a second take by the same person with the same lease, so a hand-back from
 //! a view that just closed would end control a newer view holds. Views therefore hold control
 //! through one registry per Space and agent: a view counts as a holder from the moment it asks,
 //! takes and hand-backs for an agent run one at a time in the order they reach its gate, and the
 //! lease goes back to the server only when no view holds it.
+//!
+//! The registry belongs to one signed-in session (`api::Api`), so another account, server or
+//! sign-in never shares its holders or leases. A view keeps its own slot and server, so its
+//! hand-back still reaches its own session after that session has ended.
 
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use superbot_features::{Error, Features};
 
 use crate::runtime::detach;
 
 /// The two calls control needs from the server.
-pub(super) trait ControlServer: Clone + Send + Sync + 'static {
+pub trait ControlServer: Clone + Send + Sync + 'static {
     fn take(&self, agent: String) -> impl Future<Output = Result<String, Error>> + Send + 'static;
     fn release(&self, agent: String, lease: String) -> impl Future<Output = Result<(), Error>> + Send + 'static;
 }
 
 /// The signed-in server, for one Space.
 #[derive(Clone)]
-pub(super) struct Space {
+pub struct Space {
     features: Features,
     id: String,
 }
@@ -58,14 +62,21 @@ impl Slot {
     }
 }
 
-pub(super) struct Controls<S> {
-    slots: Mutex<HashMap<(String, String), Arc<Slot>>>,
-    _server: std::marker::PhantomData<S>,
+/// One signed-in session's registry. Its clones share it; a new session starts its own.
+pub struct Controls<S = Space> {
+    slots: Arc<Mutex<HashMap<(String, String), Arc<Slot>>>>,
+    _server: std::marker::PhantomData<fn() -> S>,
 }
 
 impl<S: ControlServer> Default for Controls<S> {
     fn default() -> Self {
-        Self { slots: Mutex::default(), _server: std::marker::PhantomData }
+        Self { slots: Arc::default(), _server: std::marker::PhantomData }
+    }
+}
+
+impl<S> Clone for Controls<S> {
+    fn clone(&self) -> Self {
+        Self { slots: self.slots.clone(), _server: std::marker::PhantomData }
     }
 }
 
@@ -79,7 +90,7 @@ impl<S: ControlServer> Controls<S> {
     /// returned future runs, so a hand-back already on its way leaves the lease in place for it.
     /// The take itself runs to the end even when the caller stops waiting; the lease then goes
     /// back unless another view holds it.
-    pub(super) fn acquire(
+    pub fn acquire(
         &self,
         server: S,
         space: &str,
@@ -107,14 +118,14 @@ impl<S: ControlServer> Controls<S> {
 
 /// One view's hold on an agent's computer. Dropping it hands control back once no other view
 /// holds it; `release` does the same and waits for the server.
-pub(super) struct Control<S: ControlServer> {
+pub struct Control<S: ControlServer> {
     slot: Option<Arc<Slot>>,
     server: S,
     agent: String,
 }
 
 impl<S: ControlServer> Control<S> {
-    pub(super) async fn release(mut self) -> Result<(), Error> {
+    pub async fn release(mut self) -> Result<(), Error> {
         let Some(slot) = self.slot.take() else { return Ok(()) };
         hand_back(slot, self.server.clone(), self.agent.clone()).await
     }
@@ -155,22 +166,19 @@ fn hand_back<S: ControlServer>(
     }
 }
 
-fn controls() -> &'static Controls<Space> {
-    static CONTROLS: OnceLock<Controls<Space>> = OnceLock::new();
-    CONTROLS.get_or_init(Controls::default)
-}
-
 /// A view's control of the signed-in server's computers.
-pub(super) type ControlLease = Control<Space>;
+pub type ControlLease = Control<Space>;
 
 impl ControlLease {
-    pub(super) fn acquire(
+    /// Takes control through the registry of the session `controls` belongs to.
+    pub fn acquire(
+        controls: &Controls,
         owner: (Features, String),
         agent: String,
     ) -> impl Future<Output = Result<Self, Error>> + Send + 'static {
         let (features, id) = owner;
         let space = id.clone();
-        controls().acquire(Space { features, id }, &space, &agent)
+        controls.acquire(Space { features, id }, &space, &agent)
     }
 }
 
@@ -378,5 +386,51 @@ mod tests {
         assert_eq!(server.held().as_deref(), Some("lease-1"));
         within(retried.release()).await.unwrap();
         assert_eq!(server.calls(), ["take", "take", "release lease-1"]);
+    }
+
+    /// Two signed-in sessions, each with its own server, both showing Space `space` and agent `bot`.
+    #[tokio::test]
+    async fn a_late_hand_back_reaches_only_its_own_session() {
+        let (first, first_server) = (Controls::default(), FakeServer::default());
+        let (second, second_server) = (Controls::default(), FakeServer::default());
+        let mut started = first_server.watch();
+        let held = within(first.acquire(first_server.clone(), "space", "bot")).await.unwrap();
+        assert_eq!(within(started.recv()).await.as_deref(), Some("take"));
+
+        let release = first_server.hold_next_release();
+        drop(held);
+        assert_eq!(within(started.recv()).await.as_deref(), Some("release lease-1"));
+        // The first session's hand-back is still at its server; the second session's take does
+        // not wait for it, and is not counted against it.
+        let other = within(second.acquire(second_server.clone(), "space", "bot")).await.unwrap();
+        assert_eq!(second_server.held().as_deref(), Some("lease-1"));
+        assert_eq!(first.slot("space", "bot").held().holders, 0);
+        assert_eq!(second.slot("space", "bot").held().holders, 1);
+
+        release.send(()).unwrap();
+        settled(&first).await;
+        assert_eq!(first_server.calls(), ["take", "release lease-1"]);
+        assert_eq!(first_server.held(), None);
+        assert_eq!(second_server.calls(), ["take"]);
+        assert_eq!(second_server.held().as_deref(), Some("lease-1"));
+        within(other.release()).await.unwrap();
+        assert_eq!(second_server.held(), None);
+    }
+
+    #[tokio::test]
+    async fn a_view_outliving_its_session_hands_back_to_that_session() {
+        let (ended_server, next_server) = (FakeServer::default(), FakeServer::default());
+        let ended = Controls::default();
+        let view = within(ended.acquire(ended_server.clone(), "space", "bot")).await.unwrap();
+        drop(ended);
+
+        let next = Controls::default();
+        let current = within(next.acquire(next_server.clone(), "space", "bot")).await.unwrap();
+        within(view.release()).await.unwrap();
+        assert_eq!(ended_server.calls(), ["take", "release lease-1"]);
+        assert_eq!(ended_server.held(), None);
+        assert_eq!(next_server.calls(), ["take"]);
+        assert_eq!(next_server.held().as_deref(), Some("lease-1"));
+        within(current.release()).await.unwrap();
     }
 }

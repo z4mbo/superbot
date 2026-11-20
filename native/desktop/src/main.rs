@@ -6,6 +6,7 @@ mod appearance;
 mod assets;
 mod cards;
 mod clock;
+mod control;
 mod files;
 mod fonts;
 mod outbox;

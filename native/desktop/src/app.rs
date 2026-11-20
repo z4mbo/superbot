@@ -355,7 +355,7 @@ impl Desktop {
             let Some(client) = CredentialStore::load(&client).await? else {
                 return Ok(None);
             };
-            let api = Api { client };
+            let api = Api::new(client);
             match tokio::try_join!(api.me(), api.initial_navigation()) {
                 Ok((me, navigation)) => {
                     let navigation = onboarding::resumed(&api, &me, navigation).await?;
@@ -439,7 +439,7 @@ impl Desktop {
                 },
             };
             CredentialStore::save(&client).await?;
-            let api = Api { client };
+            let api = Api::new(client);
             let (me, navigation) = tokio::try_join!(api.me(), api.initial_navigation())?;
             let navigation = onboarding::resumed(&api, &me, navigation).await?;
             Ok(Some((api, me, navigation)))

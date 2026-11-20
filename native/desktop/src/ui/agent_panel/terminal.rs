@@ -4,8 +4,8 @@ use std::time::Duration;
 use superbot_features::ComputerTerminal;
 use url::Url;
 
-use super::control::ControlLease;
 use super::*;
+use crate::control::ControlLease;
 use crate::runtime::network;
 use crate::terminal::{self as wire, Connection, Event};
 
@@ -84,7 +84,11 @@ impl Desktop {
 
     pub(super) fn open_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((features, space)) = self.features() else { return };
-        let Some(server) = self.api.as_ref().map(|api| api.client.server().to_owned()) else { return };
+        let Some((server, controls)) =
+            self.api.as_ref().map(|api| (api.client.server().to_owned(), api.controls.clone()))
+        else {
+            return;
+        };
         let Some(panel) = self.agent_panel.as_mut() else { return };
         if panel.terminal.is_some() {
             return;
@@ -121,10 +125,10 @@ impl Desktop {
             _tasks: vec![heartbeat],
         });
         window.focus(&focus, cx);
-        let owner = (features.clone(), space.clone());
+        let taking = ControlLease::acquire(&controls, (features.clone(), space.clone()), agent_id.clone());
         let read = agent_id.clone();
         let work = async move {
-            let lease = ControlLease::acquire(owner, read.clone()).await?;
+            let lease = taking.await?;
             let issued = features.space(space).computer_terminal(&read).await?;
             Ok((lease, issued))
         };
