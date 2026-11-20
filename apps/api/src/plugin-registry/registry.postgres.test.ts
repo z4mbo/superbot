@@ -261,6 +261,7 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
       grantId: expect.any(String),
       installationId: installed.id,
       pluginSlug: slug,
+      pluginName: manifest.name,
       versionId: first.id,
       part: manifest.parts[0],
     });
@@ -339,7 +340,12 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
     const bot = botId(installer);
     const grant = { installationId: installation.id, botId: bot, partIds: ["notes"] };
     const installed = await registry.setGrants(grant);
-    const resolve = () => resolvePluginGrants(db.prisma, { ...installer, botId: bot });
+    const resolve = () =>
+      resolvePluginGrants(
+        db.prisma,
+        { ...installer, botId: bot },
+        { installationId: installation.id },
+      );
     const originalGrants = await resolve();
     const request = {
       installationId: installation.id,
@@ -713,7 +719,8 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
       registry.setGrants({ installationId, botId: bot, partIds: [target.partId] });
     await setGrant();
     const base = { spaceId, userId: installer.userId, botId: bot };
-    const [grant] = await resolvePluginGrants(db.prisma, base);
+    const resolve = () => resolvePluginGrants(db.prisma, base, target);
+    const [grant] = await resolve();
     expect(grant).toMatchObject({ installationId, part: { kind: "app" } });
     const scope = { ...base, grantId: grant!.grantId, versionId: grant!.versionId };
     const add = {
@@ -765,7 +772,7 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
     await expect(listRegistryAppRecords(db.prisma, scope, target)).rejects.toMatchObject({
       kind: "FORBIDDEN",
     });
-    const [regranted] = await resolvePluginGrants(db.prisma, base);
+    const [regranted] = await resolve();
     expect(
       (await listRegistryAppRecords(db.prisma, { ...scope, grantId: regranted!.grantId }, target))
         .items,
