@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import type { SearchHit } from "@rakazo/contracts";
+import { SEARCH_QUERY_MAX_LENGTH } from "@rakazo/contracts";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
@@ -117,4 +118,16 @@ it("opens a match in a bot's additional conversation at its message", async () =
     pathname: "/app/bot-1",
     search: "?threadId=thread-2&m=message-3",
   });
+});
+
+it("sends at most the search query limit and searches the first part of a longer query", async () => {
+  const long = `${"a".repeat(SEARCH_QUERY_MAX_LENGTH)}tail`;
+  await search(long);
+  expect(requests[0]!.q).toBe("a".repeat(SEARCH_QUERY_MAX_LENGTH));
+  expect(latest.searchError).toBeNull();
+});
+
+it("sends a short query unchanged", async () => {
+  await search("  quarterly plan  ");
+  expect(requests[0]!.q).toBe("quarterly plan");
 });

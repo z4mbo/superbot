@@ -200,6 +200,8 @@ export interface CreateThreadMessageInput {
   runId?: string;
   clientNonce?: string;
   localOperationId?: string;
+  nativeCalendarSessionId?: string;
+  nativeCalendarDeviceDigest?: string;
   markUnread?: boolean;
   /** Terminal echo after the run is already cancelled. Every other write stays rejected. */
   allowCancelledRun?: boolean;
@@ -255,6 +257,8 @@ export async function createThreadMessageInTransaction(
       runId: input.runId,
       clientNonce: input.clientNonce,
       localOperationId: input.localOperationId,
+      nativeCalendarSessionId: input.nativeCalendarSessionId,
+      nativeCalendarDeviceDigest: input.nativeCalendarDeviceDigest,
     },
   });
 }

@@ -14,7 +14,7 @@ import { readFixtureEvents } from "./fixture-events.mjs";
 
 import { checkBotConversations, conversationSteps } from "./verify-bot-conversations.mjs";
 import { checkConversationContent } from "./verify-conversation-content.mjs";
-import { prepareIssueWatcher } from "./verify-issue-watcher.mjs";
+import { prepareIssueWatcher } from "./issue-watcher.test-support.mjs";
 import { checkLocalAppRecords } from "./verify-local-app-records.mjs";
 import { prepareMarketplaceApp } from "./verify-marketplace-app.mjs";
 import { checkSearch } from "./verify-search.mjs";
