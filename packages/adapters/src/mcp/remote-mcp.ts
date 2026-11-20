@@ -317,7 +317,13 @@ async function withRemoteMcpClient<T>(
       redirect: "manual",
       signal,
     },
-    fetch: async (input, init) => limitMcpResponseBody(await safeFetch(input, init), init?.headers),
+    fetch: async (input, init) => {
+      const response = await safeFetch(input, {
+        ...init,
+        signal: combineSignals(signal, init?.signal ?? undefined),
+      });
+      return limitMcpResponseBody(response, init?.headers);
+    },
   });
   const router = options.elicitation ? new McpElicitationRouter() : undefined;
   const client = newRemoteMcpClient(router);
