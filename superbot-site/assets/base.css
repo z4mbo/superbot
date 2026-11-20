@@ -1,3 +1,16 @@
+@font-face {
+  font-family: "Geist";
+  src: url("fonts/Geist-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("fonts/GeistMono-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 /* Tokens mirror DESKTOP-DESIGN.md §3 (Midnight dark, Daylight light). */
 :root {
   color-scheme: dark;

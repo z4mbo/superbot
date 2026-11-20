@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Example: Calorie diary</title>
+  <meta name="description" content="The bundled Calorie diary record app, end to end: install, log meals, see daily totals, let a bot read and propose entries, and publish your own copy.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Calorie diary
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html" aria-current="page">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Examples</div>
+      <h1>Example: Calorie diary</h1>
+      <p class="lede">A record app with three fields and a daily total. Install it, log meals, ask a bot for today's calories and approve the entries it proposes. Then publish your own variant.</p>
+
+      <h2 id="requirements">Requirements</h2>
+      <ul>
+        <li>An account on a Superbot server. A server publishes the bundled diary, slug <code>kcal-diary</code>, unless another publisher already holds that slug.</li>
+        <li>At least one bot in your Space, for the bot steps.</li>
+        <li>To publish a variant, <code>superbot-plugin</code>. See <a href="quickstart.html#tools">install the tools</a>.</li>
+      </ul>
+
+      <h2 id="manifest">The manifest</h2>
+      <p>The repository keeps it in <code>examples/plugins/kcal-diary/plugin.json</code>, and <code>superbot-plugin init kcal-diary --template kcal-diary</code> writes the same file.</p>
+      <figure class="code">
+        <div class="code-head"><span>plugin.json</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>,
+  <span class="tok-k">"name"</span>: <span class="tok-s">"Calorie diary"</span>,
+  <span class="tok-k">"description"</span>: <span class="tok-s">"Log meals and see the total calories for a day."</span>,
+  <span class="tok-k">"parts"</span>: [
+    {
+      <span class="tok-k">"kind"</span>: <span class="tok-s">"app"</span>,
+      <span class="tok-k">"id"</span>: <span class="tok-s">"meals"</span>,
+      <span class="tok-k">"fields"</span>: [
+        {
+          <span class="tok-k">"id"</span>: <span class="tok-s">"date"</span>,
+          <span class="tok-k">"label"</span>: <span class="tok-s">"Date"</span>,
+          <span class="tok-k">"type"</span>: <span class="tok-s">"date"</span>,
+          <span class="tok-k">"required"</span>: <span class="tok-n">true</span>
+        },
+        {
+          <span class="tok-k">"id"</span>: <span class="tok-s">"meal"</span>,
+          <span class="tok-k">"label"</span>: <span class="tok-s">"Meal"</span>,
+          <span class="tok-k">"type"</span>: <span class="tok-s">"text"</span>,
+          <span class="tok-k">"required"</span>: <span class="tok-n">true</span>
+        },
+        {
+          <span class="tok-k">"id"</span>: <span class="tok-s">"kcal"</span>,
+          <span class="tok-k">"label"</span>: <span class="tok-s">"Calories (kcal)"</span>,
+          <span class="tok-k">"type"</span>: <span class="tok-s">"number"</span>,
+          <span class="tok-k">"required"</span>: <span class="tok-n">true</span>
+        }
+      ],
+      <span class="tok-k">"summaryField"</span>: <span class="tok-s">"kcal"</span>
+    }
+  ]
+}</code></pre>
+      </figure>
+
+      <h2 id="install">Step 1: Install it</h2>
+      <p>Find <b>Calorie diary</b> in the store's <b>Discover</b> list and choose <b>Install</b>. Nothing is installed for you in advance. The diary belongs to your account in the selected Space, and other members never see your entries.</p>
+
+      <h2 id="log">Step 2: Log meals</h2>
+      <p><b>Open</b> the diary and add an entry with a date, a meal and its calories. Use the day arrows or <b>Today</b> for one day, or <b>All dates</b> for everything. The total counts every matching entry, including entries not yet loaded on the page. To fix a mistake, remove the entry and add a corrected one.</p>
+
+      <h2 id="grant">Step 3: Give one bot access</h2>
+      <p>Under <b>Installed</b>, select one of your bots and turn on the <code>meals</code> part. Other bots stay without access until you turn it on for them too.</p>
+
+      <h2 id="ask">Step 4: Ask the bot</h2>
+      <ol class="steps">
+        <li>In a direct chat with that bot, ask <i>What have I eaten today?</i> The bot lists entries and the total without asking you first.</li>
+        <li>Ask it to add a 220 kcal snack for today. The approval card shows the values it wants to save. Nothing is saved until you choose <b>Allow once</b>. In a Space set to Never ask, the addition is refused.</li>
+      </ol>
+      <p>The bot gets these actions only in a direct chat with you, in a turn your own message started.</p>
+      <p><b>With a local model.</b> If the bot answers through a supported model CLI on your computer, it gets no tools. Share the diary yourself:</p>
+      <ul>
+        <li><b>Desktop:</b> choose <b>Apps</b> in the chat composer, select <b>Calorie diary</b>, review the entries that will go to the model and choose <b>Ask</b>. <b>Add</b> saves a proposed entry and <b>Skip</b> discards it.</li>
+        <li><b>Terminal:</b> run <code>superbot BOT_NAME</code>, type <code>/apps</code>, then <code>/app 1 --date 2026-11-20 How many calories did I log?</code> if the diary is app 1. Type <code>save</code> to accept a proposed entry, or press Enter to skip.</li>
+      </ul>
+      <p>The model sees the five most recent matching entries and the total. The exchange stays out of the shared conversation.</p>
+
+      <h2 id="api">Step 5: Read it from a program</h2>
+      <p>A program signed in as you can use the same entries through the <a href="api.html#records">registry API</a>. Reuse <code>operationId</code> when retrying an addition.</p>
+      <figure class="code">
+        <div class="code-head"><span>TypeScript</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>const target = { installationId, partId: "meals" };
+
+await client.pluginRegistry.addAppRecord({
+  ...target,
+  operationId: crypto.randomUUID(),
+  values: { date: "2026-11-20", meal: "Porridge", kcal: 480 },
+});
+
+const today = await client.pluginRegistry.appRecords({ ...target, date: "2026-11-20" });
+console.log(today.total);</code></pre>
+      </figure>
+
+      <h2 id="variant">Step 6: Publish your own variant</h2>
+      <p><code>kcal-diary</code> already belongs to the bundled diary, so submit yours under a slug of your own.</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>mkdir water-log
+cd water-log
+superbot-plugin init water-log --template kcal-diary --name "Water log"
+superbot-plugin validate
+superbot-plugin publish water-log 1</code></pre>
+      </figure>
+      <p>Edit the fields in <code>plugin.json</code> before <code>validate</code>, for example a <code>ml</code> number field as the total. A deployment admin then reviews it. See <a href="publishing.html">Review, install and versions</a>.</p>
+
+      <h2 id="cleanup">Clean up</h2>
+      <p>Turning off the bot's <code>meals</code> grant keeps your entries. Uninstalling the diary permanently deletes them, for every version.</p>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="publishing.html"><small>Previous</small><span>Review, install and versions</span></a>
+        <a class="next" href="example-t3-code-inbox.html"><small>Next</small><span>T3 Code inbox</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#requirements">Requirements</a>
+      <a href="#manifest">The manifest</a>
+      <a href="#install">Step 1: Install it</a>
+      <a href="#log">Step 2: Log meals</a>
+      <a href="#grant">Step 3: Give one bot access</a>
+      <a href="#ask">Step 4: Ask the bot</a>
+      <a href="#api">Step 5: Read it from a program</a>
+      <a href="#variant">Step 6: Publish your own variant</a>
+      <a href="#cleanup">Clean up</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

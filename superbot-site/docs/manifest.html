@@ -4,11 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Manifest reference</title>
-  <meta name="description" content="Every field of the Superbot plugin manifest, schema version 1, with its limits.">
+  <meta name="description" content="Every field of the Superbot plugin manifest, schema version 1, with its limits: skills, tools and record apps.">
   <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="../assets/base.css">
   <link rel="stylesheet" href="../assets/site.css">
   <script src="../assets/site.js"></script>
@@ -19,8 +17,10 @@
     <div class="bar">
       <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
       <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
         <a href="../#status" class="hide-sm">Status</a>
         <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
         </button>
@@ -30,22 +30,33 @@
 
   <div class="docs">
     <nav class="docs-nav" aria-label="Docs">
-      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Manifest reference
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Manifest
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <div id="docs-nav-links" class="docs-nav-links">
-        <h4>Plugins</h4>
-        <a href="./">Build a plugin</a>
-        <a href="manifest.html" aria-current="page">Manifest reference</a>
-        <a href="publishing.html">Review, install and grants</a>
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
         <h4>Reference</h4>
+        <a href="manifest.html" aria-current="page">Manifest</a>
         <a href="cli.html">superbot-plugin commands</a>
         <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
       </div>
     </nav>
 
     <main id="main" class="prose">
-      <div class="crumb">Plugins</div>
+      <div class="crumb">Reference</div>
       <h1>Manifest reference</h1>
       <p class="lede">Schema version 1. The server rejects any manifest with a field not listed here.</p>
 
@@ -128,7 +139,7 @@
       <ul>
         <li>API keys, tokens, passwords or HTTP headers. If your server needs sign-in, use OAuth on the server; people sign in when they connect it.</li>
         <li>Commands, packages, scripts or install hooks.</li>
-        <li>Inline HTML or JavaScript. Superbot draws record apps from their declared fields. An approved remote MCP tool can supply a separate interactive resource for the sandboxed chat viewer.</li>
+        <li>HTML or JavaScript. Superbot draws record apps from their declared fields. A tool server can serve its own <a href="tools.html#view">view</a>, which runs in a sandbox.</li>
         <li>Local or private addresses such as <code>localhost</code>, <code>127.0.0.1</code> or <code>10.0.0.0/8</code>.</li>
         <li>Any field not listed on this page, at any level.</li>
       </ul>
@@ -142,23 +153,23 @@
   <span class="tok-k">"description"</span>: <span class="tok-s">"Draft release notes from issue summaries."</span>,
   <span class="tok-k">"parts"</span>: [
     {
-      <span class="tok-k">"id"</span>: <span class="tok-s">"notes"</span>,
-      <span class="tok-k">"kind"</span>: <span class="tok-s">"skill"</span>,
-      <span class="tok-k">"instructions"</span>: <span class="tok-s">"Summarize the provided issue descriptions."</span>
+<span class="tok-k">"id"</span>: <span class="tok-s">"notes"</span>,
+<span class="tok-k">"kind"</span>: <span class="tok-s">"skill"</span>,
+<span class="tok-k">"instructions"</span>: <span class="tok-s">"Summarize the provided issue descriptions."</span>
     },
     {
-      <span class="tok-k">"id"</span>: <span class="tok-s">"tracker"</span>,
-      <span class="tok-k">"kind"</span>: <span class="tok-s">"mcp"</span>,
-      <span class="tok-k">"transport"</span>: <span class="tok-s">"streamable_http"</span>,
-      <span class="tok-k">"endpoint"</span>: <span class="tok-s">"https://tracker.example.com/mcp"</span>
+<span class="tok-k">"id"</span>: <span class="tok-s">"tracker"</span>,
+<span class="tok-k">"kind"</span>: <span class="tok-s">"mcp"</span>,
+<span class="tok-k">"transport"</span>: <span class="tok-s">"streamable_http"</span>,
+<span class="tok-k">"endpoint"</span>: <span class="tok-s">"https://tracker.example.com/mcp"</span>
     }
   ]
 }</code></pre>
       </figure>
 
       <nav class="pager" aria-label="Pages">
-        <a href="./"><small>Previous</small><span>Build a plugin</span></a>
-        <a class="next" href="publishing.html"><small>Next</small><span>Review, install and grants</span></a>
+        <a href="example-t3-code-inbox.html"><small>Previous</small><span>T3 Code inbox</span></a>
+        <a class="next" href="cli.html"><small>Next</small><span>superbot-plugin commands</span></a>
       </nav>
     </main>
 
@@ -169,7 +180,7 @@
       <a href="#skill">Skill part</a>
       <a href="#mcp">Tool part</a>
       <a href="#app">Record app part</a>
-      <a href="#not-allowed">What it can't contain</a>
+      <a href="#not-allowed">What a manifest can't contain</a>
       <a href="#full">Complete example</a>
     </aside>
   </div>
@@ -177,7 +188,7 @@
   <footer class="site-footer">
     <div class="bar">
       <span>Superbot. Open source.</span>
-      <nav aria-label="Footer"><a href="../">Home</a><a href="api.html">Registry API</a><a href="../NOTICE.txt">Notices</a></nav>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
     </div>
   </footer>
 </body>

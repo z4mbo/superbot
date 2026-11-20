@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tools and MCP views</title>
+  <meta name="description" content="Connect a bot to your own MCP server over public HTTPS, add an interactive view to a tool's result, and test it on loopback first.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Tools and MCP views
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html" aria-current="page">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Build</div>
+      <h1>Tools and MCP views</h1>
+      <p class="lede">A tool part points at an MCP server you host. Granted bots can call its tools after a person approves each call, and a tool can return an interactive view that appears in chat.</p>
+
+      <h2 id="how">How a tool call works</h2>
+      <ol class="steps">
+        <li>A person grants your <code>mcp</code> part to a bot. Superbot opens a connection to your endpoint and lists its tools.</li>
+        <li>The bot asks to call a tool. The approval card shows your endpoint, the tool and the exact arguments.</li>
+        <li>After <b>Allow once</b>, the server checks the grant and the tool's schema again, then sends <code>tools/call</code>. Redirects and private addresses are refused.</li>
+        <li>The result goes back to the bot. If the tool declares a view, the web app shows it in a sandboxed card under the result.</li>
+      </ol>
+
+      <h2 id="server">Write the server</h2>
+      <p>Start from the TypeScript starter, which needs Node.js 24 and no packages:</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>mkdir temperature-tool
+cd temperature-tool
+superbot-plugin init temperature-tool --template mcp-app
+superbot-plugin validate
+node server.ts</code></pre>
+      </figure>
+      <p>It writes <code>plugin.json</code>, <code>server.ts</code> and a README with a local test request. Despite its name, <code>mcp-app</code> is a tool server, not a <a href="record-apps.html">record app</a>.</p>
+      <ul>
+        <li>Support MCP initialization, <code>tools/list</code> and <code>tools/call</code> over Streamable HTTP. Keep listing free of side effects: Superbot lists before anyone approves.</li>
+        <li>Give each tool a short description and a JSON object input schema with its required fields. Validate the arguments again on your server.</li>
+        <li>Return structured results for data the bot should use.</li>
+        <li>Treat the endpoint as public and set your own rate limits. If your service needs sign-in, use OAuth on your side; a manifest can't carry credentials.</li>
+        <li>Superbot exposes up to twenty tools per granted endpoint.</li>
+      </ul>
+
+      <h2 id="view">Add a view</h2>
+      <p>A view is an HTML document your server serves as an MCP resource. Superbot shows it under the tool's result after the approved call succeeds.</p>
+      <ol class="steps">
+        <li>Advertise the <code>resources</code> capability when initializing.</li>
+        <li>In <code>tools/list</code>, set the tool's <code>_meta.ui.resourceUri</code> to a <code>ui://</code> URI.</li>
+        <li>Answer <code>resources/read</code> for that exact URI with <code>mimeType: "text/html;profile=mcp-app"</code> and the document in <code>text</code>.</li>
+      </ol>
+      <figure class="code">
+        <div class="code-head"><span>tools/list entry</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"name"</span>: <span class="tok-s">"convert_temperature"</span>,
+  <span class="tok-k">"description"</span>: <span class="tok-s">"Convert a temperature between Celsius and Fahrenheit."</span>,
+  <span class="tok-k">"inputSchema"</span>: { <span class="tok-k">"type"</span>: <span class="tok-s">"object"</span>, … },
+  <span class="tok-k">"_meta"</span>: { <span class="tok-k">"ui"</span>: { <span class="tok-k">"resourceUri"</span>: <span class="tok-s">"ui://unit-converter/temperature.html"</span> } }
+}</code></pre>
+      </figure>
+      <p>The card runs your document in a sandbox with an opaque origin and no cookies or storage. It receives the call's arguments and result after it initializes. Right after the person clicks or types in it, it can open a link, which they confirm, or offer text to the composer, which they send. It can't call tools. A view that hasn't started within 15 seconds isn't shown, and the bot's reply stands without it. The repository's <code>examples/plugins/marketplace-unit-converter</code> has a complete view in <code>temperature.html</code>.</p>
+
+      <h2 id="test">Test locally</h2>
+      <p>Run the sample on a free loopback port and call it directly. On Windows, use <code>curl.exe</code>.</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>node examples/plugins/marketplace-unit-converter/server.ts 0
+
+curl -s http://127.0.0.1:PORT/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"convert_temperature","arguments":{"value":100,"from":"celsius","to":"fahrenheit"}}}'</code></pre>
+      </figure>
+      <p>The response includes <code>"structuredContent":{"value":212,"unit":"fahrenheit"}</code>. To read the view, send the same request with this body:</p>
+      <figure class="code">
+        <div class="code-head"><span>request body</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":"ui://unit-converter/temperature.html"}}</code></pre>
+      </figure>
+      <p><a href="local-development.html#fixtures">Local development</a> covers the fixtures that run it through the approval flow.</p>
+
+      <h2 id="deploy">Deploy and publish</h2>
+      <p>The registry refuses local HTTP addresses, so put the server behind a public HTTPS reverse proxy. Keep the listener bound to loopback, set the manifest's <code>endpoint</code> to the exact public <code>/mcp</code> URL, and publish. Reviewers' approval checks the endpoint against the public-address policy.</p>
+      <figure class="code">
+        <div class="code-head"><span>plugin.json</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>,
+  <span class="tok-k">"name"</span>: <span class="tok-s">"Unit converter"</span>,
+  <span class="tok-k">"description"</span>: <span class="tok-s">"Convert temperatures between Celsius and Fahrenheit."</span>,
+  <span class="tok-k">"parts"</span>: [
+    {
+      <span class="tok-k">"id"</span>: <span class="tok-s">"temperatures"</span>,
+      <span class="tok-k">"kind"</span>: <span class="tok-s">"mcp"</span>,
+      <span class="tok-k">"transport"</span>: <span class="tok-s">"streamable_http"</span>,
+      <span class="tok-k">"endpoint"</span>: <span class="tok-s">"https://units.example.com/mcp"</span>
+    },
+    {
+      <span class="tok-k">"id"</span>: <span class="tok-s">"conversion-guide"</span>,
+      <span class="tok-k">"kind"</span>: <span class="tok-s">"skill"</span>,
+      <span class="tok-k">"instructions"</span>: <span class="tok-s">"Use the temperature converter for numeric temperatures. Include the input and output units when reporting a conversion."</span>
+    }
+  ]
+}</code></pre>
+      </figure>
+      <p>Publish a new version whenever the manifest or a tool's contract changes incompatibly. Superbot binds each approval to the tool's schema, so a changed schema can't reuse an old approval.</p>
+
+      <h2 id="limits">Limits</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Limit</th><th scope="col">Value</th></tr></thead>
+          <tbody>
+            <tr><td>Tools per granted endpoint</td><td class="muted">20</td></tr>
+            <tr><td>View document</td><td class="muted">2,000,000 bytes</td></tr>
+            <tr><td>Tool result passed to a view</td><td class="muted">256,000 bytes; a larger result passes only its structured part</td></tr>
+            <tr><td>Arguments passed to a view</td><td class="muted">64,000 bytes; larger arguments are left out</td></tr>
+            <tr><td>Wait for the view after the call</td><td class="muted">10 seconds to read it, 15 seconds to start</td></tr>
+            <tr><td>Where views show</td><td class="muted">The web app&#39;s chat. Runs started from Board tickets get no view. The desktop app doesn&#39;t show views</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="record-apps.html"><small>Previous</small><span>Record apps</span></a>
+        <a class="next" href="permissions.html"><small>Next</small><span>People, bots and permissions</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#how">How a tool call works</a>
+      <a href="#server">Write the server</a>
+      <a href="#view">Add a view</a>
+      <a href="#test">Test locally</a>
+      <a href="#deploy">Deploy and publish</a>
+      <a href="#limits">Limits</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

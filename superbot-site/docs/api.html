@@ -6,9 +6,7 @@
   <title>Registry API</title>
   <meta name="description" content="The pluginRegistry procedures of a Superbot server: inputs, results, paging and rules.">
   <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="../assets/base.css">
   <link rel="stylesheet" href="../assets/site.css">
   <script src="../assets/site.js"></script>
@@ -19,8 +17,10 @@
     <div class="bar">
       <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
       <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
         <a href="../#status" class="hide-sm">Status</a>
         <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
         </button>
@@ -34,13 +34,24 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
       <div id="docs-nav-links" class="docs-nav-links">
-        <h4>Plugins</h4>
-        <a href="./">Build a plugin</a>
-        <a href="manifest.html">Manifest reference</a>
-        <a href="publishing.html">Review, install and grants</a>
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
         <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
         <a href="cli.html">superbot-plugin commands</a>
         <a href="api.html" aria-current="page">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
       </div>
     </nav>
 
@@ -99,9 +110,9 @@
 <pre><code>{
   <span class="tok-k">"items"</span>: [
     {
-      <span class="tok-k">"id"</span>: <span class="tok-s">"0b6f…"</span>,
-      <span class="tok-k">"values"</span>: { <span class="tok-k">"date"</span>: <span class="tok-s">"2026-11-20"</span>, <span class="tok-k">"meal"</span>: <span class="tok-s">"Porridge"</span>, <span class="tok-k">"kcal"</span>: <span class="tok-n">480</span> },
-      <span class="tok-k">"createdAt"</span>: <span class="tok-s">"2026-11-20T08:10:00.000Z"</span>
+<span class="tok-k">"id"</span>: <span class="tok-s">"0b6f…"</span>,
+<span class="tok-k">"values"</span>: { <span class="tok-k">"date"</span>: <span class="tok-s">"2026-11-20"</span>, <span class="tok-k">"meal"</span>: <span class="tok-s">"Porridge"</span>, <span class="tok-k">"kcal"</span>: <span class="tok-n">480</span> },
+<span class="tok-k">"createdAt"</span>: <span class="tok-s">"2026-11-20T08:10:00.000Z"</span>
     }
   ],
   <span class="tok-k">"nextAfter"</span>: <span class="tok-n">null</span>,
@@ -142,14 +153,15 @@
             <tr><td>403</td><td class="muted"><code>review</code> or <code>submissions</code> from an account that isn't a deployment admin.</td></tr>
             <tr><td>400</td><td class="muted">The input or manifest doesn't match the schema, or an entry's values don't match the app's fields.</td></tr>
             <tr><td>404</td><td class="muted">The installation or record app part isn't yours in the selected Space.</td></tr>
-            <tr><td>409</td><td class="muted">An <code>operationId</code> reused with different values or after its entry was removed.</td></tr>
+            <tr><td>409</td><td class="muted">A slug or version already reserved, a version already reviewed, a stale <code>expectedVersionId</code>, or an <code>operationId</code> reused with other values or after its entry was removed.</td></tr>
           </tbody>
         </table>
       </div>
-      <p>The exact schemas live in <code>packages/contracts/src/integrations/plugin-registry.ts</code> in the repository.</p>
+      <p>Every message, with its fix, is in <a href="errors.html#registry">Errors and fixes</a>. The exact schemas live in <code>packages/contracts/src/integrations/plugin-registry.ts</code> in the repository.</p>
 
       <nav class="pager" aria-label="Pages">
         <a href="cli.html"><small>Previous</small><span>superbot-plugin commands</span></a>
+        <a class="next" href="errors.html"><small>Next</small><span>Errors and fixes</span></a>
       </nav>
     </main>
 
@@ -167,7 +179,7 @@
   <footer class="site-footer">
     <div class="bar">
       <span>Superbot. Open source.</span>
-      <nav aria-label="Footer"><a href="../">Home</a><a href="cli.html">Commands</a><a href="../NOTICE.txt">Notices</a></nav>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
     </div>
   </footer>
 </body>
