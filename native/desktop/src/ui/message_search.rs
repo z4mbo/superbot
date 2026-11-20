@@ -3,6 +3,7 @@
 use std::ops::Range;
 use std::time::Duration;
 
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use superbot_features::{Features, SearchHit, SearchHitKind};
 
@@ -63,6 +64,19 @@ fn messages(hits: Vec<SearchHit>) -> Vec<Found> {
     found
 }
 
+/// The agents whose additional conversations hold some of what was found, once each.
+fn other_conversations(found: &[Found]) -> Vec<String> {
+    let mut agents: Vec<String> = Vec::new();
+    for found in found {
+        if let Target::Conversation { agent, .. } = &found.target {
+            if !agents.contains(agent) {
+                agents.push(agent.clone());
+            }
+        }
+    }
+    agents
+}
+
 /// Where `query` first appears in `text`, ignoring case.
 fn matched(text: &str, query: &str) -> Option<Range<usize>> {
     let query = query.to_lowercase();
@@ -94,11 +108,15 @@ impl Desktop {
                 let features = Features::new(api.client.clone());
                 let (words, scope) = (query.clone(), space.clone());
                 let work = async move { features.space(scope).search(&words).await };
-                this.call(window, cx, work, move |this, result, _, _| {
-                    if this.message_search.asked == asked {
-                        let found = result.map(messages).map_err(|_| ());
-                        this.message_search.answer = Some(Answer { space, query, found });
+                this.call(window, cx, work, move |this, result, window, cx| {
+                    if this.message_search.asked != asked {
+                        return;
                     }
+                    let found = result.map(messages).map_err(|_| ());
+                    for agent in other_conversations(found.as_deref().unwrap_or_default()) {
+                        this.read_conversations(&agent, this.agent_info.generation(), window, cx);
+                    }
+                    this.message_search.answer = Some(Answer { space, query, found });
                 });
             })
             .ok();
@@ -116,8 +134,9 @@ impl Desktop {
         self.open_at(found.target, Some(found.message), window, cx);
     }
 
-    /// The Messages section for what is typed, when it is long enough to search.
-    pub fn render_message_search(&mut self, theme: &Theme, cx: &mut Context<Self>) -> Option<Div> {
+    /// The Messages section for what is typed, when it is long enough to search, set off from
+    /// the agents listed above it.
+    pub fn render_message_search(&mut self, below: bool, theme: &Theme, cx: &mut Context<Self>) -> Option<Div> {
         let query = searchable(&self.search.read(cx).value())?;
         let space = self.space_id();
         let answer = self
@@ -126,19 +145,25 @@ impl Desktop {
             .as_ref()
             .filter(|answer| answer.query == query && Some(&answer.space) == space.as_ref());
         let heading = match answer.map(|answer| &answer.found) {
-            Some(Ok(found)) if !found.is_empty() => format!("Messages · {}", found.len()),
-            _ => "Messages".to_owned(),
+            Some(Ok(found)) if !found.is_empty() => format!("MESSAGES · {}", found.len()),
+            _ => "MESSAGES".to_owned(),
         };
-        let section = div().flex().flex_col().gap_0p5().pt_2().pb_2().border_t_1().border_color(theme.hairline).child(
-            div()
-                .px_2()
-                .pt_1()
-                .pb_1()
-                .meta()
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(theme.ink_secondary)
-                .child(heading),
-        );
+        let section = div()
+            .flex()
+            .flex_col()
+            .gap_0p5()
+            .pb_2()
+            .when(below, |section| section.pt_2().border_t_1().border_color(theme.hairline))
+            .child(
+                div()
+                    .px_2()
+                    .pt_1()
+                    .pb_1()
+                    .meta()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(theme.ink_secondary)
+                    .child(heading),
+            );
         Some(match answer.map(|answer| answer.found.clone()) {
             None => section,
             Some(Err(())) => section.child(
@@ -181,6 +206,10 @@ impl Desktop {
             None => StyledText::new(found.snippet.clone()),
         };
         let face = self.target_face(&found.target, px(26.), None, theme, cx);
+        let conversation = match &found.target {
+            Target::Conversation { agent, thread } => self.conversation_name(agent, thread),
+            _ => None,
+        };
         let chat = found.chat.clone();
         div()
             .id(("found", index))
@@ -199,7 +228,18 @@ impl Desktop {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .child(div().meta().font_weight(FontWeight::MEDIUM).text_color(theme.ink).truncate().child(chat))
+                    .child(
+                        div()
+                            .flex()
+                            .gap_1()
+                            .meta()
+                            .child(
+                                div().flex_shrink_0().font_weight(FontWeight::MEDIUM).text_color(theme.ink).child(chat),
+                            )
+                            .children(conversation.map(|name| {
+                                div().min_w_0().text_color(theme.ink_secondary).truncate().child(format!("· {name}"))
+                            })),
+                    )
                     .child(div().mt(px(2.)).body().text_color(theme.ink_secondary).line_clamp(2).child(snippet)),
             )
             .into_any_element()

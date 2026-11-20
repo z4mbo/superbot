@@ -73,6 +73,11 @@ impl AgentInfo {
         self.generation += 1;
     }
 
+    /// Which round of change signals what is read now belongs to.
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
     pub fn bot(&self, id: &str) -> Option<&Bot> {
         self.bots.get(id)
     }
