@@ -17,6 +17,7 @@ use crate::outbox::Drafts;
 use crate::runtime::{follow_space, network, Live};
 use crate::ui::agent_panel::{AgentInfo, AgentPanel};
 use crate::ui::inbox::Inbox;
+use crate::ui::message_search::MessageSearch;
 use crate::ui::corner::Tints;
 use crate::ui::store::Store;
 use crate::ui::workspace::Workspace;
@@ -129,6 +130,7 @@ pub struct Desktop {
     pub composer: Entity<TextareaState>,
     pub search: Entity<InputState>,
     pub search_open: bool,
+    pub message_search: MessageSearch,
     pub tints: Tints,
     pub tile_preview: crate::ui::tile_preview::TilePreview,
     pub store: Store,
@@ -175,8 +177,9 @@ impl Desktop {
                 InputEvent::PressEnter { .. } => this.send(window, cx),
                 InputEvent::Change | InputEvent::Focus | InputEvent::Blur => cx.notify(),
             }),
-            cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
+            cx.subscribe_in(&search, window, |this, _, event: &InputEvent, window, cx| {
                 if matches!(event, InputEvent::Change) {
+                    this.search_messages(window, cx);
                     cx.notify();
                 }
             }),
@@ -221,6 +224,7 @@ impl Desktop {
             composer,
             search,
             search_open: false,
+            message_search: MessageSearch::default(),
             tints: Tints::default(),
             tile_preview: Default::default(),
             store: Store::new(window, cx),
@@ -539,6 +543,7 @@ impl Desktop {
         self.composer.update(cx, |composer, cx| composer.set_value("", window, cx));
         self.search.update(cx, |search, cx| search.set_value("", window, cx));
         self.search_open = false;
+        self.forget_message_search();
         self.menu = None;
         self.dialog = None;
         self.notice = None;

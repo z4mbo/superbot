@@ -82,6 +82,7 @@ export function searchSheetRows(
   if (!needle) return rows;
   const chats = new Set(rows.map((row) => row.key));
   for (const hit of dedupeSearchHits(hits)) {
+    if (hit.threadId) continue;
     if (
       hit.kind === "conversation" &&
       chats.has(hit.groupId ? `group-${hit.groupId}` : `bot-${hit.botId}`)

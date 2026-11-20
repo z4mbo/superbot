@@ -5,6 +5,7 @@ pub mod corner;
 pub mod create_panel;
 pub mod creator;
 pub mod inbox;
+pub mod message_search;
 pub mod model_menu;
 pub mod new_menu;
 pub mod overlays;

@@ -14,6 +14,7 @@ import { startModelEmulator } from "../../scripts/superbot-test-support.mjs";
 import { checkBotConversations, conversationSteps } from "./verify-bot-conversations.mjs";
 import { checkConversationContent } from "./verify-conversation-content.mjs";
 import { prepareMarketplaceApp } from "./verify-marketplace-app.mjs";
+import { checkSearch } from "./verify-search.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const exec = promisify(execFile);
@@ -846,6 +847,7 @@ try {
     first,
     second,
   });
+  await checkSearch({ rpc, signup, space, scopedOwner, scopedObserver, first, group });
   model.assertComplete();
   if (marketplace) {
     console.log(
