@@ -1,10 +1,11 @@
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { globSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { createApp } from "@rakazo/api/app";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import type { runAsSystem as RunAsSystem } from "@rakazo/db";
+import { computerProductConfig } from "../computers/computer-product.test-support.js";
 import { createModelConnectionFixtureFetch } from "../model-connection-fixture.js";
 import { pinLocalSecretStore } from "../pin-secret-store.js";
 import { PluginMarketplaceFixture } from "../plugin-marketplace-fixture.js";
@@ -23,25 +24,32 @@ const grepArg = process.argv.find((arg) => arg.startsWith("--grep="));
 const shardArg = process.argv.find((arg) => arg.startsWith("--shard="));
 const runtimeArg = process.argv.find((arg) => arg.startsWith("--runtime="));
 const sandboxProvider = sandboxArg?.slice("--sandbox=".length) ?? "fake";
-const e2eSpec = specArg?.slice("--spec=".length);
+const spec = specArg?.slice("--spec=".length);
+const dockerProduct = integration && sandboxProvider === computerProductConfig.sandboxProvider;
 const e2eGrep = grepArg?.slice("--grep=".length);
 const shard = shardArg?.slice("--shard=".length);
-const agentRuntime = runtimeArg?.slice("--runtime=".length) ?? "scripted";
+const requestedRuntime = runtimeArg?.slice("--runtime=".length) ?? "scripted";
 
 if (Number(integration) + Number(e2e) !== 1) {
   throw new Error("Pass exactly one of --integration or --e2e");
 }
-if (!["fake", "e2b", "novita", "daytona", "boat", "boxd", "instabox"].includes(sandboxProvider)) {
+if (
+  !dockerProduct &&
+  !["fake", "e2b", "novita", "daytona", "boat", "boxd", "instabox"].includes(sandboxProvider)
+) {
   throw new Error(
-    'Sandbox must be "fake", "e2b", "novita", "daytona", "boat", "boxd", or "instabox"',
+    'Sandbox must be "fake", "e2b", "novita", "daytona", "boat", "boxd", or "instabox". Use "docker" with --integration --spec=computer-product.',
   );
 }
-if (integration && sandboxProvider !== "fake") {
-  throw new Error("Integration tests only support the fake sandbox");
+if (integration && sandboxProvider !== "fake" && !dockerProduct) {
+  throw new Error(
+    "Integration tests require the fake sandbox or --sandbox=docker --spec=computer-product",
+  );
 }
-if (agentRuntime !== "pi" && agentRuntime !== "scripted") {
+if (requestedRuntime !== "pi" && requestedRuntime !== "scripted") {
   throw new Error('Runtime must be "pi" or "scripted"');
 }
+const agentRuntime = dockerProduct ? computerProductConfig.agentRuntime : requestedRuntime;
 if (sandboxProvider === "e2b" && !process.env.E2B_API_KEY) {
   throw new Error("E2B_API_KEY is required when --sandbox=e2b");
 }
@@ -62,6 +70,11 @@ if (sandboxProvider === "instabox" && !process.env.INSTABOX_API_KEY) {
 }
 
 async function main() {
+  const suites = integration ? selectIntegrationSuites() : [];
+  const computerImage = process.env.RAKAZO_COMPUTER_IMAGE || "rakazo/computer:local";
+  if (dockerProduct) {
+    execFileSync("docker", ["image", "inspect", computerImage], { stdio: "ignore" });
+  }
   const mode = integration ? "integration" : "e2e";
   const reportDir = path.resolve("test-report", mode);
   await mkdir(reportDir, { recursive: true });
@@ -128,29 +141,16 @@ async function main() {
     execSync("pnpm db:migrate", { stdio: "inherit", env: process.env });
 
     if (integration) {
-      // Every *.postgres.test.ts file runs here, so a new one cannot be left out;
-      // the other suites need the database too but carry no suffix.
-      const suites = [
-        ...globSync("{apps,packages}/*/src/**/*.postgres.test.ts").sort(),
-        "packages/testkit/src/product/journeys.test.ts",
-        "packages/testkit/src/product/authorization.test.ts",
-        "packages/testkit/src/product/attachments.test.ts",
-        "packages/testkit/src/product/voice.test.ts",
-        "packages/testkit/src/product/search.test.ts",
-        "packages/testkit/src/product/executor-lifecycle.test.ts",
-        "packages/testkit/src/product/connections.test.ts",
-        "packages/testkit/src/product/bot-secrets.test.ts",
-      ];
-      // --spec=<part of a path> runs only the matching suites.
-      const selected = e2eSpec ? suites.filter((suite) => suite.includes(e2eSpec)) : suites;
-      if (!selected.length) throw new Error(`No integration suite matches ${e2eSpec}`);
       // Files run in parallel, each on its own copy of the migrated database (pin-test-env.ts).
       await runProcess(
         "pnpm",
-        ["exec", "vitest", "run", ...(shard ? ["--shard", shard] : []), ...selected],
+        ["exec", "vitest", "run", ...(shard ? ["--shard", shard] : []), ...suites],
         {
           ...process.env,
           COPY_TEST_DATABASE: "1",
+          ...(dockerProduct
+            ? { RUN_COMPUTER_PRODUCT_DOCKER: "1", RAKAZO_COMPUTER_IMAGE: computerImage }
+            : {}),
           OPENROUTER_API_KEY: "",
           MODEL_API_KEY: "",
           // A developer .env may say development, which changes defaults such as encryption.
@@ -160,8 +160,8 @@ async function main() {
       await writeSummary(reportDir, {
         ok: true,
         mode,
-        sandbox: process.env.SANDBOX_PROVIDER,
-        runtime: process.env.AGENT_RUNTIME,
+        sandbox: sandboxProvider,
+        runtime: agentRuntime,
       });
       return;
     }
@@ -255,7 +255,7 @@ async function main() {
             "exec",
             "playwright",
             "test",
-            ...(e2eSpec ? [e2eSpec] : []),
+            ...(spec ? [spec] : []),
             ...(e2eGrep ? ["--grep", e2eGrep] : []),
             ...(shard ? ["--shard", shard] : []),
           ],
@@ -263,6 +263,8 @@ async function main() {
             ...process.env,
             CI: "1",
             DATABASE_URL: migrationUrl,
+            // These specs exercise the default deployment, independent of the developer's theme.
+            RAKAZO_THEME: "",
             // Pin English so e2e selectors match source messages regardless of runner locale.
             VITE_DEFAULT_UI_LOCALE: "en",
           },
@@ -285,8 +287,8 @@ async function main() {
       await writeSummary(reportDir, {
         ok: true,
         mode,
-        sandbox: process.env.SANDBOX_PROVIDER,
-        runtime: process.env.AGENT_RUNTIME,
+        sandbox: sandboxProvider,
+        runtime: agentRuntime,
         apiPort,
         webPort,
       });
@@ -335,6 +337,27 @@ async function main() {
   } finally {
     await container.stop().catch(() => undefined);
   }
+}
+
+function selectIntegrationSuites() {
+  // Every *.postgres.test.ts file runs here, so a new one cannot be left out.
+  // The other listed suites also need a database but have no suffix.
+  const suites = dockerProduct
+    ? ["packages/testkit/src/computers/computer-product.docker.test.ts"]
+    : [
+        ...globSync("{apps,packages}/*/src/**/*.postgres.test.ts").sort(),
+        "packages/testkit/src/product/journeys.test.ts",
+        "packages/testkit/src/product/authorization.test.ts",
+        "packages/testkit/src/product/attachments.test.ts",
+        "packages/testkit/src/product/voice.test.ts",
+        "packages/testkit/src/product/search.test.ts",
+        "packages/testkit/src/product/executor-lifecycle.test.ts",
+        "packages/testkit/src/product/connections.test.ts",
+        "packages/testkit/src/product/bot-secrets.test.ts",
+      ];
+  const selected = spec ? suites.filter((suite) => suite.includes(spec)) : suites;
+  if (!selected.length) throw new Error(`No integration suite matches ${spec}`);
+  return selected;
 }
 
 type AppHandles = Awaited<ReturnType<typeof createApp>>;
