@@ -1,6 +1,11 @@
 import type { SemanticMemoryProvider } from "@rakazo/adapter-kit";
 import { hasLab, resolveLabs } from "@rakazo/contracts";
-import { BACKGROUND_HELPER_TRIGGER, isMessagingChannelRun, messagingChannelId } from "@rakazo/core";
+import {
+  BACKGROUND_HELPER_TRIGGER,
+  isMessagingChannelRun,
+  isOwnerStartedRun,
+  messagingChannelId,
+} from "@rakazo/core";
 import {
   effectiveMemoryScope,
   expireRunToolQuestions,
@@ -432,11 +437,28 @@ export async function connectRun(
     ),
   );
 
-  const scope = marketplaceScope(run, bot, parts.records.nonOwnerChatRun);
+  const { conversationRun, conversationThread, messages, nonOwnerChatRun, origin } = parts.records;
+  const scope = marketplaceScope(run, bot, nonOwnerChatRun);
+  const marketplaceAppAllowed = Boolean(
+    scope &&
+      !conversationThread.groupId &&
+      conversationRun.userId === scope.userId &&
+      isOwnerStartedRun(
+        conversationRun.trigger,
+        (origin?.sourceMessage ?? messages.find(({ id }) => id === conversationRun.sourceMessageId))
+          ?.role === "user",
+        nonOwnerChatRun,
+      ),
+  );
   const discoveredPromise = Promise.all([
     deps.connector?.discoverTools(context) ?? [],
     scope && run.trigger !== "created"
-      ? discoverMarketplaceTools({ prisma: deps.prisma, scope, signal: context.signal })
+      ? discoverMarketplaceTools({
+          prisma: deps.prisma,
+          scope,
+          signal: context.signal,
+          appAllowed: marketplaceAppAllowed,
+        })
       : [],
   ]).then(([connectors, marketplace]) => [
     ...connectors.filter((tool) => !marketplaceToolName(tool.name)),
@@ -456,6 +478,7 @@ export async function connectRun(
     context,
     memoryScope,
     semanticMemory,
+    marketplaceAppAllowed,
     discoveredPromise,
     cloudAgentPromise,
   };

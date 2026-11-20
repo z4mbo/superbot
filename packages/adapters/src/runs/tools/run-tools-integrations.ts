@@ -55,9 +55,16 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
     return call.finish(
       scope && tool
         ? await executeMarketplaceTool(
-            { prisma: deps.prisma, scope, signal: context.signal },
+            {
+              prisma: deps.prisma,
+              scope,
+              signal: context.signal,
+              appAllowed: ctx.source.marketplaceAppAllowed,
+            },
             tool,
             args,
+            effectKey,
+            () => deps.events.publishSpaceChange?.(scope.spaceId, "pluginRegistry"),
           )
         : { error: MARKETPLACE_UNAVAILABLE },
     );

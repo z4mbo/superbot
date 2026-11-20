@@ -188,6 +188,7 @@ export async function createRunContext(
     secrets: runSecrets,
     source: {
       ownerStartedRun,
+      marketplaceAppAllowed: parts.connected.marketplaceAppAllowed,
       meetingChat: parts.meetingChat,
       messagingChannelRun: nonOwnerChatRun,
       channelId,

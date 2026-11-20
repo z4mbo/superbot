@@ -276,7 +276,12 @@ async function dispatchTool(
       !tool ||
       !scope ||
       !(await findLiveMarketplaceGrant(
-        { prisma: ctx.deps.prisma, scope, signal: ctx.context.signal },
+        {
+          prisma: ctx.deps.prisma,
+          scope,
+          signal: ctx.context.signal,
+          appAllowed: ctx.source.marketplaceAppAllowed,
+        },
         tool,
       ))
     )
