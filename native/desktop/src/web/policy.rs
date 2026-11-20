@@ -41,6 +41,19 @@ pub fn popup(server: &Url, target: &str, sized: bool) -> Popup {
     }
 }
 
+/// Whether `target` is one of the server's own screen pages, the only thing a screen view loads.
+/// Their address carries the screen's capability, so it is checked here and never shown.
+pub fn screen_page(server: &Url, target: &str) -> bool {
+    if target == "about:blank" {
+        return true;
+    }
+    Url::parse(target).is_ok_and(|target| {
+        matches!(target.scheme(), "http" | "https")
+            && target.origin() == server.origin()
+            && target.path().starts_with("/novnc/session/")
+    })
+}
+
 pub fn is_server(server: &Url, location: &str) -> bool {
     Url::parse(location).is_ok_and(|location| location.origin() == server.origin())
 }
@@ -84,6 +97,23 @@ mod tests {
 
     fn server() -> Url {
         Url::parse("http://127.0.0.1:5173").unwrap()
+    }
+
+    #[test]
+    fn a_screen_view_loads_only_this_servers_screen_pages() {
+        let server = server();
+        assert!(screen_page(&server, "http://127.0.0.1:5173/novnc/session/view/1.abc/embed.html?x=1"));
+        assert!(screen_page(&server, "about:blank"));
+        for target in [
+            "http://127.0.0.1:5173/app",
+            "http://127.0.0.1:5173/novnc/other",
+            "http://127.0.0.1:9999/novnc/session/view/1.abc",
+            "https://screens.example.com/novnc/session/view/1.abc",
+            "file:///C:/novnc/session/view",
+            "javascript:alert(1)",
+        ] {
+            assert!(!screen_page(&server, target), "{target}");
+        }
     }
 
     #[test]

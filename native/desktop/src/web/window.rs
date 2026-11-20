@@ -344,7 +344,7 @@ impl HasWindowHandle for Parent {
     }
 }
 
-fn runtime_installed() -> bool {
+pub(super) fn runtime_installed() -> bool {
     use webview2_com::Microsoft::Web::WebView2::Win32::GetAvailableCoreWebView2BrowserVersionString;
     let mut version = windows_core::PWSTR::null();
     let found = unsafe { GetAvailableCoreWebView2BrowserVersionString(windows_core::PCWSTR::null(), &mut version) };

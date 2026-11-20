@@ -701,6 +701,9 @@ impl Desktop {
 
     pub fn show(&mut self, view: View, window: &mut Window, cx: &mut Context<Self>) {
         self.view = view;
+        if view != View::Chat {
+            self.close_screen(cx);
+        }
         self.set_workspace_visible(view == View::Workspace, window, cx);
         self.menu = None;
         match view {

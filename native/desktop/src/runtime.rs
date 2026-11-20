@@ -34,6 +34,12 @@ pub async fn network<T: Send + 'static>(
     }
 }
 
+/// Runs client work that must finish even when nothing waits for it, such as handing back a
+/// computer's control as its screen closes.
+pub fn detach<T: Send + 'static>(work: impl Future<Output = Result<T, Error>> + Send + 'static) {
+    drop(runtime().spawn(work));
+}
+
 pub enum Live<T = ThreadEvent> {
     Event(T),
     /// The stream dropped and is being reopened from the last event seen.
