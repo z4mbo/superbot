@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { buttonVariants } from "@rakazo/ui-web";
 import { MessagesSquare, SquareKanban } from "lucide-react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { createContext, use } from "react";
 import { Link, Outlet, useMatch } from "react-router-dom";
 import { IconTooltip } from "../../components/IconTooltip";
@@ -9,6 +9,7 @@ import { WindowChrome } from "../../components/WindowChrome";
 import { desktopBridge } from "../../lib/platform/desktop";
 
 const AppRailContext = createContext(false);
+export const APP_RAIL_WIDTH = 72;
 
 /** True when the rail is on screen from the md breakpoint up and holds the window controls there. */
 export function useAppRail() {
@@ -20,7 +21,10 @@ export function AppRailLayout({ enabled }: { enabled: boolean }) {
   if (!enabled) return <Outlet />;
   return (
     <AppRailContext value>
-      <div className="flex h-full min-w-0">
+      <div
+        className="flex h-full min-w-0"
+        style={{ "--app-rail-width": `${APP_RAIL_WIDTH}px` } as CSSProperties}
+      >
         <AppRail />
         <div className="h-full min-w-0 flex-1">
           <Outlet />
@@ -39,7 +43,7 @@ function AppRail() {
     <nav
       data-testid="app-rail"
       aria-label={t`Sections`}
-      className="app-drag hidden w-18 shrink-0 flex-col items-center gap-2 border-e border-sidebar-border bg-sidebar pt-4 pb-3 md:flex"
+      className="app-drag hidden w-(--app-rail-width) shrink-0 flex-col items-center gap-2 border-e border-sidebar-border bg-sidebar pt-4 pb-3 md:flex"
     >
       {desktopBridge() ? <WindowChrome className="mb-2" /> : null}
       <RailLink to="/app" label={t`Chats`} active={!onBoard}>
