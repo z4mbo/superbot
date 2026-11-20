@@ -13,21 +13,31 @@ impl Desktop {
             SignInMode::Password => ("Sign in", "Sign in", "Signing in…"),
             SignInMode::CreateAccount => ("Create your account", "Create account", "Creating account…"),
             SignInMode::Code => ("Enter your code", "Sign in", "Signing in…"),
+            SignInMode::Invite => ("Join with an invite", "Continue", "Continue"),
         };
+        let invited = self.onboarding.pending.as_ref().filter(|_| form.mode != SignInMode::Invite).map(|invite| {
+            let host = url::Url::parse(&invite.server).ok().and_then(|url| url.host_str().map(str::to_owned));
+            let host = host.unwrap_or_else(|| invite.server.clone());
+            format!("Sign in or create an account on {host} to use your invite.")
+        });
 
         let fields = div()
             .flex()
             .flex_col()
             .gap_3()
+            .when(form.mode == SignInMode::Invite, |fields| fields.child(field("Invite link", &form.invite, &theme)))
             .when(form.mode == SignInMode::CreateAccount, |fields| fields.child(field("Name", &form.name, &theme)))
-            .child(field("Email", &form.email, &theme))
-            .map(|fields| match form.mode {
-                SignInMode::Code => fields.child(field("Code", &form.code, &theme)),
-                _ => fields.child(field("Password", &form.password, &theme)),
-            })
-            .child(field("Server", &form.server, &theme));
+            .when(form.mode != SignInMode::Invite, |fields| {
+                fields
+                    .child(field("Email", &form.email, &theme))
+                    .map(|fields| match form.mode {
+                        SignInMode::Code => fields.child(field("Code", &form.code, &theme)),
+                        _ => fields.child(field("Password", &form.password, &theme)),
+                    })
+                    .child(field("Server", &form.server, &theme))
+            });
 
-        let switches = match form.mode {
+        let mut switches = match form.mode {
             SignInMode::Password => vec![
                 ("to-code", "Email me a code instead", Switch::RequestCode),
                 ("to-create", "Create an account", Switch::Mode(SignInMode::CreateAccount)),
@@ -39,7 +49,13 @@ impl Desktop {
                 ("resend", "Send a new code", Switch::RequestCode),
                 ("to-password", "Use a password instead", Switch::Mode(SignInMode::Password)),
             ],
+            SignInMode::Invite => vec![("to-sign-in", "Back to sign in", Switch::Mode(SignInMode::Password))],
         };
+        match (form.mode, self.onboarding.pending.is_some()) {
+            (SignInMode::Invite, _) => {}
+            (_, false) => switches.push(("to-invite", "Join with an invite link", Switch::Invite)),
+            (_, true) => switches.push(("forget-invite", "Don't use the invite", Switch::ForgetInvite)),
+        }
 
         div()
             .size_full()
@@ -64,7 +80,7 @@ impl Desktop {
                             .child(div().title().child(title)),
                     )
                     .children(form.error.clone().map(|error| error_line(error, &theme)))
-                    .children(form.status.clone().map(|status| status_line(status, &theme)))
+                    .children(form.status.clone().or(invited).map(|status| status_line(status, &theme)))
                     .child(fields)
                     .child(
                         pill_button(
@@ -90,6 +106,8 @@ impl Desktop {
                                 .on_click(cx.listener(move |this, _, window, cx| match switch {
                                     Switch::Mode(mode) => this.set_sign_in_mode(mode, cx),
                                     Switch::RequestCode => this.request_code(window, cx),
+                                    Switch::Invite => this.enter_invite(window, cx),
+                                    Switch::ForgetInvite => this.forget_invite(cx),
                                 }))
                                 .child(label)
                         },
@@ -115,6 +133,8 @@ impl Desktop {
 enum Switch {
     Mode(SignInMode),
     RequestCode,
+    Invite,
+    ForgetInvite,
 }
 
 fn status_line(text: String, theme: &Theme) -> Div {

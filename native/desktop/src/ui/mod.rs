@@ -9,6 +9,7 @@ pub mod inbox;
 pub mod message_search;
 pub mod model_menu;
 pub mod new_menu;
+pub mod onboarding;
 pub mod overlays;
 pub mod releases;
 pub mod service_logo;

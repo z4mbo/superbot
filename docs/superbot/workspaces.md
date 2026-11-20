@@ -8,6 +8,10 @@ After creating an account, open **Workspaces** to use Personal, create a workspa
 
 A new workspace starts with its creator as its only member. Open **People**, then **Invite** and **Copy invite link**. The recipient can sign in with an existing account, review the named workspace, and join. Open **People** again to review membership. Share an additional workspace to keep Personal private. The link grants access to the named Space only. Workspace setup and membership work before you connect a model.
 
+## Desktop
+
+A new account first chooses between **Create a workspace**, **Join with an invite**, and continuing in Personal. Before signing in, choose **Join with an invite link** and paste the link. A copied link fills in automatically. The link selects its server, and the invite opens after you sign in or create an account. Signed-in people use **Join with an invite…** from the Space menu. A new workspace opens on **People**, where its owner invites others. The desktop reopens the last Space each account used on each server.
+
 ## Terminal
 
 ```sh

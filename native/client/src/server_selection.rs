@@ -92,6 +92,81 @@ fn default_directory() -> Option<PathBuf> {
     Some(config.join("superbot"))
 }
 
+/// The Space this person last had open on this server, which the apps open on again.
+pub fn remembered_space(client: &Client, user_id: &str) -> Option<String> {
+    read_spaces(&space_file()?).remove(&space_key(client, user_id))
+}
+
+pub fn remember_space(client: &Client, user_id: &str, space_id: &str) -> io::Result<()> {
+    let path = space_file().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            "Superbot settings directory is unavailable",
+        )
+    })?;
+    save_space(&path, client, user_id, space_id)
+}
+
+fn space_file() -> Option<PathBuf> {
+    Some(server_file()?.with_file_name("spaces.json"))
+}
+
+fn space_key(client: &Client, user_id: &str) -> String {
+    format!("{} {user_id}", client.server())
+}
+
+fn read_spaces(path: &Path) -> std::collections::BTreeMap<String, String> {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|saved| serde_json::from_str(&saved).ok())
+        .unwrap_or_default()
+}
+
+fn save_space(path: &Path, client: &Client, user_id: &str, space_id: &str) -> io::Result<()> {
+    let mut spaces = read_spaces(path);
+    spaces.insert(space_key(client, user_id), space_id.to_owned());
+    let directory = path.parent().expect("space file has a settings directory");
+    fs::create_dir_all(directory)?;
+    let mut pending = tempfile::NamedTempFile::new_in(directory)?;
+    serde_json::to_writer(&mut pending, &spaces)?;
+    pending.persist(path)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod space_tests {
+    use super::*;
+
+    #[test]
+    fn each_account_on_each_server_returns_to_its_own_space() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("settings/spaces.json");
+        let first = Client::new("https://first.example.test").unwrap();
+        let second = Client::new("https://second.example.test").unwrap();
+        let spaces = || read_spaces(&path);
+        assert!(spaces().is_empty());
+        save_space(&path, &first, "ada", "team").unwrap();
+        save_space(&path, &first, "grace", "lab").unwrap();
+        save_space(&path, &second, "ada", "home").unwrap();
+        save_space(&path, &first, "ada", "research").unwrap();
+        let saved = spaces();
+        assert_eq!(
+            saved.get(&space_key(&first, "ada")).map(String::as_str),
+            Some("research")
+        );
+        assert_eq!(
+            saved.get(&space_key(&first, "grace")).map(String::as_str),
+            Some("lab")
+        );
+        assert_eq!(
+            saved.get(&space_key(&second, "ada")).map(String::as_str),
+            Some("home")
+        );
+        fs::write(&path, "not json").unwrap();
+        assert!(spaces().is_empty());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
