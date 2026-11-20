@@ -1,15 +1,19 @@
+mod agents;
 mod app_view;
 mod confirm;
 mod detail;
+mod marketplace;
 mod presets;
 mod server_sign_in;
 mod services;
+mod skills;
 
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::api::{self, Installation, ManifestPart, PluginVersion};
+use crate::app::create::Template;
 use crate::app::{Desktop, View};
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::creator::Draft;
@@ -18,12 +22,22 @@ use crate::ui::{chip, empty_line, error_line, field_box, icon, page, pill_button
 use app_view::{app_parts, OpenApp};
 use confirm::Confirm;
 use services::{Services, SignIn};
+use superbot_features::AgentSkillEntry;
 
+/// The Store's four parts, each one kind of thing to add.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Section {
+    Agents,
+    Skills,
+    Plugins,
+    Apps,
+}
+
+/// The lists within Plugins.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Tab {
     Discover,
     Installed,
-    Connections,
     Yours,
     Review,
 }
@@ -40,7 +54,10 @@ pub struct Rejection {
 }
 
 pub struct Store {
+    pub section: Section,
     pub tab: Tab,
+    pub templates: Option<Result<Vec<Template>, String>>,
+    pub skills: Option<Result<Vec<AgentSkillEntry>, String>>,
     pub query: Entity<InputState>,
     pub loading: bool,
     pub loaded: bool,
@@ -66,6 +83,7 @@ pub struct Store {
     pub services_loading: bool,
     pub sign_in: Option<SignIn>,
     pub presets: presets::Presets,
+    pub marketplace: marketplace::Marketplace,
     sign_ins: u64,
     _query_changed: Subscription,
 }
@@ -79,7 +97,10 @@ impl Store {
             }
         });
         Self {
+            section: Section::Apps,
             tab: Tab::Discover,
+            templates: None,
+            skills: None,
             query,
             loading: false,
             loaded: false,
@@ -103,6 +124,7 @@ impl Store {
             sign_in: None,
             sign_ins: 0,
             presets: presets::Presets::default(),
+            marketplace: marketplace::Marketplace::default(),
             _query_changed: changed,
         }
     }
@@ -127,6 +149,9 @@ impl Store {
         self.services = None;
         self.sign_in = None;
         self.presets.forget();
+        self.marketplace.forget();
+        self.templates = None;
+        self.skills = None;
     }
 
     pub fn settle_confirm(&mut self) {
@@ -247,9 +272,7 @@ impl Desktop {
                 Err(error) => this.store.error = Some(api::explain(&error)),
             }
         });
-        if self.store.tab == Tab::Connections {
-            self.load_services(window, cx);
-        }
+        self.load_section(window, cx);
         cx.notify();
     }
 
@@ -325,6 +348,8 @@ impl Desktop {
             self.render_creator(window, cx)
         } else if self.store.app.is_some() {
             self.render_app(&theme, cx)
+        } else if self.store.marketplace.is_open() {
+            self.render_marketplace_plugin(&theme, cx)
         } else if let Some(slug) = self.store.detail.clone() {
             self.render_plugin_page(&slug, &theme, cx)
         } else {
@@ -333,16 +358,60 @@ impl Desktop {
         page(body).into_any_element()
     }
 
+    /// Reads what the open section shows, unless it was read already.
+    fn load_section(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.store.section {
+            Section::Agents => self.load_store_templates(window, cx),
+            Section::Skills => self.load_store_skills(window, cx),
+            Section::Apps => self.load_services(window, cx),
+            Section::Plugins => {}
+        }
+    }
+
+    fn show_section(&mut self, section: Section, window: &mut Window, cx: &mut Context<Self>) {
+        self.store.section = section;
+        self.store.rejection = None;
+        let unread = match section {
+            Section::Agents => self.store.templates.is_none(),
+            Section::Skills => self.store.skills.is_none(),
+            Section::Apps => self.store.services.is_none(),
+            Section::Plugins => false,
+        };
+        if unread {
+            self.load_section(window, cx);
+        }
+        cx.notify();
+    }
+
     fn render_store_home(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let admin = self.me.as_ref().is_some_and(|me| me.is_admin);
-        let tab = self.store.tab;
+        let (section, tab) = (self.store.section, self.store.tab);
+        let sections = [
+            (Section::Agents, "Agents", "bot"),
+            (Section::Skills, "Skills", "sparkles"),
+            (Section::Plugins, "Plugins", "puzzle"),
+            (Section::Apps, "Apps", "layout-grid"),
+        ];
+        let subtitle = match section {
+            Section::Agents => "Ready-made agents to add to this Space.",
+            Section::Skills => "What your agents know how to do.",
+            Section::Plugins => "Community plugins with skills, connectors and apps.",
+            Section::Apps => "Accounts and services your agents can use.",
+        };
         let tabs = [
             (Tab::Discover, "Discover", true),
             (Tab::Installed, "Installed", true),
-            (Tab::Connections, "Connections", true),
             (Tab::Yours, "Yours", true),
             (Tab::Review, "Review", admin),
         ];
+        let switcher = div().flex().child(
+            div().flex().items_center().gap_1().p_1().rounded_full().bg(theme.control.opacity(0.5)).children(
+                sections.into_iter().map(|(value, label, glyph)| {
+                    section_tab(label, glyph, section == value, theme)
+                        .on_click(cx.listener(move |this, _, window, cx| this.show_section(value, window, cx)))
+                }),
+            ),
+        );
         let header = div()
             .flex()
             .flex_col()
@@ -355,20 +424,23 @@ impl Desktop {
                     .justify_between()
                     .gap_3()
                     .child(
-                        div().flex().flex_col().gap_0p5().child(div().page_title().child("Plugins")).child(
-                            div()
-                                .body()
-                                .text_color(theme.ink_secondary)
-                                .child("Skills and connectors your agents can use."),
-                        ),
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_0p5()
+                            .child(div().page_title().child("Store"))
+                            .child(div().body().text_color(theme.ink_secondary).child(subtitle)),
                     )
-                    .child(pill_button("create-plugin", "Create plugin", Tone::Primary, true, theme).on_click(
-                        cx.listener(|this, _, window, cx| {
-                            this.store.draft = Some(Draft::new(None, window, cx));
-                            cx.notify();
-                        }),
-                    )),
+                    .when(section == Section::Plugins, |row| {
+                        row.child(pill_button("create-plugin", "Create plugin", Tone::Primary, true, theme).on_click(
+                            cx.listener(|this, _, window, cx| {
+                                this.store.draft = Some(Draft::new(None, window, cx));
+                                cx.notify();
+                            }),
+                        ))
+                    }),
             )
+            .child(switcher)
             .child(
                 div()
                     .h_9()
@@ -381,41 +453,23 @@ impl Desktop {
                     .child(icon("search", px(15.), theme.ink_secondary))
                     .child(div().flex_1().child(Input::new(&self.store.query).appearance(false).bordered(false))),
             )
-            .child(div().flex().items_center().gap_2().children(tabs.into_iter().filter(|(_, _, shown)| *shown).map(
-                |(value, label, _)| {
-                    chip(label, label, tab == value, theme).on_click(cx.listener(move |this, _, window, cx| {
-                        this.store.tab = value;
-                        this.store.rejection = None;
-                        if value == Tab::Connections && this.store.services.is_none() {
-                            this.load_services(window, cx);
-                        }
-                        cx.notify();
-                    }))
-                },
-            )));
+            .when(section == Section::Plugins, |header| {
+                header.child(div().flex().items_center().gap_2().children(
+                    tabs.into_iter().filter(|(_, _, shown)| *shown).map(|(value, label, _)| {
+                        chip(label, label, tab == value, theme).on_click(cx.listener(move |this, _, _, cx| {
+                            this.store.tab = value;
+                            this.store.rejection = None;
+                            cx.notify();
+                        }))
+                    }),
+                ))
+            });
 
-        let content = if let Some(error) = self.store.error.clone() {
-            div()
-                .flex()
-                .flex_col()
-                .items_start()
-                .gap_3()
-                .child(error_line(error, theme))
-                .child(
-                    pill_button("store-retry", "Try again", Tone::Quiet, true, theme)
-                        .on_click(cx.listener(|this, _, window, cx| this.load_store(window, cx))),
-                )
-                .into_any_element()
-        } else if !self.store.loaded {
-            empty_line(if self.store.loading { "Loading plugins…" } else { "" }, theme).into_any_element()
-        } else {
-            match tab {
-                Tab::Discover => self.render_catalog(false, theme, window, cx),
-                Tab::Installed => self.render_catalog(true, theme, window, cx),
-                Tab::Connections => self.render_services(theme, cx),
-                Tab::Yours => self.render_yours(theme, cx),
-                Tab::Review => self.render_review(theme, cx),
-            }
+        let content = match section {
+            Section::Agents => self.render_store_agents(theme, window, cx),
+            Section::Skills => self.render_store_skills(theme, window, cx),
+            Section::Apps => self.render_services(theme, cx),
+            Section::Plugins => self.render_plugins(theme, window, cx),
         };
 
         div()
@@ -425,6 +479,31 @@ impl Desktop {
             .child(header)
             .child(div().id("store-scroll").flex_1().min_h_0().overflow_y_scroll().pb_8().child(content))
             .into_any_element()
+    }
+
+    fn render_plugins(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        if let Some(error) = self.store.error.clone() {
+            return div()
+                .flex()
+                .flex_col()
+                .items_start()
+                .gap_3()
+                .child(error_line(error, theme))
+                .child(
+                    pill_button("store-retry", "Try again", Tone::Quiet, true, theme)
+                        .on_click(cx.listener(|this, _, window, cx| this.load_store(window, cx))),
+                )
+                .into_any_element();
+        }
+        if !self.store.loaded {
+            return empty_line(if self.store.loading { "Loading plugins…" } else { "" }, theme).into_any_element();
+        }
+        match self.store.tab {
+            Tab::Discover => self.render_catalog(false, theme, window, cx),
+            Tab::Installed => self.render_catalog(true, theme, window, cx),
+            Tab::Yours => self.render_yours(theme, cx),
+            Tab::Review => self.render_review(theme, cx),
+        }
     }
 
     fn render_catalog(
@@ -822,4 +901,25 @@ pub fn count(amount: usize, noun: &str) -> String {
     } else {
         format!("{amount} {noun}s")
     }
+}
+
+/// One of the Store's sections in its switcher: raised when open.
+fn section_tab(label: &'static str, glyph: &str, chosen: bool, theme: &Theme) -> Stateful<Div> {
+    let hover = theme.raised_hover;
+    let ink = if chosen { theme.ink } else { theme.ink_secondary };
+    div()
+        .id(SharedString::from(format!("section-{label}")))
+        .h_8()
+        .px_3p5()
+        .flex()
+        .items_center()
+        .gap_1p5()
+        .rounded_full()
+        .body()
+        .font_weight(FontWeight::MEDIUM)
+        .cursor_pointer()
+        .text_color(ink)
+        .map(|tab| if chosen { tab.bg(theme.raised) } else { tab.hover(move |style| style.bg(hover)) })
+        .child(icon(glyph, px(15.), ink))
+        .child(label)
 }

@@ -60,6 +60,7 @@ impl Desktop {
     pub(super) fn load_services(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         self.load_presets(window, cx);
+        self.load_marketplace(window, cx);
         self.store.services_loading = true;
         let work = async move {
             // Reading the catalog settles finished sign-ins, so the accounts are listed after it.
@@ -198,6 +199,10 @@ impl Desktop {
 
     pub(super) fn render_services(&mut self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
         let presets = self.render_preset_section(theme, cx);
+        let presets = match (presets, self.render_marketplace_section(super::marketplace::Shelf::Apps, theme, cx)) {
+            (None, None) => None,
+            (presets, market) => Some(div().flex().flex_col().gap_6().children(presets).children(market).into_any_element()),
+        };
         let services = match &self.store.services {
             None => {
                 let line = if self.store.services_loading { "Loading apps…" } else { "" };
