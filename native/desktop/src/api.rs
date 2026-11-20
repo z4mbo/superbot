@@ -1,6 +1,6 @@
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Value};
-use superbot_client::{Client, Error, ThreadEvent, ThreadTarget};
+use superbot_client::{Client, Error, ThreadEvent, ThreadTarget, SERVER_UNREACHABLE};
 
 mod apps;
 mod connections;
@@ -704,7 +704,7 @@ pub fn explain(error: &Error) -> String {
     match error {
         #[cfg(target_os = "macos")]
         Error::CredentialStore(_) => "Superbot couldn't access its saved session. Unlock the login keychain in Keychain Access, then try again.".into(),
-        Error::Transport(_) => "Couldn't reach the server. Check that it is running and try again.".into(),
+        Error::Transport(_) | Error::Unavailable { .. } => SERVER_UNREACHABLE.into(),
         Error::Server { status: 401, .. } | Error::MissingSession | Error::InvalidSession => {
             "Your session ended. Sign in again.".into()
         }

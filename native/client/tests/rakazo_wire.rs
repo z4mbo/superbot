@@ -1,13 +1,23 @@
 use std::{
+    any::Any,
+    collections::HashMap,
     io::{BufRead, BufReader, Read, Write},
     net::TcpListener,
+    sync::{Arc, Mutex, Once},
     thread,
     time::Duration,
 };
 
 use futures_util::StreamExt;
+use keyring::{
+    credential::{Credential, CredentialApi, CredentialBuilderApi},
+    mock::MockCredential,
+};
 use serde_json::{json, Value};
-use superbot_client::{Client, Error, SignUpResult, SpaceNotification, ThreadTarget};
+use superbot_client::{
+    Client, CredentialStore, Error, SignUpResult, SpaceNotification, ThreadTarget,
+    SERVER_UNREACHABLE,
+};
 
 struct Request {
     path: String,
@@ -95,6 +105,184 @@ fn json_response(path: &'static str, body: &'static str) -> Exchange {
         headers: "Content-Type: application/json\r\n",
         body,
     }
+}
+
+// The keyring crate's mock only persists for one entry. Share each mock across
+// the entries that CredentialStore opens for the same fixture server.
+#[derive(Default)]
+struct FixtureKeyring(Mutex<HashMap<String, Arc<MockCredential>>>);
+
+impl CredentialBuilderApi for FixtureKeyring {
+    fn build(&self, _: Option<&str>, _: &str, user: &str) -> keyring::Result<Box<Credential>> {
+        let mut entries = self.0.lock().unwrap();
+        Ok(Box::new(FixtureCredential(
+            entries.entry(user.into()).or_default().clone(),
+        )))
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+struct FixtureCredential(Arc<MockCredential>);
+
+impl CredentialApi for FixtureCredential {
+    fn set_secret(&self, secret: &[u8]) -> keyring::Result<()> {
+        self.0.set_secret(secret)
+    }
+
+    fn get_secret(&self) -> keyring::Result<Vec<u8>> {
+        self.0.get_secret()
+    }
+
+    fn delete_credential(&self) -> keyring::Result<()> {
+        self.0.delete_credential()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+async fn remember_fixture_session(client: &Client) {
+    static INSTALL_KEYRING: Once = Once::new();
+    INSTALL_KEYRING
+        .call_once(|| keyring::set_default_credential_builder(Box::<FixtureKeyring>::default()));
+    CredentialStore::save(&client.with_token("fixture.signature").unwrap())
+        .await
+        .unwrap();
+}
+
+async fn validate_session(client: Client) -> Result<(Value, Value), Error> {
+    let me = client.rpc("me", None, json!({})).await?;
+    let navigation = client.rpc("spaces/list", None, json!({})).await?;
+    Ok((me, navigation))
+}
+
+fn gateway_error(path: &'static str) -> Exchange {
+    Exchange {
+        path,
+        status: "502 Bad Gateway",
+        headers: "",
+        body: "",
+    }
+}
+
+#[tokio::test]
+async fn restore_recovers_from_empty_gateway_errors_on_both_session_reads() {
+    let me = || json_response("/rpc/me", r#"{"json":{"name":"Fixture"}}"#);
+    let (client, requests) = fixture(vec![
+        gateway_error("/rpc/me"),
+        me(),
+        gateway_error("/rpc/spaces/list"),
+        me(),
+        json_response(
+            "/rpc/spaces/list",
+            r#"{"json":{"spaces":[{"id":"space-1"}]}}"#,
+        ),
+    ]);
+    remember_fixture_session(&client).await;
+
+    let session = CredentialStore::restore(&client, validate_session)
+        .await
+        .unwrap();
+    assert_eq!(
+        session,
+        Some((
+            json!({"name":"Fixture"}),
+            json!({"spaces":[{"id":"space-1"}]})
+        ))
+    );
+    assert!(CredentialStore::load(&client).await.unwrap().is_some());
+    for request in requests.join().unwrap() {
+        assert_eq!(
+            request.header("authorization"),
+            Some("Bearer fixture.signature")
+        );
+    }
+}
+
+#[tokio::test]
+async fn restore_stops_retrying_when_the_next_wait_exceeds_the_budget() {
+    let (client, requests) = fixture((0..5).map(|_| gateway_error("/rpc/me")).collect());
+    remember_fixture_session(&client).await;
+
+    let error = CredentialStore::restore(&client, validate_session)
+        .await
+        .unwrap_err();
+    assert!(matches!(error, Error::Unavailable { .. }));
+    assert_eq!(error.to_string(), SERVER_UNREACHABLE);
+    assert!(CredentialStore::load(&client).await.unwrap().is_some());
+    requests.join().unwrap();
+}
+
+#[tokio::test]
+async fn restore_will_not_retry_before_retry_after_even_to_fit_the_budget() {
+    let (client, requests) = fixture(vec![Exchange {
+        headers: "Retry-After: 30\r\n",
+        ..gateway_error("/rpc/me")
+    }]);
+    remember_fixture_session(&client).await;
+
+    let error = CredentialStore::restore(&client, validate_session)
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(error, Error::Unavailable { retry_after: Some(delay) } if delay == Duration::from_secs(30))
+    );
+    assert!(CredentialStore::load(&client).await.unwrap().is_some());
+    requests.join().unwrap();
+}
+
+#[tokio::test]
+async fn restore_discards_a_session_rejected_with_401_without_retry() {
+    let (client, requests) = fixture(vec![Exchange {
+        status: "401 Unauthorized",
+        ..gateway_error("/rpc/me")
+    }]);
+    remember_fixture_session(&client).await;
+
+    assert!(CredentialStore::restore(&client, validate_session)
+        .await
+        .unwrap()
+        .is_none());
+    assert!(CredentialStore::load(&client).await.unwrap().is_none());
+    requests.join().unwrap();
+}
+
+#[tokio::test]
+async fn gateways_report_unavailability_with_or_without_a_body() {
+    let exchanges = [
+        "502 Bad Gateway",
+        "503 Service Unavailable",
+        "504 Gateway Timeout",
+    ]
+    .into_iter()
+    .flat_map(|status| {
+        ["", r#"{"json":{"status":401,"message":"Proxy error"}}"#].map(|body| Exchange {
+            path: "/rpc/me",
+            status,
+            headers: "Content-Type: application/json\r\nRetry-After: 3\r\n",
+            body,
+        })
+    })
+    .collect();
+    let (client, requests) = fixture(exchanges);
+    let signed_in = client.with_token("fixture.signature").unwrap();
+    for _ in 0..6 {
+        let error = signed_in
+            .rpc::<Value>("me", None, json!({}))
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(error, Error::Unavailable { retry_after: Some(delay) } if delay == Duration::from_secs(3))
+        );
+        assert!(error.is_retryable());
+        assert!(!error.is_unauthorized());
+        assert_eq!(error.to_string(), SERVER_UNREACHABLE);
+    }
+    requests.join().unwrap();
 }
 
 #[tokio::test]
