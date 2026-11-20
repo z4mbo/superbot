@@ -591,6 +591,7 @@ impl Desktop {
                         Live::Event(SpaceNotification::Runs) => {
                             this.refresh_sidebar(SidebarRead::Current, cx);
                         }
+                        Live::Event(SpaceNotification::PluginRegistry) => this.plugins_changed(window, cx),
                         Live::Unauthorized => {
                             this.session_ended(window, cx);
                             cx.notify();
@@ -904,6 +905,8 @@ impl Desktop {
         } else if self.close_create_panel() {
             true
         } else if self.store.cancel_version_switch() {
+            true
+        } else if self.cancel_store_confirm() {
             true
         } else if self.search_open {
             self.search_open = false;

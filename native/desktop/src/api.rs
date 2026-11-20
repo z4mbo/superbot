@@ -2,6 +2,12 @@ use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Value};
 use superbot_client::{Client, Error, ThreadEvent, ThreadTarget};
 
+mod apps;
+mod connections;
+
+pub use apps::{AppRecord, RecordQuery};
+pub use connections::{next_account_label, CatalogApp, Connection, ConnectionStatus};
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Target {
     /// An agent's first conversation, the one the sidebar and every older client open.
