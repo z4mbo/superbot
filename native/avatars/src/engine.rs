@@ -11,7 +11,7 @@ use gpui_kit::{Hsla, RenderImage, Rgba, SvgRenderer};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::{gradient_svg, Paint};
+use crate::{gradient_svg, trace, Paint};
 
 /// The colour every engine frame is drawn in; the host repaints it in the bot's own.
 const INK: &str = "#010203";
@@ -59,7 +59,7 @@ enum Command {
 /// A running local avatar engine: one script runtime on its own thread, shared by every mark.
 pub struct Engine {
     commands: Mutex<mpsc::Sender<Command>>,
-    images: Mutex<HashMap<u64, Arc<RenderImage>>>,
+    images: Mutex<HashMap<u64, (Arc<RenderImage>, Instant)>>,
     failed: AtomicBool,
     next_key: AtomicU64,
 }
@@ -145,6 +145,9 @@ impl Engine {
 
     /// `rect` is the mark's square and `point` the pointer, both in window pixels.
     pub fn pointer(&self, key: u64, rect: [f32; 4], point: [f32; 2]) {
+        if trace::on() {
+            trace::event("pointer", format_args!("{:.3} {key}", trace::ms(Instant::now())));
+        }
         self.send(Command::Pointer { key, rect, point });
     }
 
@@ -159,8 +162,8 @@ impl Engine {
         }
     }
 
-    /// The latest frame drawn for a mark.
-    pub fn image(&self, key: u64) -> Option<Arc<RenderImage>> {
+    /// The latest frame drawn for a mark, and the moment it shows.
+    pub fn image(&self, key: u64) -> Option<(Arc<RenderImage>, Instant)> {
         self.images.lock().ok()?.get(&key).cloned()
     }
 }
@@ -346,6 +349,7 @@ fn run(
                 }
             }
         }
+        let tick_at = Instant::now();
         let ticked = call(scope, "tick", &[json!(now())])?;
         busy = ticked["busy"].as_bool().unwrap_or(false);
         due = Instant::now() + TICK;
@@ -361,10 +365,14 @@ fn run(
             let (Some(style), Some(svg)) = (styles.get(&key), written.get(&key)) else { continue };
             if let Some(image) = raster(renderer, svg, style) {
                 if let Ok(mut images) = engine.images.lock() {
-                    images.insert(key, image);
+                    images.insert(key, (image, tick_at));
                     changed = true;
                 }
             }
+        }
+        if trace::on() {
+            let took = tick_at.elapsed().as_secs_f64() * 1000.;
+            trace::event("tick", format_args!("{:.3} {took:.3} {}", trace::ms(tick_at), changed as u8));
         }
         if changed {
             let _ = drawn.unbounded_send(());

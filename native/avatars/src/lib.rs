@@ -8,6 +8,8 @@ mod engine;
 mod frames;
 mod motion;
 mod pack;
+#[cfg(feature = "local-engine")]
+mod trace;
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -458,6 +460,7 @@ impl Mark {
             style: None,
             working: false,
             shown: None,
+            traced: None,
         });
         let (key, restyled, rework) = {
             let mark = mark.read(cx);
@@ -472,12 +475,22 @@ impl Mark {
         let (image, replaced) = mark.update(cx, |mark, _| {
             mark.style = Some(style);
             mark.working = working;
-            let image = engine.image(key).or_else(|| mark.shown.clone());
+            let drawn = engine.image(key);
+            let image = drawn.as_ref().map(|(image, _)| image.clone()).or_else(|| mark.shown.clone());
             let replaced = match (&mark.shown, &image) {
                 (Some(shown), Some(image)) if !Arc::ptr_eq(shown, image) => mark.shown.replace(image.clone()),
                 (None, Some(image)) => mark.shown.replace(image.clone()),
                 _ => None,
             };
+            if trace::on()
+                && (replaced.is_some()
+                    || mark.shown.is_some() && drawn.is_some() && mark.traced != drawn.as_ref().map(|d| d.1))
+            {
+                if let Some((_, at)) = &drawn {
+                    trace::event("show", format_args!("{:.3} {key} {:.3}", trace::ms(Instant::now()), trace::ms(*at)));
+                    mark.traced = Some(*at);
+                }
+            }
             (image, replaced)
         });
         if let Some(replaced) = replaced {
@@ -516,6 +529,7 @@ struct LiveMark {
     style: Option<engine::Style>,
     working: bool,
     shown: Option<Arc<RenderImage>>,
+    traced: Option<Instant>,
 }
 
 #[cfg(feature = "local-engine")]
