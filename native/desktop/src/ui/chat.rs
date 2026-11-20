@@ -127,8 +127,7 @@ impl Desktop {
             .child(self.target_face(target, px(22.), Some(watch), theme, cx))
             .child(div().name().truncate().child(name));
         let model = model.map(|label| {
-            div()
-                .id("chat-head-model")
+            self.model_menu_button(crate::ui::model_menu::ModelTrigger::Header, cx)
                 .min_w_0()
                 .flex()
                 .items_center()
@@ -142,7 +141,6 @@ impl Desktop {
                 .hover(move |style| style.bg(hover))
                 .when(choosing, |model| model.bg(hover))
                 .when(!choosing, |model| model.tooltip(|window, cx| Tooltip::new("Change model").build(window, cx)))
-                .on_click(cx.listener(|this, _, window, cx| this.choose_agent_model(window, cx)))
                 .child(div().body().text_color(theme.ink_secondary).truncate().child(label))
                 .child(icon("chevron-down", px(14.), theme.ink_tertiary))
         });
