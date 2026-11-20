@@ -586,6 +586,131 @@ async fn inbox_targets_round_trip_into_conversation_library_requests() {
 }
 
 #[tokio::test]
+async fn bot_memory_is_read_by_bot_and_saved_against_its_revision() {
+    let document = json!({
+        "id": "doc", "scope": "bot", "botId": "bot", "path": "MEMORY.md",
+        "content": "# Ada\n- tea\n", "revision": 3, "updatedAt": "2026-01-01T00:00:00Z"
+    });
+    let (features, server) = fixture(
+        "memory/list",
+        SPACE,
+        json!({"botId": "bot", "scope": "bot"}),
+        "200 OK",
+        json!([document]),
+    )
+    .await;
+    let docs = features.space("team").bot_memory("bot").await.unwrap();
+    assert!(docs[0].is_index() && !docs[0].deletable());
+    assert_eq!(docs[0].revision, 3);
+    server.await.unwrap();
+
+    let (features, server) = fixture(
+        "memory/update",
+        SPACE,
+        json!({"documentId": "doc", "content": "# Ada\n", "expectedRevision": 3}),
+        "409 Conflict",
+        json!({"code": "CONFLICT", "status": 409, "message": "Revision mismatch"}),
+    )
+    .await;
+    let refused = features
+        .space("team")
+        .update_memory("doc", "# Ada\n", Some(3))
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        refused,
+        superbot_features::Error::Server { status: 409, code: Some(ref code), .. } if code == "CONFLICT"
+    ));
+    server.await.unwrap();
+
+    let (features, server) = fixture(
+        "memory/remove",
+        SPACE,
+        json!({"documentId": "topic"}),
+        "200 OK",
+        json!({"ok": true}),
+    )
+    .await;
+    features.space("team").remove_memory("topic").await.unwrap();
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn taught_and_space_skills_round_trip_their_contracts() {
+    let playbook = json!({
+        "whenToUse": "Weekly", "inputs": ["CSV"], "steps": ["Open", "Sum"],
+        "howToCheck": "Totals match", "whatToReturn": "A table",
+        "approvalBoundaries": "Ask before sending", "failureHandling": "Stop"
+    });
+    let (features, server) = fixture(
+        "skills/list",
+        SPACE,
+        json!({"botId": "bot"}),
+        "200 OK",
+        json!([{
+            "id": "taught", "botId": "bot", "name": "", "goal": "Total the weekly sales",
+            "status": "draft", "playbook": playbook,
+            "recording": {"events": [], "snapshots": []},
+            "startedAt": null, "expiresAt": null, "stoppedAt": null,
+            "createdAt": "2026-01-01T00:00:00Z", "updatedAt": "2026-01-02T00:00:00Z"
+        }]),
+    )
+    .await;
+    let taught = features.space("team").taught_skills("bot").await.unwrap();
+    assert_eq!(taught[0].title(), "Total the weekly sales");
+    assert!(taught[0].status.editable());
+    server.await.unwrap();
+
+    let (features, server) = fixture(
+        "skills/testRun",
+        SPACE,
+        json!({"skillId": "taught"}),
+        "200 OK",
+        json!({"runId": "run"}),
+    )
+    .await;
+    assert_eq!(features.space("team").try_taught_skill("taught").await.unwrap(), "run");
+    server.await.unwrap();
+
+    let (features, server) = fixture(
+        "agentSkills/list",
+        SPACE,
+        json!({}),
+        "200 OK",
+        json!([{
+            "id": "builtin", "name": "summarize", "description": "Summarize text",
+            "source": "builtin", "readOnly": true
+        }]),
+    )
+    .await;
+    let shared = features.space("team").agent_skills().await.unwrap();
+    assert_eq!(shared[0].source, superbot_features::AgentSkillSource::Builtin);
+    assert!(shared[0].read_only);
+    server.await.unwrap();
+
+    let content = "---\nname: weekly\ndescription: Weekly totals\n---\n\nSum it.\n";
+    let (features, server) = fixture(
+        "agentSkills/update",
+        SPACE,
+        json!({"skillId": "mine", "content": content}),
+        "200 OK",
+        json!({
+            "id": "mine", "name": "weekly", "description": "Weekly totals", "content": content,
+            "source": "user", "readOnly": false,
+            "createdAt": "2026-01-01T00:00:00Z", "updatedAt": "2026-01-03T00:00:00Z"
+        }),
+    )
+    .await;
+    let saved = features
+        .space("team")
+        .update_agent_skill("mine", content)
+        .await
+        .unwrap();
+    assert_eq!(saved.updated_at, "2026-01-03T00:00:00Z");
+    server.await.unwrap();
+}
+
+#[tokio::test]
 async fn search_hits_name_the_conversation_each_one_is_in() {
     use superbot_features::{ConversationTarget, SearchHitKind};
 
