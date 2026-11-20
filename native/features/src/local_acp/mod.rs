@@ -152,6 +152,15 @@ impl Engine {
         Session::connect(self).await
     }
 
+    pub(crate) async fn connect_private_prompt(&self) -> Result<Session, Error> {
+        if !supports_private_prompt(self.provider.id)
+            || grok::identity(self).await? != grok::HEADLESS_VERSION
+        {
+            return Err(Error::Unsafe);
+        }
+        Session::connect_grok_headless(self).await
+    }
+
     pub async fn safe_to_run(&self) -> Result<bool, Error> {
         if !matches!(self.provider.id, "grok" | "pi")
             && restricted::Restricted::for_engine(self).is_none()
@@ -270,6 +279,10 @@ impl Engine {
         }
         command
     }
+}
+
+pub(crate) fn supports_private_prompt(provider: &str) -> bool {
+    provider == "grok"
 }
 
 async fn initialize(wire: &mut Wire) -> Result<Value, Error> {

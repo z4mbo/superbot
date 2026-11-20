@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { copyFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 const date = "2026-01-20";
 const partId = "meals";
@@ -36,7 +38,15 @@ async function chat({ cli, args, cwd, env }, input, onApproval, expectedExit = 0
   return stdout + stderr;
 }
 
-export async function checkLocalAppRecords({ rpc, owner, observer, botId, ...command }) {
+export async function checkLocalAppRecords({
+  rpc,
+  owner,
+  observer,
+  botId,
+  modelFile,
+  fakeBin,
+  ...command
+}) {
   const run = (input, onApproval, expectedExit) => chat(command, input, onApproval, expectedExit);
   const slug = "fixture-local-diary";
   const manifest = {
@@ -123,6 +133,24 @@ export async function checkLocalAppRecords({ rpc, owner, observer, botId, ...com
   assert.match(view, /Calories total: 480/);
   assert.match(view, /Local answer > The diary has 480 kcal/);
   const draft = `/apps\n/app 1 --date ${date} Draft a fixture snack\n`;
+
+  const select = (provider, id) =>
+    writeFile(modelFile, JSON.stringify({ provider, id, label: "Fixture model" }));
+  await select("pi", "test/one");
+  const unsupported = await run(draft, undefined, 1);
+  assert.match(unsupported, /requires a selected prompt-only local model/);
+  assert.doesNotMatch(unsupported, /Fixture local breakfast/);
+
+  await copyFile(join(fakeBin, "claude.exe"), join(fakeBin, "grok.exe"));
+  command.env.GROK_HOME = fakeBin;
+  await select("grok", "fixture-grok");
+  const legacyGrok = join(fakeBin, "legacy-grok");
+  await writeFile(legacyGrok, "");
+  const legacy = await run(draft, undefined, 1);
+  assert.match(legacy, /could not enforce prompt-only operation/);
+  assert.doesNotMatch(legacy, /Proposed addition/);
+  await rm(legacyGrok);
+
   const preview = await run(`${draft}\n/quit\n`);
   assert.match(preview, /Proposed addition to Local fixture diary/);
   assert.match(preview, /Fixture local snack/);
@@ -193,6 +221,6 @@ export async function checkLocalAppRecords({ rpc, owner, observer, botId, ...com
   assert.equal(large.hasMore, true);
   assert.equal(large.total, 9);
   console.log(
-    "PASS prompt-only CLI isolated app context, required approval, and refused revoked and stale grants across two accounts",
+    "PASS prompt-only CLI and scoped headless models kept app context private, required approval, and refused unsupported engines and stale grants",
   );
 }

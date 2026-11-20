@@ -143,17 +143,19 @@ impl Session {
         }
     }
 
+    pub(super) async fn connect_grok_headless(engine: &Engine) -> Result<Self, Error> {
+        let (headless, catalog) = Headless::connect(engine).await?;
+        Ok(Self {
+            protocol: Protocol::GrokHeadless(headless),
+            catalog,
+            usable: true,
+        })
+    }
+
     pub(super) async fn connect(engine: &Engine) -> Result<Self, Error> {
         if engine.provider.id == "grok" {
             match grok::identity(engine).await?.as_str() {
-                "1.0.89" => {
-                    let (headless, catalog) = Headless::connect(engine).await?;
-                    return Ok(Self {
-                        protocol: Protocol::GrokHeadless(headless),
-                        catalog,
-                        usable: true,
-                    });
-                }
+                grok::HEADLESS_VERSION => return Self::connect_grok_headless(engine).await,
                 "1.0.41" => {}
                 _ => return Err(Error::Unsafe),
             }
