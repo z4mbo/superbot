@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import type { ConnectorRoute, ConnectorTool } from "@rakazo/adapter-kit";
+import type { ConnectorApp, ConnectorRoute, ConnectorTool } from "@rakazo/adapter-kit";
 import { AddRegistryAppRecordInputSchema, RegistryAppRecordsInputSchema } from "@rakazo/contracts";
 import { ClientError, deadlineSignal } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { addRegistryAppRecord, listRegistryAppRecords, resolvePluginGrants } from "@rakazo/db";
 import { bestEffort, getLogger } from "@rakazo/logging";
+import { mcpToolAppResourceUri } from "../mcp/mcp-app.js";
 import { callRemoteMcpTool, listRemoteMcpTools } from "../mcp/remote-mcp.js";
 import { DIRECT_TOOL_LIMIT, SELECTED_SCHEMA_MAX_BYTES } from "../tools/lazy-tool-catalog.js";
 import { sanitizeConnectorError } from "./connector-safety.js";
@@ -68,8 +69,10 @@ function revision(
   grant: Grant,
   toolName: string,
   inputSchema: ConnectorTool["inputSchema"],
+  appResourceUri?: string,
 ): string {
   const pin = [grant.versionId, grant.grantId, grant.part, inputSchema];
+  if (grant.part.kind === "mcp" && appResourceUri) return digest([...pin, appResourceUri]);
   return digest(grant.part.kind === "app" ? [...pin, toolName] : pin);
 }
 
@@ -93,7 +96,8 @@ function marketplaceTool(grant: Grant, tool: ConnectorTool): ConnectorTool {
       connectorId: app ? MARKETPLACE_APP_CONNECTOR : MARKETPLACE_CONNECTOR,
       toolName: tool.name,
       resourceId: resource,
-      resourceRevision: revision(grant, tool.name, tool.inputSchema),
+      resourceRevision: revision(grant, tool.name, tool.inputSchema, tool.appResourceUri),
+      ...(tool.appResourceUri ? { appResourceUri: tool.appResourceUri } : {}),
     },
   };
 }
@@ -155,7 +159,8 @@ export async function findLiveMarketplaceGrant(runtime: Runtime, tool: Connector
     (grant) =>
       (grant.part.kind === "app") === app &&
       resourceId(grant) === route.resourceId &&
-      revision(grant, route.toolName, tool.inputSchema) === route.resourceRevision,
+      revision(grant, route.toolName, tool.inputSchema, route.appResourceUri) ===
+        route.resourceRevision,
   );
 }
 
@@ -165,6 +170,7 @@ export async function executeMarketplaceTool(
   args: Record<string, unknown>,
   effectKey: string,
   publishAppChange?: () => Promise<void> | undefined,
+  publishMcpApp?: (app: ConnectorApp, result: unknown) => Promise<void>,
 ): Promise<unknown> {
   const route = tool.route;
   if (!marketplaceRoute(route)) return { error: MARKETPLACE_UNAVAILABLE };
@@ -198,14 +204,20 @@ export async function executeMarketplaceTool(
       {
         endpoint: grant.part.endpoint,
         signal: runtime.signal,
-        authorizeTool: (liveSchema) => {
-          if (digest(liveSchema) !== digest(tool.inputSchema))
+        authorizeTool: (liveTool) => {
+          if (
+            digest(liveTool.inputSchema) !== digest(tool.inputSchema) ||
+            mcpToolAppResourceUri(liveTool) !== route.appResourceUri
+          )
             throw new Error(MARKETPLACE_UNAVAILABLE);
         },
         authorizeRequest: async () => {
           if (!(await findLiveMarketplaceGrant(runtime, tool)))
             throw new Error(MARKETPLACE_UNAVAILABLE);
         },
+        ...(publishMcpApp && route.appResourceUri
+          ? { app: { server: grant.pluginName, uri: route.appResourceUri, publish: publishMcpApp } }
+          : {}),
       },
       route.toolName,
       args,

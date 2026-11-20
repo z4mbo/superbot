@@ -43,7 +43,7 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: Artifac
   const [started, setStarted] = useState(false);
   const [failed, setFailed] = useState(false);
   const html = useQuery({
-    queryKey: ["mcp-app-html", block.artifactId],
+    queryKey: ["mcp-app-html", target, block.artifactId],
     queryFn: () => fetchAppHtml(target, block.artifactId),
     enabled: near,
     staleTime: Number.POSITIVE_INFINITY,

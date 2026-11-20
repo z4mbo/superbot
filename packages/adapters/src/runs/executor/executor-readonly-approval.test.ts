@@ -5294,30 +5294,36 @@ describe("marketplace plugin dispatch", () => {
     expect(f.results.at(-1)).toHaveProperty("error");
   });
 
-  it("rejects a schema change between approval replay and delivery", async () => {
-    const f = fixture({ builtin: true });
-    grant(f);
-    setCall(f);
-    await f.run();
-    f.effects[0]!.status = "approved";
-    const fetchSample = fixtureNetwork.options!.fetch!;
-    let lists = 0;
-    fixtureNetwork.options!.fetch = async (input, init) => {
-      const response = await fetchSample(input, init);
-      const { method } = JSON.parse(String(init?.body)) as { method: string };
-      if (method !== "tools/list" || ++lists !== 2) return response;
-      const payload = (await response.json()) as {
-        result: { tools: { inputSchema: Record<string, unknown> }[] };
+  it.each(["schema", "UI resource"])(
+    "rejects a %s change between approval replay and delivery",
+    async (change) => {
+      const f = fixture({ builtin: true });
+      grant(f);
+      setCall(f);
+      await f.run();
+      f.effects[0]!.status = "approved";
+      const fetchSample = fixtureNetwork.options!.fetch!;
+      let lists = 0;
+      fixtureNetwork.options!.fetch = async (input, init) => {
+        const response = await fetchSample(input, init);
+        const { method } = JSON.parse(String(init?.body)) as { method: string };
+        if (method !== "tools/list" || ++lists !== 2) return response;
+        const payload = (await response.json()) as {
+          result: { tools: { inputSchema: Record<string, unknown>; _meta: unknown }[] };
+        };
+        const tool = payload.result.tools[0]!;
+        if (change === "schema") tool.inputSchema.required = ["from", "to"];
+        else tool._meta = { ui: { resourceUri: "ui://unit-converter/replacement.html" } };
+        return Response.json(payload);
       };
-      payload.result.tools[0]!.inputSchema.required = ["from", "to"];
-      return Response.json(payload);
-    };
-    setCall(f, args, "replay");
-    await f.run();
-    expect(lists).toBe(2);
-    expect(forwarded).not.toContain("tools/call");
-    expect(f.results.at(-1)).toHaveProperty("error");
-  });
+      setCall(f, args, "replay");
+      await f.run();
+      expect(lists).toBe(2);
+      expect(forwarded).not.toContain("tools/call");
+      expect(forwarded).not.toContain("resources/read");
+      expect(f.results.at(-1)).toHaveProperty("error");
+    },
+  );
 
   it("refuses an ungranted tool without discovering its endpoint", async () => {
     const f = fixture({ builtin: true });

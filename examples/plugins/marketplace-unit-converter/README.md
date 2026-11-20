@@ -23,7 +23,17 @@ curl -s http://127.0.0.1:PORT/mcp \
 ```
 
 The response includes `"structuredContent":{"value":212,"unit":"fahrenheit"}`.
-The server also supports MCP initialization and tool listing.
+The server also supports MCP initialization and tool listing. Its tool
+declares `ui://unit-converter/temperature.html` in `_meta.ui.resourceUri`.
+To inspect the document with the same local request, use this JSON body.
+
+```json
+{"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":"ui://unit-converter/temperature.html"}}
+```
+
+In web and mobile chat, Superbot reads the document after the approved
+conversion succeeds. The card displays the structured result and lets the
+reader adjust the display precision.
 
 To exercise the server through Rakazo's isolated executor fixture, run this
 from the repository root after installing dependencies and generating the
@@ -36,6 +46,11 @@ pnpm exec vitest run packages/adapters/src/runs/executor/executor-readonly-appro
 The fixture starts the real sample on a free loopback port and routes the test
 MCP transport to it. It exercises discovery, approval, replay and denial paths
 without contacting external services or a running Rakazo deployment.
+
+The disposable PostgreSQL suite (`pnpm test:integration`) also runs
+[the marketplace MCP App chat test](../../../packages/testkit/src/product/marketplace-mcp-app.postgres.test.ts).
+It checks the saved card and its HTML in the approved conversation,
+including when another conversation or account tries to open it.
 
 The marketplace rejects the local HTTP URL. To install the example in a
 deployment, follow the [authoring tutorial](../../../docs/superbot/build-a-marketplace-plugin.md).

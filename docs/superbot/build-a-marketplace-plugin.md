@@ -6,10 +6,10 @@ whose entries Superbot stores. The registry takes the manifest object directly
 through `pluginRegistry.submit`. See the [registry contract](plugin-contract.md)
 for the full API and publication rules.
 
-A record app is a list of fields, not a program. Superbot shows every record
-app with the same form, list and total, and a manifest can't add screens, HTML
-or JavaScript. The `mcp-app` starter in the [plugin toolkit](plugin-toolkit.md)
-is an MCP tool server you host, not a record app.
+Use a record app for fields Superbot displays in a form and stores for the
+installer. Use an MCP App to add an interactive view to a bot's tool result.
+The `mcp-app` starter in the [plugin toolkit](plugin-toolkit.md) scaffolds
+the MCP tool server you host.
 
 ## Try the Calorie diary
 
@@ -111,11 +111,28 @@ Start a turn with that bot. Ask it to use the marketplace converter to convert
 100 Celsius to Fahrenheit. Check that the approval card shows the converter's
 endpoint and the conversion arguments, then choose **Allow once**. The tool
 returns a structured value of `212` and a unit of `fahrenheit`. In a Space set
-to **Never ask**, the remote call is refused.
+to **Never ask**, the remote call is refused. In web and mobile chat, the
+successful call also shows a temperature card with a control for display precision.
 
 To revoke both parts for this bot, pass `partIds: []` to `setGrants`. The call
 fails if you revoke the grant before answering its approval. Other bots need
 their own grants. Uninstalling removes the grants for all bots in that Space.
+
+### Add a view to your MCP tool
+
+Keep the marketplace manifest's `mcp` part pointed at your public HTTPS endpoint.
+In `tools/list`, set the tool's `_meta.ui.resourceUri` to a `ui://` URI.
+Advertise the MCP `resources` capability and serve that exact URI from
+`resources/read` on the same endpoint. Return the matching `uri`,
+`mimeType: "text/html;profile=mcp-app"` and document `text` in the resource's
+`contents` array. The document limit is 2 MB.
+
+Superbot reads the resource after the approved tool call succeeds. Its
+sandboxed chat card sends the tool arguments and result after the view
+initializes. The sample [temperature view](../../examples/plugins/marketplace-unit-converter/temperature.html)
+uses the structured result and runs its precision control in the card.
+For another tool action, offer text to the composer and let the person send
+it. The card cannot call tools directly.
 
 ## Manifest and endpoint reference
 
