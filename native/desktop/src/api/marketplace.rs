@@ -17,6 +17,9 @@ pub struct MarketplaceEntry {
     /// Installing adds a remote connector; without one the plugin is a pack of skills.
     pub has_connector: bool,
     pub skill_count: u32,
+    /// The plugin's logo, when its registry names one.
+    #[serde(default)]
+    pub logo: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -223,6 +226,7 @@ mod tests {
             installed_source: String::new(),
             has_connector: true,
             skill_count: 0,
+            logo: None,
         };
         assert!(entry.is_brand("GoogleCalendar"));
         assert!(entry.is_brand("google_calendar"));
