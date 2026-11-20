@@ -22,6 +22,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/native.ps1
 
 To install the Windows app and both commands, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-native.ps1 -StartMenuShortcut`. See [Windows server setup](windows-local.md) for local development.
 
+On a Linux desktop, build and install with `bash scripts/install-native-linux.sh` from the repository root. The installer registers **Superbot** in the desktop application menu and places `superbot`, `superbot-plugin` and `superbot-desktop` in `~/.local/bin`. A terminal-only machine can use `bash scripts/install-native-linux.sh --cli-only`. Account sign-in uses the Linux Secret Service in the user's D-Bus session. Add `~/.local/bin` to your shell's `PATH` to use the commands.
+
 ## Connect to a server
 
 On each client device, connect to the tailnet and use the same HTTPS web origin advertised by the NixOS host's Tailscale Serve endpoint. Use the origin alone, such as `https://superbot.example-tailnet.ts.net`. See [hosting on another machine](hosting.md#optional-private-access-with-tailscale).

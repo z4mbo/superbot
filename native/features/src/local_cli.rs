@@ -166,14 +166,7 @@ pub struct LocalCli {
 
 impl LocalCli {
     pub fn config_dir() -> Option<PathBuf> {
-        if let Some(dir) = std::env::var_os("SUPERBOT_CONFIG_DIR")
-            .map(PathBuf::from)
-            .filter(|dir| dir.is_absolute())
-        {
-            return Some(dir);
-        }
-        let data = app_data()?;
-        data.is_absolute().then(|| data.join("Superbot"))
+        superbot_client::settings_directory()
     }
 
     pub fn for_workspace(server: &str, account: &str, space: &str) -> Option<Self> {
@@ -949,18 +942,6 @@ fn allowed_env(key: &OsString) -> bool {
             | "SSL_CERT_FILE"
             | "SSL_CERT_DIR"
     )
-}
-
-fn app_data() -> Option<PathBuf> {
-    if cfg!(target_os = "windows") {
-        return std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
-    }
-    if cfg!(target_os = "macos") {
-        return std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .map(|home| home.join("Library/Application Support"));
-    }
-    None
 }
 
 fn model_id_ok(id: &str) -> bool {
