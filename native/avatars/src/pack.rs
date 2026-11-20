@@ -376,8 +376,11 @@ fn fold(name: &str) -> String {
 
 /// Security invariant: a pack names files only inside its own folder.
 fn stays_inside(relative: &str) -> bool {
-    let path = Path::new(relative);
-    !relative.is_empty() && path.components().all(|component| matches!(component, Component::Normal(_)))
+    let portable = relative.replace('\\', "/");
+    let has_drive = matches!(portable.as_bytes(), [letter, b':', ..] if letter.is_ascii_alphabetic());
+    !portable.is_empty()
+        && !has_drive
+        && Path::new(&portable).components().all(|component| matches!(component, Component::Normal(_)))
 }
 
 pub(crate) fn fnv1a(bytes: &[u8]) -> u32 {
@@ -498,7 +501,7 @@ mod tests {
 
     #[test]
     fn shape_files_must_stay_inside_the_pack() {
-        for escape in ["../outside.json", "/etc/shape.json", "C:\\shape.json", ""] {
+        for escape in ["../outside.json", "..\\outside.json", "/etc/shape.json", "C:\\shape.json", "c:shape.json", ""] {
             let error = pack(json!({ "shapes": { "round": escape, "drop": "shapes/drop.json" } })).unwrap_err();
             assert!(matches!(error, PackError::Invalid(_)), "{escape} was accepted");
         }
