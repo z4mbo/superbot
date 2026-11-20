@@ -2,6 +2,7 @@ import { t } from "@lingui/core/macro";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useEventListener } from "../../lib/use-event-listener";
+import { APP_RAIL_WIDTH, useAppRail } from "./app-rail";
 import { useBotsSidebarWidth } from "./sidebar/sidebar-layout";
 
 const STORAGE_KEY = "rakazo:right-panel-width";
@@ -42,11 +43,15 @@ export function ResizableSidePanel({
   onCoversChat?: (covers: boolean) => void;
   children: ReactNode;
 }) {
-  const reservedLeadingPx = useBotsSidebarWidth();
+  const sidebarWidth = useBotsSidebarWidth();
+  const hasRail = useAppRail();
   const [preferredWidth, setPreferredWidth] = useState(readPreferredWidth);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const belowMd = viewportWidth < MD_BREAKPOINT;
+  const reservedLeadingPx = belowMd ? 0 : sidebarWidth + (hasRail ? APP_RAIL_WIDTH : 0);
+  const chatWidth = viewportWidth - reservedLeadingPx;
   const maxWidth = maximumWidth(reservedLeadingPx, viewportWidth);
-  const overlay = viewportWidth - reservedLeadingPx < MIN_CHAT_WIDTH + MIN_WIDTH;
+  const overlay = belowMd || chatWidth < MIN_CHAT_WIDTH + MIN_WIDTH;
   const [dragging, setDragging] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
   const drag = useRef<{ x: number; width: number; direction: number } | null>(null);
@@ -64,8 +69,6 @@ export function ResizableSidePanel({
     setViewportWidth(window.innerWidth);
   }, []);
 
-  const belowMd = viewportWidth < MD_BREAKPOINT;
-  const chatWidth = belowMd ? viewportWidth : viewportWidth - reservedLeadingPx;
   const panelWidth = belowMd ? Math.min(viewportWidth, MOBILE_PANEL_MAX_WIDTH) : width;
   const covering = open && overlay && chatWidth - panelWidth < MAX_VISIBLE_CHAT_WIDTH;
   useEffect(() => {
