@@ -25,6 +25,7 @@ mod library;
 mod look;
 mod memory;
 mod parts;
+mod provider;
 mod screen;
 mod settings;
 mod skills;
@@ -178,6 +179,8 @@ pub struct AgentPanel {
     screen: Option<screen::ScreenSession>,
     library: Option<(Target, library::LibraryView)>,
     files: Option<files::ComputerFiles>,
+    providers: Option<provider::Providers>,
+    providers_read: bool,
     _editor_events: Option<Subscription>,
     look: look::LookEditor,
     knowledge: knowledge::Knowledge,
@@ -198,6 +201,8 @@ impl AgentPanel {
             screen: None,
             library: None,
             files: None,
+            providers: None,
+            providers_read: false,
             _editor_events: None,
             look: look::LookEditor::default(),
             knowledge: knowledge::Knowledge::default(),

@@ -59,6 +59,92 @@ impl ComputerStatus {
     }
 }
 
+/// Whose choice of computer provider a settings read or save is about.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ComputerProviderScope {
+    /// Where the deployment's computers run; administrators only.
+    Deployment,
+    /// Where this account's own computers run, over the deployment's default.
+    Account,
+}
+
+impl ComputerProviderScope {
+    fn path(self, action: &str) -> String {
+        match self {
+            Self::Deployment => format!("computerProvider/{action}"),
+            Self::Account => format!("computerProvider/account/{action}"),
+        }
+    }
+}
+
+/// The provider id that keeps the deployment's own choice.
+pub const DEFAULT_COMPUTER_PROVIDER: &str = "default";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderFieldKind {
+    Text,
+    Secret,
+    Url,
+    Select,
+    Toggle,
+    List,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct ProviderFieldOption {
+    pub value: String,
+    pub label: String,
+}
+
+/// One setting a provider asks for, as the server describes it.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderField {
+    pub key: String,
+    pub label: String,
+    pub kind: ProviderFieldKind,
+    pub required: bool,
+    #[serde(default)]
+    pub options: Vec<ProviderFieldOption>,
+    pub placeholder: Option<String>,
+    pub description: Option<String>,
+    #[serde(default)]
+    pub advanced: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComputerProviderOption {
+    /// Opaque: sent back to choose this provider, never shown or branched on.
+    pub id: String,
+    pub display_name: String,
+    pub fields: Vec<ProviderField>,
+}
+
+/// Where computers run and the providers that can be chosen instead. `values` holds the chosen
+/// provider's saved settings except secrets, which are only marked as saved.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComputerProviderSettings {
+    pub provider: String,
+    pub default_provider: String,
+    pub providers: Vec<ComputerProviderOption>,
+    pub values: std::collections::BTreeMap<String, String>,
+    pub saved_secrets: std::collections::BTreeMap<String, bool>,
+}
+
+impl ComputerProviderSettings {
+    /// The deployment lets this scope choose: an empty list means it keeps the default.
+    pub fn choosable(&self) -> bool {
+        !self.providers.is_empty()
+    }
+
+    pub fn option(&self, id: &str) -> Option<&ComputerProviderOption> {
+        self.providers.iter().find(|option| option.id == id)
+    }
+}
+
 /// Where to load an agent's screen. The address carries the screen's capability: it is passed
 /// only to the screen view and never logged, so this type has no `Debug`.
 #[derive(Clone, Deserialize)]
@@ -204,6 +290,28 @@ impl SpaceFeatures<'_> {
         .await
     }
 
+    pub async fn computer_provider_settings(
+        &self,
+        scope: ComputerProviderScope,
+    ) -> Result<ComputerProviderSettings, Error> {
+        self.call(&scope.path("get"), json!({})).await
+    }
+
+    /// Chooses where computers run. A blank secret keeps the saved one; the server checks the
+    /// settings before it keeps them.
+    pub async fn save_computer_provider(
+        &self,
+        scope: ComputerProviderScope,
+        provider: &str,
+        values: &std::collections::BTreeMap<String, String>,
+    ) -> Result<ComputerProviderSettings, Error> {
+        self.call(
+            &scope.path("update"),
+            json!({ "provider": provider, "values": values }),
+        )
+        .await
+    }
+
     /// Keeps the computer awake, and this account's control alive, while its screen is open.
     pub async fn computer_heartbeat(&self, bot_id: &str) -> Result<(), Error> {
         self.acknowledge("computer/heartbeat", json!({ "botId": bot_id }))
@@ -253,6 +361,44 @@ mod tests {
         assert_eq!(entries[0].name(), "reports");
         assert_eq!(entries[1].name(), "q3 plan.md");
         assert_eq!(entries[1].size, 812);
+    }
+
+    #[test]
+    fn reads_the_providers_a_deployment_offers() {
+        let settings: ComputerProviderSettings = serde_json::from_value(json!({
+            "provider": "cloud-a",
+            "defaultProvider": "server",
+            "providers": [{
+                "id": "cloud-a",
+                "displayName": "Cloud A",
+                "capabilities": { "perAccount": true },
+                "fields": [
+                    { "key": "apiKey", "label": "API key", "kind": "secret", "required": true },
+                    { "key": "region", "label": "Region", "kind": "select", "required": false,
+                      "options": [{ "value": "eu", "label": "Europe" }], "advanced": true }
+                ]
+            }],
+            "values": { "region": "eu" },
+            "savedSecrets": { "apiKey": true }
+        }))
+        .unwrap();
+        assert!(settings.choosable());
+        let option = settings.option("cloud-a").unwrap();
+        assert_eq!(option.fields[0].kind, ProviderFieldKind::Secret);
+        assert_eq!(option.fields[1].options[0].label, "Europe");
+        assert!(option.fields[1].advanced);
+        assert_eq!(settings.saved_secrets.get("apiKey"), Some(&true));
+        assert_eq!(
+            ComputerProviderScope::Account.path("update"),
+            "computerProvider/account/update"
+        );
+
+        let closed: ComputerProviderSettings = serde_json::from_value(json!({
+            "provider": "default", "defaultProvider": "server", "providers": [],
+            "values": {}, "savedSecrets": {}
+        }))
+        .unwrap();
+        assert!(!closed.choosable());
     }
 
     #[test]

@@ -53,6 +53,8 @@ pub(super) enum Page {
     Skills(skills::SkillsPage),
     /// The agent's files on its computer, in the Computer tab's browser.
     Folder,
+    /// Where computers run, opened from the Computer tab.
+    Provider(provider::ProviderPage),
 }
 
 impl Page {
@@ -61,6 +63,14 @@ impl Page {
             Self::Memory(_) => "What it remembers",
             Self::Skills(_) => "Skills",
             Self::Folder => "Working folder",
+            Self::Provider(_) => "Where computers run",
+        }
+    }
+
+    fn back_label(&self) -> &'static str {
+        match self {
+            Self::Provider(_) => "Computer",
+            _ => "Library",
         }
     }
 }
@@ -148,6 +158,7 @@ impl Desktop {
             Page::Memory(page) => page.back(),
             Page::Skills(page) => page.back(),
             Page::Folder => panel.files.as_mut().is_some_and(|files| files.back()),
+            Page::Provider(_) => false,
         };
         if !closed_inside {
             panel.page = None;
@@ -240,7 +251,7 @@ impl Desktop {
             .hover(move |style| style.bg(hover).text_color(ink))
             .on_click(cx.listener(|this, _, _, cx| this.close_library_page(cx)))
             .child(icon("chevron-left", px(15.), theme.ink_secondary))
-            .child("Library");
+            .child(page.back_label());
         let body = match page {
             Page::Memory(state) => self.render_memory_page(bot, state, theme, cx),
             Page::Skills(state) => self.render_skills_page(bot, state, theme, cx),
@@ -249,6 +260,7 @@ impl Desktop {
                     .child(note_row(format!("{} has no files to browse here.", bot.name), false, theme))
                     .into_any_element()
             })),
+            Page::Provider(state) => self.render_provider_page(state, theme, cx),
         };
         div()
             .pt_2()

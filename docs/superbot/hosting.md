@@ -60,6 +60,8 @@ New agents default to a dedicated Linux computer. An existing agent keeps its sa
 
 To disable computers, stop the agents' computers in the app, run `host.mjs down` with the enabled environment, remove `SUPERBOT_COMPUTERS_ENABLED` from that file, then run `host.mjs up` with the same project and environment. The agent choices and persisted homes remain in the project volumes.
 
+[Where agent computers run](agent-computers.md) compares this server-hosted path with computers on the person's own machine and cloud providers, and shows where each is chosen.
+
 ## Connect external apps
 
 A fresh host offers direct connections to Atlassian, GitHub, Linear and Notion.

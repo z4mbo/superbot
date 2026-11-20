@@ -139,6 +139,7 @@ impl Desktop {
     /// another place. Files are read only while the browser is on screen, since reading them
     /// keeps a running computer awake.
     pub(super) fn sync_computer_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.sync_computer_providers(window, cx);
         let Some(panel) = self.agent_panel.as_ref() else { return };
         let status = match &panel.computer {
             Some(ComputerView::Ready(status)) => status,

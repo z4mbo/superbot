@@ -210,6 +210,7 @@ impl Desktop {
             ),
             _ => None,
         };
+        let mode_row = mode_row.map(|row| row.children(self.render_provider_row(theme, cx)));
         let disk = match &panel.computer {
             Some(ComputerView::Ready(status)) => status.disk_full_percent,
             _ => None,
