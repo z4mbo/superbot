@@ -35,8 +35,11 @@ mod view;
 use parts::*;
 pub(crate) use parts::round_button;
 
-const PANEL_MAX: Pixels = px(569.);
-const PANEL_MIN: Pixels = px(320.);
+const PANEL_WIDTH: Pixels = px(400.);
+
+pub(super) fn agent_panel_needs_sidebar_space(window: Pixels) -> bool {
+    window < crate::theme::SIDEBAR_WIDTH + PANEL_WIDTH + px(240.)
+}
 
 /// What the desktop knows about agents beyond the sidebar summary: each agent's settings and
 /// the space's models, read again after `stale` (a change signal or the window coming back).

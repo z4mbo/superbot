@@ -26,6 +26,73 @@ impl Skin {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Identity {
+    Green,
+    Blue,
+    Red,
+    Orange,
+    Purple,
+    Cyan,
+    Pink,
+    Yellow,
+    Teal,
+    Coral,
+    Bronze,
+    Slate,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BotColor {
+    pub name: &'static str,
+    pub hex: &'static str,
+    previous_hex: Option<&'static str>,
+    identity: Option<Identity>,
+}
+
+impl BotColor {
+    const fn new(name: &'static str, hex: &'static str, previous_hex: &'static str, identity: Identity) -> Self {
+        Self { name, hex, previous_hex: Some(previous_hex), identity: Some(identity) }
+    }
+
+    pub fn from_value(value: &str) -> Option<&'static Self> {
+        let color = avatar_shape(value).map_or(value, |(color, _)| color);
+        let color = color.strip_prefix('#').unwrap_or(color);
+        let matches = |hex: &str| color.eq_ignore_ascii_case(&hex[1..]);
+        BOT_COLORS.iter().find(|entry| matches(entry.hex) || entry.previous_hex.is_some_and(matches))
+    }
+
+    pub fn avatar_value(self, current: &str) -> String {
+        match avatar_shape(current) {
+            Some((_, shape)) => format!("{}::shape_{shape}", self.hex),
+            None => self.hex.to_owned(),
+        }
+    }
+}
+
+/// The wire palette from packages/contracts/src/bots/bot-avatar.ts, in picker order.
+pub const BOT_COLORS: [BotColor; 11] = [
+    BotColor { name: "Staff White", hex: "#FFFFFF", previous_hex: None, identity: None },
+    BotColor::new("Executive Violet", "#A97EFE", "#8B5CF6", Identity::Purple),
+    BotColor::new("Emerald", "#00C972", "#10B981", Identity::Green),
+    BotColor::new("Forge Orange", "#FF781C", "#F97316", Identity::Orange),
+    BotColor::new("Cyber Cyan", "#1CC3B0", "#06B6D4", Identity::Teal),
+    BotColor::new("Cobalt Blue", "#2A92FE", "#3B82F6", Identity::Blue),
+    BotColor::new("Amber Gold", "#FFAF38", "#EAB308", Identity::Yellow),
+    BotColor::new("Caramel Bronze", "#A27952", "#8D6E63", Identity::Bronze),
+    BotColor::new("Crimson Red", "#FF3E51", "#EF4444", Identity::Red),
+    BotColor::new("Neon Pink", "#FF5EB1", "#EC4899", Identity::Pink),
+    BotColor::new("Slate Silver", "#94A3B8", "#64748B", Identity::Slate),
+];
+
+fn avatar_shape(value: &str) -> Option<(&str, &str)> {
+    value
+        .split_once("::shape_")
+        .filter(|(_, shape)| !shape.is_empty() && shape.bytes().all(|byte| byte.is_ascii_digit()))
+}
+
+const HASH_PALETTE_LEN: usize = Identity::Coral as usize + 1;
+
 /// Semantic colours. Views read these and never write a colour of their own.
 #[derive(Clone)]
 pub struct Theme {
@@ -54,7 +121,7 @@ pub struct Theme {
     pub danger_ink: Hsla,
     pub warning: Hsla,
     pub scrim: Hsla,
-    pub identity: [Hsla; 10],
+    identity: [Hsla; Identity::Slate as usize + 1],
     pub font: SharedString,
     pub mono: SharedString,
 }
@@ -103,6 +170,8 @@ impl Theme {
                     rgb(0xd8a729).into(),
                     rgb(0x01a492).into(),
                     rgb(0xe5634e).into(),
+                    rgb(0xa8805a).into(),
+                    rgb(0x8a94a6).into(),
                 ],
                 font,
                 mono,
@@ -144,6 +213,8 @@ impl Theme {
                     rgb(0x896a19).into(),
                     rgb(0x017c6f).into(),
                     rgb(0xcd361e).into(),
+                    rgb(0x8a6440).into(),
+                    rgb(0x5f6b7d).into(),
                 ],
                 font,
                 mono,
@@ -165,26 +236,36 @@ impl Theme {
         mix(self.composer, self.ink, 0.07)
     }
 
-    /// The colour a bot keeps everywhere it appears, chosen by its identity key.
+    /// The skin's identity colour for a stored avatar value or a local identity key.
     pub fn identity_for(&self, key: &str) -> Hsla {
+        self.identity_paint(key).0
+    }
+
+    /// The identity fill and the ink to draw on top of it.
+    pub fn identity_paint(&self, key: &str) -> (Hsla, Hsla) {
+        if let Some(color) = BotColor::from_value(key) {
+            return match color.identity {
+                Some(identity) => (self.identity[identity as usize], gpui_kit::white()),
+                None => (self.ink, self.app),
+            };
+        }
         let named = match key {
-            "green" => Some(0),
-            "blue" => Some(1),
-            "red" => Some(2),
-            "orange" => Some(3),
-            "purple" => Some(4),
-            "cyan" => Some(5),
-            "pink" => Some(6),
-            "yellow" => Some(7),
-            "teal" => Some(8),
-            "coral" => Some(9),
+            "green" => Some(Identity::Green),
+            "blue" => Some(Identity::Blue),
+            "red" => Some(Identity::Red),
+            "orange" => Some(Identity::Orange),
+            "purple" => Some(Identity::Purple),
+            "cyan" => Some(Identity::Cyan),
+            "pink" => Some(Identity::Pink),
+            "yellow" => Some(Identity::Yellow),
+            "teal" => Some(Identity::Teal),
+            "coral" => Some(Identity::Coral),
             _ => None,
         };
-        let index = named.unwrap_or_else(|| {
-            key.bytes().fold(0usize, |hash, byte| hash.wrapping_mul(31).wrapping_add(byte as usize))
-                % self.identity.len()
+        let index = named.map(|identity| identity as usize).unwrap_or_else(|| {
+            key.bytes().fold(0usize, |hash, byte| hash.wrapping_mul(31).wrapping_add(byte as usize)) % HASH_PALETTE_LEN
         });
-        self.identity[index]
+        (self.identity[index], gpui_kit::white())
     }
 
     pub fn float_shadow(&self) -> Vec<BoxShadow> {
@@ -273,3 +354,59 @@ pub const CAPTION_WIDTH: Pixels = px(138.);
 pub const CAPTION_HEIGHT: Pixels = px(52.);
 pub const CHAT_COLUMN: Pixels = px(960.);
 pub const BUBBLE_MAX: Pixels = px(560.);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shared_avatar_colors_follow_the_skin_palette() {
+        let fonts = Fonts { sans: "Geist".into(), mono: "Geist Mono".into() };
+        let midnight = Theme::of(Skin::Midnight, &fonts);
+        let daylight = Theme::of(Skin::Daylight, &fonts);
+        let cases: [(&[&str], u32, u32); 11] = [
+            (&["#FFFFFF"], 0xf5f5f5, 0x1c1c1c),
+            (&["#A97EFE", "#8B5CF6"], 0x8d69ce, 0x8057c8),
+            (&["#00C972", "#10B981"], 0x009957, 0x007f48),
+            (&["#FF781C", "#F97316"], 0xe78531, 0xa95914),
+            (&["#1CC3B0", "#06B6D4"], 0x01a492, 0x017c6f),
+            (&["#2A92FE", "#3B82F6"], 0x377fe6, 0x1b6adc),
+            (&["#FFAF38", "#EAB308"], 0xd8a729, 0x896a19),
+            (&["#A27952", "#8D6E63"], 0xa8805a, 0x8a6440),
+            (&["#FF3E51", "#EF4444"], 0xd94b52, 0xd12c34),
+            (&["#FF5EB1", "#EC4899"], 0xd84f8b, 0xca2d72),
+            (&["#94A3B8", "#64748B"], 0x8a94a6, 0x5f6b7d),
+        ];
+        for (values, dark, light) in cases {
+            for value in values {
+                for form in [
+                    value.to_string(),
+                    value.to_ascii_lowercase(),
+                    value[1..].to_string(),
+                    value[1..].to_ascii_lowercase(),
+                ] {
+                    for key in [form.clone(), format!("{form}::shape_3")] {
+                        for (theme, expected) in [(&midnight, dark), (&daylight, light)] {
+                            let eyes = if *value == "#FFFFFF" { theme.app } else { gpui_kit::white() };
+                            assert_eq!(theme.identity_paint(&key), (rgb(expected).into(), eyes), "{key}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn named_colors_and_the_original_hash_palette_still_work() {
+        let fonts = Fonts { sans: "Geist".into(), mono: "Geist Mono".into() };
+        let theme = Theme::of(Skin::Midnight, &fonts);
+        assert_eq!(theme.identity_for("green"), rgb(0x009957).into());
+        assert_eq!(theme.identity_for("cyan"), rgb(0x0ea5c6).into());
+        assert_eq!(theme.identity_for("coral"), rgb(0xe5634e).into());
+        assert_eq!(theme.identity_for("xyz"), rgb(0xe78531).into());
+        for key in ["#123456", "#123456::shape_3", "#A97EFE::shape_no", ""] {
+            let old_hash = key.bytes().fold(0usize, |hash, byte| hash.wrapping_mul(31).wrapping_add(byte as usize));
+            assert_eq!(theme.identity_for(key), theme.identity[old_hash % 10], "{key}");
+        }
+    }
+}

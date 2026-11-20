@@ -2,6 +2,7 @@ use gpui_kit::*;
 
 use crate::app::{Desktop, Session, View};
 use crate::theme::ActiveTheme;
+use crate::ui::agent_panel::agent_panel_needs_sidebar_space;
 #[cfg(not(target_os = "macos"))]
 use crate::ui::overlays::caption_buttons;
 
@@ -21,6 +22,10 @@ impl Render for Desktop {
                     View::Workspace => self.render_workspace(window, cx),
                 };
                 self.sync_inbox(window, cx);
+                let hide_sidebar = self.view == View::Chat
+                    && self.agent_panel.is_some()
+                    && !self.inbox.open
+                    && agent_panel_needs_sidebar_space(window.viewport_size().width);
                 let side = match self.render_inbox_panel(window, cx) {
                     Some(inbox) => Some(inbox),
                     None if self.view == View::Chat => {
@@ -31,7 +36,7 @@ impl Render for Desktop {
                 div()
                     .size_full()
                     .flex()
-                    .child(self.render_sidebar(window, cx))
+                    .children((!hide_sidebar).then(|| self.render_sidebar(window, cx)))
                     .child(div().flex_1().min_w_0().h_full().child(main))
                     .children(side)
                     .into_any_element()

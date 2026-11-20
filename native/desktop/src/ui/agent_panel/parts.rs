@@ -137,14 +137,7 @@ pub(super) fn inline_field(state: &Entity<InputState>, width: Pixels, theme: &Th
         .child(Input::new(state).appearance(false).bordered(false).small())
 }
 
-/// The reference's docked width: 45% of the window, between the panel's bounds.
-pub(super) fn panel_width(window: Pixels) -> Pixels {
-    let width = window * 0.45;
-    if width > PANEL_MAX {
-        PANEL_MAX
-    } else if width < PANEL_MIN {
-        PANEL_MIN
-    } else {
-        width
-    }
+/// The design's docked width (DESKTOP-DESIGN §4); resizing is To build.
+pub(super) fn panel_width(_window: Pixels) -> Pixels {
+    PANEL_WIDTH
 }

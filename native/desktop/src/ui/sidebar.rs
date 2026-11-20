@@ -105,6 +105,11 @@ impl Desktop {
             .pt_3()
             .window_control_area(WindowControlArea::Drag)
             .children(space.map(|space| {
+                let name = StyledText::new(space.clone());
+                let layout = name.layout().clone();
+                let name = InteractiveText::new("space-name", name).tooltip(move |_, window, cx| {
+                    (layout.text() != space).then(|| Tooltip::new(space.clone()).build(window, cx))
+                });
                 div()
                     .id("space-switcher")
                     .h_9()
@@ -120,7 +125,7 @@ impl Desktop {
                     .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                         this.open_menu(MenuKind::Spaces, event.position() + point(px(-8.), px(22.)), cx)
                     }))
-                    .child(div().name().truncate().child(space))
+                    .child(div().name().truncate().child(name))
                     .child(icon("chevron-down", px(14.), theme.ink_secondary))
             }))
             .child(div().flex_1())
