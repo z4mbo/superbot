@@ -317,11 +317,13 @@ impl Desktop {
         if self.wants_knowledge() {
             self.read_knowledge(window, cx);
         }
-        let wants_computer =
-            self.agent_panel.as_ref().is_some_and(|panel| panel.tab == PanelTab::Computer && panel.computer.is_none());
+        let wants_computer = self.agent_panel.as_ref().is_some_and(|panel| {
+            matches!(panel.tab, PanelTab::Computer | PanelTab::Library) && panel.computer.is_none()
+        });
         if wants_computer {
             self.read_computer(window, cx);
         }
+        self.sync_computer_files(window, cx);
     }
 
     fn read_agent(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {

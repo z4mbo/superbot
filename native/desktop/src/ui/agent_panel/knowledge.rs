@@ -51,6 +51,8 @@ fn settle<T>(slot: &mut Option<Load<T>>, result: Result<T, Error>) {
 pub(super) enum Page {
     Memory(memory::MemoryPage),
     Skills(skills::SkillsPage),
+    /// The agent's files on its computer, in the Computer tab's browser.
+    Folder,
 }
 
 impl Page {
@@ -58,6 +60,7 @@ impl Page {
         match self {
             Self::Memory(_) => "What it remembers",
             Self::Skills(_) => "Skills",
+            Self::Folder => "Working folder",
         }
     }
 }
@@ -144,6 +147,7 @@ impl Desktop {
         let closed_inside = match page {
             Page::Memory(page) => page.back(),
             Page::Skills(page) => page.back(),
+            Page::Folder => panel.files.as_mut().is_some_and(|files| files.back()),
         };
         if !closed_inside {
             panel.page = None;
@@ -159,9 +163,18 @@ impl Desktop {
         cx.notify();
     }
 
-    /// The memory and skills shortcuts under the conversation's items.
+    /// The memory, skills and working folder shortcuts under the conversation's items. The folder
+    /// shows only once the computer's status says it has files to browse.
     pub(super) fn render_library_shortcuts(&self, theme: &Theme, cx: &mut Context<Self>) -> Div {
         let Some(panel) = self.agent_panel.as_ref() else { return div() };
+        let folder = self.agent_info.bot(&panel.agent_id).filter(|bot| match &panel.computer {
+            Some(ComputerView::Ready(status)) => files::browsable(status, uses_computer(bot)),
+            _ => false,
+        });
+        let folder_value = folder.map(|bot| match bot.computer_mode {
+            ComputerMode::Team => "Team computer".to_owned(),
+            ComputerMode::Dedicated => "Its own computer".to_owned(),
+        });
         let knowledge = &panel.knowledge;
         let memory_value = match &knowledge.memory {
             Some(Load::Ready(docs)) => Some(match memory_notes(docs).len() {
@@ -194,7 +207,13 @@ impl Desktop {
                         .on_click(cx.listener(|this, _, window, cx| {
                             this.open_library_page(Page::Skills(skills::SkillsPage::default()), window, cx);
                         })),
-                ),
+                )
+                .children(folder_value.map(|value| {
+                    nav_row("library-folder", "folder", "Working folder", Some(value), theme)
+                        .border_t_1()
+                        .border_color(theme.ink_at(0.05))
+                        .on_click(cx.listener(|this, _, window, cx| this.open_library_page(Page::Folder, window, cx)))
+                })),
         )
     }
 
@@ -225,6 +244,11 @@ impl Desktop {
         let body = match page {
             Page::Memory(state) => self.render_memory_page(bot, state, theme, cx),
             Page::Skills(state) => self.render_skills_page(bot, state, theme, cx),
+            Page::Folder => div().child(self.render_computer_files(bot, theme, cx).unwrap_or_else(|| {
+                page_card(theme)
+                    .child(note_row(format!("{} has no files to browse here.", bot.name), false, theme))
+                    .into_any_element()
+            })),
         };
         div()
             .pt_2()
