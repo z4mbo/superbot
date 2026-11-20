@@ -1,4 +1,5 @@
 mod credentials;
+mod local_history;
 mod protocol;
 mod server_selection;
 
@@ -13,11 +14,12 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 pub use credentials::CredentialStore;
-pub use server_selection::{remember_server, selected_server};
+pub use local_history::LocalHistoryReceipt;
 pub use protocol::{
     Agent, Error, Message, MessageAuthor, SendReceipt, Space, ThreadEvent, ThreadSnapshot,
     ThreadTarget,
 };
+pub use server_selection::{remember_server, selected_server};
 
 pub const DEFAULT_SERVER: &str = "http://127.0.0.1:5173";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -87,7 +89,7 @@ fn server_origin(server: &str) -> Result<(Url, bool), Error> {
 }
 
 impl Client {
-    /// Accepts an HTTPS origin, or HTTP on loopback for local Rakazo deployments.
+    /// Accepts an HTTPS origin, or HTTP on loopback for local Superbot deployments.
     pub fn new(server: &str) -> Result<Self, Error> {
         let (server, loopback) = server_origin(server)?;
         let mut http = reqwest::Client::builder()
@@ -109,7 +111,7 @@ impl Client {
         self.server.as_str()
     }
 
-    /// Attaches the signed session returned by Rakazo's native auth API.
+    /// Attaches the signed session returned by Superbot's native auth API.
     pub fn with_token(&self, token: &str) -> Result<Self, Error> {
         let Some((session, signature)) = token.split_once('.') else {
             return Err(Error::InvalidSession);
@@ -398,7 +400,7 @@ impl Client {
             .get(header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok());
         if !content_type.is_some_and(|value| value.split(';').next() == Some("text/event-stream")) {
-            return Err(Error::Protocol("expected a Rakazo event stream"));
+            return Err(Error::Protocol("expected a Superbot event stream"));
         }
         Ok(Box::pin(async_stream::try_stream! {
             let mut events = response.bytes_stream().eventsource();
@@ -455,7 +457,7 @@ impl Client {
         Ok(request)
     }
 
-    /// Calls an authenticated Rakazo oRPC procedure with a JSON input.
+    /// Calls an authenticated Superbot oRPC procedure with a JSON input.
     pub async fn rpc<T: DeserializeOwned>(
         &self,
         path: &str,

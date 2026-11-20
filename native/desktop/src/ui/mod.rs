@@ -1,7 +1,11 @@
+pub mod agent_panel;
 pub mod chat;
 pub mod chrome;
 pub mod corner;
+pub mod create_panel;
 pub mod creator;
+pub mod model_menu;
+pub mod new_menu;
 pub mod overlays;
 pub mod releases;
 pub mod sidebar;

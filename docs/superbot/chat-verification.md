@@ -8,24 +8,26 @@ pnpm --filter @rakazo/api build
 node --import tsx infra/superbot/verify-chat.mjs "C:/path/to/postgresql/bin" "$env:USERPROFILE/.cargo/bin/superbot.exe"
 ```
 
-The verifier starts a fresh PostgreSQL cluster, migrates it with a dedicated owner role, and starts the Rakazo API and worker with a separate runtime login. It uses dynamically allocated loopback ports, a temporary data directory, a fake sandbox, and two disposable password accounts. The model is the workspace's deterministic loopback streaming emulator. The fixture supplies its own environment and uses no hosted model credentials.
+The verifier starts a fresh PostgreSQL cluster, migrates it with a dedicated owner role, and starts the Superbot API and worker with a separate runtime login. It uses dynamically allocated loopback ports, a temporary data directory, a fake sandbox, and disposable password accounts. The model is the workspace's deterministic loopback streaming emulator. The fixture supplies its own environment and uses no hosted model credentials.
 
 For a desktop comparison, pass the compiled `target/debug/superbot-desktop.exe` as a third argument after the CLI executable. The verifier opens the native client against the same disposable server after the chat assertions pass. Select the shared Space to inspect the conversation. Close the fixture desktop window to sign out and remove the temporary cluster. This keeps screenshots and writes separate from your personal workspace.
 
-The harness creates the CLI session through Rakazo's password sign-in endpoint. It pipes the signed fixture session to Windows Credential Manager under the new loopback origin. The helper refuses to replace an existing entry. The CLI exercises its regular credential loading and logout. Teardown stops the fixture services and PostgreSQL and removes the fixture directory and credential.
+The harness creates the CLI session through Superbot's password sign-in endpoint. It pipes the signed fixture session to Windows Credential Manager under the new loopback origin. The helper refuses to replace an existing entry. The CLI exercises its regular credential loading and logout. Teardown stops the fixture services and PostgreSQL and removes the fixture directory and credential.
 
 ## Assertions
 
 - The installed CLI resolves the agent by name in the selected Space, sends the typed prompt, prints `Fixture agent > The fixture response is blue.`, and exits successfully with empty stderr.
 - The observer signs in separately, joins the Space by invitation, and opens the group thread stream before the owner sends a message. The stream carries the owner's user ID and display name in the human message payload and the responding agent's ID on the conversation event. The corresponding run completes.
+- Concurrent retries of local notes and completed CLI exchanges return the same message IDs. A second signed-in member receives the local messages live and reloads them with the same author and origin. Unauthorized writes and attempts to supply a server run ID are rejected.
 - Both prompts arrive at the model emulator and consume its two scripted responses. The API starts the live runs immediately while the worker is up with PostgreSQL's durable queue.
 
 ## Recorded run
 
-Passed on November 19, 2026 with the installed Windows `superbot-cli 0.1.0` and PostgreSQL 18.7. The verifier exited with status 0 and printed both lines below. CLI logout returned `Signed out.` and the fixture directory was removed.
+Passed on November 20, 2026 with the installed Windows `superbot-cli 0.1.0` and PostgreSQL 18.7. The verifier exited with status 0 and printed the lines below. CLI logout returned `Signed out.` and the fixture directory was removed.
 
 ```text
 PASS installed Superbot CLI sent a message and printed its deterministic agent reply
+PASS local notes and CLI turns retry safely and reload with matching live attribution
 PASS a second signed-in Space member streamed the human and agent messages with matching author IDs
 ```
 

@@ -8,20 +8,24 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::api::{GroupMember, Target};
-use crate::app::conversation::{FileState, MentionList};
-use crate::app::{Desktop, DialogKind, View};
+use crate::app::conversation::MentionList;
+use crate::app::{Desktop, View};
 use crate::clock;
 use crate::files;
 use crate::outbox::{self, Attachment};
 use crate::theme::{mix, radius, ActiveTheme, Theme, BUBBLE_MAX, CAPTION_WIDTH, CHAT_COLUMN};
-use crate::transcript::{place, Entry, FileRef, Join, Part, Place, Speaker};
+use crate::transcript::{place, Entry, Join, Part, Place, Speaker};
 use superbot_avatars::{Bot, ChatTone, Mark};
+use superbot_workspace_panel::Section;
 
 use crate::ui::{bot_avatar, bot_ink, chat_tone, error_line, icon, pill_button, Tone, Type};
+
+mod file;
 
 impl Desktop {
     pub fn render_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         self.prepare_cards(window, cx);
+        self.sync_agent_info(window, cx);
         let theme = cx.skin().clone();
         let Some(chat) = self.chat.as_ref() else {
             return self.render_no_conversation(&theme, cx);
@@ -86,9 +90,10 @@ impl Desktop {
                             .text_color(theme.ink_secondary)
                             .child("Create your first agent to start a conversation."),
                     )
-                    .child(pill_button("first-agent", "New agent", Tone::Primary, true, theme).on_click(
-                        cx.listener(|this, _, window, cx| this.open_dialog(DialogKind::NewAgent, window, cx)),
-                    )),
+                    .child(
+                        pill_button("first-agent", "New bot", Tone::Primary, true, theme)
+                            .on_click(cx.listener(|this, _, window, cx| this.new_agent(window, cx))),
+                    ),
             )
             .into_any_element()
     }
@@ -97,6 +102,61 @@ impl Desktop {
         let name = self.target_name(target);
         let hover = theme.elevated_hover();
         let watch = SharedString::from("head");
+        let docked = self.agent_panel.is_some();
+        let model = match target {
+            Target::Agent(id) => self.chat_model_label(id),
+            Target::Group(_) => None,
+        };
+        let identity = superbot_avatars::watch_region(div().id("chat-head"), watch.clone())
+            .min_w_0()
+            .flex()
+            .items_center()
+            .gap_2()
+            .pt(px(9.))
+            .pb(px(8.))
+            .pl(px(9.))
+            .pr(px(11.))
+            .rounded_full()
+            .cursor_pointer()
+            .hover(move |style| style.bg(hover))
+            .on_click(cx.listener(|this, _, window, cx| match this.chat.as_ref().map(|chat| &chat.target) {
+                Some(Target::Agent(_)) => this.toggle_agent_panel(window, cx),
+                _ => this.show(View::Workspace, window, cx),
+            }))
+            .child(self.target_face(target, px(22.), Some(watch), theme, cx))
+            .child(div().name().truncate().child(name));
+        let model = model.map(|label| {
+            div()
+                .id("chat-head-model")
+                .min_w_0()
+                .flex()
+                .items_center()
+                .gap_1()
+                .pt(px(9.))
+                .pb(px(8.))
+                .pl(px(9.))
+                .pr(px(11.))
+                .rounded_full()
+                .cursor_pointer()
+                .hover(move |style| style.bg(hover))
+                .tooltip(|window, cx| Tooltip::new("Change model").build(window, cx))
+                .on_click(cx.listener(|this, _, window, cx| this.choose_agent_model(window, cx)))
+                .child(div().body().text_color(theme.ink_secondary).truncate().child(label))
+                .child(icon("chevron-down", px(14.), theme.ink_tertiary))
+        });
+        let pill = div()
+            .max_w_full()
+            .flex()
+            .items_center()
+            .rounded_full()
+            .bg(theme.composer)
+            .border_1()
+            .border_color(theme.ink_at(0.06))
+            .occlude()
+            .child(identity)
+            .when_some(model, |pill, model| {
+                pill.child(div().w(px(1.)).h(px(16.)).flex_shrink_0().bg(theme.ink_at(0.12))).child(model)
+            });
         div()
             .flex()
             .items_center()
@@ -104,31 +164,9 @@ impl Desktop {
             .px_5()
             .py_2p5()
             .window_control_area(WindowControlArea::Drag)
-            .child(div().w(CAPTION_WIDTH).flex_shrink_0())
-            .child(
-                div().flex_1().min_w_0().flex().justify_center().child(
-                    superbot_avatars::watch_region(div().id("chat-head"), watch.clone())
-                        .max_w_full()
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .pt(px(9.))
-                        .pb(px(8.))
-                        .pl(px(9.))
-                        .pr(px(11.))
-                        .rounded_full()
-                        .bg(theme.composer)
-                        .border_1()
-                        .border_color(theme.ink_at(0.06))
-                        .cursor_pointer()
-                        .occlude()
-                        .hover(move |style| style.bg(hover))
-                        .on_click(cx.listener(|this, _, window, cx| this.show(View::Workspace, window, cx)))
-                        .child(self.target_face(target, px(22.), Some(watch), theme, cx))
-                        .child(div().name().truncate().child(name)),
-                ),
-            )
-            .child(div().w(CAPTION_WIDTH).flex_shrink_0())
+            .when(!docked, |header| header.child(div().w(CAPTION_WIDTH).flex_shrink_0()))
+            .child(div().flex_1().min_w_0().flex().when(!docked, |row| row.justify_center()).child(pill))
+            .when(!docked, |header| header.child(div().w(CAPTION_WIDTH).flex_shrink_0()))
     }
 
     fn chat_tone(&self, theme: &Theme, cx: &App) -> Option<ChatTone> {
@@ -272,16 +310,24 @@ impl Desktop {
     ) -> AnyElement {
         let chat = self.chat.as_ref();
         let in_group = chat.is_some_and(|chat| matches!(chat.target, Target::Group(_)));
+        let markdown = entry.speaker == Speaker::Agent && !entry.local_cli;
         let members: &[GroupMember] = chat.map_or(&[], |chat| &chat.conversation.members);
         let own = self.own_bubble(theme, cx);
         let join = place.join;
         let mine = entry.speaker == Speaker::Person
-            && entry.name.as_deref().is_none_or(|name| self.me.as_ref().is_some_and(|me| me.name == name));
+            && match &entry.author_id {
+                Some(author) => self.me.as_ref().is_some_and(|me| &me.user_id == author),
+                None => entry.name.as_deref().is_none_or(|name| self.me.as_ref().is_some_and(|me| me.name == name)),
+            };
         let agent = entry.agent_id.as_deref().and_then(|id| self.agent(id));
         let voice = if join.above {
             None
         } else {
             match entry.speaker {
+                Speaker::Agent if entry.local_cli => Some((
+                    entry.name.as_ref().map_or_else(|| "Local CLI".to_owned(), |name| format!("Local CLI · {name}")),
+                    theme.ink_secondary,
+                )),
                 Speaker::Agent if in_group => {
                     agent.map(|agent| (agent.name.clone(), bot_ink(agent.avatar(), theme, cx)))
                 }
@@ -319,7 +365,7 @@ impl Desktop {
                     Vec::new()
                 };
                 let key = (index, part_index);
-                let bubble = bubble(text, mine, entry.speaker, join, key, &named, own, theme);
+                let bubble = bubble(text, mine, markdown, join, key, &named, own, theme);
                 match said.clone() {
                     Some(said) => div()
                         .id(("said", index * 64 + part_index))
@@ -417,82 +463,6 @@ impl Desktop {
             .into_any_element()
     }
 
-    /// A file a message carries: what it is, and the two things to do with it. Opening is
-    /// offered only for kinds the system's viewer shows without running anything.
-    fn render_file(&self, file: &FileRef, key: (usize, usize), theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
-        let state = self.chat.as_ref().and_then(|chat| chat.conversation.files.get(&file.artifact_id));
-        let fetching = state == Some(&FileState::Fetching);
-        let problem = match state {
-            Some(FileState::Problem(problem)) => Some(problem.clone()),
-            _ => None,
-        };
-        let glyph = if files::is_image(&file.mime_type) { "image" } else { "file-text" };
-        let kind = file.name.rsplit_once('.').map(|(_, extension)| extension.to_ascii_uppercase());
-        let detail: Vec<String> = kind.into_iter().chain(file.size.map(files::size_label)).collect();
-        let hover = theme.ink_at(0.06);
-        let action = |label: &'static str, open: bool, cx: &mut Context<Self>| {
-            let file = file.clone();
-            div()
-                .id((label, key.0 * 64 + key.1))
-                .h_7()
-                .px_2p5()
-                .flex()
-                .items_center()
-                .rounded_full()
-                .body()
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(theme.accent_text)
-                .cursor_pointer()
-                .hover(move |style| style.bg(hover))
-                .on_click(cx.listener(move |this, _, window, cx| this.fetch_file(file.clone(), open, window, cx)))
-                .child(label)
-        };
-        let actions = if fetching {
-            div().px_2().child(Spinner::new().with_size(px(14.)).color(theme.ink_tertiary))
-        } else {
-            div()
-                .flex()
-                .items_center()
-                .when(files::opens_as(&file.mime_type).is_some(), |actions| actions.child(action("Open", true, cx)))
-                .child(action("Save", false, cx))
-        };
-        card(theme)
-            .w_full()
-            .max_w(px(380.))
-            .gap_2()
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_2p5()
-                    .child(
-                        div()
-                            .size_9()
-                            .flex_shrink_0()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .rounded(radius::FIELD)
-                            .bg(theme.ink_at(0.06))
-                            .child(icon(glyph, px(16.), theme.ink_secondary)),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .flex()
-                            .flex_col()
-                            .child(div().body().font_weight(FontWeight::MEDIUM).truncate().child(file.name.clone()))
-                            .when(!detail.is_empty(), |text| {
-                                text.child(div().meta().text_color(theme.ink_tertiary).child(detail.join(" · ")))
-                            }),
-                    )
-                    .child(actions.flex_shrink_0()),
-            )
-            .children(problem.map(|problem| div().meta().text_color(theme.danger).child(problem)))
-            .into_any_element()
-    }
-
     /// A card this app does not draw yet opens where it can be used: the server's own web app.
     fn open_on_web(&self, label: &'static str, theme: &Theme, cx: &mut Context<Self>) -> Stateful<Div> {
         div()
@@ -516,10 +486,10 @@ impl Desktop {
             .flex_col()
             .items_start()
             .when(!chat.draft.is_empty(), |row| {
-                let draft = bubble(&chat.draft, false, Speaker::Agent, Join::default(), (last, 0), &[], own, theme);
+                let draft = bubble(&chat.draft, false, true, Join::default(), (last, 0), &[], own, theme);
                 row.child(div().pt_4().w_full().flex().child(draft))
             })
-            .when(chat.working, |row| {
+            .when(chat.working || chat.local_turn.is_some(), |row| {
                 let activity = chat.activity.clone().unwrap_or_else(|| "Working…".into());
                 row.child(
                     div()
@@ -555,18 +525,25 @@ impl Desktop {
 
     fn render_composer(&mut self, target: &Target, theme: &Theme, window: &Window, cx: &mut Context<Self>) -> Div {
         let chat = self.chat.as_ref();
-        let working = chat.is_some_and(|chat| chat.working);
+        let local = self.selected_local_model();
+        let running_local = chat.is_some_and(|chat| chat.local_turn.is_some());
+        let working = chat.is_some_and(|chat| chat.working) || running_local;
+        let pending = self.pending_local_write();
         let loading = chat.is_some_and(|chat| chat.loading);
         let outbox = chat.map(|chat| &chat.conversation.outbox);
-        let sending = outbox.is_some_and(|outbox| outbox.sending);
+        let sending = outbox.is_some_and(|outbox| outbox.sending) || pending.is_some_and(|write| write.saving);
         let attachments: Vec<Attachment> = outbox.map(|outbox| outbox.attachments.clone()).unwrap_or_default();
-        let problem = outbox.and_then(|outbox| outbox.problem.clone());
+        let problem = if local.is_some() && !attachments.is_empty() {
+            Some("Remove attachments to send with the local model.".to_owned())
+        } else {
+            outbox.and_then(|outbox| outbox.problem.clone())
+        };
         let editor = self.composer.read(cx);
         let focused = editor.focus_handle(cx).is_focused(window);
         let text = editor.value();
         let has_text = !text.trim().is_empty();
         let multiline = text.contains('\n');
-        let needs_model = self.me.as_ref().is_some_and(|me| me.needs_model);
+        let needs_model = local.is_none() && self.me.as_ref().is_some_and(|me| me.needs_model);
         let tone = self.chat_tone(theme, cx);
         let identity = match target {
             Target::Agent(id) => {
@@ -575,8 +552,14 @@ impl Desktop {
             Target::Group(_) => theme.ink,
         };
         let has_content = has_text || !attachments.is_empty();
-        let stopping = working && !has_content && !sending;
-        let ready = has_content && !sending && !loading;
+        let stopping = (running_local || working && !has_content) && !sending;
+        let ready = has_content
+            && pending.is_none()
+            && !sending
+            && !loading
+            && !running_local
+            && (local.is_none() || attachments.is_empty());
+        let write_problem = pending.and_then(|write| write.problem.clone());
         let (fill, ink) = if let (true, Target::Agent(_), Some(tone)) = (stopping, target, tone) {
             (tone.fill, tone.fill_ink)
         } else if stopping {
@@ -599,7 +582,8 @@ impl Desktop {
         let quiet_hover = theme.ink_at(0.08);
         let mentions = self.mention_list(cx);
 
-        let tray = (!attachments.is_empty()).then(|| {
+        let has_attachments = !attachments.is_empty();
+        let tray = has_attachments.then(|| {
             div().flex().flex_wrap().gap_2().children(attachments.iter().map(|attached| {
                 let id = attached.id;
                 let glyph = if files::is_image(attached.mime_type) { "image" } else { "file-text" };
@@ -693,6 +677,7 @@ impl Desktop {
 
         let name = self.target_name(target);
         let label = match target {
+            _ if local.is_some() => format!("Message {name} using the local model"),
             Target::Agent(_) => format!("Message {name}"),
             Target::Group(_) => format!("Message {name}, @ to ask one bot"),
         };
@@ -723,6 +708,7 @@ impl Desktop {
                 )
             })
             .child(field);
+        let local_mode = local.is_some();
         let pill = div()
             .flex()
             .flex_col()
@@ -738,13 +724,7 @@ impl Desktop {
             .shadow(composer_shadow())
             .children(tray)
             .child(
-                div()
-                    .flex()
-                    .items_end()
-                    .gap_1p5()
-                    .child(attach)
-                    .child(input)
-                    .child(send),
+                div().flex().items_end().gap_1p5().when(!local_mode, |row| row.child(attach)).child(input).child(send),
             );
 
         // While the `@` list is open the keys that move through it and choose from it are taken
@@ -786,6 +766,38 @@ impl Desktop {
                 .flex()
                 .flex_col()
                 .gap_2()
+                .when_some(local, |dock, model| {
+                    dock.child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .meta()
+                                    .text_color(theme.ink_secondary)
+                                    .child(format!("{} on this computer", model.label)),
+                            )
+                            .child(
+                                pill_button(
+                                    "save-local-note",
+                                    "Save note",
+                                    Tone::Quiet,
+                                    ready && !has_attachments,
+                                    theme,
+                                )
+                                .on_click(cx.listener(|this, _, window, cx| this.send_local_note(window, cx))),
+                            ),
+                    )
+                })
+                .when_some(write_problem, |dock, problem| {
+                    dock.child(
+                        div().flex().items_center().gap_2().child(error_line(problem, theme)).child(
+                            pill_button("retry-local-write", "Retry saving", Tone::Quiet, !sending, theme)
+                                .on_click(cx.listener(|this, _, window, cx| this.send(window, cx))),
+                        ),
+                    )
+                })
                 .when(needs_model, |dock| {
                     dock.child(
                         div()
@@ -799,7 +811,17 @@ impl Desktop {
                             .body()
                             .text_color(theme.warning)
                             .child(div().flex_1().child("Connect an AI model so your agents can reply."))
-                            .child(self.open_on_web("Connect on the web", theme, cx)),
+                            .child(
+                                div()
+                                    .id("connect-model")
+                                    .body()
+                                    .text_color(theme.accent_text)
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.show_workspace_section(Section::Models, window, cx)
+                                    }))
+                                    .child("Connect a model"),
+                            ),
                     )
                 })
                 .children(problem.map(|problem| error_line(problem, theme)))
@@ -883,7 +905,7 @@ pub(crate) fn card(theme: &Theme) -> Div {
 fn bubble(
     text: &str,
     mine: bool,
-    speaker: Speaker,
+    markdown: bool,
     join: Join,
     key: (usize, usize),
     named: &[std::ops::Range<usize>],
@@ -905,9 +927,8 @@ fn bubble(
         .when(join.below && mine, |bubble| bubble.rounded_br(tight))
         .when(join.above && !mine, |bubble| bubble.rounded_tl(tight))
         .when(join.below && !mine, |bubble| bubble.rounded_bl(tight));
-    match speaker {
-        // What a bot writes is Markdown; what a person types is shown as typed.
-        Speaker::Agent => shape
+    match markdown {
+        true => shape
             .child(TextView::markdown(("reply", key.0 * 64 + key.1), text.to_owned()).selectable(true))
             .into_any_element(),
         _ if named.is_empty() => shape.child(text.to_owned()).into_any_element(),

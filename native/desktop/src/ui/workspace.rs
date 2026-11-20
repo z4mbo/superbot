@@ -2,7 +2,7 @@ use gpui_kit::*;
 use superbot_workspace_panel::{PanelEvent, Section, WorkspacePanel};
 
 use crate::api::Target;
-use crate::app::Desktop;
+use crate::app::{Desktop, View};
 
 #[derive(Default)]
 pub struct Workspace {
@@ -19,6 +19,8 @@ impl Desktop {
             return;
         };
         let panel = WorkspacePanel::build(api.client.clone(), space, Some(Section::People), window, cx);
+        let local = self.local_cli();
+        panel.update(cx, |panel, _| panel.set_local_cli(local));
         #[cfg(not(target_os = "macos"))]
         panel.update(cx, |panel, _| panel.set_caption_width(crate::theme::CAPTION_WIDTH));
         let events = cx.subscribe_in(&panel, window, |this, _, event: &PanelEvent, window, cx| match event {
@@ -32,6 +34,17 @@ impl Desktop {
         });
         self.workspace = Workspace { panel: Some(panel), _events: Some(events) };
         cx.notify();
+    }
+
+    pub fn show_workspace_section(&mut self, section: Section, window: &mut Window, cx: &mut Context<Self>) {
+        self.show(View::Workspace, window, cx);
+        if let Some(panel) = &self.workspace.panel {
+            panel.update(cx, |panel, cx| panel.show(section, window, cx));
+        }
+    }
+
+    pub fn show_agent_model(&mut self, bot_id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_model_menu(bot_id, window, cx);
     }
 
     pub fn render_workspace(&self, _: &mut Window, _: &mut Context<Self>) -> AnyElement {

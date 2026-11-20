@@ -57,8 +57,10 @@ pub struct Entry {
     pub speaker: Speaker,
     /// Who spoke, when the conversation has more than two voices.
     pub name: Option<String>,
+    pub author_id: Option<String>,
     pub agent_id: Option<String>,
     pub run_id: Option<String>,
+    pub local_cli: bool,
     /// When it was said. A message that has just arrived on the live stream takes the moment
     /// it arrived, since the stream names no time for it.
     pub at: Option<Instant>,
@@ -76,6 +78,7 @@ impl Entry {
         if parts.is_empty() {
             return None;
         }
+        let (name, author_id) = message.author.map_or((None, None), |author| (Some(author.name), author.id));
         Some(Self {
             id: message.id,
             seq: message.seq.unwrap_or_default(),
@@ -84,9 +87,11 @@ impl Entry {
                 "bot" => Speaker::Agent,
                 _ => Speaker::System,
             },
-            name: message.author.map(|author| author.name),
+            name,
+            author_id,
             agent_id: message.bot_id,
             run_id: message.run_id,
+            local_cli: message.origin.as_deref() == Some("local_cli"),
             at: message.created_at.as_deref().and_then(clock::instant),
             parts,
         })
@@ -189,6 +194,8 @@ fn same_voice(upper: &Entry, lower: &Entry) -> bool {
         && lower.is_bubble()
         && upper.speaker == lower.speaker
         && upper.agent_id == lower.agent_id
+        && upper.local_cli == lower.local_cli
+        && upper.author_id == lower.author_id
         && upper.name == lower.name
 }
 

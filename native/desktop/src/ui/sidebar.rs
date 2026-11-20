@@ -3,7 +3,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::api::{AgentSummary, GroupSummary, Target};
-use crate::app::{Desktop, DialogKind, MenuKind, View};
+use crate::app::{Desktop, MenuKind, View};
 use crate::theme::{mix, radius, ActiveTheme, Theme, SIDEBAR_WIDTH};
 use crate::ui::corner::Corner;
 use crate::ui::{bot_avatar, empty_line, icon, person_face, Type};
@@ -79,7 +79,7 @@ impl Desktop {
     }
 
     fn render_sidebar_top(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Div {
-        let creating = self.dialog.as_ref().is_some_and(|dialog| dialog.kind == DialogKind::NewAgent);
+        let creating = self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::New) || self.creating_agent();
         let search = self.corner_control(Corner::Search, self.search_open, theme, window, cx);
         let new = self.corner_control(Corner::New, creating, theme, window, cx);
         let space = self.space.as_ref().map(|space| space.name.clone()).unwrap_or_default();
@@ -123,7 +123,7 @@ impl Desktop {
                 }
                 cx.notify();
             })))
-            .child(new.on_click(cx.listener(|this, _, window, cx| this.open_dialog(DialogKind::NewAgent, window, cx))))
+            .child(new.on_click(cx.listener(|this, _, window, cx| this.open_new_menu(window, cx))))
     }
 
     fn render_search(&mut self, theme: &Theme, cx: &mut Context<Self>) -> Div {

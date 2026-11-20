@@ -4,16 +4,19 @@
 //! while they work. Packs are never bundled with the app.
 
 mod frames;
+mod motion;
 mod pack;
 
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::path::Path;
-use std::sync::{Arc, OnceLock};
-use std::time::Duration;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use gpui_kit::*;
 
-pub use frames::{Frame, Frames, Glance};
+pub use frames::{Frame, Frames};
+pub use motion::{Gaze, Work};
 pub use pack::{parse_hex, ChatTone, Look, Pack, PackError, PackFile, Paint};
 
 /// A bot as the server describes it.
@@ -24,27 +27,26 @@ pub struct Bot<'a> {
     pub color: &'a str,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Turn {
-    Toward { to: usize, serial: u64 },
-    Held { at: usize },
-    Away { from: usize, serial: u64 },
-}
-
 struct Watched {
     bounds: Bounds<Pixels>,
     reach: f32,
-    frames: Arc<Frames>,
+    rate: f32,
 }
 
+/// Gradient marks rasterised for one scale, kept so each frame is drawn the moment it is shown.
+type Rasters = Arc<Mutex<HashMap<(u64, u32), Arc<RenderImage>>>>;
+
+/// More gradient rasters than this are dropped together and drawn again as needed.
+const RASTER_LIMIT: usize = 1500;
+
 /// The installed pack, if any, and where each watched mark is looking.
-#[derive(Default)]
 pub struct Avatars {
     pack: Option<Arc<Pack>>,
     shapes: HashMap<String, Arc<OnceLock<Option<Arc<Frames>>>>>,
-    turns: HashMap<SharedString, Turn>,
+    gazes: HashMap<SharedString, Gaze>,
     watched: HashMap<SharedString, Watched>,
-    serial: u64,
+    epoch: Instant,
+    rasters: Rasters,
 }
 
 impl Global for Avatars {}
@@ -82,7 +84,14 @@ impl Avatars {
                 })
                 .ok();
         }
-        Avatars { pack, shapes, ..Default::default() }
+        Avatars {
+            pack,
+            shapes,
+            gazes: HashMap::new(),
+            watched: HashMap::new(),
+            epoch: Instant::now(),
+            rasters: Rasters::default(),
+        }
     }
 
     pub fn has_pack(&self) -> bool {
@@ -128,29 +137,23 @@ pub fn follow(key: &SharedString, position: Point<Pixels>, cx: &mut App) -> bool
     let center = watched.bounds.center();
     let x = (f32::from(position.x - center.x) / watched.reach).clamp(-1., 1.);
     let y = (-f32::from(position.y - center.y) / watched.reach).clamp(-1., 1.);
-    let to = watched.frames.pose_toward(x, y);
-    let next = match avatars.turns.get(key) {
-        Some(Turn::Toward { to: now, .. }) | Some(Turn::Held { at: now }) if *now == to => return false,
-        Some(Turn::Toward { .. }) | Some(Turn::Held { .. }) => Turn::Held { at: to },
-        None | Some(Turn::Away { .. }) => Turn::Toward { to, serial: avatars.serial + 1 },
-    };
-    let avatars = cx.global_mut::<Avatars>();
-    avatars.serial += 1;
-    avatars.turns.insert(key.clone(), next);
+    let rate = watched.rate;
+    let now = Instant::now();
+    let gaze = cx.global_mut::<Avatars>().gazes.entry(key.clone()).or_insert_with(|| Gaze::new(rate, now));
+    gaze.look(x, y, now);
     true
 }
 
 /// Turns the watched mark `key` back to rest. Returns whether it changed.
 pub fn rest(key: &SharedString, cx: &mut App) -> bool {
-    let Some(avatars) = cx.try_global::<Avatars>() else { return false };
-    let from = match avatars.turns.get(key) {
-        Some(Turn::Toward { to, .. }) | Some(Turn::Held { at: to }) => *to,
-        _ => return false,
-    };
-    let avatars = cx.global_mut::<Avatars>();
-    avatars.serial += 1;
-    let serial = avatars.serial;
-    avatars.turns.insert(key.clone(), Turn::Away { from, serial });
+    let Some(gaze) = cx.try_global::<Avatars>().and_then(|avatars| avatars.gazes.get(key)) else { return false };
+    if !gaze.holding() {
+        return false;
+    }
+    let now = Instant::now();
+    if let Some(gaze) = cx.global_mut::<Avatars>().gazes.get_mut(key) {
+        gaze.release(now);
+    }
     true
 }
 
@@ -207,27 +210,55 @@ impl Mark {
 }
 
 impl RenderOnce for Mark {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let slot = div().id(self.id).size(self.size).flex_shrink_0().relative();
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let slot = div().id(self.id.clone()).size(self.size).flex_shrink_0().relative();
         let Some(avatars) = cx.try_global::<Avatars>() else { return slot };
         let (Some(pack), Some(frames)) = (avatars.pack.clone(), avatars.frames(&self.look.shape)) else { return slot };
+        let (epoch, rasters) = (avatars.epoch, avatars.rasters.clone());
+        let now = Instant::now();
         let side = pack.mark_box(f32::from(self.size));
         let compact = side < pack.file.compact_below;
-        let draw =
-            Drawing { paint: self.look.paint.clone(), ink: self.ink, side, offset: (f32::from(self.size) - side) / 2. };
-        let turn = self.watch.as_ref().and_then(|key| avatars.turns.get(key).copied());
+        let phase = self.look.phase;
+
+        let state = window.use_keyed_state(self.id.clone(), cx, |_, _| Work::shown(self.working));
+        let mut work = *state.read(cx);
+        if work.working != self.working {
+            work.change(self.working, &frames, epoch, phase, now);
+            state.update(cx, |state, _| *state = work);
+            if let (Some(key), Some(end)) = (&self.watch, work.resting_from(&frames)) {
+                if let Some(gaze) = cx.global_mut::<Avatars>().gazes.get_mut(key) {
+                    gaze.restart(end);
+                }
+            }
+        }
+        let gaze = self.watch.as_ref().and_then(|key| cx.global::<Avatars>().gazes.get(key).copied());
+
+        let overfull = rasters.lock().map(|mut rasters| match rasters.len() > RASTER_LIMIT {
+            true => rasters.drain().map(|(_, image)| image).collect(),
+            false => Vec::new(),
+        });
+        for image in overfull.unwrap_or_default() {
+            cx.drop_image(image, Some(window));
+        }
+        let draw = Drawing {
+            paint: self.look.paint.clone(),
+            ink: self.ink,
+            side,
+            offset: (f32::from(self.size) - side) / 2.,
+            scale: window.scale_factor(),
+            renderer: cx.svg_renderer(),
+            rasters,
+        };
         let slot = match &self.watch {
             Some(key) => {
                 let key = key.clone();
-                let watched_frames = frames.clone();
+                let rate = frames.gaze_rate;
                 slot.child(
                     canvas(
                         move |bounds, _, cx| {
-                            if let Some(avatars) = cx.try_global::<Avatars>() {
-                                if avatars.has_pack() {
-                                    let watched = Watched { bounds, reach: side / 2., frames: watched_frames };
-                                    cx.global_mut::<Avatars>().watched.insert(key, watched);
-                                }
+                            if cx.try_global::<Avatars>().is_some_and(Avatars::has_pack) {
+                                let watched = Watched { bounds, reach: side / 2., rate };
+                                cx.global_mut::<Avatars>().watched.insert(key, watched);
                             }
                         },
                         |_, _, _, _| {},
@@ -238,52 +269,33 @@ impl RenderOnce for Mark {
             }
             None => slot,
         };
+
         let fps = frames.fps;
-        let phase = self.look.phase;
+        let moving = work.moving(&frames, now) || gaze.is_some_and(|gaze| !gaze.settled(now));
+        let pick = move |now: Instant| -> Frame {
+            match work.frame(&frames, compact, epoch, phase, now) {
+                Some(frame) => frame.clone(),
+                None => match gaze {
+                    Some(gaze) => gaze.frame(&frames, now).clone(),
+                    None => frames.rest().clone(),
+                },
+            }
+        };
         let layer = div().absolute().size_full();
-        let drawn = if self.working {
-            let length = frames.loop_length(compact);
+        let drawn = if moving && !cx.reduce_motion() {
             layer
                 .with_animation(
-                    "working",
-                    Animation::new(length).repeat_synced().with_max_fps(fps),
-                    move |layer, progress| layer.child(draw.frame(frames.working_frame(compact, progress, phase))),
+                    "motion",
+                    Animation::new(Duration::from_secs(1)).repeat().with_max_fps(fps),
+                    move |layer, _| layer.child(draw.frame(&pick(Instant::now()))),
                 )
                 .into_any_element()
         } else {
-            match turn {
-                Some(Turn::Toward { to, serial }) => {
-                    turning(layer, frames, draw, ("toward", serial), move |progress| Glance::Toward { to, progress })
-                }
-                Some(Turn::Away { from, serial }) => {
-                    turning(layer, frames, draw, ("away", serial), move |progress| Glance::Away { from, progress })
-                }
-                Some(Turn::Held { at }) => {
-                    layer.child(draw.frame(frames.glance(Glance::Toward { to: at, progress: 1. }))).into_any_element()
-                }
-                None => layer.child(draw.frame(frames.glance(Glance::Rest))).into_any_element(),
-            }
+            let settled = if moving { now + Duration::from_secs(60) } else { now };
+            layer.child(draw.frame(&pick(settled))).into_any_element()
         };
         slot.child(drawn)
     }
-}
-
-fn turning(
-    layer: Div,
-    frames: Arc<Frames>,
-    draw: Drawing,
-    id: (&'static str, u64),
-    glance: impl Fn(f32) -> Glance + 'static,
-) -> AnyElement {
-    let length = frames.turn().max(Duration::from_millis(1));
-    let fps = frames.fps;
-    layer
-        .with_animation(
-            ElementId::NamedInteger(id.0.into(), id.1),
-            Animation::new(length).with_max_fps(fps),
-            move |layer, progress| layer.child(draw.frame(frames.glance(glance(progress)))),
-        )
-        .into_any_element()
 }
 
 #[derive(Clone)]
@@ -292,6 +304,9 @@ struct Drawing {
     ink: Hsla,
     side: f32,
     offset: f32,
+    scale: f32,
+    renderer: SvgRenderer,
+    rasters: Rasters,
 }
 
 impl Drawing {
@@ -299,11 +314,27 @@ impl Drawing {
         match &self.paint {
             Paint::Color(color) => self.place(svg().data(frame).text_color(*color)),
             Paint::Ink => self.place(svg().data(frame).text_color(self.ink)),
-            Paint::Gradient(stops) => {
-                let bytes = gradient_svg(frame, stops, self.side);
-                self.place(img(ImageSource::Image(Arc::new(Image::from_bytes(ImageFormat::Svg, bytes)))))
-            }
+            Paint::Gradient(stops) => match self.raster(frame, stops) {
+                Some(image) => self.place(img(ImageSource::Render(image))),
+                None => div().into_any_element(),
+            },
         }
+    }
+
+    /// A gradient frame drawn now rather than through the asset loader, which (gpui-pre 0.3.12)
+    /// draws nothing until each new image has decoded in the background.
+    fn raster(&self, frame: &Frame, stops: &[Hsla]) -> Option<Arc<RenderImage>> {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        frame.hash(&mut hasher);
+        (self.side.to_bits(), stops.len()).hash(&mut hasher);
+        let key = (hasher.finish(), self.scale.to_bits());
+        if let Some(image) = self.rasters.lock().ok()?.get(&key) {
+            return Some(image.clone());
+        }
+        let bytes = gradient_svg(frame, stops, self.side);
+        let image = self.renderer.render_single_frame(&bytes, self.scale).ok()?;
+        self.rasters.lock().ok()?.insert(key, image.clone());
+        Some(image)
     }
 
     fn place<E: Styled + IntoElement>(&self, element: E) -> AnyElement {

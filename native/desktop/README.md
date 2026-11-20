@@ -1,13 +1,13 @@
 # Superbot desktop
 
-The native Windows app: Rust and GPUI. Its own views talk to a Rakazo server only through
+The native Windows app: Rust and GPUI. Its own views talk to a Superbot server only through
 `superbot-client`. The workspace window is the exception: it shows the server's own web client
 in WebView2 for what the native views do not draw. [Using the app](../../docs/superbot/desktop.md) covers what a
 person does with it; this note covers how it is built, what it draws, and what it leaves out.
 
 ```powershell
 cargo run -p superbot-desktop
-$env:SUPERBOT_SERVER = "https://rakazo.example.com"; cargo run -p superbot-desktop
+$env:SUPERBOT_SERVER = "https://superbot.example.com"; cargo run -p superbot-desktop
 cargo test -p superbot-desktop
 ```
 
@@ -76,7 +76,7 @@ radii from `theme::radius`, text sizes from the `Type` trait in `src/ui/mod.rs`.
 Each of these is reachable through **Open web workspace**; a card of that kind in a
 transcript says what it is and links there.
 
-- Provider OAuth sign-in, live voice, calls, meetings and a bot's computer. Compatible-endpoint and API-key model setup use **Manage workspace → Models**.
+- Live voice, calls, meetings and advanced computer workflows. The **Computer** tab in agent details covers status, shared or dedicated mode, start and stop. **Manage workspace → Models** supports compatible endpoints, API keys and installed local CLI accounts.
 - Website logins, payment details, contact forms, tool questions, charts, pages and embedded apps.
 - Reactions, reply quotes and message search.
 - In chat: pictures show as file cards, not previews; files are attached with the chooser

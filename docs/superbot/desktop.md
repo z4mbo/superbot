@@ -55,7 +55,11 @@ For matching bot avatars, keep the same `avatars/` directory on both clients. It
 
 ## Conversations and shared Spaces
 
-At sign-in, desktop opens a Space you already share when one is available. Otherwise it opens the server's default Space. The upper-left menu selects a different Space, and your choice stays active while you work. The sidebar shows its agents and groups. Select a conversation to load the server history and follow live replies. Search filters the sidebar. The plus button creates an agent. The composer sends messages to the selected conversation.
+At sign-in, desktop opens a Space you already share when one is available. Otherwise it opens the server's default Space. The upper-left menu selects a different Space, and your choice stays active while you work. Select an agent or group in the sidebar to read its history and follow replies. Search filters the sidebar. To create a bot, choose **+ → New bot** or press Ctrl+N on Windows or Cmd+N on macOS. The bot receives an available name and its chat opens.
+
+Click the bot's name or avatar in the pill at the top of its chat to open the right sidebar. Click its name in the sidebar to rename it. The gear opens the agent's instructions, job and notification settings. The model name in the chat header and the **Model** row in **Details** open the model choice for that particular bot.
+
+Open the **Computer** tab to see the current state, select the shared team computer or a dedicated one, and start or stop it. **Turn on** enables computer tools for the chosen agent. Starting a computer also requires a host configured to run agent computers. [NixOS hosting](nixos-hosting.md#enable-isolated-agent-computers)
 
 When an agent waits on you, its question appears as a card in the conversation. Type an answer and press Enter, pick one of its options, or enter a requested key or code in the masked field; **Dismiss** turns a key request down. The value is sent once and never shown again. In a shared Space only the person who started the run can answer its cards. Website logins, payment cards and contacts are entered in the web app.
 
@@ -67,7 +71,18 @@ New accounts start in **Personal**, with the account holder as its only member. 
 
 Agents need a model before they can reply. Open **Manage workspace**, then **Models**. A new account sees the providers the server offers. For a model server on this computer or your network, choose the compatible server entry, enter its address and a key if it needs one, choose **Find models**, pick a model and choose **Connect**. For a hosted provider, paste its API key, fill in any account IDs it asks for, pick a model and choose **Connect**. The server checks the connection and stores the key sealed; the desktop keeps no copy. The first connection becomes the main model, which every agent uses unless it has its own. **Change** beside the main model or an agent picks another connected model.
 
-A provider that connects only by signing in to an account opens web model settings for the same Space. The panel reads the new connection when its window becomes active again. Private model addresses depend on the server's private endpoint policy. The [Windows host guide](windows-local.md) covers local endpoint access and SMTP for email invitations.
+For an installed CLI, open **Models** and find **On this computer**. Choose **Check** beside the provider. When sign-in is needed, use the CLI's sign-in action or its displayed terminal instructions, then check again. The provider may open its own consent page. Choose an available local model for the agent on this device. The desktop initiates its CLI turns, and completed turns are saved in the shared thread under the signed-in member. Another device can read the conversation using its own Superbot session.
+
+For Codex, turn on **Use installed Codex sign-in** under **On this computer**. This is an opt-in on this device for the current server, Superbot account, and Space. Agent model choices are saved independently. Turn the switch off to return to Superbot's separate ChatGPT sign-in, which is the default. Sign-in and sign-out in Superbot target only that separate profile. Another Space member's actions cannot enable the switch or launch a CLI on this device.
+
+Installed mode requires Codex 0.170.0 or newer and a file-backed ChatGPT sign-in in the Codex home visible to Superbot. This is the absolute `CODEX_HOME` from Superbot's launch environment or the OS user's default `.codex` directory. Keyring-only logins, API-key logins and homes with global `AGENTS.md` or `AGENTS.override.md` are unsupported. Codex checks the login and manages any credential refresh as part of its normal operation. Superbot stores the mode, discards raw status output, and leaves credential files to the Codex process. If the check fails, installed mode stays selected and turns fail until you restore a compatible login or switch back.
+
+Installed Codex turns keep the read-only sandbox, disabled hooks, MCP and plugins, and ephemeral session mode. Superbot starts model discovery in a disposable, signed-out Codex profile. The list reflects models exposed by the installed CLI, and the selected account may have narrower access. Completed replies still use Superbot's shared chat history.
+
+Claude Code keeps its separate-profile flow. The global Claude profile combines account state with personal plugins and settings, and the CLI offers no independently selectable authentication home for this integration. Anthropic also restricts third-party routing via personal subscription credentials. See [Claude Code settings](https://code.claude.com/docs/en/settings) and [Anthropic's authentication terms](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).
+
+
+A server-hosted compatible endpoint must be reachable from the server. Private addresses also depend on the server's private endpoint policy. [Windows host guide](windows-local.md)
 
 ## Board
 
@@ -93,13 +108,13 @@ When several releases are approved, open the installed plugin, choose the desire
 
 ## Open the web workspace
 
-Choose **Open web workspace** in the account menu for the full Rakazo client, including meetings, boards, live voice and the agent computer. A card the native chat does not draw opens there too. It opens the current conversation in a separate Superbot window. That window shows the server's own web app, with all of its navigation, inside Microsoft Edge WebView2. It is not a native view. **Open in browser**, in the same menu and in the window's toolbar, opens the same page in your default browser instead.
+Choose **Open web workspace** in the account menu for the full Superbot client, including meetings, boards, live voice and the agent computer. A card the native chat does not draw opens there too. It opens the current conversation in a separate Superbot window. That window shows the server's own web app, with all of its navigation, inside Microsoft Edge WebView2. It is not a native view. **Open in browser**, in the same menu and in the window's toolbar, opens the same page in your default browser instead.
 
 **Supported platform.** Windows 10 and 11 with the Evergreen WebView2 Runtime, which Windows 11 includes. Without the runtime the window says so and offers **Open in browser**. On macOS and Linux, **Open web workspace** opens the browser.
 
 **Sign-in and cookies.** The window signs in on its own, on the server's normal sign-in page. Desktop does not pass its session to the window: no token in an address, no injected script, no copied cookie. Each desktop account on each server gets its own WebView2 profile under `%LOCALAPPDATA%\Superbot\WebView\`. The folder name is a hash of the server's canonical origin and the account's user ID, so neither can be read from it. The profile keeps cookies, site storage, cache and saved form data. A different desktop account on the same server never sees an earlier account's web sign-in. Signing out of desktop, or an expired desktop session, closes that account's workspace windows. The web sign-in stays in its profile for that account's next visit. Sign out inside the window to end it. Delete the `WebView` folder while the app is closed to remove every profile. A server that does not report the account's user ID gets the browser instead.
 
-**The browser is the exception.** **Open in browser**, links to other sites, and **Manage workspace → Models** account sign-ins open your default browser. The browser keeps its own cookies and may be signed in to a different account. Desktop does not control which account a browser sign-in uses.
+**External links.** **Open in browser** and links to other sites use your default browser. The browser keeps its own cookies and may be signed in to a different account.
 
 **Links and other sites.** Pages on the server, and sign-in popups the web app opens, stay in the app. Popups share the window's profile so the sign-in can finish. A popup closes when it is done. Other links open in your default browser. If a sign-in moves the whole window to another site, the toolbar names that site and **Back to workspace** returns to the server. Plain `http` addresses on other hosts and `mailto:` links go to the system. `file:`, `javascript:` and other schemes are refused.
 
@@ -107,7 +122,7 @@ Choose **Open web workspace** in the account menu for the full Rakazo client, in
 
 ## Developing the UI
 
-Restart the native build after Rust changes. The Vite server provides live reload for the web client. The native app follows system appearance and accepts `SUPERBOT_SKIN=midnight` or `daylight` for visual checks. The Windows [comparison fixture](chat-verification.md) opens a separate desktop backed by disposable accounts, a real database and a deterministic model.
+On Windows, run `powershell -ExecutionPolicy Bypass -File scripts/dev-desktop.ps1` to rebuild and relaunch the development desktop after changes to native code, assets or the Cargo manifest. The previous build stays open if compilation fails. Use `-Server URL` to choose a fixture, or omit it to use the device's saved server. Press Ctrl+C in the watcher console to stop it. The Vite server provides live reload for the web client. The native app follows system appearance and accepts `SUPERBOT_SKIN=midnight` or `daylight` for visual checks. The Windows [comparison fixture](chat-verification.md) opens a separate desktop backed by disposable accounts, a real database and a deterministic model.
 
 The [coverage map](parity.md) lists native operations and capabilities available in the full web workspace.
 

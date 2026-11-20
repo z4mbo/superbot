@@ -71,7 +71,7 @@ Use a short description and a JSON object input schema for each MCP tool. Define
 the required fields and validate the arguments again on your server. Use
 structured results for predictable data. Marketplace approvals include the
 remote tool, endpoint and arguments, so keep payloads short enough to review.
-Rakazo exposes up to twenty tools per granted endpoint and rechecks the selected
+Superbot exposes up to twenty tools per granted endpoint and rechecks the selected
 tool schema before calling it. Publish a new marketplace version when changing
 the manifest or shipping an incompatible tool contract.
 

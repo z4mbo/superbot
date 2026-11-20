@@ -6,7 +6,7 @@ use superbot_features::{
 };
 
 use crate::icons::{icon, Glyph};
-use crate::panel::{detail_header, placeholder, section_header, Loaded, WorkspacePanel};
+use crate::panel::{detail_header, placeholder, section_header, Loaded, Section, WorkspacePanel};
 use crate::sections::model_connect::ConnectForm;
 use crate::theme::{tokens, Tokens, RADIUS_FULL};
 use crate::ui::{self, Action, Row, Tone};
@@ -36,6 +36,7 @@ pub(crate) struct ModelsView {
     pub(crate) main: Loaded<MainModel>,
     pub(crate) page: Page,
     pub(crate) form: ConnectForm,
+    pub(crate) local: super::local_models::LocalConnection,
     picking: Option<Picking>,
     saving: Option<Picking>,
     confirm_disconnect: Option<String>,
@@ -51,6 +52,7 @@ impl ModelsView {
             main: Loaded::default(),
             page: Page::Overview,
             form: ConnectForm::new(window, cx),
+            local: Default::default(),
             picking: None,
             saving: None,
             confirm_disconnect: None,
@@ -60,6 +62,7 @@ impl ModelsView {
     }
 
     pub(crate) fn reset(&mut self) {
+        self.local = Default::default();
         self.catalog = Loaded::default();
         self.connections = Loaded::default();
         self.main = Loaded::default();
@@ -111,15 +114,6 @@ impl ModelsView {
     }
 }
 
-/// The web app's model settings for `space_id`, where account sign-ins finish.
-/// The address carries no session; the browser signs in by itself.
-pub(crate) fn web_models_url(server: &str, space_id: &str) -> String {
-    format!(
-        "{}/app?settings=models&space={space_id}",
-        server.trim_end_matches('/')
-    )
-}
-
 pub(crate) fn glyph_plate(glyph: Glyph, t: &Tokens) -> Div {
     div()
         .size(px(32.))
@@ -133,6 +127,10 @@ pub(crate) fn glyph_plate(glyph: Glyph, t: &Tokens) -> Div {
 }
 
 impl WorkspacePanel {
+    pub fn set_local_cli(&mut self, cli: Option<superbot_features::local_cli::LocalCli>) {
+        self.models.local.cli = cli;
+    }
+
     pub(crate) fn load_models(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.models.catalog.loading {
             self.models.catalog.begin();
@@ -166,16 +164,20 @@ impl WorkspacePanel {
         }
     }
 
-    pub(crate) fn open_web_models(&self, cx: &mut Context<Self>) {
-        cx.open_url(&web_models_url(
-            self.remote.client().server(),
-            self.remote.space_id(),
-        ));
-    }
-
     fn toggle_picker(&mut self, picking: Picking, cx: &mut Context<Self>) {
         let view = &mut self.models;
         view.picking = (view.picking.as_ref() != Some(&picking)).then_some(picking);
+        view.problem = None;
+        view.confirm_disconnect = None;
+        cx.notify();
+    }
+
+    /// Shows Models with the picker of `bot_id`'s model open.
+    pub fn choose_model_for(&mut self, bot_id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.show(Section::Models, window, cx);
+        let view = &mut self.models;
+        view.page = Page::Overview;
+        view.picking = Some(Picking::Agent(bot_id.to_owned()));
         view.problem = None;
         view.confirm_disconnect = None;
         cx.notify();
@@ -236,10 +238,11 @@ impl WorkspacePanel {
                 };
                 remote.space().update_bot(&bot_id, &settings).await
             },
-            |panel, bot, _, _| {
+            |panel, bot, _, cx| {
                 panel.models.saving = None;
                 match bot {
                     Ok(bot) => {
+                        panel.choose_local_model(&bot.id, None, cx);
                         panel.replace_bot(bot);
                         panel.models.picking = None;
                     }
@@ -297,6 +300,7 @@ impl WorkspacePanel {
                     .flex()
                     .flex_col()
                     .child(detail_header("Connect a model", back, [], &t))
+                    .child(self.render_local_connection(&t, cx))
                     .child(self.render_providers(&t, window, cx));
             }
             Page::Connect { provider, preset } => {
@@ -333,6 +337,8 @@ impl WorkspacePanel {
                 .flex()
                 .flex_col()
                 .child(section_header("Models", [], &t))
+                .child(self.render_local_connection(&t, cx))
+                .children(self.render_agents(&[], &t, cx))
                 .child(waiting);
         }
 
@@ -345,6 +351,8 @@ impl WorkspacePanel {
                     "Agents need a model before they can reply. Connect one to start.",
                     t.ink_secondary,
                 )))
+                .child(self.render_local_connection(&t, cx))
+                .children(self.render_agents(&[], &t, cx))
                 .child(self.render_providers(&t, window, cx));
         }
 
@@ -366,6 +374,7 @@ impl WorkspacePanel {
             .when_some(self.models.problem.clone(), |this, problem| {
                 this.child(ui::problem_line(problem, &t))
             })
+            .child(self.render_local_connection(&t, cx))
             .child(self.render_main(&options, &t, cx))
             .children(self.render_agents(&options, &t, cx))
             .child(self.render_connections(&t, cx))
@@ -495,9 +504,14 @@ impl WorkspacePanel {
     ) -> Div {
         let view = &self.models;
         let own = bot.model_provider.as_deref().zip(bot.model_id.as_deref());
-        let detail = match own {
-            Some((provider, model_id)) => view.model_name(options, provider, model_id),
-            None => "Main model".to_owned(),
+        let local = self.local_choice(&bot.id);
+        let detail = if let Some(model) = &local {
+            format!("{} on this computer", model.label)
+        } else {
+            match own {
+                Some((provider, model_id)) => view.model_name(options, provider, model_id),
+                None => "Main model".to_owned(),
+            }
         };
         let picking = Picking::Agent(bot.id.clone());
         let open = view.picking.as_ref() == Some(&picking);
@@ -516,7 +530,7 @@ impl WorkspacePanel {
             )
             .small()
             .busy(saving)
-            .disabled(options.is_empty())
+            .disabled(options.is_empty() && view.local.cli.is_none())
             .on_click(cx.listener(move |panel, _, _, cx| panel.toggle_picker(toggle.clone(), cx))),
         );
         let picker = open.then(|| {
@@ -525,7 +539,7 @@ impl WorkspacePanel {
                 SharedString::from(format!("agent-main-{}", bot.id)),
                 "Main model",
             )
-            .when(own.is_none(), |row| {
+            .when(own.is_none() && local.is_none(), |row| {
                 row.trailing(icon(Glyph::Check, 16., t.ink))
             })
             .on_click(cx.listener(move |panel, _, window, cx| {
@@ -535,7 +549,7 @@ impl WorkspacePanel {
             let rows = self.option_rows(
                 "agent-option",
                 options,
-                own,
+                own.filter(|_| local.is_none()),
                 t,
                 move |panel, option, window, cx| {
                     panel.choose_agent_model(bot_id.clone(), Some(option), window, cx)
@@ -546,8 +560,9 @@ impl WorkspacePanel {
                 .p_2()
                 .gap_0()
                 .ml(px(42.))
-                .child(follow)
+                .when(!options.is_empty(), |card| card.child(follow))
                 .children(rows)
+                .child(self.render_local_options(&bot.id, t, cx))
         });
         div().flex().flex_col().gap_1().child(row).children(picker)
     }
@@ -563,7 +578,10 @@ impl WorkspacePanel {
                     .endpoint_name
                     .clone()
                     .unwrap_or_else(|| url.clone()),
-                (None, Some(ConnectionAuth::Oauth)) => "Account sign-in".to_owned(),
+                (None, Some(ConnectionAuth::Oauth)) if connection.reconnect_required => {
+                    "Workspace sign-in expired".to_owned()
+                }
+                (None, Some(ConnectionAuth::Oauth)) => "Workspace account".to_owned(),
                 (None, _) => "API key".to_owned(),
             };
             let row = Row::new(
@@ -579,20 +597,6 @@ impl WorkspacePanel {
                 t,
             ))
             .detail(detail);
-            let row = if connection.reconnect_required {
-                row.trailing(
-                    Action::new(
-                        SharedString::from(format!("reconnect-{}", connection.id)),
-                        "Sign in again",
-                    )
-                    .tone(Tone::Link)
-                    .small()
-                    .glyph(Glyph::ExternalLink)
-                    .on_click(cx.listener(|panel, _, _, cx| panel.open_web_models(cx))),
-                )
-            } else {
-                row
-            };
             if view.confirm_disconnect.as_deref() == Some(connection.id.as_str()) {
                 let removing = connection.clone();
                 return row
@@ -633,18 +637,5 @@ impl WorkspacePanel {
             .gap_1p5()
             .child(ui::group_label("Connections", t))
             .children(rows)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sign_ins_finish_in_the_same_space_of_the_web_app() {
-        assert_eq!(
-            web_models_url("http://127.0.0.1:5173/", "space-1"),
-            "http://127.0.0.1:5173/app?settings=models&space=space-1"
-        );
     }
 }

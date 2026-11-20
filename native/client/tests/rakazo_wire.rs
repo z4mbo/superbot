@@ -243,6 +243,58 @@ async fn sign_in_discover_send_follow_and_sign_out() {
 }
 
 #[tokio::test]
+async fn local_history_uses_signed_text_only_requests() {
+    let (client, requests) = fixture(vec![
+        json_response(
+            "/rpc/threads/appendLocalHistory",
+            r#"{"json":{"messageIds":["note"]}}"#,
+        ),
+        json_response(
+            "/rpc/threads/appendLocalHistory",
+            r#"{"json":{"messageIds":["prompt","reply"]}}"#,
+        ),
+    ]);
+    let client = client.with_token("fixture.signature").unwrap();
+    let operation_id = "4f7df854-760b-4aaf-9efe-ed8442d81c43";
+    let note = client
+        .append_local_note("space", ThreadTarget::Bot("agent"), operation_id, "Note")
+        .await
+        .unwrap();
+    let turn = client
+        .append_local_turn(
+            "space",
+            ThreadTarget::Group("room"),
+            operation_id,
+            "Prompt",
+            "Reply",
+        )
+        .await
+        .unwrap();
+    assert_eq!(note.message_ids, ["note"]);
+    assert_eq!(turn.message_ids, ["prompt", "reply"]);
+    let requests = requests.join().unwrap();
+    for request in &requests {
+        assert_eq!(
+            request.header("authorization"),
+            Some("Bearer fixture.signature")
+        );
+        assert_eq!(request.header("x-rakazo-space-id"), Some("space"));
+    }
+    assert_eq!(
+        requests[0].body,
+        json!({"json": {
+            "botId": "agent", "operationId": operation_id, "text": "Note"
+        }})
+    );
+    assert_eq!(
+        requests[1].body,
+        json!({"json": {
+            "groupId": "room", "operationId": operation_id, "text": "Prompt", "reply": "Reply"
+        }})
+    );
+}
+
+#[tokio::test]
 async fn group_stream_resumes_with_both_speaker_identities() {
     let (client, requests) = fixture(vec![Exchange {
         path: "/rpc/threads/subscribe",
@@ -253,6 +305,8 @@ async fn group_stream_resumes_with_both_speaker_identities() {
             r#"{"json":{"id":"ev1","seq":14,"type":"thread.message.created","botId":"agent-1","payload":{"messageId":"m1","seq":9,"role":"user","author":{"id":"member-1","name":"Casey"},"blocks":[{"kind":"text","text":"Hello"}]}}}"#,
             "\n\nevent: message\ndata: ",
             r#"{"json":{"id":"ev2","seq":15,"type":"thread.message.created","botId":"agent-1","payload":{"messageId":"m2","seq":10,"role":"bot","blocks":[{"kind":"text","text":"Hi"}]}}}"#,
+            "\n\nevent: message\ndata: ",
+            r#"{"json":{"id":"ev3","seq":16,"type":"thread.message.created","botId":"thread","payload":{"messageId":"m3","seq":11,"role":"bot","origin":"local_cli","author":{"id":"member-1","name":"Casey"},"blocks":[{"kind":"text","text":"Local reply"}]}}}"#,
             "\n\nevent: done\ndata: {}\n\n"
         ),
     }]);
@@ -280,6 +334,17 @@ async fn group_stream_resumes_with_both_speaker_identities() {
         .unwrap()
         .unwrap();
     assert_eq!(bot.bot_id.as_deref(), Some("agent-1"));
+    let local = stream
+        .next()
+        .await
+        .unwrap()
+        .unwrap()
+        .message()
+        .unwrap()
+        .unwrap();
+    assert_eq!(local.origin.as_deref(), Some("local_cli"));
+    assert_eq!(local.author.unwrap().id, "member-1");
+    assert!(local.bot_id.is_none() && local.run_id.is_none());
     assert!(stream.next().await.is_none());
     let received = requests.join().unwrap();
     assert_eq!(

@@ -6800,6 +6800,7 @@ dependencies = [
  "superbot-workspace-panel",
  "tokio",
  "url",
+ "uuid",
  "webview2-com",
  "windows-core 0.62.2",
  "wry",
@@ -6811,7 +6812,9 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "superbot-client",
+ "tempfile",
  "tokio",
  "url",
 ]

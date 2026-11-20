@@ -1,8 +1,8 @@
 # Superbot terminal client
 
-Superbot connects to an existing Rakazo server. You need a Rakazo account
-that belongs to a space with an agent. The agent or deployment needs a working
-model connection.
+Superbot connects to an existing Superbot server. You need a Superbot account
+that belongs to a Space with an agent. Agents can use a server model connection
+or a supported CLI installed on this device.
 
 Install from the repository root.
 
@@ -20,7 +20,7 @@ superbot login
 superbot login --code
 ```
 
-Use `superbot server https://rakazo.example.com` to save the default for the
+Use `superbot server https://superbot.example.com` to save the default for the
 desktop app and both commands on this device. `superbot server` prints the
 effective origin. For a single invocation, `--server URL` takes precedence over
 `SUPERBOT_SERVER` and the saved origin. The URL must be an HTTPS origin. A local
@@ -46,7 +46,20 @@ first and accepts a case-insensitive match when unique. Use `superbot chat NAME`
 to reach an agent whose name matches a command.
 
 In chat, press Enter to send a line. Superbot prints message text and agent run
-errors. `/back` returns to the picker, or exits a directly opened chat.
+errors. `/back` returns to the picker, or exits a directly opened chat. `/quit`
+exits from either mode.
+
+### Local models on Windows and macOS
+
+In the desktop app, select an installed CLI model for the bot. On the same
+device, both `superbot NAME` and the terminal picker use that selection when
+signed into the same server, account and Space. Keep the selected provider's
+CLI installed and signed in. Bots without a local selection use the server's
+model connection.
+
+Local turns use recent shared conversation history and save the prompt and reply
+to the same chat. If saving fails after the model replies, reopen the chat
+and type `/retry` to save that turn without running the model again.
 
 ### Import bot names into a shared Space
 
@@ -64,7 +77,6 @@ the server defaults. It preserves existing and archived bots, checks the whole f
 before creating any bots, and can resume after a network interruption. Name matching
 ignores case and surrounding whitespace. The file contains names only. Conversation
 history, model credentials, permissions and instructions stay with their source.
-`/quit` exits from either mode.
 
 For a supported tool approval, Superbot prints the server's card, including any
 destination and argument preview. In an interactive terminal, enter `1` for
@@ -72,13 +84,17 @@ destination and argument preview. In an interactive terminal, enter `1` for
 redirected input or output all leave the card pending. Reopening the chat
 offers any supported approval still waiting in its latest message page.
 
-Use Rakazo for typed and secret cards, including passwords, login forms and
-one-time codes. Also use Rakazo for tool-question forms, connection cards,
+Use Superbot for typed and secret cards, including passwords, login forms and
+one-time codes. Also use Superbot for tool-question forms, connection cards,
 payment receipts, editable drafts or settings changes, and persistent approval
-choices. Attachments open in Rakazo.
+choices. Attachments open in Superbot.
 
 Run the isolated client and CLI tests from the repository root.
 
 ```shell
 cargo test -p superbot-client -p superbot-cli
 ```
+
+On Windows, use the isolated PostgreSQL chat verifier with `--local-cli` to
+exercise named chat, the picker, shared history and retry with a synthetic CLI.
+See the [chat verification guide](../../docs/superbot/chat-verification.md).

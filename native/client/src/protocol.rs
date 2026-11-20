@@ -3,23 +3,23 @@ use serde_json::Value;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Use an HTTPS Rakazo origin or a local HTTP origin such as http://127.0.0.1:3000")]
+    #[error("Use an HTTPS Superbot origin or a local HTTP origin such as http://127.0.0.1:3000")]
     InvalidServer,
-    #[error("Sign in to Rakazo first")]
+    #[error("Sign in to Superbot first")]
     MissingSession,
-    #[error("Rakazo did not provide a valid signed session")]
+    #[error("Superbot did not provide a valid signed session")]
     InvalidSession,
     #[error("Enter a message between 1 and 100,000 UTF-16 code units")]
     InvalidMessage,
-    #[error("Could not reach Rakazo: {0}")]
+    #[error("Could not reach Superbot: {0}")]
     Transport(reqwest::Error),
-    #[error("Rakazo returned HTTP {status}: {message}")]
+    #[error("Superbot returned HTTP {status}: {message}")]
     Server {
         status: u16,
         code: Option<String>,
         message: String,
     },
-    #[error("Unexpected Rakazo response: {0}")]
+    #[error("Unexpected Superbot response: {0}")]
     Protocol(&'static str),
     #[error("Could not access your system credential store: {0}")]
     CredentialStore(String),
@@ -111,6 +111,7 @@ pub struct Message {
     pub id: String,
     pub role: String,
     pub author: Option<MessageAuthor>,
+    pub origin: Option<String>,
     pub bot_id: Option<String>,
     pub text: String,
     pub seq: i64,
@@ -123,6 +124,7 @@ struct WireMessage {
     id: String,
     role: String,
     author: Option<MessageAuthor>,
+    origin: Option<String>,
     bot_id: Option<String>,
     seq: i64,
     run_id: Option<String>,
@@ -142,6 +144,7 @@ impl From<WireMessage> for Message {
             id: message.id,
             role: message.role,
             author: message.author,
+            origin: message.origin,
             bot_id: message.bot_id,
             seq: message.seq,
             run_id: message.run_id,
@@ -196,6 +199,7 @@ impl ThreadEvent {
             seq: Option<i64>,
             role: Option<String>,
             author: Option<MessageAuthor>,
+            origin: Option<String>,
             bot_id: Option<String>,
             #[serde(default)]
             blocks: Vec<Value>,
@@ -203,7 +207,7 @@ impl ThreadEvent {
         let payload: Payload = serde_json::from_value(self.data.clone())
             .map_err(|_| Error::Protocol("invalid message event"))?;
         let role = payload.role.unwrap_or_else(|| "bot".into());
-        let bot_id = if role == "bot" {
+        let bot_id = if role == "bot" && payload.origin.as_deref() != Some("local_cli") {
             payload.bot_id.or_else(|| self.bot_id.clone())
         } else {
             payload.bot_id
@@ -214,6 +218,7 @@ impl ThreadEvent {
                 seq: payload.seq.unwrap_or(self.seq),
                 role,
                 author: payload.author,
+                origin: payload.origin,
                 bot_id,
                 run_id: self.run_id.clone(),
                 blocks: payload.blocks,

@@ -1,4 +1,6 @@
 pub mod conversation;
+pub mod create;
+pub mod new_agent;
 
 use std::future::Future;
 use std::time::Duration;
@@ -11,6 +13,7 @@ use superbot_client::{remember_server, Client, CredentialStore, Error, SignUpRes
 use crate::api::{self, AgentSummary, Api, CurrentSpace, GroupSummary, Me, Navigation, SpaceSummary, Target};
 use crate::outbox::Drafts;
 use crate::runtime::{follow_space, network, Live};
+use crate::ui::agent_panel::{AgentInfo, AgentPanel};
 use crate::ui::corner::Tints;
 use crate::ui::store::Store;
 use crate::ui::workspace::Workspace;
@@ -57,6 +60,8 @@ pub enum MenuKind {
     Spaces,
     Profile,
     Agent(String),
+    New,
+    Model(String),
 }
 
 pub struct Menu {
@@ -66,7 +71,6 @@ pub struct Menu {
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum DialogKind {
-    NewAgent,
     NewSpace,
     RenameAgent(String),
 }
@@ -117,14 +121,21 @@ pub struct Desktop {
     pub chat: Option<Chat>,
     /// What is typed and attached in conversations that are not on screen.
     pub drafts: Drafts,
+    local_writes: std::collections::HashMap<crate::outbox::Place, conversation::LocalWrite>,
     pub composer: Entity<TextareaState>,
     pub search: Entity<InputState>,
     pub search_open: bool,
     pub tints: Tints,
     pub store: Store,
     pub workspace: Workspace,
+    pub agent_panel: Option<AgentPanel>,
+    pub agent_info: AgentInfo,
+    pub model_menu: crate::ui::model_menu::ModelMenu,
     pub menu: Option<Menu>,
     pub dialog: Option<Dialog>,
+    /// The Space selection a new agent is being made in.
+    creating_agent: Option<u64>,
+    pub create: create::Create,
     pub notice: Option<Notice>,
     notices: u64,
     _subscriptions: Vec<Subscription>,
@@ -136,7 +147,7 @@ impl Desktop {
             cx.new(|cx| InputState::new(window, cx).placeholder(placeholder))
         };
         let server_field =
-            cx.new(|cx| InputState::new(window, cx).placeholder("https://rakazo.example.com").default_value(server));
+            cx.new(|cx| InputState::new(window, cx).placeholder("https://superbot.example.com").default_value(server));
         let password = cx.new(|cx| InputState::new(window, cx).masked(true));
         let composer = cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 8).submit_on_enter(true));
         let search = field("Search", window, cx);
@@ -153,11 +164,9 @@ impl Desktop {
         };
 
         let mut subscriptions = vec![
-            cx.subscribe_in(&composer, window, |this, _, event: &InputEvent, window, cx| {
-                match event {
-                    InputEvent::PressEnter { .. } => this.send(window, cx),
-                    InputEvent::Change | InputEvent::Focus | InputEvent::Blur => cx.notify(),
-                }
+            cx.subscribe_in(&composer, window, |this, _, event: &InputEvent, window, cx| match event {
+                InputEvent::PressEnter { .. } => this.send(window, cx),
+                InputEvent::Change | InputEvent::Focus | InputEvent::Blur => cx.notify(),
             }),
             cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
@@ -166,9 +175,11 @@ impl Desktop {
             }),
             // Observed for the whole window: a key press only reaches an element while something
             // inside it has focus, and a menu or a confirmation can be open with nothing focused.
-            cx.observe_keystrokes(|this, event, _, cx| {
+            cx.observe_keystrokes(|this, event, window, cx| {
                 if event.keystroke.key == "escape" {
                     this.dismiss(cx);
+                } else if new_agent::is_new_agent_shortcut(&event.keystroke) {
+                    this.new_agent(window, cx);
                 }
             }),
             cx.observe_window_activation(window, |this, window, cx| {
@@ -197,14 +208,20 @@ impl Desktop {
             view: View::Chat,
             chat: None,
             drafts: Drafts::default(),
+            local_writes: Default::default(),
             composer,
             search,
             search_open: false,
             tints: Tints::default(),
             store: Store::new(window, cx),
             workspace: Workspace::default(),
+            agent_panel: None,
+            agent_info: AgentInfo::default(),
+            model_menu: Default::default(),
             menu: None,
             dialog: None,
+            creating_agent: None,
+            create: create::Create::default(),
             notice: None,
             notices: 0,
             _subscriptions: subscriptions,
@@ -504,6 +521,7 @@ impl Desktop {
         self.sidebar = Sidebar::default();
         self.chat = None;
         self.drafts.clear();
+        self.local_writes.clear();
         self.composer.update(cx, |composer, cx| composer.set_value("", window, cx));
         self.search.update(cx, |search, cx| search.set_value("", window, cx));
         self.search_open = false;
@@ -512,11 +530,14 @@ impl Desktop {
         self.notice = None;
         self.store.forget();
         self.workspace = Workspace::default();
+        self.agent_panel = None;
+        self.agent_info = AgentInfo::default();
     }
 
     fn apply_navigation(&mut self, navigation: Navigation) {
         self.spaces = navigation.spaces;
         self.space = Some(navigation.current);
+        self.place_arrivals();
     }
 
     fn first_conversation(&self) -> Option<Target> {
@@ -573,6 +594,7 @@ impl Desktop {
     }
 
     pub fn reload_space(&mut self, cx: &mut Context<Self>) {
+        self.agent_info.stale();
         self.refresh_sidebar(SidebarRead::Navigation, cx);
     }
 
@@ -602,7 +624,10 @@ impl Desktop {
                 this.sidebar.reading = None;
                 if let Some(navigation) = result.ok().filter(|nav| nav.current.id == space_id) {
                     match kind {
-                        SidebarRead::Current => this.space = Some(navigation.current),
+                        SidebarRead::Current => {
+                            this.space = Some(navigation.current);
+                            this.place_arrivals();
+                        }
                         SidebarRead::Navigation => this.apply_navigation(navigation),
                     };
                     cx.notify();
@@ -647,6 +672,8 @@ impl Desktop {
         self.notice = None;
         self.store.forget();
         self.workspace = Workspace::default();
+        self.agent_panel = None;
+        self.agent_info = AgentInfo::default();
         let work = async move { api.navigation(Some(&space_id)).await };
         self.call(window, cx, work, move |this, result, window, cx| match result {
             _ if this.space_selection != selection => {}
@@ -693,7 +720,6 @@ impl Desktop {
 
     pub fn open_dialog(&mut self, kind: DialogKind, window: &mut Window, cx: &mut Context<Self>) {
         let (placeholder, value) = match &kind {
-            DialogKind::NewAgent => ("Research assistant", String::new()),
             DialogKind::NewSpace => ("Marketing", String::new()),
             DialogKind::RenameAgent(id) => ("Name", self.agent(id).map(|agent| agent.name.clone()).unwrap_or_default()),
         };
@@ -724,10 +750,6 @@ impl Desktop {
         let kind = dialog.kind.clone();
         let work = async move {
             match kind {
-                DialogKind::NewAgent => {
-                    let agent = api.create_agent(&space_id, &name).await?;
-                    Ok((Some(Target::Agent(agent.id)), api.navigation(Some(&space_id)).await?))
-                }
                 DialogKind::RenameAgent(id) => {
                     api.update_agent(&space_id, &id, json!({ "name": name })).await?;
                     Ok((None, api.navigation(Some(&space_id)).await?))
@@ -851,10 +873,14 @@ impl Desktop {
         } else if self.dialog.as_ref().is_some_and(|dialog| !dialog.busy) {
             self.dialog = None;
             true
+        } else if self.close_create_panel() {
+            true
         } else if self.store.cancel_version_switch() {
             true
         } else if self.search_open {
             self.search_open = false;
+            true
+        } else if self.agent_panel_back(cx) {
             true
         } else {
             false
@@ -891,9 +917,9 @@ mod tests {
 
     #[test]
     fn the_web_workspace_opens_on_the_conversation_on_screen() {
-        let server = "https://rakazo.example.com/";
-        assert_eq!(web_app_url(server, None), "https://rakazo.example.com/app");
-        assert_eq!(web_app_url(server, Some(&Target::Agent("b1".into()))), "https://rakazo.example.com/app/b1");
-        assert_eq!(web_app_url(server, Some(&Target::Group("g1".into()))), "https://rakazo.example.com/app/g/g1");
+        let server = "https://superbot.example.com/";
+        assert_eq!(web_app_url(server, None), "https://superbot.example.com/app");
+        assert_eq!(web_app_url(server, Some(&Target::Agent("b1".into()))), "https://superbot.example.com/app/b1");
+        assert_eq!(web_app_url(server, Some(&Target::Group("g1".into()))), "https://superbot.example.com/app/g/g1");
     }
 }
