@@ -4,7 +4,7 @@ import type {
   McpSourcePreset,
   PluginMarketplaceEntry,
 } from "@rakazo/contracts";
-import { CATALOG_SEARCH_QUERY_MAX_LENGTH } from "@rakazo/contracts";
+import { CATALOG_SEARCH_QUERY_MAX_LENGTH, mcpServerConnection } from "@rakazo/contracts";
 import {
   CONNECTION_CATALOG_PAGE_SIZE,
   catalogItemKey,
@@ -40,6 +40,7 @@ export function PluginBrowse({
   onOpenPlugin,
   onSearchPublic,
   onConnectPreset,
+  onManageConnections,
   community,
 }: {
   browse: CatalogBrowse;
@@ -50,6 +51,8 @@ export function PluginBrowse({
   onSearchPublic: (query: string) => void;
   /** Opens the source form for one of the server's connector presets. */
   onConnectPreset: (preset: McpSourcePreset) => void;
+  /** Shows the connections already added, where a preset's server is managed. */
+  onManageConnections: () => void;
   /** Community plugins for the same search, shown outside a category. */
   community?: ReactNode;
 }) {
@@ -80,23 +83,34 @@ export function PluginBrowse({
   // A preset the managed catalog also connects is offered once, as the managed app.
   const managedNames = new Set(catalog.map((item) => item.name.toLowerCase()));
   const needle = query.trim().toLowerCase();
+  const presetServer = (preset: McpSourcePreset) =>
+    preset.url ? state.mcpServers.find((server) => server.endpoint === preset.url) : undefined;
+  const presetAdded = (preset: McpSourcePreset) => Boolean(presetServer(preset));
+  const presetConnected = (preset: McpSourcePreset) => {
+    const server = presetServer(preset);
+    return Boolean(server && mcpServerConnection(server) === "connected");
+  };
   const presets = state.sourcePresets.filter(
     (preset) =>
       !managedNames.has(preset.name.toLowerCase()) &&
       (!needle || preset.name.toLowerCase().includes(needle)),
   );
-  const presetGrid = presets.length ? (
+  // Before a search, what is already connected leads the page instead of sitting among the rest.
+  const leadWithConnected = showFeatured && !category;
+  const connectedApps = leadWithConnected ? catalog.filter(state.itemConnected) : [];
+  const connectedPresets = leadWithConnected ? presets.filter(presetConnected) : [];
+  const presetRow = (preset: McpSourcePreset) => (
+    <PresetRow
+      key={preset.id}
+      preset={preset}
+      status={presetConnected(preset) ? "connected" : presetAdded(preset) ? "added" : null}
+      onOpen={() => (presetAdded(preset) ? onManageConnections() : onConnectPreset(preset))}
+    />
+  );
+  const listedPresets = leadWithConnected ? presets.filter((p) => !presetConnected(p)) : presets;
+  const presetGrid = listedPresets.length ? (
     <div data-testid="source-presets" className="grid grid-cols-2 gap-2">
-      {presets.map((preset) => (
-        <PresetRow
-          key={preset.id}
-          preset={preset}
-          connected={Boolean(
-            preset.url && state.mcpServers.some((server) => server.endpoint === preset.url),
-          )}
-          onConnect={() => onConnectPreset(preset)}
-        />
-      ))}
+      {listedPresets.map(presetRow)}
     </div>
   ) : null;
   const installedPlugin = (installedSource: string) =>
@@ -254,6 +268,17 @@ export function PluginBrowse({
 
   return (
     <>
+      {connectedApps.length || connectedPresets.length ? (
+        <section data-testid="connected-apps" className="mb-8">
+          <SectionHeading as="h2" className="mb-2 px-2.5">
+            <Trans>Connected</Trans>
+          </SectionHeading>
+          <div className="grid grid-cols-2 gap-2">
+            {connectedApps.map((item) => catalogTile(item, item.name, item.logo))}
+            {connectedPresets.map(presetRow)}
+          </div>
+        </section>
+      ) : null}
       {catalogLoaded && showFeatured && !category ? (
         <div className="mb-6" data-testid="featured-connectors">
           {catalog.length === 0 ? (
@@ -266,41 +291,44 @@ export function PluginBrowse({
             )
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              {featuredTiles.map((tile) => {
-                const item = tile.item;
-                const key = item ? catalogItemKey(item) : tile.id;
-                const disabled = tile.missing || !item;
-                if (item && !tile.missing) {
-                  // Featured is the stable hit target for connection-tile-* in E2E.
-                  return catalogTile(item, tile.label, item.logo, {
-                    tileTestId: true,
-                  });
-                }
-                return (
-                  <div
-                    key={key}
-                    className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 ${
-                      disabled ? "opacity-70" : ""
-                    }`}
-                  >
-                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-body font-semibold text-foreground">
-                      {tile.label[0]}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-body-lg font-medium text-foreground">
-                        {tile.label}
+              {featuredTiles
+                .filter((tile) => !(tile.item && state.itemConnected(tile.item)))
+                .map((tile) => {
+                  const item = tile.item;
+                  const key = item ? catalogItemKey(item) : tile.id;
+                  const disabled = tile.missing || !item;
+                  if (item && !tile.missing) {
+                    // Featured is the stable hit target for connection-tile-* in E2E.
+                    return catalogTile(item, tile.label, item.logo, {
+                      tileTestId: true,
+                    });
+                  }
+                  return (
+                    <div
+                      key={key}
+                      className={`flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-2 ${
+                        disabled ? "opacity-70" : ""
+                      }`}
+                    >
+                      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-body font-semibold text-foreground">
+                        {tile.label[0]}
                       </div>
-                      {disabled ? (
-                        <div className="truncate text-body-sm text-muted-foreground">
-                          <Trans>Not in the plugin catalog</Trans>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-body-lg font-medium text-foreground">
+                          {tile.label}
                         </div>
-                      ) : null}
+                        {disabled ? (
+                          <div className="truncate text-body-sm text-muted-foreground">
+                            <Trans>Not in the plugin catalog</Trans>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
+          {catalog.length && presetGrid ? <div className="mt-2">{presetGrid}</div> : null}
         </div>
       ) : null}
 
@@ -390,18 +418,19 @@ export function PluginBrowse({
 
 function PresetRow({
   preset,
-  connected,
-  onConnect,
+  status,
+  onOpen,
 }: {
   preset: McpSourcePreset;
-  connected: boolean;
-  onConnect: () => void;
+  /** Added means its server exists here but is not signed in or working yet. */
+  status: "connected" | "added" | null;
+  onOpen: () => void;
 }) {
   const { t } = useLingui();
   const site = preset.url ?? preset.defaultUrl;
   return (
     <div data-testid="source-preset" className={`${ROW_SHELL} ${ROW_HOVER}`}>
-      <button type="button" aria-label={preset.name} onClick={onConnect} className={ROW_BUTTON}>
+      <button type="button" aria-label={preset.name} onClick={onOpen} className={ROW_BUTTON}>
         <PluginLogo name={preset.name} site={site ? new URL(site).hostname : null} />
         <span className="min-w-0 flex-1 truncate text-body-lg font-medium text-foreground">
           {preset.name}
@@ -411,10 +440,22 @@ function PresetRow({
         type="button"
         variant="secondary"
         size="sm"
-        aria-label={connected ? t`${preset.name} connected` : t`Connect ${preset.name}`}
-        onClick={onConnect}
+        aria-label={
+          status === "connected"
+            ? t`Manage ${preset.name}, connected`
+            : status === "added"
+              ? t`Manage ${preset.name}, not connected yet`
+              : t`Connect ${preset.name}`
+        }
+        onClick={onOpen}
       >
-        {connected ? <Trans>Connected</Trans> : <Trans>Connect</Trans>}
+        {status === "connected" ? (
+          <Trans>Connected</Trans>
+        ) : status === "added" ? (
+          <Trans>Manage</Trans>
+        ) : (
+          <Trans>Connect</Trans>
+        )}
       </Button>
     </div>
   );

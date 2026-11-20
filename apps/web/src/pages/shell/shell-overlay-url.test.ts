@@ -3,6 +3,8 @@ import {
   readShellOverlay,
   searchString,
   shellOverlaySearch,
+  storeOverlay,
+  storeSection,
   withShellOverlay,
 } from "./shell-overlay-url";
 
@@ -85,5 +87,27 @@ describe("shellOverlaySearch", () => {
       "?settings=voice",
     );
     expect(shellOverlaySearch(new URLSearchParams("?routine=r_1"))).toBe("");
+  });
+});
+
+describe("Store sections", () => {
+  it("opens each Store section from its own link, including the links its dialogs had", () => {
+    expect(storeSection(read("?templates"))).toBe("agents");
+    expect(storeSection(read("?skills"))).toBe("skills");
+    expect(storeSection(read("?plugins"))).toBe("plugins");
+    expect(storeSection(read("?integrations"))).toBe("apps");
+    expect(storeSection(read("?mcp"))).toBeNull();
+    expect(storeSection(null)).toBeNull();
+  });
+
+  it("writes a section back as the link that reopens it", () => {
+    for (const section of ["agents", "skills", "plugins", "apps"] as const) {
+      const params = withShellOverlay(new URLSearchParams("m=msg_1"), storeOverlay(section));
+      expect(storeSection(readShellOverlay(params))).toBe(section);
+      expect(params.get("m")).toBe("msg_1");
+    }
+    expect(searchString(withShellOverlay(new URLSearchParams(), storeOverlay("plugins")))).toBe(
+      "?plugins",
+    );
   });
 });

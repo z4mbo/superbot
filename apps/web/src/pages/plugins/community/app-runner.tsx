@@ -3,7 +3,7 @@ import { Button, Field, FieldDescription, FieldLabel, Input, Spinner } from "@ra
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import type { FormEvent } from "react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { PluginLogo } from "../../../components/integrations/plugin-marketplace";
 import { useSave, useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
@@ -27,6 +27,13 @@ import { appParts } from "./registry";
 
 const RECORDS_PAGE_SIZE = 20;
 
+type AppForm = Readonly<Record<string, string>>;
+
+function sameForm(a: AppForm, b: AppForm): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((key) => (a[key] ?? "") === (b[key] ?? ""));
+}
+
 /** An installed app part: the member's own entries, a form to add one and the total it sums. */
 export function AppRunner({
   installation,
@@ -48,8 +55,9 @@ export function AppRunner({
   const today = localIsoDate();
   const [day, setDay] = useState(byDate ? today : "");
   const blankForm = (date: string) => (byDate ? { [byDate.id]: date || today } : {});
-  const [form, setForm] = useState<Record<string, string>>(() => blankForm(day));
+  const [form, setForm] = useState<AppForm>(() => blankForm(day));
   const [problems, setProblems] = useState<Record<string, FieldProblem>>({});
+  const addButton = useRef<HTMLButtonElement>(null);
   const [operationId, setOperationId] = useState(() => crypto.randomUUID());
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
 
@@ -67,16 +75,23 @@ export function AppRunner({
   );
   const stale = [registry.appRecords.key()];
   const add = useSave({
-    save: (input: { operationId: string; values: AppValues }, rpc) =>
-      rpc.pluginRegistry.addAppRecord({ ...target, ...input }),
+    save: (
+      { operationId, values }: { operationId: string; values: AppValues; sent: AppForm },
+      rpc,
+    ) => rpc.pluginRegistry.addAppRecord({ ...target, operationId, values }),
     stale,
-    onSaved: (_record, { values }) => {
+    onSaved: (_record, { values, sent }) => {
       const recordDay = byDate ? values[byDate.id] : undefined;
       const nextDay = typeof recordDay === "string" && day && recordDay !== day ? recordDay : day;
       setDay(nextDay);
-      setForm(blankForm(typeof recordDay === "string" ? recordDay : nextDay));
+      // What was typed while the entry was saving is the next entry, not something to clear.
+      const blank = blankForm(typeof recordDay === "string" ? recordDay : nextDay);
+      setForm((now) => (sameForm(now, sent) ? blank : now));
       setOperationId(crypto.randomUUID());
-      document.getElementById(fieldElementId(firstInputField(part).id))?.focus();
+      // A disabled button drops focus to the page while it saves.
+      const focused = document.activeElement;
+      if (!focused || focused === document.body || focused === addButton.current)
+        document.getElementById(fieldElementId(firstInputField(part).id))?.focus();
     },
   });
   const remove = useSave({
@@ -118,7 +133,7 @@ export function AppRunner({
       if (first) document.getElementById(fieldElementId(first.id))?.focus();
       return;
     }
-    add.run({ operationId, values: result.values });
+    add.run({ operationId, values: result.values, sent: form });
   }
 
   const items = records.data?.pages.flatMap((page) => page.items) ?? [];
@@ -230,7 +245,7 @@ export function AppRunner({
             {errorText(add.error, t`Could not add this entry`)}
           </p>
         ) : null}
-        <Button type="submit" disabled={add.pending}>
+        <Button ref={addButton} type="submit" disabled={add.pending}>
           {add.pending ? <Trans>Adding…</Trans> : <Trans>Add entry</Trans>}
         </Button>
       </form>

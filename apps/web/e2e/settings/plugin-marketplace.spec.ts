@@ -35,7 +35,7 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   });
 
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Store", exact: true });
   const section = dialog.getByTestId("plugin-section").filter({ hasText: "Productivity" });
   await expect(section.getByText("Planning Notes", { exact: true })).toBeVisible();
   // A skill pack has nothing to connect, so it is offered under Skills instead.
@@ -103,7 +103,7 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   );
   await captureScreenshot(page, testInfo, "integrations-plugin-connected");
 
-  await dialog.getByRole("button", { name: "Close integrations", exact: true }).click();
+  await dialog.getByRole("button", { name: "Close store", exact: true }).click();
   await page.reload();
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   await dialog.getByRole("button", { name: /^\d+ connected$/ }).click();
@@ -266,7 +266,7 @@ test("shows directly registered MCP servers in Integrations without catalog conn
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   await expect(page.getByRole("button", { name: "2 connected", exact: true })).toBeVisible();
   await expect(marks("2 connected")).toHaveText("D");
-  await page.getByRole("button", { name: "Close integrations", exact: true }).click();
+  await page.getByRole("button", { name: "Close store", exact: true }).click();
 
   // With nothing connected, the count still opens the saved apps.
   phase = "down";
@@ -331,7 +331,7 @@ test("integration fallback icons preserve non-BMP initials", async ({ page }, te
   await signup(page, `unicode-icons-${Date.now()}@rakazo.test`, "password12", "Unicode Icons");
   await completeOnboarding(page);
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Store", exact: true });
   await expect(dialog.getByText("🦞", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "integrations-unicode-plugin");
   const connected = dialog.getByRole("button", { name: /^\d+ connected$/ });
@@ -374,7 +374,7 @@ test("an app that is also a chat app here leads to messaging settings", async ({
   await signup(page, `chat-app-hint-${Date.now()}@rakazo.test`, "password12", "Chat App Hint");
   await completeOnboarding(page);
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Store", exact: true });
   const hint = dialog.getByTestId("chat-app-hint");
   await expect(hint).toHaveCount(1);
   await expect(hint).toHaveText("Tools for your bot.Chat from Chatty");

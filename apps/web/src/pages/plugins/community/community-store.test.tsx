@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { flush } from "@rakazo/core/test-async";
+import { deferred, flush } from "@rakazo/core/test-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { act } from "react";
@@ -696,4 +696,27 @@ it("starts an app from the calorie diary example or a published plugin", async (
   expect(container.querySelector<HTMLInputElement>("#community-name")!.value).toBe("Kcal diary");
   expect(container.querySelector<HTMLInputElement>("#community-slug")!.value).toBe("my-kcal-diary");
   expect(container.querySelectorAll('[data-testid="community-app-field-editor"]')).toHaveLength(4);
+});
+
+it("keeps what a member types while the previous entry is still saving", async () => {
+  useDiaryRecords();
+  const answer = deferred();
+  const save = api.pluginRegistry.addAppRecord.getMockImplementation()!;
+  api.pluginRegistry.addAppRecord.mockImplementationOnce(async (input) => {
+    await answer.promise;
+    return save(input);
+  });
+  await openInstalledDiary();
+  await type(labelled("Food"), "Oats");
+  await type(labelled("Calories (kcal)"), "350");
+  await act(async () => button("Add entry").click());
+  await type(labelled("Food"), "Soup");
+  await act(async () => answer.resolve());
+  await settle();
+  await vi.waitFor(() =>
+    expect(container.querySelector('[data-testid="community-app-total"]')?.textContent).toContain(
+      "350",
+    ),
+  );
+  expect(labelled("Food").value).toBe("Soup");
 });
