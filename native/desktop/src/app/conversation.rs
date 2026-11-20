@@ -634,6 +634,10 @@ impl Desktop {
     fn start_local_turn(&mut self, model: InstalledModel, window: &mut Window, cx: &mut Context<Self>) {
         let Some(cli) = self.local_cli() else { return };
         let Some((place, text)) = self.local_input(cx) else { return };
+        let (Some(api), Some(agent)) = (self.api.as_ref(), place.1.agent()) else { return };
+        let features = superbot_features::Features::new(api.client.clone());
+        let space = place.0.clone();
+        let agent = agent.to_owned();
         let Some(chat) = self.chat.as_mut() else { return };
         let history = chat.entries.iter().rev().take(40).rev().filter_map(|entry| {
             let Part::Text(body) = entry.parts.first()? else { return None };
@@ -654,7 +658,11 @@ impl Desktop {
         chat.list.set_follow_mode(FollowMode::Tail);
         chat.local_prompt = Some(text.clone());
         chat.local_turn = Some(cx.spawn_in(window, async move |this, cx| {
-            let result = network(async move { Ok(run_local_model(&cli, &model, &prompt).await) }).await;
+            let result = network(async move {
+                let prompt = features.space(space).local_chat_prompt(&agent, prompt).await?;
+                Ok(run_local_model(&cli, &model, &prompt).await)
+            })
+            .await;
             this.update_in(cx, |this, window, cx| {
                 if this.place().as_ref() != Some(&place) {
                     return;
@@ -671,8 +679,8 @@ impl Desktop {
                         chat.error = Some(problem);
                         this.restore_local_prompt(window, cx);
                     }
-                    Err(_) => {
-                        chat.error = Some("The local CLI stopped.".into());
+                    Err(error) => {
+                        chat.error = Some(error.to_string());
                         this.restore_local_prompt(window, cx);
                     }
                 }

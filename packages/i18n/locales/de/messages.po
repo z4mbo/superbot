@@ -12614,6 +12614,21 @@ msgstr "Der Schlüssel deines Stimmanbieters wurde abgelehnt."
 msgid "Zero data retention"
 msgstr "Keine Datenspeicherung"
 
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "GitHub issue watcher"
+msgstr "GitHub-Issue-Beobachter"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "Reports new issues and lets you choose who handles them"
+msgstr "Meldet neue Issues. Du entscheidest, wer sie übernimmt"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "New issue in example/project: #42, Export skips empty rows. Who should take it?"
+msgstr "Neues Issue in example/project: #42, Beim Export fehlen leere Zeilen. Wer soll es übernehmen?"
+
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"

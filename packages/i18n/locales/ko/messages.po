@@ -12614,6 +12614,21 @@ msgstr "음성 서비스에서 키를 거부했습니다."
 msgid "Zero data retention"
 msgstr "데이터 보존 안 함"
 
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "GitHub issue watcher"
+msgstr "GitHub 이슈 알림"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "Reports new issues and lets you choose who handles them"
+msgstr "새 이슈를 알려 주고 담당자를 선택할 수 있게 해 줍니다"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "New issue in example/project: #42, Export skips empty rows. Who should take it?"
+msgstr "example/project에 새 이슈가 있습니다. #42 내보낼 때 빈 행이 누락됩니다. 누구에게 맡길까요?"
+
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"

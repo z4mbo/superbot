@@ -13,10 +13,12 @@ header or from **Details → Model**.
 | Working row | From the run's events, with its activity text | "Working…" while the CLI runs |
 | Stop | `threads/stop` ends the server run | Cancels the CLI task. Nothing is saved |
 | Tools and approvals | Server tools, the agent's computer and granted plugins. Question and approval cards are answered with `threads/answer` | None. Claude Code runs with `--tools ""` and an empty MCP config, Codex with a read-only sandbox and its shell, browser and computer tools off, and ACP engines get no file system, terminal or MCP, with every permission request refused |
-| Context | The server thread with memory, skills and granted plugins | The conversation's last 40 text messages, without files. Attachments must be removed before sending |
+| Context | The bot's saved instructions, server thread, memory, skills and granted plugins | The bot's current saved instructions and the last 40 text messages from this conversation. Local chat accepts text |
 | App records | Through granted plugins, approved per call | **Apps** in the composer or `/apps` sends one app's recent records to the model. A suggested record is added only after **Add** |
 
 ## The agent's computer
+
+For a working example of a bot with its own instructions and connector, see [Watch GitHub issues and choose an agent](agent-harness.md).
 
 Only hosted runs use the agent's computer. The run worker gives the model its computer
 tools (screen, input, shell, files, apps and a browser) and runs each call on the computer

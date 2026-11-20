@@ -74,6 +74,8 @@ The observer opens `notifications.subscribe` before the owner creates an agent. 
 
 ## Marketplace skill through the CLI
 
+Pass `--issue-watcher` to the same fixture to create the Store's GitHub bot, grant it a loopback MCP issue list and drive its actual routine. The fixture takes a baseline, adds issue #42, checks for one chat alert on a second account, revokes access and asks the watcher to send the issue to a development agent. It checks the task in the recipient's thread and the reply in the watcher's thread. [Setup and harness](agent-harness.md)
+
 Run the same fresh Windows fixture with the marketplace check enabled. Build
 the CLI from this checkout so the fixture runs the current binary.
 

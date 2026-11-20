@@ -12614,6 +12614,21 @@ msgstr "Klucz dostawcy głosu został odrzucony."
 msgid "Zero data retention"
 msgstr "Bez przechowywania danych"
 
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "GitHub issue watcher"
+msgstr "Monitor zgłoszeń GitHub"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "Reports new issues and lets you choose who handles them"
+msgstr "Powiadamia o nowych zgłoszeniach i pozwala wybrać, kto się nimi zajmie"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "New issue in example/project: #42, Export skips empty rows. Who should take it?"
+msgstr "Nowe zgłoszenie w example/project: #42, Eksport pomija puste wiersze. Kto ma się tym zająć?"
+
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"

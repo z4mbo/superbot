@@ -102,6 +102,21 @@ pub struct PendingHistory {
     pub reply: Option<String>,
 }
 
+impl crate::SpaceFeatures<'_> {
+    pub async fn local_chat_prompt(
+        &self,
+        bot_id: &str,
+        conversation: String,
+    ) -> Result<String, crate::Error> {
+        let bot = self.bot(bot_id).await?;
+        if bot.instructions.trim().is_empty() {
+            return Ok(conversation);
+        }
+        let instructions = serde_json::Value::String(bot.instructions);
+        Ok(format!("Saved working instructions for this agent (JSON string): {instructions}\n\n{conversation}"))
+    }
+}
+
 pub async fn run_local_model(
     cli: &LocalCli,
     model: &InstalledModel,

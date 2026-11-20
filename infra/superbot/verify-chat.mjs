@@ -10,9 +10,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
 import { startModelEmulator } from "../../scripts/superbot-test-support.mjs";
+import { readFixtureEvents } from "./fixture-events.mjs";
 
 import { checkBotConversations, conversationSteps } from "./verify-bot-conversations.mjs";
 import { checkConversationContent } from "./verify-conversation-content.mjs";
+import { prepareIssueWatcher } from "./verify-issue-watcher.mjs";
 import { checkLocalAppRecords } from "./verify-local-app-records.mjs";
 import { prepareMarketplaceApp } from "./verify-marketplace-app.mjs";
 import { checkSearch } from "./verify-search.mjs";
@@ -28,6 +30,7 @@ const {
     "marketplace-app": marketplaceApp,
     roster,
     "local-cli": localCli,
+    "issue-watcher": issueWatcher,
     "local-app-records": localAppRecords,
     "t3-inbox": t3Inbox,
   },
@@ -39,13 +42,14 @@ const {
     "marketplace-app": { type: "boolean" },
     roster: { type: "boolean" },
     "local-cli": { type: "boolean" },
+    "issue-watcher": { type: "boolean" },
     "local-app-records": { type: "boolean" },
     "t3-inbox": { type: "boolean" },
   },
 });
 assert(
   process.platform === "win32" && postgresBin && executable && (!t3Inbox || desktopExecutable),
-  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--marketplace-app] [--roster] [--local-cli] [--local-app-records] [--t3-inbox, with SUPERBOT_DESKTOP_EXE]",
+  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--marketplace-app] [--issue-watcher] [--roster] [--local-cli] [--local-app-records] [--t3-inbox, with SUPERBOT_DESKTOP_EXE]",
 );
 const cli = resolve(executable);
 const pg = (file) => resolve(postgresBin, `${file}.exe`);
@@ -209,28 +213,12 @@ async function rpc(path, input, options) {
 }
 
 async function followThread(target, session, cursor) {
-  const stream = await post("/rpc/threads/subscribe", { json: { ...target, cursor } }, session);
-  assert.match(stream.headers.get("content-type"), /^text\/event-stream/);
-  const reader = stream.body.pipeThrough(new TextDecoderStream()).getReader();
-  let buffer = "";
-  return {
-    close: () => reader.cancel(),
-    async nextEvent() {
-      for (;;) {
-        const end = buffer.indexOf("\n\n");
-        if (end >= 0) {
-          const frame = buffer.slice(0, end);
-          buffer = buffer.slice(end + 2);
-          const data = frame.split("\n").find((line) => line.startsWith("data: "));
-          if (data) return JSON.parse(data.slice(6)).json;
-        } else {
-          const { done, value } = await reader.read();
-          assert(!done, "Conversation stream ended");
-          buffer += value.replaceAll("\r\n", "\n");
-        }
-      }
-    },
-  };
+  return followEvents("threads/subscribe", { ...target, cursor }, session);
+}
+
+async function followEvents(route, input, session) {
+  const stream = await post(`/rpc/${route}`, { json: input }, session);
+  return readFixtureEvents(stream);
 }
 
 async function signup(name, reviewerEmail) {
@@ -438,6 +426,23 @@ async function checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedOb
   console.log(
     "PASS named and picker chats ran the selected local CLI and retried shared history without duplication",
   );
+  await rpc(
+    "bots/update",
+    { botId: agent.id, instructions: "Report new issues and wait for my assignment." },
+    scopedOwner,
+  );
+  await checkCliChat({
+    spaceName,
+    agent,
+    childEnv,
+    threadId: right,
+    prompt: "Check the current issue watcher instructions",
+    reply: "Issue watcher instructions received",
+  });
+  assert.deepEqual(messages(await load(right)).slice(-2), [
+    "Check the current issue watcher instructions",
+    "Issue watcher instructions received",
+  ]);
   if (localAppRecords) {
     await checkLocalAppRecords({
       rpc,
@@ -656,6 +661,8 @@ try {
       })
     : undefined;
   steps.push(...(app?.steps ?? []), ...(t3?.steps ?? []), ...conversationSteps);
+  const watcher = issueWatcher ? await prepareIssueWatcher(rpc, scopedOwner, second) : undefined;
+  if (watcher) steps.push(...watcher.steps);
   model = await startModelEmulator({ apiKey: modelKey, steps });
   await rpc(
     "models/connect",
@@ -880,6 +887,7 @@ try {
     second,
   });
   await checkSearch({ rpc, signup, space, scopedOwner, scopedObserver, first, group });
+  await watcher?.verify(model.model, scopedObserver, followEvents);
   model.assertComplete();
   if (marketplace) {
     console.log(

@@ -12614,6 +12614,21 @@ msgstr "आपके आवाज़ प्रोवाइडर ने कु�
 msgid "Zero data retention"
 msgstr "ज़ीरो डेटा रिटेंशन"
 
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "GitHub issue watcher"
+msgstr "GitHub इश्यू मॉनिटर"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "Reports new issues and lets you choose who handles them"
+msgstr "नए इश्यू की सूचना देता है। आप चुनते हैं कि उन्हें कौन संभालेगा"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "New issue in example/project: #42, Export skips empty rows. Who should take it?"
+msgstr "example/project में नया इश्यू: #42, एक्सपोर्ट में खाली पंक्तियाँ छूट जाती हैं। इसे कौन संभालेगा?"
+
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"

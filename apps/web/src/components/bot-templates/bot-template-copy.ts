@@ -59,6 +59,12 @@ Suggested review: request changes.
 **#479 Fix date parsing in reports**
 Looks good. Suggested review: approve.`,
         };
+      case "github-issue-watch":
+        return {
+          name: t`GitHub issue watcher`,
+          summary: t`Reports new issues and lets you choose who handles them`,
+          sample: t`New issue in example/project: #42, Export skips empty rows. Who should take it?`,
+        };
       case "topic-watch":
         return {
           name: t`Topic watch`,

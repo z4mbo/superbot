@@ -104,6 +104,11 @@ impl LocalChat {
                             Value::Array(messages)
                         )
                     };
+                    let prompt = thread
+                        .space
+                        .local_chat_prompt(&self.bot, prompt)
+                        .await
+                        .map_err(auth_hint)?;
                     let reply = run_local_model(&self.cli, &model, &prompt)
                         .await
                         .map_err(anyhow::Error::msg)?;
