@@ -3,11 +3,23 @@ import type { ConnectionCatalogItem, McpSourcePreset } from "@rakazo/contracts";
 const workspaceOauthSetup = "https://developers.google.com/workspace/guides/configure-mcp-servers";
 
 export const MCP_SOURCE_PRESETS: McpSourcePreset[] = [
-  { id: "atlassian", name: "Atlassian", url: "https://mcp.atlassian.com/v2/mcp", signIn: true },
-  { id: "github", name: "GitHub", url: "https://api.githubcopilot.com/mcp/" },
+  {
+    id: "atlassian",
+    name: "Atlassian",
+    logo: "/service-logos/atlassian.svg",
+    url: "https://mcp.atlassian.com/v2/mcp",
+    signIn: true,
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    logo: "/service-logos/github.svg",
+    url: "https://api.githubcopilot.com/mcp/",
+  },
   {
     id: "gmail",
     name: "Gmail",
+    logo: "/service-logos/gmail.svg",
     url: "https://gmailmcp.googleapis.com/mcp/v1",
     signIn: true,
     oauthSetupUrl: workspaceOauthSetup,
@@ -15,6 +27,7 @@ export const MCP_SOURCE_PRESETS: McpSourcePreset[] = [
   {
     id: "google-calendar",
     name: "Google Calendar",
+    logo: "/service-logos/google-calendar.svg",
     url: "https://calendarmcp.googleapis.com/mcp/v1",
     signIn: true,
     oauthSetupUrl: workspaceOauthSetup,
@@ -22,20 +35,40 @@ export const MCP_SOURCE_PRESETS: McpSourcePreset[] = [
   {
     id: "google-drive",
     name: "Google Drive",
+    logo: "/service-logos/google-drive.svg",
     url: "https://drivemcp.googleapis.com/mcp/v1",
     signIn: true,
     oauthSetupUrl: workspaceOauthSetup,
   },
-  { id: "linear", name: "Linear", url: "https://mcp.linear.app/mcp", signIn: true },
-  { id: "notion", name: "Notion", url: "https://mcp.notion.com/mcp", signIn: true },
+  {
+    id: "linear",
+    name: "Linear",
+    logo: "/service-logos/linear.svg",
+    url: "https://mcp.linear.app/mcp",
+    signIn: true,
+  },
+  {
+    id: "notion",
+    name: "Notion",
+    logo: "/service-logos/notion.svg",
+    url: "https://mcp.notion.com/mcp",
+    signIn: true,
+  },
   {
     id: "slack",
     name: "Slack",
+    logo: "/service-logos/slack.svg",
     url: "https://mcp.slack.com/mcp",
     signIn: true,
     oauthSetupUrl: "https://docs.slack.dev/ai/slack-mcp-server/",
   },
-  { id: "executor", name: "Executor", defaultUrl: "https://mcp.executor.sh/mcp", signIn: true },
+  {
+    id: "executor",
+    name: "Executor",
+    logo: "/service-logos/executor.png",
+    defaultUrl: "https://mcp.executor.sh/mcp",
+    signIn: true,
+  },
 ];
 
 export const FEATURED_CONNECTOR_IDS = [

@@ -171,6 +171,11 @@ export function parseMcpOAuthAuthorizationParams(value: string): Record<string, 
 export const McpSourcePresetSchema = z.object({
   id: z.string(),
   name: z.string(),
+  /** Bundled artwork served by the same host as the Store. */
+  logo: z
+    .string()
+    .regex(/^\/service-logos\/[a-z0-9-]+\.(?:svg|png)$/)
+    .optional(),
   /** Fixed endpoint; omitted when the person enters their own. */
   url: z.string().url().optional(),
   /** Endpoint filled in for the person to keep or change, when `url` is not fixed. */
