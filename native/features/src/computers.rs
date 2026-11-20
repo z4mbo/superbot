@@ -74,6 +74,50 @@ pub struct ComputerControl {
     pub lease_id: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComputerFileKind {
+    File,
+    Dir,
+}
+
+/// One entry of a folder on an agent's computer. `path` is the server's own spelling: pass it
+/// back unchanged to open, preview or download the entry.
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct ComputerFile {
+    pub path: String,
+    pub kind: ComputerFileKind,
+    pub size: u64,
+}
+
+impl ComputerFile {
+    pub fn name(&self) -> &str {
+        let trimmed = self.path.trim_end_matches('/');
+        trimmed.rsplit('/').next().unwrap_or(trimmed)
+    }
+}
+
+/// The path a file named `name` is uploaded to inside `folder`, a path the server listed.
+pub fn computer_file_path(folder: &str, name: &str) -> String {
+    let folder = folder.trim_end_matches('/');
+    if folder.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{folder}/{name}")
+    }
+}
+
+#[derive(Deserialize)]
+struct ComputerFileText {
+    content: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ComputerFileBytes {
+    content_base64: String,
+}
+
 impl SpaceFeatures<'_> {
     /// `Err(Error::Server { status: 404, .. })` means the agent has no computer.
     pub async fn computer_status(&self, bot_id: &str) -> Result<ComputerStatus, Error> {
@@ -109,6 +153,53 @@ impl SpaceFeatures<'_> {
         self.acknowledge(
             "computer/release",
             json!({ "botId": bot_id, "leaseId": lease_id }),
+        )
+        .await
+    }
+
+    /// A folder's entries, `""` for the agent's own top folder. A stopped computer answers from
+    /// its saved home.
+    pub async fn computer_files(
+        &self,
+        bot_id: &str,
+        path: &str,
+    ) -> Result<Vec<ComputerFile>, Error> {
+        self.call("computer/files", json!({ "botId": bot_id, "path": path }))
+            .await
+    }
+
+    /// A text file's words, for a preview. The server refuses binary and large files.
+    pub async fn read_computer_file(&self, bot_id: &str, path: &str) -> Result<String, Error> {
+        let file: ComputerFileText = self
+            .call(
+                "computer/readFile",
+                json!({ "botId": bot_id, "path": path }),
+            )
+            .await?;
+        Ok(file.content)
+    }
+
+    /// A file's bytes as base64, from a running computer only.
+    pub async fn download_computer_file(&self, bot_id: &str, path: &str) -> Result<String, Error> {
+        let file: ComputerFileBytes = self
+            .call(
+                "computer/downloadFile",
+                json!({ "botId": bot_id, "path": path }),
+            )
+            .await?;
+        Ok(file.content_base64)
+    }
+
+    /// Writes a file to a running computer. The server requires this account to hold control.
+    pub async fn upload_computer_file(
+        &self,
+        bot_id: &str,
+        path: &str,
+        content_base64: &str,
+    ) -> Result<(), Error> {
+        self.acknowledge(
+            "computer/uploadFile",
+            json!({ "botId": bot_id, "path": path, "contentBase64": content_base64 }),
         )
         .await
     }
@@ -149,6 +240,32 @@ mod tests {
         assert_eq!(status.busy_bot_name.as_deref(), Some("Scout"));
         assert_eq!(status.disk_full_percent, Some(93));
         assert!(!status.runs_on_user_machine && !status.shared && !status.controlled_by_other);
+    }
+
+    #[test]
+    fn reads_a_folder_listing() {
+        let entries: Vec<ComputerFile> = serde_json::from_value(json!([
+            { "path": "reports", "kind": "dir", "size": 0 },
+            { "path": "reports/q3 plan.md", "kind": "file", "size": 812, "executable": false }
+        ]))
+        .unwrap();
+        assert_eq!(entries[0].kind, ComputerFileKind::Dir);
+        assert_eq!(entries[0].name(), "reports");
+        assert_eq!(entries[1].name(), "q3 plan.md");
+        assert_eq!(entries[1].size, 812);
+    }
+
+    #[test]
+    fn an_upload_lands_in_the_folder_on_screen() {
+        assert_eq!(computer_file_path("", "notes.txt"), "notes.txt");
+        assert_eq!(
+            computer_file_path("reports/", "notes.txt"),
+            "reports/notes.txt"
+        );
+        assert_eq!(
+            computer_file_path("shared/team", "a b.csv"),
+            "shared/team/a b.csv"
+        );
     }
 
     #[test]

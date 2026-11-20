@@ -23,14 +23,14 @@ pub(super) enum ScreenPhase {
     Unavailable(String),
 }
 
-struct ControlLease {
+pub(super) struct ControlLease {
     owner: (Features, String),
     agent: String,
     id: Option<String>,
 }
 
 impl ControlLease {
-    async fn acquire(owner: (Features, String), agent: String) -> Result<Self, superbot_client::Error> {
+    pub(super) async fn acquire(owner: (Features, String), agent: String) -> Result<Self, superbot_client::Error> {
         let control = owner.0.space(&owner.1).take_computer_control(&agent).await?;
         Ok(Self { owner, agent, id: Some(control.lease_id) })
     }
