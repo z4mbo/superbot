@@ -17,8 +17,9 @@ test("board creates a ticket and opens it", async ({ page }, testInfo) => {
   await createNamedBot(page, "Planner");
 
   await page.getByTestId("user-menu-trigger").click();
+  await expect(page.getByTestId("account-menu-header")).toBeVisible();
   await expect(page.getByRole("button", { name: "Board", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.keyboard.press("Escape");
   const settings = await openUserSettings(page, "labs");
   const boardLab = settings.getByTestId("lab-board-toggle");
   await expect(boardLab).not.toBeChecked();

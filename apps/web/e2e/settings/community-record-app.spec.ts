@@ -8,11 +8,16 @@ test("a member installs the calorie diary, records meals and reopens the day's t
   const bot = await rpc<{ id: string }>(page, "bots/create", { name: "Diary keeper" });
   await page.goto(`/app/${bot.id}`);
   const openDiary = async () => {
-    await page.getByTestId("user-menu-trigger").click();
-    await page.getByRole("button", { name: "Store", exact: true }).click();
+    await page
+      .getByTestId("sidebar-footer")
+      .getByRole("button", { name: "Store", exact: true })
+      .click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("tab", { name: "Plugins", exact: true }).click();
-    await dialog.getByRole("button", { name: /Calorie diary/ }).first().click();
+    await dialog
+      .getByRole("button", { name: /Calorie diary/ })
+      .first()
+      .click();
     return dialog;
   };
 
@@ -35,7 +40,11 @@ test("a member installs the calorie diary, records meals and reopens the day's t
   await captureScreenshot(page, testInfo, "community-calorie-diary");
   await page.reload();
   await expect(page.getByTestId("store-plugins")).toHaveAttribute("aria-selected", "true");
-  await page.getByRole("dialog").getByRole("button", { name: /Calorie diary/ }).first().click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Calorie diary/ })
+    .first()
+    .click();
   await openMeals();
   await expect(app.getByTestId("community-app-record")).toHaveCount(2);
   await expect(app.getByTestId("community-app-total")).toContainText("700");

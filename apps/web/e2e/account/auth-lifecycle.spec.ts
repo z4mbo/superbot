@@ -4,6 +4,7 @@ import {
   captureScreenshot,
   completeOnboarding,
   openEmailSignIn,
+  openUserSettings,
   signup,
   signupThroughForm,
 } from "../helpers/helpers";
@@ -173,7 +174,7 @@ test("logout protects bot deep links and sign-in restores the session", async ({
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
 
   await page.getByRole("button", { name: new RegExp(userName, "i") }).click();
-  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  await expect(page.getByTestId("account-menu-header")).toContainText(userName);
   await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
   await captureScreenshot(page, testInfo, "36-account-menu");
 
@@ -293,10 +294,7 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
     "sidebar-search",
   );
 
-  await page.getByTestId("user-menu-trigger").click();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  const settings = page.getByTestId("user-settings");
-  await expect(settings).toBeVisible();
+  const settings = await openUserSettings(page);
   await expect(settings.getByLabel("Current password")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "general-settings");
   await settings.getByRole("button", { name: "Change password" }).click();
