@@ -7,6 +7,7 @@ mod presets;
 mod server_sign_in;
 mod services;
 mod skills;
+mod t3_inbox;
 
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::prelude::FluentBuilder as _;
@@ -76,6 +77,7 @@ pub struct Store {
     pub rejection: Option<Rejection>,
     pub version_switch: Option<VersionSwitch>,
     pub app: Option<OpenApp>,
+    pub t3: Option<t3_inbox::T3Inbox>,
     pub confirm: Option<Confirm>,
     /// The confirmed change is on its way to the server.
     pub confirming: bool,
@@ -117,6 +119,7 @@ impl Store {
             rejection: None,
             version_switch: None,
             app: None,
+            t3: None,
             confirm: None,
             confirming: false,
             services: None,
@@ -144,6 +147,7 @@ impl Store {
         self.rejection = None;
         self.version_switch = None;
         self.app = None;
+        self.t3 = None;
         self.confirm = None;
         self.confirming = false;
         self.services = None;
@@ -292,6 +296,9 @@ impl Desktop {
         if self.store.app.is_some() {
             self.load_records(false, window, cx);
         }
+        if self.store.t3.is_some() {
+            self.load_t3_records(window, cx);
+        }
     }
 
     fn install(&mut self, version: &PluginVersion, window: &mut Window, cx: &mut Context<Self>) {
@@ -346,6 +353,8 @@ impl Desktop {
         let theme = cx.skin().clone();
         let body = if self.store.draft.is_some() {
             self.render_creator(window, cx)
+        } else if self.store.t3.is_some() {
+            self.render_t3_inbox(&theme, cx)
         } else if self.store.app.is_some() {
             self.render_app(&theme, cx)
         } else if self.store.marketplace.is_open() {

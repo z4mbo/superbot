@@ -154,6 +154,10 @@ impl Desktop {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if super::t3_inbox::is_bundled(installation) {
+            self.open_t3_inbox(installation, window, cx);
+            return;
+        }
         let Some(ManifestPart::App { fields, summary_field, .. }) =
             installation.plugin.manifest.parts.iter().find(|part| part.id() == part_id)
         else {

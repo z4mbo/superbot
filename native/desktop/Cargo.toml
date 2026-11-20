@@ -20,6 +20,7 @@ sha2 = "0.10"
 superbot-avatars = { path = "../avatars", features = ["local-engine"] }
 superbot-client = { path = "../client" }
 superbot-features = { path = "../features" }
+superbot-t3-inbox = { path = "../t3-inbox" }
 superbot-workspace-panel = { path = "../workspace-panel" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"] }
 url = "2"

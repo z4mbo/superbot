@@ -16,6 +16,7 @@ import { checkConversationContent } from "./verify-conversation-content.mjs";
 import { checkLocalAppRecords } from "./verify-local-app-records.mjs";
 import { prepareMarketplaceApp } from "./verify-marketplace-app.mjs";
 import { checkSearch } from "./verify-search.mjs";
+import { prepareT3Inbox } from "./verify-t3-inbox-desktop.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const exec = promisify(execFile);
@@ -28,6 +29,7 @@ const {
     roster,
     "local-cli": localCli,
     "local-app-records": localAppRecords,
+    "t3-inbox": t3Inbox,
   },
 } = parseArgs({
   allowPositionals: true,
@@ -38,11 +40,12 @@ const {
     roster: { type: "boolean" },
     "local-cli": { type: "boolean" },
     "local-app-records": { type: "boolean" },
+    "t3-inbox": { type: "boolean" },
   },
 });
 assert(
-  process.platform === "win32" && postgresBin && executable,
-  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--marketplace-app] [--roster] [--local-cli] [--local-app-records]",
+  process.platform === "win32" && postgresBin && executable && (!t3Inbox || desktopExecutable),
+  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--marketplace-app] [--roster] [--local-cli] [--local-app-records] [--t3-inbox, with SUPERBOT_DESKTOP_EXE]",
 );
 const cli = resolve(executable);
 const pg = (file) => resolve(postgresBin, `${file}.exe`);
@@ -642,7 +645,17 @@ try {
         otherBot: second,
       })
     : undefined;
-  steps.push(...(app?.steps ?? []), ...conversationSteps);
+  const t3 = t3Inbox
+    ? await prepareT3Inbox({
+        rpc,
+        followThread,
+        owner: scopedOwner,
+        ownerId: owner.id,
+        origin,
+        grantedBot: first,
+      })
+    : undefined;
+  steps.push(...(app?.steps ?? []), ...(t3?.steps ?? []), ...conversationSteps);
   model = await startModelEmulator({ apiKey: modelKey, steps });
   await rpc(
     "models/connect",
@@ -843,6 +856,7 @@ try {
       throw error;
     }
   }
+  await t3?.propose();
   if (localCli || localAppRecords) {
     await checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedObserver, source: first });
   }
@@ -920,6 +934,7 @@ try {
     console.log(`Desktop comparison fixture PID ${desktop.pid}. Close its window to finish.`);
     const code = await new Promise((done, fail) => desktop.once("error", fail).once("close", done));
     assert.equal(code, 0, "Fixture desktop exited successfully");
+    await t3?.check();
   }
   if (roster) {
     const existing = await rpc("bots/create", { name: "Roster One" }, scopedOwner);
