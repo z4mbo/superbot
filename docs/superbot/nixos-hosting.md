@@ -156,6 +156,8 @@ superbot-host egress
 
 The egress report must say the host firewall rules were verified. A healthy Compose stack alone only confirms the supervisor is listening. Use the disposable check below for computer and screen tests.
 
+For remote viewing, preserve the public `Host` and set `X-Forwarded-Proto` to `https` at the trusted HTTPS proxy. The screen handoff and WebSocket origin checks use the address the client opened. Each viewer opens **Watch** from its own signed-in session. Existing agents with computer use disabled can enable it individually from their **Computer** tab.
+
 ### Isolated computer readiness check
 
 On a Linux Docker host with the rules already installed, run from the staged source with Node and Compose on the path. Use an unused loopback port. Leave the live stack and Tailscale Serve configuration alone.
