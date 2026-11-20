@@ -399,7 +399,10 @@ export class McpSession {
 
   private newClient(): Client {
     const client = createMcpClient(
-      { name: this.clientOptions.name ?? "superbot", version: this.clientOptions.version ?? "0.1.0" },
+      {
+        name: this.clientOptions.name ?? "superbot",
+        version: this.clientOptions.version ?? "0.1.0",
+      },
       this.clientOptions.capabilities ?? {
         capabilities: mcpClientCapabilities(this.clientOptions.elicitation === true),
       },
