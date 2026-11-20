@@ -26,10 +26,10 @@ version=${version##*@}
 stage=$(mktemp -d "${TMPDIR:-/tmp}/superbot-install.XXXXXXXX")
 trap 'rm -rf -- "$stage"' EXIT
 bundle="$stage/Superbot.app/Contents"
-mkdir -p "$bundle/MacOS" "$bundle/Resources/licenses"
+mkdir -p "$bundle/MacOS" "$bundle/Helpers" "$bundle/Resources/licenses"
 install -m 755 "$build/superbot-desktop" "$bundle/MacOS/Superbot"
 for cli in superbot superbot-plugin; do
-    install -m 755 "$build/$cli" "$bundle/MacOS/$cli"
+    install -m 755 "$build/$cli" "$bundle/Helpers/$cli"
 done
 
 plist="$bundle/Info.plist"
@@ -56,17 +56,18 @@ install -m 644 superbot-site/licenses/Apache-2.0.txt "$bundle/Resources/licenses
 app="$HOME/Applications/Superbot.app"
 bin="$HOME/.local/bin"
 for cli in superbot superbot-plugin; do
-    if [[ -e "$bin/$cli" || -L "$bin/$cli" ]] &&
-        [[ $(readlink "$bin/$cli" || true) != "$app/Contents/MacOS/$cli" ]]; then
-        echo "Move the existing $bin/$cli before installing." >&2
-        exit 1
+    if [[ -e "$bin/$cli" || -L "$bin/$cli" ]]; then
+        case $(readlink "$bin/$cli" || true) in
+            "$app/Contents/Helpers/$cli"|"$app/Contents/MacOS/$cli") ;;
+            *) echo "Move the existing $bin/$cli before installing." >&2; exit 1 ;;
+        esac
     fi
 done
 mkdir -p "$HOME/Applications" "$bin"
 ditto "$stage/Superbot.app" "$app"
 for cli in superbot superbot-plugin; do
-    if [[ ! -L "$bin/$cli" ]]; then
-        ln -s "$app/Contents/MacOS/$cli" "$bin/$cli"
+    if [[ $(readlink "$bin/$cli" || true) != "$app/Contents/Helpers/$cli" ]]; then
+        ln -sfn "$app/Contents/Helpers/$cli" "$bin/$cli"
     fi
 done
 
