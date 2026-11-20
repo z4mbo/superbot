@@ -9,6 +9,7 @@ use crate::ui::{empty_line, error_line, icon, pill_button, Tone, Type};
 use super::confirm::Confirm;
 use super::server_sign_in::Subject;
 use super::services::service_mark;
+use crate::ui::service_logo;
 use super::{back_button, count};
 
 /// How many plugins the list shows at first, and adds each time more are asked for.
@@ -318,7 +319,10 @@ impl Desktop {
             .cursor_pointer()
             .hover(move |style| style.bg(hover))
             .on_click(cx.listener(move |this, _, window, cx| this.open_plugin(opened.clone(), window, cx)))
-            .child(service_mark(&entry.display_name, &entry.name, theme))
+            .child(
+                service_logo::remote_tile(entry.logo.as_deref(), px(40.), cx)
+                    .unwrap_or_else(|| service_mark(&entry.display_name, &entry.name, theme)),
+            )
             .child(
                 div()
                     .flex_1()
@@ -391,7 +395,10 @@ impl Desktop {
             .items_center()
             .gap_3()
             .child(back)
-            .child(service_mark(&entry.display_name, &entry.name, theme).size(px(48.)))
+            .child(
+                service_logo::remote_tile(entry.logo.as_deref(), px(48.), cx)
+                    .unwrap_or_else(|| service_mark(&entry.display_name, &entry.name, theme).size(px(48.))),
+            )
             .child(
                 div()
                     .flex_1()
