@@ -150,6 +150,10 @@ Choose **Open web workspace** in the account menu to open the selected chat in t
 
 On Windows, run `powershell -ExecutionPolicy Bypass -File scripts/dev-desktop.ps1` to rebuild and relaunch the development desktop after changes to native code, assets or the Cargo manifest. The previous build stays open if compilation fails. Use `-Server URL` to choose a fixture, or omit it to use the device's saved server. Press Ctrl+C in the watcher console to stop it. The Vite server provides live reload for the web client. The native app follows system appearance and accepts `SUPERBOT_SKIN=midnight` or `daylight` for visual checks. The Windows [comparison fixture](chat-verification.md) opens a separate desktop backed by disposable accounts, a real database and a deterministic model.
 
+On macOS and Linux, run `scripts/dev-desktop.sh --server URL` for the same rebuild loop, or omit `--server` to use `SUPERBOT_SERVER` or the device's saved server. Set `SUPERBOT_APPEARANCE` to a separate appearance directory for isolated runs, since macOS and Windows resolve appearance independently of `SUPERBOT_CONFIG_DIR`.
+
+On macOS, pass `--server URL --reset-session` to print the chosen origin and clear its saved session before each launch after a successful build, avoiding keychain password prompts from ad-hoc-signed debug builds. This also signs out any installed Superbot that uses the same server.
+
 The [coverage map](parity.md) lists native operations and capabilities available in the full web workspace.
 
 ## Desktop font license

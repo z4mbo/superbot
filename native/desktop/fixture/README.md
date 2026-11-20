@@ -8,11 +8,22 @@ and two synthetic accounts, and removes all of it when it stops. Nothing leaves 
 pnpm db:generate
 pnpm --filter @rakazo/api build
 node --import tsx native/desktop/fixture/chat-parity.mjs "C:/path/to/postgresql/bin" "C:/path/to/output"
+# From another shell, to stop:
+New-Item -ItemType File "C:/path/to/output/stop"
+```
+
+```sh
+# macOS and Linux
+pnpm db:generate
+pnpm --filter @rakazo/api build
+node --import tsx native/desktop/fixture/chat-parity.mjs /path/to/postgresql/bin /path/to/output
+# From another shell, to stop:
+touch /path/to/output/stop
 ```
 
 It prints `READY <origin>` and writes `fixture.json` (the origin and both accounts) into the
 output folder once the data is in place, then serves until a file named `stop` appears there.
-Set `SUPERBOT_SERVER` to that origin and `SUPERBOT_CONFIG_DIR` to a temporary client settings directory before launching the desktop. Sign in as the fixture owner. Stopping the fixture removes the session the desktop saved for that origin.
+Set `SUPERBOT_SERVER` to that origin and `SUPERBOT_CONFIG_DIR` to a temporary client settings directory before launching the desktop. Sign in as the fixture owner. Stopping the fixture removes the saved session for that origin. On Linux this uses `secret-tool` when available.
 
 | It makes                                                                             | For                                               |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------- |
