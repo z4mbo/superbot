@@ -80,6 +80,8 @@ pub struct Engine {
     samples: Mutex<HashMap<u64, Sample>>,
     /// A display frame was asked for and is not drawn yet.
     asked: AtomicBool,
+    /// When the pointer last moved over, left or pressed a mark.
+    last_input: Mutex<Option<Instant>>,
     /// The engine has motion left to draw.
     busy: AtomicBool,
     failed: AtomicBool,
@@ -116,6 +118,7 @@ impl Engine {
             images: Mutex::new(HashMap::new()),
             samples: Mutex::new(HashMap::new()),
             asked: AtomicBool::new(false),
+            last_input: Mutex::new(None),
             busy: AtomicBool::new(false),
             failed: AtomicBool::new(false),
             next_key: AtomicU64::new(1),
@@ -177,12 +180,25 @@ impl Engine {
         if let Ok(mut samples) = self.samples.lock() {
             samples.insert(key, Some((rect, point)));
         }
+        self.touched();
+    }
+
+    fn touched(&self) {
+        if let Ok(mut last) = self.last_input.lock() {
+            *last = Some(Instant::now());
+        }
+    }
+
+    /// When the pointer last moved over, left or pressed a mark.
+    pub fn last_input(&self) -> Option<Instant> {
+        self.last_input.lock().ok().and_then(|last| *last)
     }
 
     pub fn release(&self, key: u64) {
         if let Ok(mut samples) = self.samples.lock() {
             samples.insert(key, None);
         }
+        self.touched();
     }
 
     /// Whether marks still move, so the display should keep asking for frames.

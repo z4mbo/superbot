@@ -550,11 +550,40 @@ impl Mark {
     }
 }
 
-/// The shortest time between two frames of live marks, the rate the engines' own animation loops
-/// run at. On faster displays marks draw on every second, third, ... display frame, whichever
-/// comes closest, so they still move evenly.
+/// How often live marks draw. On faster displays marks draw on every second, third, ... display
+/// frame, whichever comes closest to the rate, so they still move evenly.
 #[cfg(feature = "local-engine")]
-const PULSE_TARGET_MS: f32 = 1000. / 60.;
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Rate {
+    /// Work and everything else: 60 a second, the rate the engines' own animation loops run at.
+    Steady,
+    /// While the pointer turns a mark, and until it has turned back: up to 120 a second, so on a
+    /// 144 Hz display every frame.
+    Interacting,
+}
+
+#[cfg(feature = "local-engine")]
+impl Rate {
+    fn target_ms(self) -> f32 {
+        match self {
+            Rate::Steady => 1000. / 60.,
+            Rate::Interacting => 1000. / 120.,
+        }
+    }
+}
+
+/// How long after the last pointer input a turn still counts as interaction: a mark turning back
+/// to rest settles within about 0.8 s.
+#[cfg(feature = "local-engine")]
+const INTERACTION_LINGER: Duration = Duration::from_millis(1000);
+
+#[cfg(feature = "local-engine")]
+fn pulse_rate(reduced_motion: bool, last_input: Option<Instant>, now: Instant) -> Rate {
+    match last_input {
+        Some(at) if !reduced_motion && now.saturating_duration_since(at) < INTERACTION_LINGER => Rate::Interacting,
+        _ => Rate::Steady,
+    }
+}
 
 /// The display pulse that drives live marks: one per app, running only while marks move.
 #[cfg(feature = "local-engine")]
@@ -570,7 +599,7 @@ struct Pulse {
 #[cfg(feature = "local-engine")]
 impl Pulse {
     /// Called once per display frame; whether this one should draw marks.
-    fn beat(&mut self, now: Instant) -> bool {
+    fn beat(&mut self, now: Instant, rate: Rate) -> bool {
         if let Some(last) = self.last.replace(now) {
             let measured = (now.saturating_duration_since(last).as_secs_f32() * 1000.).clamp(1., 50.);
             self.interval_ms = Some(match self.interval_ms {
@@ -579,7 +608,7 @@ impl Pulse {
                 None => measured,
             });
         }
-        let every = self.interval_ms.map_or(1, |interval| (PULSE_TARGET_MS / interval).round().max(1.) as u32);
+        let every = self.interval_ms.map_or(1, |interval| (rate.target_ms() / interval).round().max(1.) as u32);
         self.since_frame += 1;
         if self.since_frame >= every {
             self.since_frame = 0;
@@ -608,8 +637,9 @@ fn pulse_frame(window: &mut Window, cx: &mut App) {
         cx.global_mut::<Avatars>().pulse.running = false;
         return;
     };
+    let rate = pulse_rate(cx.reduce_motion(), engine.last_input(), now);
     let avatars = cx.global_mut::<Avatars>();
-    if avatars.pulse.beat(now) {
+    if avatars.pulse.beat(now, rate) {
         engine.frame(now);
         window.refresh();
     }
@@ -733,14 +763,83 @@ fn recolor_body(body: &str) -> String {
 
 #[cfg(all(test, feature = "local-engine"))]
 mod pulse_tests {
-    use super::Pulse;
+    use super::{pulse_rate, Pulse, Rate};
     use std::time::{Duration, Instant};
 
     /// Which of `count` display frames, `interval_us` apart, draw marks.
-    fn beats(interval_us: u64, count: u32) -> Vec<u32> {
+    fn beats_at(interval_us: u64, count: u32, rate: Rate) -> Vec<u32> {
         let mut pulse = Pulse::default();
         let start = Instant::now();
-        (0..count).filter(|n| pulse.beat(start + Duration::from_micros(interval_us * *n as u64))).collect()
+        (0..count).filter(|n| pulse.beat(start + Duration::from_micros(interval_us * *n as u64), rate)).collect()
+    }
+
+    fn beats(interval_us: u64, count: u32) -> Vec<u32> {
+        beats_at(interval_us, count, Rate::Steady)
+    }
+
+    /// The steady spacing, in display frames, once the pulse has learnt the display.
+    fn spacing(interval_us: u64, rate: Rate) -> u32 {
+        let beats = beats_at(interval_us, 200, rate);
+        let gaps: Vec<u32> = beats.windows(2).skip(4).map(|pair| pair[1] - pair[0]).collect();
+        assert!(gaps.windows(2).all(|pair| pair[0] == pair[1]), "{interval_us} us: uneven {gaps:?}");
+        gaps[0]
+    }
+
+    #[test]
+    fn interaction_draws_up_to_120_a_second_and_every_frame_at_144() {
+        assert_eq!(spacing(2_778, Rate::Interacting), 3);
+        assert_eq!(spacing(4_167, Rate::Interacting), 2);
+        assert_eq!(spacing(6_944, Rate::Interacting), 1);
+        assert_eq!(spacing(8_333, Rate::Interacting), 1);
+        assert_eq!(spacing(16_683, Rate::Interacting), 1);
+        assert_eq!(spacing(2_778, Rate::Steady), 6);
+        assert_eq!(spacing(6_944, Rate::Steady), 2);
+        assert_eq!(spacing(8_333, Rate::Steady), 2);
+    }
+
+    #[test]
+    fn interaction_lasts_until_the_turn_back_settles_and_never_under_reduced_motion() {
+        let now = Instant::now() + Duration::from_secs(10);
+        let ago = |ms| Some(now - Duration::from_millis(ms));
+        assert_eq!(pulse_rate(false, ago(0), now), Rate::Interacting);
+        assert_eq!(pulse_rate(false, ago(900), now), Rate::Interacting);
+        assert_eq!(pulse_rate(false, ago(1100), now), Rate::Steady);
+        assert_eq!(pulse_rate(false, None, now), Rate::Steady);
+        assert_eq!(pulse_rate(true, ago(0), now), Rate::Steady);
+    }
+
+    /// A pinned mark at work on a 360 Hz and a 144 Hz display: the pointer moves over it for 2 s
+    /// and leaves; marks draw at the interaction rate until the turn back settles, then at 60.
+    #[test]
+    fn interaction_then_work_benchmark() {
+        for (hz, interacting, steady) in [(360., 120., 60.), (144., 144., 72.), (60., 60., 60.)] {
+            let interval = Duration::from_secs_f64(1. / hz);
+            let start = Instant::now() + Duration::from_secs(10);
+            let last_input = start + Duration::from_secs(2);
+            let mut pulse = Pulse::default();
+            let (mut during, mut after) = (Vec::new(), Vec::new());
+            for n in 0..(hz as u32 * 6) {
+                let now = start + interval * n;
+                let input = (now <= last_input).then_some(now).unwrap_or(last_input);
+                let rate = pulse_rate(false, Some(input), now);
+                if pulse.beat(now, rate) {
+                    let t = (now - start).as_secs_f64();
+                    if (0.5..2.9).contains(&t) {
+                        during.push(t);
+                    } else if (3.5..6.).contains(&t) {
+                        after.push(t);
+                    }
+                }
+            }
+            let rate = |frames: &[f64]| (frames.len() - 1) as f64 / (frames[frames.len() - 1] - frames[0]);
+            assert!((rate(&during) - interacting).abs() < 1., "{hz} Hz interacting {}", rate(&during));
+            assert!((rate(&after) - steady).abs() < 1., "{hz} Hz steady {}", rate(&after));
+            println!(
+                "{hz} Hz: {:.1} frames/s while interacting, {:.1} frames/s at work after",
+                rate(&during),
+                rate(&after)
+            );
+        }
     }
 
     #[test]
@@ -764,9 +863,9 @@ mod pulse_tests {
         let mut pulse = Pulse::default();
         let start = Instant::now();
         for n in 0..20u64 {
-            pulse.beat(start + Duration::from_micros(2_778 * n));
+            pulse.beat(start + Duration::from_micros(2_778 * n), Rate::Steady);
         }
-        pulse.beat(start + Duration::from_millis(400));
+        pulse.beat(start + Duration::from_millis(400), Rate::Steady);
         assert!((pulse.interval_ms.unwrap() - 2.778).abs() < 0.05);
     }
 }
