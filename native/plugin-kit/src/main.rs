@@ -24,7 +24,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Create a starter skill or TypeScript MCP app
+    /// Create a starter skill, TypeScript MCP app or record app
     #[command(visible_alias = "scaffold")]
     Init {
         slug: String,

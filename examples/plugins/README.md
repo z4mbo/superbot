@@ -5,3 +5,7 @@
 
 Copy an example into a public GitHub repository, then follow [Build a plugin](https://rakazo.com/docs/build-a-plugin/)
 to test and submit it. Rakazo reads plugin files; it never runs repository code.
+
+## Marketplace manifests
+
+- [Calorie diary](kcal-diary/README.md) is a record app: a form whose entries Superbot keeps and totals.

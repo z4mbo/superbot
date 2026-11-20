@@ -41,6 +41,39 @@ fn binary_scaffolds_and_validates_mcp_app() {
 }
 
 #[test]
+fn binary_scaffolds_the_record_app_byte_for_byte_and_validates_edits() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = plugin(dir.path())
+        .args(["init", "kcal-diary", "--template", "kcal-diary"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let path = dir.path().join("plugin.json");
+    assert_eq!(
+        fs::read(&path).unwrap(),
+        include_bytes!("../../../examples/plugins/kcal-diary/plugin.json")
+    );
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+    let validate = plugin(dir.path()).arg("validate").output().unwrap();
+    assert!(validate.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&validate.stdout).trim(),
+        "Manifest is valid"
+    );
+
+    let mut manifest: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    manifest["parts"][0]["summaryField"] = Value::from("meal");
+    fs::write(&path, manifest.to_string()).unwrap();
+    let refused = plugin(dir.path()).arg("validate").output().unwrap();
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("parts[0].summaryField"));
+}
+
+#[test]
 fn binary_scaffolds_app_beside_custom_manifest() {
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("project");

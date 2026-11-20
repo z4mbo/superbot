@@ -1,4 +1,4 @@
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Value};
 use superbot_client::{Client, Error, ThreadEvent, ThreadTarget};
 
@@ -320,29 +320,9 @@ pub fn message_from_event(event: &ThreadEvent) -> Option<WireMessage> {
     })
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "lowercase")]
-pub enum ManifestPart {
-    Skill { id: String, instructions: String },
-    Mcp { id: String, transport: String, endpoint: String },
-}
-
-impl ManifestPart {
-    pub fn id(&self) -> &str {
-        match self {
-            Self::Skill { id, .. } | Self::Mcp { id, .. } => id,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct Manifest {
-    pub schema_version: u32,
-    pub name: String,
-    pub description: String,
-    pub parts: Vec<ManifestPart>,
-}
+pub use superbot_features::plugin_manifest::{
+    AppField, AppFieldKind, PluginManifest as Manifest, PluginPart as ManifestPart,
+};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct PluginVersion {

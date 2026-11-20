@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "name": "Calorie diary",
+  "description": "Log meals and see the total calories for a day.",
+  "parts": [
+    {
+      "kind": "app",
+      "id": "meals",
+      "fields": [
+        {
+          "id": "date",
+          "label": "Date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "id": "meal",
+          "label": "Meal",
+          "type": "text",
+          "required": true
+        },
+        {
+          "id": "kcal",
+          "label": "Calories (kcal)",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "summaryField": "kcal"
+    }
+  ]
+}
