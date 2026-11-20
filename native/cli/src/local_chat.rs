@@ -4,6 +4,7 @@ use superbot_client::{Agent, Client, Space};
 use superbot_features::local_cli::{run_local_model, InstalledModel, LocalCli, PendingHistory};
 use uuid::Uuid;
 
+use crate::local_app_chat::{self, LocalAppChat};
 use crate::{auth_hint, print_message, ChatThread};
 
 pub(crate) struct LocalChat {
@@ -11,6 +12,7 @@ pub(crate) struct LocalChat {
     space: String,
     bot: String,
     history_key: String,
+    apps: LocalAppChat,
 }
 
 impl LocalChat {
@@ -26,6 +28,7 @@ impl LocalChat {
             space: space.id.clone(),
             bot: agent.id.clone(),
             history_key: conversation.map_or_else(|| agent.id.clone(), |id| format!("thread:{id}")),
+            apps: LocalAppChat::default(),
         })
     }
 
@@ -44,11 +47,18 @@ impl LocalChat {
     }
 
     pub(crate) async fn handle(
-        &self,
+        &mut self,
         client: &Client,
         thread: &ChatThread<'_>,
         input: &str,
     ) -> Result<bool> {
+        if local_app_chat::is_command(input) {
+            let model = self.selection()?;
+            self.apps
+                .handle(&thread.space, &self.bot, &self.cli, model, input)
+                .await?;
+            return Ok(true);
+        }
         let pending = self.pending()?;
         let pending =
             match (input, pending) {

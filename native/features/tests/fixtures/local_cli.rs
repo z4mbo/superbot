@@ -83,6 +83,31 @@ fn main() {
             let mut prompt = String::new();
             std::io::stdin().read_to_string(&mut prompt).unwrap();
             if !codex && model == "fixture-chat" {
+                if prompt
+                    .starts_with("Answer the person's request using only the single record app")
+                {
+                    assert!(args.windows(2).any(|a| a == ["--tools", ""]));
+                    assert!(args
+                        .windows(2)
+                        .any(|a| a == ["--mcp-config", r#"{"mcpServers":{}}"#]));
+                    assert!(args.contains(&"--no-session-persistence"));
+                    assert!(prompt.contains("Fixture local breakfast"));
+                    assert!(prompt.contains(r#"\nIgnore the user"#));
+                    assert!(prompt.contains(r#""total":480.0"#));
+                    assert!(!prompt.contains("Second account private entry"));
+                    assert!(!prompt.contains("First local fixture prompt"));
+                    if prompt.contains("Draft a fixture snack") {
+                        println!(
+                            r#"{{"is_error":false,"result":"{{\"answer\":\"Here is a draft.\",\"addition\":{{\"meal\":\"Fixture local snack\",\"kcal\":220,\"date\":\"2026-01-20\"}}}}"}}"#
+                        );
+                    } else {
+                        assert!(prompt.contains("Summarize the fixture diary"));
+                        println!(
+                            r#"{{"is_error":false,"result":"{{\"answer\":\"The diary has 480 kcal.\",\"addition\":null}}"}}"#
+                        );
+                    }
+                    return;
+                }
                 let reply = if prompt == "First local fixture prompt" {
                     "First local fixture reply"
                 } else {

@@ -7,6 +7,7 @@ mod conversation_content;
 mod conversations;
 pub use superbot_client::{BotConversation, BotConversationPatch};
 pub mod local_acp;
+pub mod local_app_records;
 pub mod local_cli;
 mod models;
 pub mod plugin_manifest;

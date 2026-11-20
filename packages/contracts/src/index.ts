@@ -46,6 +46,7 @@ export * from "./integrations/connection-setup-error.js";
 export * from "./integrations/connections.js";
 export * from "./integrations/connector-errors.js";
 export * from "./integrations/integration-settings.js";
+export * from "./integrations/local-app-records.js";
 export * from "./integrations/mcp.js";
 export * from "./integrations/mcp-app.js";
 export * from "./integrations/mcp-oauth-return.js";

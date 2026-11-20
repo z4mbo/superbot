@@ -43,6 +43,7 @@ import type { VoiceDeps } from "./calls/voice.js";
 import { meetingCalendarRoutes } from "./meetings/calendar/calendar-routes.js";
 import type { createMeetingAnswers } from "./meetings/meeting-answers.js";
 import { meetingRoutes } from "./meetings/meeting-routes.js";
+import { localAppRecordsRoutes } from "./plugin-registry/local-app-records.js";
 import { pluginRegistryRoutes } from "./plugin-registry/routes.js";
 import { accountRoutes } from "./routes/account.js";
 import { availabilityRoutes } from "./routes/availability.js";
@@ -53,8 +54,8 @@ import { computerRoutes } from "./routes/computer.js";
 import { computerProviderRoutes } from "./routes/computer-provider.js";
 import { connectionsRoutes } from "./routes/connections.js";
 import { contentRoutes } from "./routes/content.js";
-import { conversationContentRoutes } from "./routes/conversation-content.js";
 import { createRouterContext } from "./routes/context.js";
+import { conversationContentRoutes } from "./routes/conversation-content.js";
 import { mcpRoutes } from "./routes/mcp.js";
 import { memoryRoutes } from "./routes/memory.js";
 import { messagingRoutes } from "./routes/messaging.js";
@@ -197,6 +198,7 @@ export function createRouter(deps: RouterDeps) {
     ...boardsRoutes(ctx),
     ...capabilitiesRoutes(ctx),
     ...pluginRegistryRoutes(ctx),
+    ...localAppRecordsRoutes(ctx),
     ...mcpRoutes(ctx),
     ...onboardingRoutes(ctx),
     ...availabilityRoutes(ctx),
