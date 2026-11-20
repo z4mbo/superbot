@@ -222,7 +222,7 @@ export function PluginBrowse({
       ) : null}
 
       {catalogsReady && visible.length === 0 && !showFeatured && !presets.length ? (
-        <p className="text-muted-foreground/80">
+        <p className="text-muted-foreground/80" role="status">
           <Trans>No apps match your search.</Trans>
         </p>
       ) : null}

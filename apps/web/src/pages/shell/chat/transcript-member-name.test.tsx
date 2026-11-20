@@ -94,6 +94,7 @@ function renderTranscript(messages: ThreadMessage[], roster: Roster) {
     followRequest: 0,
     callHoldsSpeaker: false,
     artifactTarget: roster.members ? { groupId: "group" } : { botId: G1 },
+    meId: "viewer",
     transcript: foldPeerReplies(messages, { includePeerReceipts: true }),
     showToolActivity: false,
     olderCursor: null,
@@ -241,4 +242,59 @@ it("group-removed-member-keeps-author-label prefers the current member", () => {
   expect(header("g1")).toBe("G1");
   expect(container.querySelector(`[data-message-id="g1"]`)?.textContent).not.toContain("Stale");
   expect(container.querySelector(`[data-message-id="g1"]`)?.textContent).not.toContain("Older");
+});
+
+it("labels each consecutive sender once and starts over after a time separator", () => {
+  const text = [{ kind: "text", text: "A message" }] as const;
+  const member = { id: "member", name: "A member" };
+  renderTranscript(
+    [
+      message("first", G1, [...text]),
+      message("follow-up", G1, [...text]),
+      message("other-bot", G2, [...text]),
+      message("back", G1, [...text]),
+      message("later", G1, [...text], { createdAt: "2026-11-12T12:00:00.000Z" }),
+      message("member", undefined, [...text], { role: "user", author: member }),
+      message("member-follow-up", undefined, [...text], { role: "user", author: member }),
+    ],
+    {
+      members: [
+        { botId: G1, name: "G1" },
+        { botId: G2, name: "G2" },
+      ],
+      bots: [],
+      archivedBots: [],
+    },
+  );
+
+  expect(
+    ["first", "follow-up", "other-bot", "back", "later", "member", "member-follow-up"].map(header),
+  ).toEqual(["G1", null, "G2", "G1", "G1", "A member", null]);
+});
+
+it("keeps Local CLI attribution and labels the first hosted reply after it", () => {
+  const text = [{ kind: "text", text: "A reply" }] as const;
+  const member = { id: "member", name: "A member" };
+  renderTranscript(
+    [
+      message("hosted-first", G1, [...text]),
+      message("local-first", G1, [...text], { origin: "local_cli", author: member }),
+      message("local-second", G1, [...text], { origin: "local_cli" }),
+      message("hosted-next", G1, [...text]),
+      message("hosted-follow-up", G1, [...text]),
+    ],
+    { members: [{ botId: G1, name: "G1" }], bots: [], archivedBots: [] },
+  );
+
+  expect(container.querySelector('[data-message-id="local-first"]')?.textContent).toContain(
+    "Local CLI used by A member",
+  );
+  expect(container.querySelector('[data-message-id="local-second"]')?.textContent).toContain(
+    "Local CLI",
+  );
+  expect(["hosted-first", "hosted-next", "hosted-follow-up"].map(header)).toEqual([
+    "G1",
+    "G1",
+    null,
+  ]);
 });

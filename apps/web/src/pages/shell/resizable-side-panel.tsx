@@ -2,6 +2,7 @@ import { t } from "@lingui/core/macro";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useEventListener } from "../../lib/use-event-listener";
+import { APP_RAIL_WIDTH, useAppRail } from "./app-rail";
 import { useBotsSidebarWidth } from "./sidebar/sidebar-layout";
 
 const STORAGE_KEY = "rakazo:right-panel-width";
@@ -9,6 +10,9 @@ const MIN_WIDTH = 320;
 const DEFAULT_WIDTH = 384;
 const ABSOLUTE_MAX = 1000;
 const MIN_CHAT_WIDTH = 320;
+const MD_BREAKPOINT = 768;
+const MOBILE_PANEL_MAX_WIDTH = 384; // Matches max-w-[384px] below.
+const MAX_VISIBLE_CHAT_WIDTH = 48;
 
 function maximumWidth(reservedLeadingPx: number, viewportWidth = window.innerWidth) {
   return Math.max(
@@ -31,17 +35,25 @@ export function ResizableSidePanel({
   open,
   panel,
   children,
+  onCoversChat,
 }: {
   open: boolean;
   panel: string;
+  /** Tells the shell when the open panel covers nearly all of the chat, so it can make the chat inert. */
+  onCoversChat?: (covers: boolean) => void;
   children: ReactNode;
 }) {
-  const reservedLeadingPx = useBotsSidebarWidth();
+  const sidebarWidth = useBotsSidebarWidth();
+  const hasRail = useAppRail();
   const [preferredWidth, setPreferredWidth] = useState(readPreferredWidth);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const belowMd = viewportWidth < MD_BREAKPOINT;
+  const reservedLeadingPx = belowMd ? 0 : sidebarWidth + (hasRail ? APP_RAIL_WIDTH : 0);
+  const chatWidth = viewportWidth - reservedLeadingPx;
   const maxWidth = maximumWidth(reservedLeadingPx, viewportWidth);
-  const overlay = viewportWidth - reservedLeadingPx < MIN_CHAT_WIDTH + MIN_WIDTH;
+  const overlay = belowMd || chatWidth < MIN_CHAT_WIDTH + MIN_WIDTH;
   const [dragging, setDragging] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
   const drag = useRef<{ x: number; width: number; direction: number } | null>(null);
   const width = Math.max(MIN_WIDTH, Math.min(maxWidth, preferredWidth));
 
@@ -56,6 +68,20 @@ export function ResizableSidePanel({
   useEffect(() => {
     setViewportWidth(window.innerWidth);
   }, []);
+
+  const panelWidth = belowMd ? Math.min(viewportWidth, MOBILE_PANEL_MAX_WIDTH) : width;
+  const covering = open && overlay && chatWidth - panelWidth < MAX_VISIBLE_CHAT_WIDTH;
+  useEffect(() => {
+    if (!covering) return;
+    const focused = document.activeElement;
+    if (!focused || focused === document.body || focused.closest('[data-space-switch="main"]')) {
+      panelRef.current?.focus({ preventScroll: true });
+    }
+  }, [covering]);
+  useEffect(() => {
+    onCoversChat?.(covering);
+    return () => onCoversChat?.(false);
+  }, [covering, onCoversChat]);
   useEventListener(window, "resize", () => setViewportWidth(window.innerWidth));
 
   function stopDrag(event: PointerEvent<HTMLHRElement>) {
@@ -71,11 +97,13 @@ export function ResizableSidePanel({
 
   return (
     <aside
+      ref={panelRef}
+      tabIndex={-1}
       data-testid="side-panel"
       data-panel={panel}
       data-overlay={overlay || undefined}
       style={{ "--panel-width": `${width}px` } as CSSProperties}
-      className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar ${overlay ? "md:absolute" : "md:relative"} ${dragging ? "" : "transition-[width] duration-150 ease-out motion-reduce:transition-none"} ${open ? "w-full max-w-[384px] border-s border-sidebar-border md:w-(--panel-width) md:max-w-none" : "pointer-events-none w-0"}`}
+      className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar focus:outline-none ${overlay ? "md:absolute" : "md:relative"} ${dragging ? "" : "transition-[width] duration-150 ease-out motion-reduce:transition-none"} ${open ? "w-full max-w-[384px] border-s border-sidebar-border md:w-(--panel-width) md:max-w-none" : "pointer-events-none w-0"}`}
     >
       {open ? (
         <hr
