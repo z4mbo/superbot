@@ -9,6 +9,8 @@ use super::marks::Mark;
 use super::{level_label, Act, Gutter, Line, Spot, Trailing};
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
+use crate::ui::focus::{self, Ring};
+use crate::ui::motion::{Colors, Pointer};
 use crate::ui::new_menu::menu_shadow;
 use crate::ui::{icon, Type};
 
@@ -96,7 +98,7 @@ impl Desktop {
                 let pill = |index: usize, level: Option<ThinkingLevel>, cx: &mut Context<Self>| {
                     let pressed = level == current;
                     let lit = highlight == Some(Spot { row: first + index, star: false });
-                    div()
+                    let button = div()
                         .id(("model-effort", index))
                         .h(px(32.))
                         .px_1p5()
@@ -108,14 +110,18 @@ impl Desktop {
                         .body()
                         .cursor_pointer()
                         .truncate()
-                        .text_color(if pressed { theme.ink } else { theme.ink_secondary })
-                        .when(pressed, |pill| pill.bg(theme.ink_at(0.1)).font_weight(FontWeight::MEDIUM))
-                        .when(lit && !pressed, |pill| pill.bg(hover))
-                        .hover(move |style| style.text_color(theme.ink))
+                        .when(pressed, |pill| pill.font_weight(FontWeight::MEDIUM))
+                        .when(lit, |pill| pill.relative().child(Ring::InnerPill.element(theme.focus)))
                         .on_click(
                             cx.listener(move |this, _, window, cx| this.model_menu_act(Act::Effort(level), window, cx)),
                         )
-                        .child(level_label(level))
+                        .child(level_label(level));
+                    let resting = if pressed { 0.10 } else { 0.0 };
+                    let fill = Colors::ink(theme, resting, if pressed { resting } else { 0.04 }, 0.08);
+                    let text = Colors::new(if pressed { theme.ink } else { theme.ink_secondary }, theme.ink, theme.ink);
+                    focus::decorate(button)
+                        .tint(Pointer::BUTTON, move |button, levels| button.bg(fill.sample(levels)).text_color(text.sample(levels)))
+                        .into_any_element()
                 };
                 let pills: Vec<_> =
                     levels.into_iter().enumerate().map(|(index, level)| pill(index, level, cx)).collect();
@@ -142,6 +148,7 @@ impl Desktop {
                             .into_any_element(),
                     ),
                 };
+                let enabled = act.is_some();
                 let row = div()
                     .id(("model-row", nav))
                     .w_full()
@@ -153,9 +160,7 @@ impl Desktop {
                     .items_center()
                     .gap_2()
                     .rounded(radius::MENU_ROW)
-                    .cursor_pointer()
-                    .when(lit, |row| row.bg(hover))
-                    .hover(move |style| style.bg(hover))
+                    .when(enabled, |row| row.cursor_pointer())
                     .on_click(cx.listener(move |this, _, window, cx| {
                         if let Some(act) = act.clone() {
                             this.model_menu_act(act, window, cx);
@@ -211,6 +216,13 @@ impl Desktop {
                         .on_click(cx.listener(move |this, _, _, cx| this.toggle_favorite(&key, cx)))
                         .child(icon("star", px(13.), if starred { theme.warning } else { theme.ink_tertiary }))
                 });
+                let row = if enabled {
+                    focus::decorate(row)
+                        .fill(Pointer::MENU.held(lit), Colors::ink(theme, 0., 0.06, 0.08))
+                        .into_any_element()
+                } else {
+                    row.into_any_element()
+                };
                 div().group(group).relative().child(row).children(star).into_any_element()
             }
         }

@@ -19,7 +19,8 @@ use crate::runtime::{follow_space, network, Live};
 use crate::ui::agent_panel::{AgentInfo, AgentPanel};
 use crate::ui::inbox::Inbox;
 use crate::ui::message_search::MessageSearch;
-use crate::ui::corner::Tints;
+use crate::ui::corner::Corner;
+use crate::ui::motion::Tints;
 use crate::ui::store::Store;
 use crate::ui::workspace::Workspace;
 
@@ -137,7 +138,7 @@ pub struct Desktop {
     pub search: Entity<InputState>,
     pub search_open: bool,
     pub message_search: MessageSearch,
-    pub tints: Tints,
+    pub tints: Tints<Corner>,
     pub tile_preview: crate::ui::tile_preview::TilePreview,
     pub store: Store,
     pub workspace: Workspace,
@@ -196,6 +197,16 @@ impl Desktop {
             cx.observe_keystrokes(|this, event, window, cx| {
                 if event.keystroke.key == "escape" {
                     this.dismiss(cx);
+                } else if event.keystroke.key == "tab" && event.action.is_none() {
+                    // The kit's Root binding needs a mounted focus path. A dismissed menu can leave none.
+                    let modifiers = event.keystroke.modifiers;
+                    if !modifiers.control && !modifiers.alt && !modifiers.platform && !modifiers.function {
+                        if modifiers.shift {
+                            window.focus_prev(cx);
+                        } else {
+                            window.focus_next(cx);
+                        }
+                    }
                 } else if new_agent::is_new_agent_shortcut(&event.keystroke) {
                     this.new_agent(window, cx);
                 } else if conversations::is_new_conversation_shortcut(&event.keystroke) {

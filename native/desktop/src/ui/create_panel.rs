@@ -9,7 +9,7 @@ use crate::api::AgentSummary;
 use crate::app::create::{create_group_label, DepartmentForm, GroupForm, Panel, GROUP_MEMBER_MIN};
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
-use crate::ui::{bot_avatar, error_line, icon, Type};
+use crate::ui::{error_line, icon, Type};
 
 /// The dimmed window behind a create panel; a click on it closes the panel unless it is saving.
 pub(super) fn scrim(theme: &Theme, cx: &mut Context<Desktop>) -> Stateful<Div> {
@@ -174,7 +174,7 @@ impl Desktop {
                 .cursor_pointer()
                 .hover(move |style| style.bg(hover))
                 .on_click(cx.listener(move |this, _, _, cx| this.toggle_pick(id.clone(), cx)))
-                .child(bot_avatar(agent.avatar(), px(28.), false, None, theme, cx))
+                .child(self.roster_avatar(agent.avatar(), px(28.), theme, cx))
                 .child(div().flex_1().min_w_0().truncate().item().text_color(theme.ink).child(agent.name.clone()))
                 .child(mark)
         });

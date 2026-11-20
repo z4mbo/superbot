@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::focus::{self, Ring};
 
 impl Desktop {
     pub(super) fn render_agent_settings(&self, bot: &Bot, theme: &Theme, cx: &mut Context<Self>) -> Div {
@@ -192,7 +193,11 @@ impl Desktop {
             )
             .child(div().mt_1p5().px_1().section().text_color(theme.ink).child("Agent settings"))
             .child(div().mt(px(14.)).child(card(theme).child(instructions)))
-            .child(div().mt(px(14.)).child(card(theme).child(notifications).child(job)))
+            .child(
+                div()
+                    .mt(px(14.))
+                    .child(card(theme).child(focus::control(notifications, Ring::TrailingSwitch, theme)).child(job)),
+            )
             .child(div().mt(px(14.)).child(card(theme).child(archive)))
     }
 }

@@ -1,3 +1,7 @@
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gpui_kit::base::ElementExt as _;
 use gpui_kit::component::input::Input;
 use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::prelude::FluentBuilder as _;
@@ -6,13 +10,16 @@ use gpui_kit::*;
 use crate::api::{AgentSummary, GroupSummary, Target};
 use crate::app::{Desktop, MenuKind, View};
 use crate::theme::{mix, radius, ActiveTheme, Theme, SIDEBAR_WIDTH};
+use crate::ui::motion::{Colors, Pointer};
 use crate::ui::corner::Corner;
+use crate::ui::focus::{self, Ring};
 use crate::ui::tile_preview::tile_preview;
-use crate::ui::{bot_avatar, empty_line, icon, person_face, Type};
+use crate::ui::{bot_avatar_with, empty_line, face_state, icon, person_face, AvatarSlot, Type};
 
 impl Desktop {
     pub fn render_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.skin().clone();
+        let asleep = self.avatar_asleep();
         let query = if self.search_open { self.search.read(cx).value().trim().to_lowercase() } else { String::new() };
         let matches = |name: &str| query.is_empty() || name.to_lowercase().contains(&query);
         let open = self.chat.as_ref().filter(|_| self.view == View::Chat).map(|chat| chat.target.clone());
@@ -40,7 +47,7 @@ impl Desktop {
             div().flex().flex_wrap().justify_center().gap_1().pt_3p5().pb_4().children(
                 pinned
                     .into_iter()
-                    .map(|(primary, agent)| self.render_tile(agent, primary, open.as_ref(), &theme, window, cx)),
+                    .map(|(primary, agent)| self.render_tile(agent, primary, open.as_ref(), asleep, &theme, window, cx)),
             )
         });
         let rows = div()
@@ -49,7 +56,7 @@ impl Desktop {
             .gap_0p5()
             .pb_2()
             .when(tiles.is_none(), |rows| rows.pt_2())
-            .children(listed.into_iter().map(|agent| self.render_agent_row(agent, open.as_ref(), &theme, cx)))
+            .children(listed.into_iter().map(|agent| self.render_agent_row(agent, open.as_ref(), asleep, &theme, cx)))
             .children(groups.into_iter().map(|group| self.render_group_row(group, open.as_ref(), &theme, cx)));
 
         div()
@@ -110,7 +117,7 @@ impl Desktop {
                 let name = InteractiveText::new("space-name", name).tooltip(move |_, window, cx| {
                     (layout.text() != space).then(|| Tooltip::new(space.clone()).build(window, cx))
                 });
-                div()
+                let button = div()
                     .id("space-switcher")
                     .h_9()
                     .min_w_0()
@@ -126,19 +133,28 @@ impl Desktop {
                         this.open_menu(MenuKind::Spaces, event.position() + point(px(-8.), px(22.)), cx)
                     }))
                     .child(div().name().truncate().child(name))
-                    .child(icon("chevron-down", px(14.), theme.ink_secondary))
+                    .child(icon("chevron-down", px(14.), theme.ink_secondary));
+                focus::control(button, Ring::InnerPill, theme)
             }))
             .child(div().flex_1())
-            .child(search.on_click(cx.listener(|this, _, window, cx| {
-                this.search_open = !this.search_open;
-                if this.search_open {
-                    this.search.update(cx, |search, cx| search.focus(window, cx));
-                } else {
-                    this.search.update(cx, |search, cx| search.set_value("", window, cx));
-                }
-                cx.notify();
-            })))
-            .child(new.on_click(cx.listener(|this, _, window, cx| this.open_new_menu(window, cx))))
+            .child(focus::control(
+                search.on_click(cx.listener(|this, _, window, cx| {
+                    this.search_open = !this.search_open;
+                    if this.search_open {
+                        this.search.update(cx, |search, cx| search.focus(window, cx));
+                    } else {
+                        this.search.update(cx, |search, cx| search.set_value("", window, cx));
+                    }
+                    cx.notify();
+                })),
+                Ring::OuterPill,
+                theme,
+            ))
+            .child(focus::control(
+                new.on_click(cx.listener(|this, _, window, cx| this.open_new_menu(window, cx))),
+                Ring::OuterPill,
+                theme,
+            ))
     }
 
     fn render_search(&mut self, theme: &Theme, cx: &mut Context<Self>) -> Div {
@@ -183,6 +199,7 @@ impl Desktop {
         agent: AgentSummary,
         primary: bool,
         open: Option<&Target>,
+        asleep: bool,
         theme: &Theme,
         window: &Window,
         cx: &mut Context<Self>,
@@ -194,16 +211,18 @@ impl Desktop {
         let menu = agent.id.clone();
         let keys = agent.id.clone();
         let focus = self.tile_focus(&agent.id, cx);
-        let ring = focus.is_focused(window) && window.last_input_was_keyboard();
+        let ring = focus::visible(&focus, window);
         let bounds = self.tile_bounds(&agent.id);
         let shape = if primary { radius::CARD } else { radius::FIELD };
         let watch = SharedString::from(format!("tile:{}", agent.id));
         let width = px(if primary { 95. } else { 78. });
+        let presence = face_state(Some(&agent), asleep, false);
+        let slot = AvatarSlot { presence, watch: Some(watch.clone()), ..AvatarSlot::default() };
         let quote = latest_line(&agent).0;
         let preview = (self.tile_preview_shown(&agent.id) && !quote.is_empty())
-            .then(|| div().absolute().top_0().left_0().child(tile_preview(&agent, quote.clone(), width, theme, cx)));
+            .then(|| div().absolute().top_0().left_0().child(tile_preview(&agent, quote.clone(), width, presence, theme, cx)));
         let hovered = (agent.id.clone(), !quote.is_empty());
-        superbot_avatars::watch_region(div().id(SharedString::from(format!("tile-{}", agent.id))), watch.clone())
+        let tile = superbot_avatars::watch_region(div().id(SharedString::from(format!("tile-{}", agent.id))), watch.clone())
             .group("bot-tile")
             .relative()
             .w(width)
@@ -217,7 +236,6 @@ impl Desktop {
             .rounded(shape)
             .bg(fill)
             .cursor_pointer()
-            .hover(move |style| style.bg(hover))
             .track_focus(&focus)
             // A pointer press leaves focus where opening the bot puts it, on the composer.
             .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
@@ -252,11 +270,11 @@ impl Desktop {
             .child(
                 div()
                     .relative()
-                    .child(bot_avatar(
+                    .child(bot_avatar_with(
                         agent.avatar(),
                         px(if primary { 60. } else { 56. }),
                         agent.working(),
-                        Some(watch),
+                        slot,
                         theme,
                         cx,
                     ))
@@ -297,16 +315,15 @@ impl Desktop {
                     .truncate()
                     .child(agent.name.clone()),
             )
-            .when(ring, |tile| {
-                tile.child(div().absolute().inset_0().rounded(shape).border_2().border_color(theme.focus))
-            })
-            .into_any_element()
+            .when(ring, |tile| tile.child(Ring::Inner(shape).element(theme.focus)));
+        focus::decorate(tile).fill(Pointer::ROW, row_colors(theme, selected)).into_any_element()
     }
 
     fn render_agent_row(
         &mut self,
         agent: AgentSummary,
         open: Option<&Target>,
+        asleep: bool,
         theme: &Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -318,12 +335,21 @@ impl Desktop {
             (line, false) => (line, theme.ink_secondary),
         };
         let menu = agent.id.clone();
+        let key_menu = menu.clone();
+        let more_menu = menu.clone();
+        let bounds = Rc::new(Cell::new(Bounds::<Pixels>::default()));
+        let drawn = bounds.clone();
         let watch = SharedString::from(format!("row:{}", agent.id));
+        let slot = AvatarSlot {
+            presence: face_state(Some(&agent), asleep, false),
+            watch: Some(watch.clone()),
+            ..AvatarSlot::default()
+        };
         let face = div()
             .relative()
-            .child(bot_avatar(agent.avatar(), px(42.), agent.working(), Some(watch.clone()), theme, cx))
+            .child(bot_avatar_with(agent.avatar(), px(42.), agent.working(), slot, theme, cx))
             .children(status_dot(&agent, fill, theme).map(|dot| dot.absolute().bottom(px(-1.)).right(px(-1.))));
-        superbot_avatars::watch_region(
+        let element = superbot_avatars::watch_region(
             row(
                 SharedString::from(format!("agent-{}", agent.id)),
                 face,
@@ -342,7 +368,31 @@ impl Desktop {
                 this.open_menu(MenuKind::Agent(menu.clone()), event.position, cx)
             }),
         )
-        .into_any_element()
+        .on_prepaint(move |area, _, _| drawn.set(area))
+        .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
+            if crate::ui::tile_preview::is_menu_key(&event.keystroke) {
+                this.open_menu(MenuKind::Agent(key_menu.clone()), bounds.get().center(), cx);
+                cx.stop_propagation();
+            }
+        }));
+        focus::control(element, Ring::Inner(radius::FIELD), theme)
+            .fill(Pointer::ROW, row_colors(theme, selected))
+            .when_visible(
+                div()
+                    .size_4()
+                    .flex_shrink_0()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_pointer()
+                    .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                        window.prevent_default();
+                        cx.stop_propagation();
+                        this.open_menu(MenuKind::Agent(more_menu.clone()), event.position, cx);
+                    }))
+                    .child(icon("ellipsis", px(14.), theme.ink_secondary)),
+            )
+            .into_any_element()
     }
 
     fn render_group_row(
@@ -360,7 +410,7 @@ impl Desktop {
         } else {
             group.preview.clone()
         };
-        row(
+        let element = row(
             SharedString::from(format!("group-{}", group.id)),
             face,
             group.name.clone(),
@@ -369,8 +419,10 @@ impl Desktop {
             selected,
             theme,
         )
-        .on_click(cx.listener(move |this, _, window, cx| this.open(target.clone(), window, cx)))
-        .into_any_element()
+        .on_click(cx.listener(move |this, _, window, cx| this.open(target.clone(), window, cx)));
+        focus::control(element, Ring::Inner(radius::FIELD), theme)
+            .fill(Pointer::ROW, row_colors(theme, selected))
+            .into_any_element()
     }
 
     fn render_sidebar_footer(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Div {
@@ -386,9 +438,10 @@ impl Desktop {
             .items_center()
             .gap_2()
             .child(
-                div().flex_1().min_w_0().child(
+                div().flex_1().min_w_0().child(focus::control(
                     div()
                         .id("profile")
+                        .rounded(radius::FIELD)
                         .flex()
                         .items_center()
                         .gap_2()
@@ -399,10 +452,28 @@ impl Desktop {
                         }))
                         .child(person_face(&name, px(36.), theme))
                         .child(div().name().truncate().child(name)),
-                ),
+                    Ring::Inner(radius::FIELD),
+                    theme,
+                )),
             )
-            .child(plugins.on_click(cx.listener(|this, _, window, cx| this.show(View::Store, window, cx))))
-            .child(workspace.on_click(cx.listener(|this, _, window, cx| this.show(View::Workspace, window, cx))))
+            .child(focus::control(
+                plugins.on_click(cx.listener(|this, _, window, cx| this.show(View::Store, window, cx))),
+                Ring::OuterPill,
+                theme,
+            ))
+            .child(focus::control(
+                workspace.on_click(cx.listener(|this, _, window, cx| this.show(View::Workspace, window, cx))),
+                Ring::OuterPill,
+                theme,
+            ))
+    }
+}
+
+fn row_colors(theme: &Theme, selected: bool) -> Colors {
+    if selected {
+        Colors::new(theme.raised, theme.raised, theme.raised_hover)
+    } else {
+        Colors::new(theme.panel, mix(theme.panel, theme.raised, 0.5), theme.raised)
     }
 }
 
@@ -416,7 +487,6 @@ fn row(
     selected: bool,
     theme: &Theme,
 ) -> Stateful<Div> {
-    let hover = if selected { theme.raised } else { theme.raised.opacity(0.5) };
     div()
         .id(id)
         .h(px(54.))
@@ -428,7 +498,6 @@ fn row(
         .rounded(radius::FIELD)
         .cursor_pointer()
         .when(selected, |row| row.bg(theme.raised))
-        .hover(move |style| style.bg(hover))
         .child(face.m(px(-3.)))
         .child(div().flex_1().min_w_0().child(div().name().truncate().child(name)).when(!preview.is_empty(), |text| {
             text.pt(px(1.)).child(div().mt(px(2.)).body().text_color(preview_ink).truncate().child(preview))

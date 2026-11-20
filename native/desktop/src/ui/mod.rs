@@ -5,9 +5,11 @@ pub mod chrome;
 pub mod corner;
 pub mod create_panel;
 pub mod creator;
+pub mod focus;
 pub mod inbox;
 pub mod message_search;
 pub mod model_menu;
+pub mod motion;
 pub mod new_menu;
 pub mod onboarding;
 pub mod overlays;
@@ -23,8 +25,11 @@ use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use superbot_avatars::{Bot, ChatTone, Mark, Paint};
+use superbot_avatars::face::{face, FacePaint, FaceState, Pose};
+use superbot_avatars::{Bot, ChatTone, Face, FaceTiming, Mark, Paint};
 
+use crate::api::{AgentSummary, Target};
+use crate::app::Desktop;
 use crate::theme::{radius, Theme};
 
 pub fn icon(name: &str, size: Pixels, color: Hsla) -> Svg {
@@ -80,28 +85,16 @@ pub fn page(content: impl IntoElement) -> Div {
         )
 }
 
-/// A bot's face: its colour, two eyes. The only mark in the app that gets a plate.
-pub fn agent_face(color: Hsla, size: Pixels) -> Div {
-    agent_face_with_eyes(color, gpui_kit::white(), size)
+/// The built-in face used where there is no bot yet.
+pub fn agent_face(color: Hsla, size: Pixels, theme: &Theme) -> Div {
+    agent_face_with_eyes(color, gpui_kit::white(), size, theme)
 }
 
-fn agent_face_with_eyes(color: Hsla, eyes: Hsla, size: Pixels) -> Div {
-    let eye = size * 0.14;
-    div()
-        .size(size)
-        .flex_shrink_0()
-        .rounded_full()
-        .bg(color)
-        .flex()
-        .items_center()
-        .justify_center()
-        .gap(size * 0.16)
-        .pb(size * 0.06)
-        .children((0..2).map(|_| div().w(eye).h(eye * 1.5).rounded_full().bg(eyes)))
+fn agent_face_with_eyes(body: Hsla, eyes: Hsla, size: Pixels, theme: &Theme) -> Div {
+    face(size, FacePaint { body, eyes, dark: theme.is_dark() }, Pose::default())
 }
 
-/// A bot's avatar in a slot of `size`: the local avatar pack's mark when one is installed,
-/// otherwise [`agent_face`]. `watch` names the mark for a region made with `watch_region`.
+/// A bot's avatar in a slot of `size`. The local pack's mark takes precedence.
 pub fn bot_avatar(
     bot: Bot,
     size: Pixels,
@@ -110,19 +103,136 @@ pub fn bot_avatar(
     theme: &Theme,
     cx: &App,
 ) -> AnyElement {
-    match superbot_avatars::look(bot, cx) {
-        Some(look) => {
-            let id = SharedString::from(format!("avatar-{}", bot.id));
-            let mark = Mark::new(id, look, size, theme.ink).working(working);
-            match watch {
-                Some(key) => mark.watch(key).into_any_element(),
-                None => mark.into_any_element(),
-            }
+    bot_avatar_with(bot, size, working, AvatarSlot { watch, ..AvatarSlot::default() }, theme, cx)
+}
+
+#[derive(Default)]
+pub(crate) struct AvatarSlot {
+    pub watch: Option<SharedString>,
+    pub empty_chat: bool,
+    pub looking_down: bool,
+    pub back_of_stack: bool,
+    pub presence: FaceState,
+    pub blink: Option<SharedString>,
+}
+
+pub(crate) fn bot_avatar_with(
+    bot: Bot,
+    size: Pixels,
+    working: bool,
+    slot: AvatarSlot,
+    theme: &Theme,
+    cx: &App,
+) -> AnyElement {
+    if let Some(look) = superbot_avatars::look(bot, cx) {
+        let id = SharedString::from(format!("avatar-{}", bot.id));
+        let mark = Mark::new(id, look, size, theme.ink).working(working);
+        return match slot.watch.filter(|_| !slot.empty_chat) {
+            Some(key) => mark.watch(key).into_any_element(),
+            None => mark.into_any_element(),
+        };
+    }
+    let region = slot.watch.as_deref().unwrap_or("static");
+    let id = SharedString::from(format!("face-{}-{region}-{}", bot.id, f32::from(size)));
+    let (body, eyes) = theme.identity_paint(bot.color);
+    let timing = FaceTiming {
+        standard: |progress| motion::STANDARD.sample(progress),
+        emphasis: |progress| motion::EMPHASIS.sample(progress),
+        settle: motion::SETTLE,
+        state: motion::STATE,
+        ease_in: motion::EASE_IN,
+    };
+    Face::new(id, bot.id, size, FacePaint { body, eyes, dark: theme.is_dark() }, timing)
+        .state(slot.presence)
+        .blink_in(slot.blink)
+        .watch(slot.watch)
+        .looking_down(slot.looking_down)
+        .contact_shadow(!slot.back_of_stack)
+        .into_any_element()
+}
+
+fn model_missing(account_needs_model: bool, has_local_model: bool) -> bool {
+    account_needs_model && !has_local_model
+}
+
+pub(crate) fn face_state(agent: Option<&AgentSummary>, asleep: bool, working: bool) -> FaceState {
+    let failed = agent.is_some_and(|agent| agent.status == "failed");
+    let waiting = agent.is_some_and(AgentSummary::waiting_on_you);
+    let working = working || agent.is_some_and(AgentSummary::working);
+    state_from_signals(asleep, failed, waiting, working)
+}
+
+fn state_from_signals(asleep: bool, failed: bool, waiting: bool, working: bool) -> FaceState {
+    match (asleep, failed, waiting, working) {
+        (true, _, _, _) => FaceState::Asleep,
+        (_, true, _, _) => FaceState::Failed,
+        (_, _, true, _) => FaceState::Waiting,
+        (_, _, _, true) => FaceState::Working,
+        _ => FaceState::Rest,
+    }
+}
+
+impl Desktop {
+    /// Matches the model connection banner in the composer.
+    pub(crate) fn avatar_asleep(&self) -> bool {
+        let account_needs_model = self.me.as_ref().is_some_and(|me| me.needs_model);
+        model_missing(account_needs_model, account_needs_model && self.selected_local_model().is_some())
+    }
+
+    pub(crate) fn face_blink_scope(target: &Target) -> Option<SharedString> {
+        match target {
+            Target::Agent(id) => Some(format!("face-blink:agent:{id}").into()),
+            Target::Conversation { thread, .. } => Some(format!("face-blink:thread:{thread}").into()),
+            Target::Group(_) => None,
         }
-        None => {
-            let (color, eyes) = theme.identity_paint(bot.color);
-            agent_face_with_eyes(color, eyes, size).into_any_element()
+    }
+
+    pub(crate) fn roster_avatar(&self, bot: Bot, size: Pixels, theme: &Theme, cx: &App) -> AnyElement {
+        let presence = face_state(self.agent(bot.id), self.avatar_asleep(), false);
+        bot_avatar_with(bot, size, false, AvatarSlot { presence, ..AvatarSlot::default() }, theme, cx)
+    }
+}
+
+#[cfg(test)]
+mod avatar_tests {
+    use super::{face_state, model_missing, state_from_signals};
+    use crate::api::AgentSummary;
+    use superbot_avatars::face::FaceState;
+
+    #[test]
+    fn presence_obeys_precedence() {
+        assert_eq!(state_from_signals(true, true, true, true), FaceState::Asleep);
+        assert_eq!(state_from_signals(false, true, true, true), FaceState::Failed);
+        assert_eq!(state_from_signals(false, false, true, true), FaceState::Waiting);
+        assert_eq!(state_from_signals(false, false, false, true), FaceState::Working);
+        assert_eq!(state_from_signals(false, false, false, false), FaceState::Rest);
+    }
+
+    #[test]
+    fn the_face_reads_only_the_existing_roster_signals_and_local_run_input() {
+        for (status, thread_status, working, expected) in [
+            ("idle", "running", false, FaceState::Working),
+            ("running", "waiting_input", true, FaceState::Waiting),
+            ("idle", "waiting_takeover", false, FaceState::Waiting),
+            ("failed", "idle", false, FaceState::Failed),
+            ("idle", "idle", true, FaceState::Working),
+            ("idle", "idle", false, FaceState::Rest),
+        ] {
+            let agent: AgentSummary = serde_json::from_value(serde_json::json!({
+                "id": "fixture-bot",
+                "name": "Fixture",
+                "status": status,
+                "threadStatus": thread_status,
+            })).unwrap();
+            assert_eq!(face_state(Some(&agent), false, working), expected);
         }
+    }
+
+    #[test]
+    fn a_local_model_suppresses_the_model_banner_and_sleep() {
+        assert!(model_missing(true, false));
+        assert!(!model_missing(true, true));
+        assert!(!model_missing(false, false));
     }
 }
 

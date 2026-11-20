@@ -1,4 +1,6 @@
 use super::*;
+use crate::ui::motion::{Colors, Pointer};
+use crate::ui::focus::{self, Ring};
 
 impl Desktop {
     pub fn render_agent_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
@@ -19,8 +21,8 @@ impl Desktop {
             .pr(px(13.))
             .pt_3()
             .window_control_area(WindowControlArea::Drag)
-            .child(
-                round_button("agent-settings", "settings", panel.settings, &theme)
+            .child(round_button("agent-settings", "settings", panel.settings, &theme, |button| {
+                button
                     .tooltip(|window, cx| Tooltip::new("Agent settings").build(window, cx))
                     .on_click(cx.listener(|this, _, _, cx| {
                         if let Some(panel) = this.agent_panel.as_mut() {
@@ -30,14 +32,14 @@ impl Desktop {
                             panel.editing = None;
                         }
                         cx.notify();
-                    })),
-            )
+                    }))
+            }))
             .child(div().flex_1())
-            .child(
-                round_button("agent-panel-close", "x", false, &theme)
+            .child(round_button("agent-panel-close", "x", false, &theme, |button| {
+                button
                     .tooltip(|window, cx| Tooltip::new("Close").build(window, cx))
-                    .on_click(cx.listener(|this, _, _, cx| this.close_agent_panel(cx))),
-            )
+                    .on_click(cx.listener(|this, _, _, cx| this.close_agent_panel(cx)))
+            }))
             .when(cfg!(not(target_os = "macos")), |header| header.mr(crate::theme::CAPTION_WIDTH));
 
         let body = match bot.as_ref() {
@@ -187,7 +189,6 @@ impl Desktop {
             .px(px(14.))
             .rounded(radius::FIELD)
             .cursor_pointer()
-            .hover(move |style| style.bg(hover))
             .child(icon("sparkles", px(16.), theme.ink_secondary))
             .child(div().flex_1().name().text_color(theme.ink).child("Model"))
             .children(model.map(|model| {
@@ -220,7 +221,10 @@ impl Desktop {
             .pt_2()
             .flex()
             .flex_col()
-            .child(model_row)
+            .child(focus::control(model_row, Ring::Inner(radius::FIELD), theme).fill(
+                Pointer::BUTTON.held(self.model_menu_is_open(crate::ui::model_menu::ModelTrigger::Details)),
+                Colors::ink(theme, 0., 0.06, 0.10),
+            ))
             .child(self.render_conversations(&bot.id, theme, cx))
             .child(card_label("In this space", theme))
             .child(link("agent-routines", "calendar-clock", "Routines", Section::Routines, cx))

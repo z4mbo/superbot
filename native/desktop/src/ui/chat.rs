@@ -1,5 +1,4 @@
 use chrono::Local;
-use gpui_kit::component::input::{Enter, Escape, IndentInline, MoveDown, MoveUp, Textarea};
 use gpui_kit::component::spinner::Spinner;
 use gpui_kit::component::text::TextView;
 use gpui_kit::component::tooltip::Tooltip;
@@ -7,19 +6,22 @@ use gpui_kit::component::Sizable as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::api::{GroupMember, Target};
+use crate::api::{AgentSummary, GroupMember, Target};
 use crate::app::conversation::MentionList;
 use crate::app::{Desktop, View};
 use crate::clock;
-use crate::files;
-use crate::outbox::{self, Attachment};
-use crate::theme::{mix, radius, ActiveTheme, Theme, BUBBLE_MAX, CAPTION_WIDTH, CHAT_COLUMN};
+use crate::outbox;
+use crate::theme::{radius, ActiveTheme, Theme, BUBBLE_MAX, CAPTION_WIDTH, CHAT_COLUMN};
 use crate::transcript::{place, Entry, Join, Part, Place, Speaker};
 use superbot_avatars::{Bot, ChatTone, Mark};
-use superbot_workspace_panel::Section;
 
-use crate::ui::{bot_avatar, bot_ink, chat_tone, error_line, icon, pill_button, Tone, Type};
+use crate::ui::focus::{self, Ring};
+use crate::ui::motion::{Colors, Pointer};
+use crate::ui::{
+    bot_avatar_with, bot_ink, chat_tone, error_line, face_state, icon, pill_button, AvatarSlot, Tone, Type,
+};
 
+mod composer;
 mod file;
 
 impl Desktop {
@@ -32,14 +34,36 @@ impl Desktop {
             return self.render_no_conversation(&theme, cx);
         };
         let target = chat.target.clone();
+        self.prepare_face_blink(&target, window, cx);
         let quiet = chat.entries.is_empty()
             && chat.draft.is_empty()
             && !chat.working
             && !chat.loading
             && chat.error.is_none()
             && chat.conversation.older.is_none();
+        let empty_watch = quiet
+            .then(|| target.agent())
+            .flatten()
+            .and_then(|id| self.agent(id))
+            .map(|agent| (SharedString::from(format!("empty-chat:{}", agent.id)), agent));
         let transcript = if quiet {
             let name = self.target_name(&target);
+            let avatar = if let Some((key, agent)) = &empty_watch {
+                let composer = self.composer.read(cx);
+                let looking_down =
+                    composer.focus_handle(cx).is_focused(window) && !composer.value().trim().is_empty();
+                let slot = AvatarSlot {
+                    watch: Some(key.clone()),
+                    empty_chat: true,
+                    looking_down,
+                    presence: face_state(Some(agent), self.avatar_asleep(), false),
+                    blink: Self::face_blink_scope(&target),
+                    ..AvatarSlot::default()
+                };
+                bot_avatar_with(agent.avatar(), px(64.), false, slot, &theme, cx)
+            } else {
+                self.target_face(&target, px(64.), None, &theme, cx).into_any_element()
+            };
             div()
                 .size_full()
                 .flex()
@@ -47,7 +71,7 @@ impl Desktop {
                 .items_center()
                 .justify_center()
                 .gap_3()
-                .child(self.target_face(&target, px(64.), None, &theme, cx))
+                .child(avatar)
                 .child(
                     div()
                         .item()
@@ -61,14 +85,41 @@ impl Desktop {
                 .into_any_element()
         };
 
-        div()
-            .size_full()
+        let gaze = empty_watch.map(|(key, _)| key);
+        let area = div().id("chat-content");
+        let area = match gaze {
+            Some(key) => superbot_avatars::gaze_region(area, key),
+            None => area,
+        };
+        area.size_full()
             .flex()
             .flex_col()
             .child(self.render_chat_header(&target, &theme, cx))
             .child(div().flex_1().min_h_0().child(transcript))
             .child(self.render_composer(&target, &theme, window, cx))
             .into_any_element()
+    }
+
+    fn prepare_face_blink(&self, target: &Target, window: &mut Window, cx: &mut App) {
+        if cx.reduce_motion() || self.avatar_asleep() {
+            return;
+        }
+        let Some((scope, id)) = Self::face_blink_scope(target).zip(target.agent()) else { return };
+        let Some(agent) = self.agent(id) else { return };
+        if superbot_avatars::look(agent.avatar(), cx).is_some() {
+            return;
+        }
+        let model = self.selected_local_model()
+            .map(|model| format!("local:{}:{}", model.provider, model.id))
+            .or_else(|| {
+                let bot = self.agent_info.bot(id)?;
+                let own = bot.model_provider.as_deref().zip(bot.model_id.as_deref());
+                match own {
+                    Some((provider, model)) => Some(format!("hosted:{provider}:{model}")),
+                    None => self.agent_info.main_choice().map(|(provider, model, _)| format!("hosted:{provider}:{model}")),
+                }
+            });
+        superbot_avatars::conversation_blink(scope, id, model.map(Into::into), agent.waiting_on_you(), window, cx);
     }
 
     fn render_no_conversation(&mut self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
@@ -101,10 +152,10 @@ impl Desktop {
 
     fn render_chat_header(&mut self, target: &Target, theme: &Theme, cx: &mut Context<Self>) -> Div {
         let name = self.target_name(target);
-        let hover = theme.elevated_hover();
+        let elevated = Colors::elevated(theme);
         let watch = SharedString::from("head");
         let docked = self.agent_panel.is_some();
-        let choosing = matches!((&self.menu, target), (Some(menu), Target::Agent(id) | Target::Conversation { agent: id, .. }) if menu.kind == crate::app::MenuKind::Model(id.clone()));
+        let choosing = self.model_menu_is_open(crate::ui::model_menu::ModelTrigger::Header);
         let model = match target {
             Target::Agent(id) | Target::Conversation { agent: id, .. } => self.chat_model_label(id),
             Target::Group(_) => None,
@@ -120,16 +171,17 @@ impl Desktop {
             .pr(px(11.))
             .rounded_full()
             .cursor_pointer()
-            .hover(move |style| style.bg(hover))
             .on_click(cx.listener(|this, _, window, cx| match this.chat.as_ref().map(|chat| &chat.target) {
                 Some(Target::Agent(_) | Target::Conversation { .. }) => this.toggle_agent_panel(window, cx),
                 _ => this.show(View::Workspace, window, cx),
             }))
             .child(self.target_face(target, px(22.), Some(watch), theme, cx))
             .child(div().name().truncate().child(name));
+        let identity = focus::control(identity, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(docked), elevated);
         let mark = target.agent().and_then(|id| self.chat_model_mark(id));
         let model = model.map(|label| {
-            self.model_menu_button(crate::ui::model_menu::ModelTrigger::Header, cx)
+            let button = self
+                .model_menu_button(crate::ui::model_menu::ModelTrigger::Header, cx)
                 .group("chat-model")
                 .min_w_0()
                 .flex()
@@ -145,11 +197,10 @@ impl Desktop {
                 .pr(px(11.))
                 .rounded_full()
                 .cursor_pointer()
-                .hover(move |style| style.bg(hover))
-                .when(choosing, |model| model.bg(hover))
                 .when(!choosing, |model| model.tooltip(|window, cx| Tooltip::new("Change model").build(window, cx)))
                 .child(div().body().text_color(theme.ink_secondary).truncate().child(label))
-                .child(icon("chevron-down", px(14.), theme.ink_tertiary))
+                .child(icon("chevron-down", px(14.), theme.ink_tertiary));
+            focus::control(button, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(choosing), elevated)
         });
         let pill = div()
             .max_w_full()
@@ -183,12 +234,15 @@ impl Desktop {
         }
     }
 
-    /// The working bot's own moving mark beside what it is doing, when the avatar pack draws it.
+    /// The working bot's face beside what it is doing.
     fn working_presence(&self, theme: &Theme, cx: &App) -> Option<AnyElement> {
         let Some(id) = self.chat.as_ref()?.target.agent() else { return None };
         let agent = self.agent(id)?;
-        let look = superbot_avatars::look(agent.avatar(), cx)?;
-        Some(Mark::new("presence", look, px(28.), theme.ink).working(true).into_any_element())
+        if let Some(look) = superbot_avatars::look(agent.avatar(), cx) {
+            return Some(Mark::new("presence", look, px(28.), theme.ink).working(true).into_any_element());
+        }
+        let presence = face_state(Some(agent), self.avatar_asleep(), true);
+        Some(bot_avatar_with(agent.avatar(), px(28.), true, AvatarSlot { presence, ..AvatarSlot::default() }, theme, cx))
     }
 
     /// The person's own bubbles: the bot's colour when the avatar pack recolours its chat.
@@ -210,12 +264,19 @@ impl Desktop {
     ) -> Div {
         match target {
             Target::Agent(id) | Target::Conversation { agent: id, .. } => {
-                let working = self.chat.as_ref().is_some_and(|chat| chat.working && &chat.target == target)
-                    || self.agent(id).is_some_and(|agent| agent.working());
-                let avatar = match self.agent(id) {
-                    Some(agent) => bot_avatar(agent.avatar(), size, working, watch, theme, cx),
-                    None => bot_avatar(Bot { id, name: "", color: "", picked: Default::default() }, size, false, None, theme, cx),
-                };
+                let live = self.chat.as_ref().filter(|chat| &chat.target == target);
+                let agent = self.agent(id);
+                let working = live.is_some_and(|chat| chat.working) || agent.is_some_and(AgentSummary::working);
+                let presence = face_state(
+                    agent,
+                    self.avatar_asleep(),
+                    working || live.is_some_and(|chat| chat.local_turn.is_some()),
+                );
+                let blink = if watch.is_some() { Self::face_blink_scope(target) } else { None };
+                let slot = AvatarSlot { watch, presence, blink, ..AvatarSlot::default() };
+                let bot = agent.map(AgentSummary::avatar)
+                    .unwrap_or(Bot { id, name: "", color: "", picked: Default::default() });
+                let avatar = bot_avatar_with(bot, size, working, slot, theme, cx);
                 div().flex_shrink_0().child(avatar)
             }
             Target::Group(id) => {
@@ -226,17 +287,31 @@ impl Desktop {
                     .map(|group| group.members.iter().take(2).cloned().collect())
                     .unwrap_or_default();
                 let face = size * 0.68;
+                let asleep = self.avatar_asleep();
+                let surface = if watch.is_some() {
+                    theme.composer
+                } else if size == px(64.) {
+                    theme.app
+                } else if self.view == View::Chat && self.chat.as_ref().is_some_and(|chat| &chat.target == target) {
+                    theme.raised
+                } else {
+                    theme.panel
+                };
                 div().size(size).flex_shrink_0().relative().children(members.iter().enumerate().map(
                     |(index, member)| {
-                        let offset = if index == 0 { px(0.) } else { size - face };
-                        div().absolute().left(offset).top(offset).child(bot_avatar(
-                            member.avatar(),
-                            face,
-                            false,
-                            None,
-                            theme,
-                            cx,
-                        ))
+                        let front = index == 1;
+                        let offset = if front { size - face } else { px(0.) };
+                        let bot = member.avatar();
+                        let ring = front && superbot_avatars::look(bot, cx).is_none();
+                        let agent = self.agent(&member.bot_id);
+                        let group_working = agent.is_some_and(|agent| matches!(agent.status.as_str(), "queued" | "leased" | "running"));
+                        let presence = face_state(agent, asleep, group_working);
+                        let slot = AvatarSlot { back_of_stack: !front, presence, ..AvatarSlot::default() };
+                        div().absolute().left(offset).top(offset).size(face)
+                            .when(ring, |face| {
+                                face.child(div().absolute().inset(px(-2.)).rounded_full().bg(surface))
+                            })
+                            .child(bot_avatar_with(bot, face, false, slot, theme, cx))
                     },
                 ))
             }
@@ -555,334 +630,6 @@ impl Desktop {
             .into_any_element()
     }
 
-    fn render_composer(&mut self, target: &Target, theme: &Theme, window: &Window, cx: &mut Context<Self>) -> Div {
-        if let Some(archived) = self.render_archived_composer(theme, cx) {
-            return archived;
-        }
-        let chat = self.chat.as_ref();
-        let local = self.selected_local_model();
-        let running_local = chat.is_some_and(|chat| chat.local_turn.is_some());
-        let working = chat.is_some_and(|chat| chat.working) || running_local;
-        let pending = self.pending_local_write();
-        let loading = chat.is_some_and(|chat| chat.loading);
-        let outbox = chat.map(|chat| &chat.conversation.outbox);
-        let sending = outbox.is_some_and(|outbox| outbox.sending) || pending.is_some_and(|write| write.saving);
-        let attachments: Vec<Attachment> = outbox.map(|outbox| outbox.attachments.clone()).unwrap_or_default();
-        let problem = if local.is_some() && !attachments.is_empty() {
-            Some("Remove attachments to send with the local model.".to_owned())
-        } else {
-            outbox.and_then(|outbox| outbox.problem.clone())
-        };
-        let editor = self.composer.read(cx);
-        let focused = editor.focus_handle(cx).is_focused(window);
-        let text = editor.value();
-        let has_text = !text.trim().is_empty();
-        let multiline = text.contains('\n');
-        let needs_model = local.is_none() && self.me.as_ref().is_some_and(|me| me.needs_model);
-        let tone = self.chat_tone(theme, cx);
-        let identity = match target {
-            Target::Agent(id) | Target::Conversation { agent: id, .. } => {
-                theme.identity_paint(self.agent(id).map_or("", |agent| agent.color.as_str()))
-            }
-            Target::Group(_) => (theme.ink, theme.app),
-        };
-        let has_content = has_text || !attachments.is_empty();
-        let stopping = (running_local || working && !has_content) && !sending;
-        let ready = has_content
-            && pending.is_none()
-            && !sending
-            && !loading
-            && !running_local
-            && (local.is_none() || attachments.is_empty());
-        let write_problem = pending.and_then(|write| write.problem.clone());
-        let (fill, ink) = if let (true, Target::Agent(_) | Target::Conversation { .. }, Some(tone)) = (stopping, target, tone) {
-            (tone.fill, tone.fill_ink)
-        } else if stopping {
-            (theme.ink, theme.app)
-        } else if has_content {
-            match (target, tone) {
-                (Target::Agent(_) | Target::Conversation { .. }, Some(tone)) => (tone.fill, tone.fill_ink),
-                _ => identity,
-            }
-        } else {
-            (theme.raised_hover, theme.ink_secondary)
-        };
-        let pressed = match tone.filter(|_| matches!(target, Target::Agent(_) | Target::Conversation { .. }) && (has_content || stopping)) {
-            Some(tone) => tone.fill_hover,
-            None => mix(fill, theme.app, 0.14),
-        };
-        let ring = theme.ink_at(0.1);
-        let ring_hover = theme.ink_at(0.22);
-        let quiet_hover = theme.ink_at(0.08);
-        let mentions = self.mention_list(cx);
-
-        let has_attachments = !attachments.is_empty();
-        let tray = has_attachments.then(|| {
-            div().flex().flex_wrap().gap_2().children(attachments.iter().map(|attached| {
-                let id = attached.id;
-                let glyph = if files::is_image(attached.mime_type) { "image" } else { "file-text" };
-                let detail = if sending { "Sending…".to_owned() } else { files::size_label(attached.size) };
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .h(px(44.))
-                    .pl_2p5()
-                    .pr_1p5()
-                    .rounded(radius::CARD)
-                    .bg(theme.control)
-                    .child(icon(glyph, px(16.), theme.ink_secondary))
-                    .child(
-                        div()
-                            .max_w(px(200.))
-                            .flex()
-                            .flex_col()
-                            .child(div().meta().font_weight(FontWeight::MEDIUM).truncate().child(attached.name.clone()))
-                            .child(div().meta().text_color(theme.ink_tertiary).child(detail)),
-                    )
-                    .when(!sending, |chip| {
-                        chip.child(
-                            div()
-                                .id(("detach", id as usize))
-                                .size_6()
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .rounded_full()
-                                .cursor_pointer()
-                                .hover(move |style| style.bg(quiet_hover))
-                                .tooltip(|window, cx| Tooltip::new("Remove").build(window, cx))
-                                .on_click(cx.listener(move |this, _, _, cx| this.detach_file(id, cx)))
-                                .child(icon("x", px(12.), theme.ink_secondary)),
-                        )
-                    })
-                    .when(sending, |chip| chip.pr_2p5())
-            }))
-        });
-
-        let attach = div()
-            .id("attach")
-            .size_7()
-            .flex_shrink_0()
-            .rounded_full()
-            .flex()
-            .items_center()
-            .justify_center()
-            .bg(theme.ink_at(0.04))
-            .border_1()
-            .border_color(theme.ink_at(0.04))
-            .tooltip(|window, cx| Tooltip::new("Attach files").build(window, cx))
-            .when(sending, |attach| attach.opacity(0.5))
-            .when(!sending, |attach| {
-                attach
-                    .cursor_pointer()
-                    .hover(move |style| style.bg(quiet_hover))
-                    .on_click(cx.listener(|this, _, window, cx| this.attach_files(window, cx)))
-            })
-            .child(icon("composer-plus", px(20.), theme.ink_tertiary));
-
-        let send = div()
-            .id("send")
-            .size_7()
-            .flex_shrink_0()
-            .rounded_full()
-            .flex()
-            .items_center()
-            .justify_center()
-            .bg(fill)
-            .when(stopping || ready, |send| {
-                send.cursor_pointer().hover(move |style| style.bg(pressed)).on_click(cx.listener(
-                    move |this, _, window, cx| {
-                        if stopping {
-                            this.stop(window, cx)
-                        } else {
-                            this.send(window, cx)
-                        }
-                    },
-                ))
-            })
-            .child(if sending {
-                Spinner::new().with_size(px(16.)).color(ink).into_any_element()
-            } else if stopping {
-                div().size(px(10.)).rounded(px(2.)).bg(ink).into_any_element()
-            } else {
-                icon("arrow-up", px(16.), ink).into_any_element()
-            });
-
-        let name = self.target_name(target);
-        let label = match target {
-            _ if local.is_some() => format!("Message {name} using the local model"),
-            Target::Agent(_) | Target::Conversation { .. } => format!("Message {name}"),
-            Target::Group(_) => format!("Message {name}, @ to ask one bot"),
-        };
-        let field = Textarea::new(&self.composer)
-            .small()
-            .appearance(false)
-            .bordered(false)
-            .disabled(sending)
-            .aria_label(label.clone());
-        let input = div()
-            .relative()
-            .flex_1()
-            .min_w_0()
-            .py(px(2.))
-            .mx(px(-6.))
-            .when(text.is_empty(), |slot| {
-                slot.child(
-                    div()
-                        .absolute()
-                        .top(px(4.))
-                        .left(px(8.))
-                        .right(px(8.))
-                        .whitespace_nowrap()
-                        .overflow_hidden()
-                        .item()
-                        .text_color(if sending { theme.ink_at(0.18) } else { theme.ink_secondary })
-                        .child(label),
-                )
-            })
-            .child(field);
-        let local_mode = local.is_some();
-        let apps = self.app_assist_button(theme, cx);
-        // The id gives the pill its own hover state, so moving the pointer in or out repaints the
-        // ring at once; without one the hover style shows only when something else redraws.
-        let pill = div()
-            .id("composer")
-            .flex()
-            .flex_col()
-            .gap_2()
-            .px(px(8.))
-            .pt(px(6.))
-            .pb(px(8.))
-            .rounded(if multiline || tray.is_some() { radius::BUBBLE } else { radius::COMPOSER })
-            .bg(theme.composer)
-            .border_1()
-            .border_color(if focused { ring_hover } else { ring })
-            .hover(move |style| style.border_color(ring_hover))
-            .shadow(composer_shadow())
-            .children(tray)
-            .child(
-                div()
-                    .flex()
-                    .items_end()
-                    .gap_1p5()
-                    .when(!local_mode, |row| row.child(attach))
-                    .children(apps)
-                    .child(input)
-                    .child(send),
-            );
-
-        // While the `@` list is open the keys that move through it and choose from it are taken
-        // before the text field sees them.
-        let composer = div()
-            .relative()
-            .capture_action(cx.listener(|this, _: &MoveUp, _, cx| {
-                if this.move_mention(false, cx) {
-                    cx.stop_propagation();
-                }
-            }))
-            .capture_action(cx.listener(|this, _: &MoveDown, _, cx| {
-                if this.move_mention(true, cx) {
-                    cx.stop_propagation();
-                }
-            }))
-            .capture_action(cx.listener(|this, _: &Enter, window, cx| {
-                if this.pick_mention(None, window, cx) {
-                    cx.stop_propagation();
-                }
-            }))
-            .capture_action(cx.listener(|this, _: &IndentInline, window, cx| {
-                if this.pick_mention(None, window, cx) {
-                    cx.stop_propagation();
-                }
-            }))
-            .capture_action(cx.listener(|this, _: &Escape, _, cx| {
-                if this.close_mention(cx) {
-                    cx.stop_propagation();
-                }
-            }))
-            .children(mentions.map(|list| deferred(self.render_mentions(&list, theme, cx)).with_priority(1)))
-            .child(pill);
-
-        div().w_full().flex().justify_center().px_5().pb_4().child(
-            div()
-                .w_full()
-                .max_w(CHAT_COLUMN)
-                .flex()
-                .flex_col()
-                .gap_2()
-                .when_some(local, |dock, model| {
-                    dock.child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .meta()
-                                    .text_color(theme.ink_secondary)
-                                    .child(format!("{} on this computer", model.label)),
-                            )
-                            .child(
-                                pill_button(
-                                    "save-local-note",
-                                    "Save note",
-                                    Tone::Quiet,
-                                    ready && !has_attachments,
-                                    theme,
-                                )
-                                .on_click(cx.listener(|this, _, window, cx| this.send_local_note(window, cx))),
-                            ),
-                    )
-                })
-                .when_some(write_problem, |dock, problem| {
-                    dock.child(
-                        div().flex().items_center().gap_2().child(error_line(problem, theme)).child(
-                            pill_button("retry-local-write", "Retry saving", Tone::Quiet, !sending, theme)
-                                .on_click(cx.listener(|this, _, window, cx| this.send(window, cx))),
-                        ),
-                    )
-                })
-                .when(needs_model, |dock| {
-                    dock.child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_3()
-                            .px_3()
-                            .py_2()
-                            .rounded(radius::CARD)
-                            .bg(theme.warning.opacity(0.1))
-                            .body()
-                            .text_color(theme.warning)
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .line_clamp(2)
-                                    .text_ellipsis()
-                                    .child("Connect an AI model so your agents can reply."),
-                            )
-                            .child(
-                                div()
-                                    .id("connect-model")
-                                    .flex_shrink_0()
-                                    .whitespace_nowrap()
-                                    .body()
-                                    .text_color(theme.accent_text)
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.show_workspace_section(Section::Models, window, cx)
-                                    }))
-                                    .child("Connect a model"),
-                            ),
-                    )
-                })
-                .children(problem.map(|problem| error_line(problem, theme)))
-                .child(composer),
-        )
-    }
-
     /// The group's bots a typed `@` could mean, in a list that sits on the composer.
     fn render_mentions(&self, list: &MentionList, theme: &Theme, cx: &mut Context<Self>) -> Stateful<Div> {
         let hover = theme.ink_at(0.06);
@@ -921,27 +668,10 @@ impl Desktop {
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.pick_mention(Some(index), window, cx);
                     }))
-                    .child(bot_avatar(member.avatar(), px(20.), false, None, theme, cx))
+                    .child(self.roster_avatar(member.avatar(), px(20.), theme, cx))
                     .child(div().flex_1().min_w_0().truncate().child(member.name.clone()))
             }))
     }
-}
-
-/// The composer's lift, in CSS `box-shadow` terms.
-fn composer_shadow() -> Vec<BoxShadow> {
-    // GPUI (gpui-pre 0.3.12) takes `blur_radius` as the Gaussian sigma; CSS blur is twice it.
-    let shadow = |alpha: f32, y: f32, blur: f32, spread: f32| BoxShadow {
-        color: hsla(0., 0., 0., alpha),
-        offset: point(px(0.), px(y)),
-        blur_radius: px(blur / 2.),
-        spread_radius: px(spread),
-        inset: false,
-    };
-    vec![
-        shadow(0.05, 2., 8., -1.),
-        shadow(0.03, 1., 2., 0.),
-        BoxShadow { color: rgba(0xe4e4e40a).into(), ..shadow(0., 0., 0., 1.) },
-    ]
 }
 
 pub(crate) fn card(theme: &Theme) -> Div {

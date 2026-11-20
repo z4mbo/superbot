@@ -1,8 +1,15 @@
 use super::*;
+use crate::ui::motion::{Colors, Pointer};
+use crate::ui::focus::{self, Ring};
 
-pub(crate) fn round_button(id: &'static str, glyph: &'static str, active: bool, theme: &Theme) -> Stateful<Div> {
-    let hover = theme.elevated_hover();
-    div()
+pub(crate) fn round_button(
+    id: &'static str,
+    glyph: &'static str,
+    active: bool,
+    theme: &Theme,
+    configure: impl FnOnce(Stateful<Div>) -> Stateful<Div>,
+) -> focus::FocusControl {
+    let button = div()
         .id(id)
         .size_9()
         .flex_shrink_0()
@@ -10,19 +17,27 @@ pub(crate) fn round_button(id: &'static str, glyph: &'static str, active: bool, 
         .items_center()
         .justify_center()
         .rounded_full()
-        .bg(if active { hover } else { theme.composer })
         .border_1()
         .border_color(theme.ink_at(0.06))
         .cursor_pointer()
-        .hover(move |style| style.bg(hover))
-        .child(icon(glyph, px(16.), theme.ink))
+        .child(icon(glyph, px(16.), theme.ink));
+    focus::control(configure(button), Ring::OuterPill, theme)
+        .fill(Pointer::BUTTON.held(active), Colors::elevated(theme))
+}
+
+fn tab_control(button: Stateful<Div>, chosen: bool, theme: &Theme) -> focus::FocusControl {
+    let resting = if chosen { 0.10 } else { 0.0 };
+    let fill = Colors::ink(theme, resting, if chosen { resting } else { 0.04 }, 0.08);
+    let label = Colors::new(if chosen { theme.ink } else { theme.ink_secondary }, theme.ink, theme.ink);
+    focus::control(button, Ring::InnerPill, theme).tint(Pointer::BUTTON, move |button, levels| {
+        button.bg(fill.sample(levels)).text_color(label.sample(levels))
+    })
 }
 
 pub(super) fn tabs(current: PanelTab, theme: &Theme, cx: &mut Context<Desktop>) -> Div {
     let tab = |id: &'static str, label: &'static str, tab: PanelTab, cx: &mut Context<Desktop>| {
         let chosen = tab == current;
-        let ink = theme.ink;
-        div()
+        let button = div()
             .id(id)
             .h(px(26.))
             .px_3()
@@ -31,13 +46,7 @@ pub(super) fn tabs(current: PanelTab, theme: &Theme, cx: &mut Context<Desktop>) 
             .rounded_full()
             .body()
             .cursor_pointer()
-            .map(|button| {
-                if chosen {
-                    button.bg(theme.ink_at(0.1)).font_weight(FontWeight::MEDIUM).text_color(theme.ink)
-                } else {
-                    button.text_color(theme.ink_secondary).hover(move |style| style.text_color(ink))
-                }
-            })
+            .when(chosen, |button| button.font_weight(FontWeight::MEDIUM))
             .on_click(cx.listener(move |this, _, window, cx| {
                 if let Some(panel) = this.agent_panel.as_mut() {
                     panel.tab = tab;
@@ -48,7 +57,8 @@ pub(super) fn tabs(current: PanelTab, theme: &Theme, cx: &mut Context<Desktop>) 
                 this.sync_agent_info(window, cx);
                 cx.notify();
             }))
-            .child(label)
+            .child(label);
+        tab_control(button, chosen, theme)
     };
     div().mt(px(15.)).pt_1().pb(px(10.)).flex().justify_center().child(
         div()
@@ -72,8 +82,7 @@ pub(super) fn segmented(
 ) -> Div {
     div().flex().p(px(3.)).rounded_full().bg(theme.ink_at(0.05)).children(options.into_iter().map(|(label, mode)| {
         let chosen = mode == current;
-        let ink = theme.ink;
-        div()
+        let button = div()
             .id(label)
             .flex_1()
             .h_8()
@@ -82,18 +91,15 @@ pub(super) fn segmented(
             .justify_center()
             .rounded_full()
             .body()
-            .map(|button| {
-                if chosen {
-                    button.bg(theme.control).font_weight(FontWeight::MEDIUM).text_color(theme.ink)
-                } else {
-                    button
-                        .text_color(theme.ink_secondary)
-                        .cursor_pointer()
-                        .hover(move |style| style.text_color(ink))
-                        .on_click(cx.listener(move |this, _, window, cx| this.set_computer_mode(mode, window, cx)))
+            .cursor_pointer()
+            .when(chosen, |button| button.font_weight(FontWeight::MEDIUM))
+            .on_click(cx.listener(move |this, _, window, cx| {
+                if !chosen {
+                    this.set_computer_mode(mode, window, cx);
                 }
-            })
-            .child(label)
+            }))
+            .child(label);
+        tab_control(button, chosen, theme)
     }))
 }
 
@@ -112,8 +118,14 @@ pub(super) fn card_label(text: &'static str, theme: &Theme) -> Div {
     div().mx(px(14.)).mt_5().mb_2().body().font_weight(FontWeight::SEMIBOLD).text_color(theme.ink_secondary).child(text)
 }
 
-pub(super) fn switch(on: bool, color: Hsla, theme: &Theme) -> Div {
-    div()
+pub(super) fn switch(on: bool, color: Hsla, theme: &Theme) -> focus::FocusControl {
+    let (rest, hover) = if on {
+        (color, theme.ink_at(0.86))
+    } else {
+        (theme.ink_at(0.15), theme.ink_at(0.24))
+    };
+    let track = div()
+        .id("switch-track")
         .w(px(44.))
         .h(px(24.))
         .flex_shrink_0()
@@ -121,8 +133,8 @@ pub(super) fn switch(on: bool, color: Hsla, theme: &Theme) -> Div {
         .flex()
         .when(on, |track| track.justify_end())
         .rounded_full()
-        .bg(if on { color } else { theme.ink_at(0.15) })
-        .child(div().size(px(20.)).rounded_full().bg(gpui_kit::white()))
+        .child(div().size(px(20.)).rounded_full().bg(gpui_kit::white()));
+    focus::decorate(track).fill(Pointer::HOVER_ONLY, Colors::new(rest, hover, hover))
 }
 
 pub(super) fn inline_field(state: &Entity<InputState>, width: Pixels, theme: &Theme) -> Div {
@@ -132,7 +144,7 @@ pub(super) fn inline_field(state: &Entity<InputState>, width: Pixels, theme: &Th
         .px_2()
         .rounded(radius::FIELD)
         .border_1()
-        .border_color(theme.focus)
+        .border_color(theme.ink_at(0.22))
         .bg(theme.inset)
         .child(Input::new(state).appearance(false).bordered(false).small())
 }

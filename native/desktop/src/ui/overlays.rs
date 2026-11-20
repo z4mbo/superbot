@@ -3,6 +3,8 @@ use gpui_kit::*;
 
 use crate::app::{Desktop, DialogKind, MenuKind, View};
 use crate::theme::{radius, ActiveTheme, Theme};
+use crate::ui::focus::{self, Ring};
+use crate::ui::motion::{Colors, Pointer};
 use crate::ui::{error_line, field, icon, pill_button, Tone, Type};
 
 enum Item {
@@ -147,7 +149,7 @@ impl Desktop {
                     Item::Row { id, glyph, label, chosen, danger, act } => {
                         let ink = if danger { theme.danger } else { theme.ink };
                         let hover = theme.ink_at(0.06);
-                        div()
+                        let button = div()
                             .id((id, index))
                             .h_8()
                             .px_2()
@@ -158,7 +160,8 @@ impl Desktop {
                             .item()
                             .text_color(ink)
                             .cursor_pointer()
-                            .hover(move |style| style.bg(hover))
+                            .tab_index(0)
+                            .focus_visible(move |style| style.bg(hover))
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 this.menu = None;
                                 act(this, window, cx);
@@ -166,7 +169,8 @@ impl Desktop {
                             }))
                             .child(icon(glyph, px(16.), if danger { theme.danger } else { theme.ink_secondary }))
                             .child(div().flex_1().min_w_0().truncate().child(label))
-                            .when(chosen, |row| row.child(icon("check", px(14.), theme.ink_secondary)))
+                            .when(chosen, |row| row.child(icon("check", px(14.), theme.ink_secondary)));
+                        focus::decorate(button).fill(Pointer::MENU, Colors::ink(&theme, 0., 0.06, 0.08))
                             .into_any_element()
                     }
                 }
@@ -315,18 +319,39 @@ impl Desktop {
 pub fn caption_buttons(window: &Window, theme: &Theme) -> Div {
     use crate::theme::{CAPTION_HEIGHT, CAPTION_WIDTH};
     let button = |id: &'static str, glyph: &'static str, area: WindowControlArea, close: bool| {
-        let (hover, hover_ink) = if close { (theme.danger, theme.danger_ink) } else { (theme.ink_at(0.06), theme.ink) };
-        div()
+        let fills = if close {
+            Colors::new(theme.danger.opacity(0.), theme.danger, crate::theme::mix(theme.danger, black(), 0.12))
+        } else {
+            Colors::ink(theme, 0., 0.06, 0.10)
+        };
+        let glyphs = if close {
+            Colors::new(theme.ink, theme.danger_ink, theme.danger_ink)
+        } else {
+            Colors::new(theme.ink, theme.ink, theme.ink)
+        };
+        let button = div()
             .id(id)
             .w(CAPTION_WIDTH / 3.)
             .h_full()
             .flex()
             .items_center()
             .justify_center()
-            .text_color(theme.ink)
-            .hover(move |style| style.bg(hover).text_color(hover_ink))
             .window_control_area(area)
-            .child(svg().path(SharedString::from(format!("icons/{glyph}.svg"))).size(px(16.)).text_color(theme.ink))
+            .on_click(move |event, window, _| {
+                if matches!(event, ClickEvent::Keyboard(_)) {
+                    match area {
+                        WindowControlArea::Min => window.minimize_window(),
+                        WindowControlArea::Max => window.zoom_window(),
+                        WindowControlArea::Close => window.remove_window(),
+                        _ => {}
+                    }
+                }
+            });
+        focus::control(button, Ring::Inner(px(0.)), theme).tint(Pointer::BUTTON, move |button, levels| {
+            button.bg(fills.sample(levels)).child(
+                svg().path(SharedString::from(format!("icons/{glyph}.svg"))).size(px(16.)).text_color(glyphs.sample(levels)),
+            )
+        })
     };
     let restore = if window.is_maximized() { "window-restore" } else { "window-maximize" };
     div()

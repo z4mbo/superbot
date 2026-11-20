@@ -8,6 +8,8 @@ use crate::app::{conversation::FileState, Desktop};
 use crate::files;
 use crate::theme::{radius, Theme};
 use crate::transcript::FileRef;
+use crate::ui::motion::{Colors, Pointer};
+use crate::ui::focus::{self, Ring};
 use crate::ui::{icon, Type};
 
 impl Desktop {
@@ -27,23 +29,23 @@ impl Desktop {
         let glyph = if files::is_image(&file.mime_type) { "image" } else { "file-text" };
         let kind = file.name.rsplit_once('.').map(|(_, extension)| extension.to_ascii_uppercase());
         let detail: Vec<String> = kind.into_iter().chain(file.size.map(files::size_label)).collect();
-        let hover = theme.ink_at(0.06);
+        let fills = Colors::ink(theme, 0., 0.06, 0.10);
         let action = |label: &'static str, open: bool, cx: &mut Context<Self>| {
             let file = file.clone();
-            div()
+            let button = div()
                 .id((label, key.0 * 64 + key.1))
                 .h_7()
                 .px_2p5()
                 .flex()
                 .items_center()
-                .rounded_full()
+                .rounded(radius::MENU_ROW)
                 .body()
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(theme.accent_text)
                 .cursor_pointer()
-                .hover(move |style| style.bg(hover))
                 .on_click(cx.listener(move |this, _, window, cx| this.fetch_file(file.clone(), open, window, cx)))
-                .child(label)
+                .child(label);
+            focus::control(button, Ring::Inner(radius::MENU_ROW), theme).fill(Pointer::BUTTON, fills)
         };
         let actions = if fetching {
             div().px_2().child(Spinner::new().with_size(px(14.)).color(theme.ink_tertiary))
@@ -54,7 +56,10 @@ impl Desktop {
                 .when(files::opens_as(&file.mime_type).is_some(), |actions| actions.child(action("Open", true, cx)))
                 .child(action("Save", false, cx))
         };
-        card(theme)
+        let card = card(theme)
+            .id(("file-card", key.0 * 64 + key.1))
+            .bg(theme.card)
+            .rounded(radius::CARD)
             .w_full()
             .max_w(px(380.))
             .gap_2()
@@ -87,7 +92,10 @@ impl Desktop {
                     )
                     .child(actions.flex_shrink_0()),
             )
-            .children(problem.map(|problem| div().meta().text_color(theme.danger).child(problem)))
+            .children(problem.map(|problem| div().meta().text_color(theme.danger).child(problem)));
+        let outline = Colors::ink(theme, 0.08, 0.16, 0.16);
+        focus::decorate(card)
+            .tint(Pointer::HOVER_ONLY, move |card, levels| card.border_color(outline.sample(levels)))
             .into_any_element()
     }
 }

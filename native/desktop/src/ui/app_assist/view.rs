@@ -151,9 +151,10 @@ impl Desktop {
             .window_control_area(WindowControlArea::Drag)
             .child(div().flex_1().min_w_0().section().child("Apps"))
             .child(
-                round_button("app-assist-close", "x", false, &theme)
-                    .tooltip(|window, cx| Tooltip::new("Close").build(window, cx))
-                    .on_click(cx.listener(|this, _, _, cx| this.close_app_assist(cx))),
+                round_button("app-assist-close", "x", false, &theme, |button| {
+                    button.tooltip(|window, cx| Tooltip::new("Close").build(window, cx))
+                    .on_click(cx.listener(|this, _, _, cx| this.close_app_assist(cx)))
+                }),
             )
             .when(cfg!(not(target_os = "macos")), |header| header.mr(crate::theme::CAPTION_WIDTH));
 
@@ -275,9 +276,10 @@ impl Desktop {
             .items_center()
             .gap_3()
             .child(
-                round_button("assist-back", "chevron-left", false, theme)
-                    .tooltip(|window, cx| Tooltip::new("All apps").build(window, cx))
-                    .on_click(cx.listener(|this, _, _, cx| this.leave_app(cx))),
+                round_button("assist-back", "chevron-left", false, theme, |button| {
+                    button.tooltip(|window, cx| Tooltip::new("All apps").build(window, cx))
+                    .on_click(cx.listener(|this, _, _, cx| this.leave_app(cx)))
+                }),
             )
             .child(
                 div()

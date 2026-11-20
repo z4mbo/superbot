@@ -8,6 +8,7 @@ use superbot_avatars::{Bot as Avatar, Paint, Picked};
 use super::*;
 use crate::api::AgentSummary;
 use crate::theme::{BotColor, BOT_COLORS};
+use crate::ui::{bot_avatar_with, face_state, AvatarSlot};
 
 /// A pending shared colour and the current pack overrides.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -234,6 +235,14 @@ impl Desktop {
             picked: Picked { shape: shown.shape.as_deref(), color: shown.pack_color.as_deref() },
             ..saved
         };
+        let chat = self.chat.as_ref().filter(|chat| chat.target.agent() == Some(bot.id.as_str()));
+        let presence = face_state(
+            self.agent(&bot.id),
+            self.avatar_asleep(),
+            working || chat.is_some_and(|chat| chat.working || chat.local_turn.is_some()),
+        );
+        let blink = chat.and_then(|chat| Self::face_blink_scope(&chat.target));
+        let slot = AvatarSlot { presence, blink, ..AvatarSlot::default() };
         let hover = theme.ink_at(0.06);
         let face = div()
             .id("agent-look")
@@ -244,7 +253,7 @@ impl Desktop {
             .hover(move |style| style.bg(hover))
             .tooltip(|window, cx| Tooltip::new("Edit avatar").build(window, cx))
             .on_click(cx.listener(|this, _, _, cx| this.toggle_look_editor(cx)))
-            .child(bot_avatar(avatar, px(64.), working, None, theme, cx));
+            .child(bot_avatar_with(avatar, px(64.), working, slot, theme, cx));
         div().flex().flex_col().items_center().child(face).when(open, |column| {
             column.child(
                 div().w(px(300.)).h_0().child(deferred(
