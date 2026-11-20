@@ -55,6 +55,7 @@ export async function startFakeT3() {
           grant_types_supported: ["authorization_code"],
           code_challenge_methods_supported: ["S256"],
           token_endpoint_auth_methods_supported: ["none"],
+          authorization_response_iss_parameter_supported: true,
         });
       }
       if (url.pathname === "/oauth/register" && request.method === "POST") {
@@ -79,6 +80,7 @@ export async function startFakeT3() {
         seen.authorizations += 1;
         const back = new URL(redirect);
         back.searchParams.set("state", query.get("state"));
+        back.searchParams.set("iss", seen.issuer ?? origin);
         if (seen.denied) {
           back.searchParams.set("error", "access_denied");
         } else {

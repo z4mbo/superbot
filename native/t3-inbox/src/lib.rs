@@ -159,6 +159,36 @@ async fn with_session<T>(
     result
 }
 
+/// The project's default model is T3's choice; with none set, the first model of the first
+/// provider T3 can run now, as Superbot's hosted T3 Code agents choose.
+async fn first_runnable_model(session: &mut Session) -> Result<Value, T3Error> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Provider {
+        provider_instance_id: String,
+        #[serde(default)]
+        models: Vec<Model>,
+        #[serde(default)]
+        constraints: Vec<Value>,
+    }
+    #[derive(Deserialize)]
+    struct Model {
+        id: String,
+    }
+    #[derive(Deserialize)]
+    struct Capabilities {
+        providers: Vec<Provider>,
+    }
+    let found: Capabilities = serde_json::from_value(session.call("orchestrator_capabilities", json!({})).await?)
+        .map_err(|_| T3Error::Unexpected)?;
+    found
+        .providers
+        .into_iter()
+        .find(|provider| provider.constraints.is_empty() && !provider.models.is_empty())
+        .map(|provider| json!({ "instanceId": provider.provider_instance_id, "model": provider.models[0].id }))
+        .ok_or(T3Error::NoRunnableProvider)
+}
+
 /// Every project the grant can see, in T3's order.
 pub async fn projects(grant: &Grant) -> Result<Vec<Project>, T3Error> {
     #[derive(Deserialize)]
@@ -216,20 +246,26 @@ pub async fn start(ledger: &Ledger, grant: &Grant, start: &Start<'_>) -> Result<
     if kept.connection != connection {
         return Err(T3Error::ConnectionConflict);
     }
-    let result = with_session(grant, async |session| {
-        session
-            .call(
-                "t3_thread_launch",
-                json!({
-                    "projectId": start.project_id,
-                    "title": start.title,
-                    "message": start.brief,
-                    "runtimeMode": "approval-required",
-                    "interactionMode": "default",
-                    "clientRequestId": kept.operation_id,
-                }),
-            )
-            .await
+    let launch = |model: Option<Value>| {
+        let mut arguments = json!({
+            "projectId": start.project_id,
+            "title": start.title,
+            "message": start.brief,
+            "runtimeMode": "approval-required",
+            "interactionMode": "default",
+            "clientRequestId": kept.operation_id,
+        });
+        if let Some(model) = model {
+            arguments["modelSelection"] = model;
+        }
+        arguments
+    };
+    let result = with_session(grant, async |session| match session.call("t3_thread_launch", launch(None)).await {
+        Err(T3Error::Tool { needs_model: true, .. }) => {
+            let model = first_runnable_model(session).await?;
+            session.call("t3_thread_launch", launch(Some(model))).await
+        }
+        launched => launched,
     })
     .await?;
     let receipt = ledger.keep_receipt(&key, &receipt_from(&result, &record_id, start.project_id)?)?;

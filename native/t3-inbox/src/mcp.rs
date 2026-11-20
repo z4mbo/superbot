@@ -157,7 +157,9 @@ impl Session {
             Reply::Unauthorized { .. } => return Err(T3Error::GrantRejected),
             Reply::Accepted => return Err(T3Error::NoReply(tool)),
             Reply::Status(status) if status >= 500 => return Err(T3Error::NoReply(tool)),
-            Reply::Status(status) => return Err(T3Error::Tool { tool, detail: format!(" (HTTP {status})") }),
+            Reply::Status(status) => {
+                return Err(T3Error::Tool { tool, detail: format!(" (HTTP {status})"), needs_model: false })
+            }
         };
         if message.is_null() {
             return Err(T3Error::NoReply(tool));
@@ -169,15 +171,8 @@ impl Session {
         match data {
             Some(data) if !failed && data.get("code").is_none() => Ok(data.clone()),
             _ => {
-                let code = data
-                    .and_then(|data| data.get("code"))
-                    .and_then(Value::as_str)
-                    .map(str::to_owned)
-                    .or_else(|| result.and_then(failure_code));
-                Err(T3Error::Tool {
-                    tool,
-                    detail: code.filter(|code| safe_code(code)).map(|code| format!(" ({code})")).unwrap_or_default(),
-                })
+                let failure = data.cloned().or_else(|| result.and_then(failure_report)).unwrap_or(Value::Null);
+                Err(T3Error::Tool { tool, detail: failure_detail(&failure), needs_model: needs_model(&failure) })
             }
         }
     }
@@ -197,11 +192,35 @@ impl Session {
 }
 
 /// T3 Code reports a tool failure as text content holding `{_tag, code, message}`.
-fn failure_code(result: &Value) -> Option<String> {
+fn failure_report(result: &Value) -> Option<Value> {
     result.get("content")?.as_array()?.iter().find_map(|part| {
-        let failure: Value = serde_json::from_str(part.get("text")?.as_str()?).ok()?;
-        failure.get("code")?.as_str().map(str::to_owned)
+        serde_json::from_str::<Value>(part.get("text")?.as_str()?).ok().filter(|failure| failure.get("code").is_some())
     })
+}
+
+/// The code and T3's own explanation, as one plain line the operator can act on.
+fn failure_detail(failure: &Value) -> String {
+    let code = failure.get("code").and_then(Value::as_str).filter(|code| safe_code(code));
+    let message: String = failure
+        .get("message")
+        .and_then(Value::as_str)
+        .and_then(|message| message.lines().map(str::trim).find(|line| !line.is_empty()))
+        .unwrap_or_default()
+        .chars()
+        .filter(|letter| !letter.is_control())
+        .take(200)
+        .collect();
+    match (code, message.is_empty()) {
+        (Some(code), false) => format!(" ({code}): {}", message.trim_end_matches('.')),
+        (Some(code), true) => format!(" ({code})"),
+        (None, _) => String::new(),
+    }
+}
+
+/// T3 refuses a launch without `modelSelection` when the project has no default model.
+fn needs_model(failure: &Value) -> bool {
+    failure.get("code").and_then(Value::as_str) == Some("invalid_request")
+        && failure.get("message").and_then(Value::as_str).is_some_and(|message| message.contains("modelSelection"))
 }
 
 fn safe_code(code: &str) -> bool {
@@ -212,7 +231,22 @@ fn safe_code(code: &str) -> bool {
 mod tests {
     use serde_json::json;
 
-    use super::{event_reply, safe_code};
+    use super::{event_reply, failure_detail, failure_report, needs_model, safe_code};
+
+    #[test]
+    fn t3s_explanation_is_kept_as_one_plain_line() {
+        let text = r#"{"_tag":"OrchestratorMcpFailure","code":"invalid_request","message":"Pass modelSelection: the project has no default model.\nMore"}"#;
+        let result = json!({ "isError": true, "content": [{ "type": "text", "text": text }] });
+        let failure = failure_report(&result).unwrap();
+        assert!(needs_model(&failure));
+        assert!(!needs_model(&json!({ "code": "orchestration_error", "message": "modelSelection" })));
+        assert_eq!(
+            failure_detail(&failure),
+            " (invalid_request): Pass modelSelection: the project has no default model"
+        );
+        assert_eq!(failure_detail(&json!({ "code": "Bad Code", "message": "x" })), "");
+        assert_eq!(failure_detail(&json!({ "code": "x", "message": "a\u{1b}[31mb" })), " (x): a[31mb");
+    }
 
     #[test]
     fn the_matching_reply_is_read_from_an_event_stream() {
