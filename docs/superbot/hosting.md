@@ -71,6 +71,14 @@ workspace policy and granted scopes determine which tools the account may use.
 [Notion MCP](https://developers.notion.com/guides/mcp/get-started-with-mcp) ·
 [Atlassian OAuth](https://developer.atlassian.com/cloud/rovo-mcp/guides/configuring-oauth-2-1/)
 
+The Slack, Gmail, Google Calendar and Google Drive presets use registered OAuth
+clients. Register a client with the provider and enter its client ID and, when
+required, its secret in the connection settings. Google's Workspace MCP endpoints
+require access to its Developer Preview, the corresponding product and MCP APIs
+enabled, and an OAuth client marked for use by an AI-powered agent.
+[Slack MCP](https://docs.slack.dev/ai/slack-mcp-server/) ·
+[Google Workspace MCP setup](https://developers.google.com/workspace/guides/configure-mcp-servers)
+
 For the wider managed app catalog, configure the integration provider in the
 deployment's private environment file and restart the stack. The API and the worker
 need the same provider configuration. [Integration provider settings](../self-host-integrations.md)
