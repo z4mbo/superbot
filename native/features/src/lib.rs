@@ -9,9 +9,11 @@ pub use superbot_client::{BotConversation, BotConversationPatch};
 pub mod local_acp;
 pub mod local_app_records;
 pub mod local_cli;
+mod memory;
 mod models;
 pub mod plugin_manifest;
 mod routines;
+mod skills;
 mod spaces;
 mod threads;
 
@@ -21,8 +23,10 @@ pub use boards::*;
 pub use bots::*;
 pub use computers::*;
 pub use conversation_content::*;
+pub use memory::*;
 pub use models::*;
 pub use routines::*;
+pub use skills::*;
 pub use spaces::*;
 pub use threads::*;
 

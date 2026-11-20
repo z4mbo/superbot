@@ -41,6 +41,7 @@ pub(super) fn tabs(current: PanelTab, theme: &Theme, cx: &mut Context<Desktop>) 
             .on_click(cx.listener(move |this, _, window, cx| {
                 if let Some(panel) = this.agent_panel.as_mut() {
                     panel.tab = tab;
+                    panel.page = None;
                     panel.editing = None;
                     panel.screen = None;
                 }

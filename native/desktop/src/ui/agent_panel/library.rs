@@ -69,6 +69,15 @@ impl Desktop {
     }
 
     pub(super) fn render_library(&self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+        div()
+            .flex()
+            .flex_col()
+            .child(self.render_library_items(theme, cx))
+            .child(self.render_library_shortcuts(theme, cx))
+            .into_any_element()
+    }
+
+    fn render_library_items(&self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
         let target = self.chat.as_ref().map(|chat| chat.target.clone());
         let view = self
             .agent_panel

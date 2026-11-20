@@ -20,11 +20,14 @@ use crate::ui::{bot_avatar, bot_ink, error_line, icon, Type};
 mod computer;
 mod conversations;
 mod files;
+mod knowledge;
 mod library;
 mod look;
+mod memory;
 mod parts;
 mod screen;
 mod settings;
+mod skills;
 mod view;
 
 use parts::*;
@@ -177,6 +180,8 @@ pub struct AgentPanel {
     files: Option<files::ComputerFiles>,
     _editor_events: Option<Subscription>,
     look: look::LookEditor,
+    knowledge: knowledge::Knowledge,
+    page: Option<knowledge::Page>,
 }
 
 impl AgentPanel {
@@ -195,6 +200,8 @@ impl AgentPanel {
             files: None,
             _editor_events: None,
             look: look::LookEditor::default(),
+            knowledge: knowledge::Knowledge::default(),
+            page: None,
         }
     }
 }
@@ -258,7 +265,7 @@ impl Desktop {
 
     /// Escape inside the panel: leaves an editor, then the settings page.
     pub fn agent_panel_back(&mut self, cx: &mut Context<Self>) -> bool {
-        if self.close_look_editor(cx) {
+        if self.close_look_editor(cx) || self.library_page_back(cx) {
             return true;
         }
         let Some(panel) = self.agent_panel.as_mut() else { return false };
@@ -306,6 +313,9 @@ impl Desktop {
         });
         if wants_library {
             self.read_library(window, cx);
+        }
+        if self.wants_knowledge() {
+            self.read_knowledge(window, cx);
         }
         let wants_computer =
             self.agent_panel.as_ref().is_some_and(|panel| panel.tab == PanelTab::Computer && panel.computer.is_none());

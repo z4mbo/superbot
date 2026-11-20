@@ -47,6 +47,7 @@ impl Desktop {
                 .child(Spinner::new().with_size(px(16.)).color(theme.ink_tertiary))
                 .into_any_element(),
             Some(bot) if panel.settings => self.render_agent_settings(bot, &theme, cx).into_any_element(),
+            Some(bot) if panel.page.is_some() => self.render_library_page(bot, &theme, cx),
             Some(bot) => {
                 let avatar = look::avatar_of(bot);
                 let working = summary.as_ref().is_some_and(|agent| agent.working());
