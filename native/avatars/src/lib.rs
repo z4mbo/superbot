@@ -64,6 +64,8 @@ pub struct Avatars {
     /// Frames of marks no longer drawn, freed at the next draw.
     #[cfg(feature = "local-engine")]
     orphans: Arc<Mutex<Vec<Arc<RenderImage>>>>,
+    #[cfg(feature = "local-engine")]
+    pulse: Pulse,
 }
 
 impl Global for Avatars {}
@@ -124,6 +126,8 @@ impl Avatars {
             held: Default::default(),
             #[cfg(feature = "local-engine")]
             orphans: Arc::default(),
+            #[cfg(feature = "local-engine")]
+            pulse: Pulse::default(),
         }
     }
 
@@ -233,7 +237,7 @@ pub fn follow(key: &SharedString, position: Point<Pixels>, cx: &mut App) -> bool
             [f32::from(position.x), f32::from(position.y)],
         );
         cx.global_mut::<Avatars>().held.insert(key.clone());
-        return false;
+        return true;
     }
     let x = (f32::from(position.x - center.x) / watched.reach).clamp(-1., 1.);
     let y = (-f32::from(position.y - center.y) / watched.reach).clamp(-1., 1.);
@@ -496,6 +500,9 @@ impl Mark {
         if let Some(replaced) = replaced {
             cx.drop_image(replaced, Some(window));
         }
+        if engine.animating() {
+            start_pulse(window, cx);
+        }
         let slot = match self.watch.clone() {
             Some(watch) => slot.child(
                 canvas(
@@ -517,6 +524,77 @@ impl Mark {
             }
             None => slot,
         }
+    }
+}
+
+/// The shortest time between two frames of live marks, the rate the engines' own animation loops
+/// run at. On faster displays marks draw on every second, third, ... display frame, whichever
+/// comes closest, so they still move evenly.
+#[cfg(feature = "local-engine")]
+const PULSE_TARGET_MS: f32 = 1000. / 60.;
+
+/// The display pulse that drives live marks: one per app, running only while marks move.
+#[cfg(feature = "local-engine")]
+#[derive(Default)]
+struct Pulse {
+    running: bool,
+    last: Option<Instant>,
+    /// The display's frame interval, learnt from the pulse itself.
+    interval_ms: Option<f32>,
+    since_frame: u32,
+}
+
+#[cfg(feature = "local-engine")]
+impl Pulse {
+    /// Called once per display frame; whether this one should draw marks.
+    fn beat(&mut self, now: Instant) -> bool {
+        if let Some(last) = self.last.replace(now) {
+            let measured = (now.saturating_duration_since(last).as_secs_f32() * 1000.).clamp(1., 50.);
+            self.interval_ms = Some(match self.interval_ms {
+                Some(interval) if (measured - interval).abs() < interval * 0.5 => interval * 0.9 + measured * 0.1,
+                Some(interval) => interval,
+                None => measured,
+            });
+        }
+        let every = self.interval_ms.map_or(1, |interval| (PULSE_TARGET_MS / interval).round().max(1.) as u32);
+        self.since_frame += 1;
+        if self.since_frame >= every {
+            self.since_frame = 0;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[cfg(feature = "local-engine")]
+fn start_pulse(window: &mut Window, cx: &mut App) {
+    let pulse = &mut cx.global_mut::<Avatars>().pulse;
+    if !pulse.running {
+        *pulse = Pulse { running: true, ..Pulse::default() };
+        window.on_next_frame(pulse_frame);
+    }
+}
+
+/// Runs at the start of each display frame while marks move: on its frames it asks the engine for
+/// this moment and redraws, so marks show the latest frame drawn; then it waits for the next.
+#[cfg(feature = "local-engine")]
+fn pulse_frame(window: &mut Window, cx: &mut App) {
+    let now = Instant::now();
+    let Some(engine) = cx.try_global::<Avatars>().and_then(|avatars| avatars.live()).cloned() else {
+        cx.global_mut::<Avatars>().pulse.running = false;
+        return;
+    };
+    let avatars = cx.global_mut::<Avatars>();
+    if avatars.pulse.beat(now) {
+        engine.frame(now);
+        window.refresh();
+    }
+    if engine.animating() {
+        window.on_next_frame(pulse_frame);
+    } else {
+        avatars.pulse.running = false;
+        window.refresh();
     }
 }
 
@@ -628,6 +706,46 @@ fn recolor_body(body: &str) -> String {
         None => after.to_owned(),
     };
     format!("{before}{recolored}")
+}
+
+#[cfg(all(test, feature = "local-engine"))]
+mod pulse_tests {
+    use super::Pulse;
+    use std::time::{Duration, Instant};
+
+    /// Which of `count` display frames, `interval_us` apart, draw marks.
+    fn beats(interval_us: u64, count: u32) -> Vec<u32> {
+        let mut pulse = Pulse::default();
+        let start = Instant::now();
+        (0..count).filter(|n| pulse.beat(start + Duration::from_micros(interval_us * *n as u64))).collect()
+    }
+
+    #[test]
+    fn marks_draw_on_every_display_frame_up_to_sixty_a_second() {
+        assert_eq!(beats(16_683, 6), vec![0, 1, 2, 3, 4, 5]);
+        assert_eq!(beats(16_667, 4), vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn faster_displays_draw_marks_on_evenly_spaced_frames() {
+        let at_120 = beats(8_333, 41);
+        assert!(at_120.windows(2).skip(2).all(|pair| pair[1] - pair[0] == 2), "{at_120:?}");
+        let at_144 = beats(6_944, 41);
+        assert!(at_144.windows(2).skip(2).all(|pair| pair[1] - pair[0] == 2), "{at_144:?}");
+        let at_360 = beats(2_778, 61);
+        assert!(at_360.windows(2).skip(2).all(|pair| pair[1] - pair[0] == 6), "{at_360:?}");
+    }
+
+    #[test]
+    fn a_stall_does_not_change_the_display_rate_it_learnt() {
+        let mut pulse = Pulse::default();
+        let start = Instant::now();
+        for n in 0..20u64 {
+            pulse.beat(start + Duration::from_micros(2_778 * n));
+        }
+        pulse.beat(start + Duration::from_millis(400));
+        assert!((pulse.interval_ms.unwrap() - 2.778).abs() < 0.05);
+    }
 }
 
 #[cfg(test)]

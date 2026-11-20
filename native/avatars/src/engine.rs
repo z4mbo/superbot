@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, Instant};
 
@@ -15,8 +15,6 @@ use crate::{gradient_svg, trace, Paint};
 
 /// The colour every engine frame is drawn in; the host repaints it in the bot's own.
 const INK: &str = "#010203";
-/// The engine's own frame rate when nothing limits it.
-const TICK: Duration = Duration::from_micros(16_667);
 /// How long a look may wait for the engine before the pack decides it instead.
 const LOOK_WAIT: Duration = Duration::from_millis(500);
 
@@ -48,25 +46,49 @@ pub struct Style {
 }
 
 enum Command {
-    Look { bot: Value, chosen: Value, reply: mpsc::SyncSender<Option<EngineLook>> },
-    Mount { key: u64, style: Style, working: bool },
-    Update { key: u64, working: bool },
-    Pointer { key: u64, rect: [f32; 4], point: [f32; 2] },
-    Release { key: u64 },
-    Unmount { key: u64 },
+    Look {
+        bot: Value,
+        chosen: Value,
+        reply: mpsc::SyncSender<Option<EngineLook>>,
+    },
+    Mount {
+        key: u64,
+        style: Style,
+        working: bool,
+    },
+    Update {
+        key: u64,
+        working: bool,
+    },
+    Unmount {
+        key: u64,
+    },
+    /// The display is drawing a frame at this moment: run what is due and draw it.
+    Frame {
+        at: Instant,
+    },
 }
+
+/// The latest pointer sample for a mark: a pointer over its region, or none.
+type Sample = Option<([f32; 4], [f32; 2])>;
 
 /// A running local avatar engine: one script runtime on its own thread, shared by every mark.
 pub struct Engine {
     commands: Mutex<mpsc::Sender<Command>>,
     images: Mutex<HashMap<u64, (Arc<RenderImage>, Instant)>>,
+    /// Pointer samples not yet given to the engine, only the latest per mark.
+    samples: Mutex<HashMap<u64, Sample>>,
+    /// A display frame was asked for and is not drawn yet.
+    asked: AtomicBool,
+    /// The engine has motion left to draw.
+    busy: AtomicBool,
     failed: AtomicBool,
     next_key: AtomicU64,
 }
 
 impl Engine {
-    /// Starts the engine in `<avatars>/engine` when one is installed there. `drawn` hears whenever
-    /// marks have new frames.
+    /// Starts the engine in `<avatars>/engine` when one is installed there. `drawn` hears when
+    /// marks have new frames the display did not ask for, or the engine stopped.
     pub fn start(avatars: &Path, renderer: SvgRenderer, drawn: UnboundedSender<()>) -> Option<Arc<Engine>> {
         let folder = avatars.join("engine");
         let manifest = match std::fs::read(folder.join("engine.json")) {
@@ -92,6 +114,9 @@ impl Engine {
         let engine = Arc::new(Engine {
             commands: Mutex::new(commands),
             images: Mutex::new(HashMap::new()),
+            samples: Mutex::new(HashMap::new()),
+            asked: AtomicBool::new(false),
+            busy: AtomicBool::new(false),
             failed: AtomicBool::new(false),
             next_key: AtomicU64::new(1),
         });
@@ -143,19 +168,46 @@ impl Engine {
         self.send(Command::Update { key, working });
     }
 
-    /// `rect` is the mark's square and `point` the pointer, both in window pixels.
+    /// `rect` is the mark's square and `point` the pointer, both in window pixels. Only the latest
+    /// sample before the next frame reaches the engine.
     pub fn pointer(&self, key: u64, rect: [f32; 4], point: [f32; 2]) {
         if trace::on() {
             trace::event("pointer", format_args!("{:.3} {key}", trace::ms(Instant::now())));
         }
-        self.send(Command::Pointer { key, rect, point });
+        if let Ok(mut samples) = self.samples.lock() {
+            samples.insert(key, Some((rect, point)));
+        }
     }
 
     pub fn release(&self, key: u64) {
-        self.send(Command::Release { key });
+        if let Ok(mut samples) = self.samples.lock() {
+            samples.insert(key, None);
+        }
+    }
+
+    /// Whether marks still move, so the display should keep asking for frames.
+    pub fn animating(&self) -> bool {
+        self.running()
+            && (self.busy.load(Ordering::Acquire)
+                || self.asked.load(Ordering::Acquire)
+                || self.samples.lock().is_ok_and(|samples| !samples.is_empty()))
+    }
+
+    /// Asks the engine to draw the frame the display is drawing now. One is asked for at a time;
+    /// a display frame that comes while one is being drawn shows the latest drawn.
+    pub fn frame(&self, at: Instant) {
+        if self.running() && !self.asked.swap(true, Ordering::AcqRel) {
+            if trace::on() {
+                trace::event("request", format_args!("{:.3}", trace::ms(at)));
+            }
+            self.send(Command::Frame { at });
+        }
     }
 
     pub fn unmount(&self, key: u64) {
+        if let Ok(mut samples) = self.samples.lock() {
+            samples.remove(&key);
+        }
         self.send(Command::Unmount { key });
         if let Ok(mut images) = self.images.lock() {
             images.remove(&key);
@@ -265,11 +317,9 @@ fn run(
     };
 
     let started = Instant::now();
-    let now = || started.elapsed().as_secs_f64() * 1000.;
+    let clock = |at: Instant| at.saturating_duration_since(started).as_secs_f64() * 1000.;
     let mut styles: HashMap<u64, Style> = HashMap::new();
     let mut written: HashMap<u64, String> = HashMap::new();
-    let mut busy = false;
-    let mut due = Instant::now();
 
     let call = |scope: &mut v8::PinScope, name: &str, args: &[Value]| -> Result<Value, String> {
         v8::scope!(let scope, scope);
@@ -293,20 +343,12 @@ fn run(
     };
 
     loop {
-        let first = if busy {
-            match received.recv_timeout(due.saturating_duration_since(Instant::now())) {
-                Ok(command) => Some(command),
-                Err(RecvTimeoutError::Timeout) => None,
-                Err(RecvTimeoutError::Disconnected) => return Ok(()),
-            }
-        } else {
-            match received.recv() {
-                Ok(command) => Some(command),
-                Err(_) => return Ok(()),
-            }
-        };
+        let Ok(first) = received.recv() else { return Ok(()) };
         let mut restyled = Vec::new();
-        for command in first.into_iter().chain(std::iter::from_fn(|| received.try_recv().ok())) {
+        let mut frame_at = None;
+        let mut changed_marks = false;
+        let now = || clock(Instant::now());
+        for command in std::iter::once(first).chain(std::iter::from_fn(|| received.try_recv().ok())) {
             match command {
                 Command::Look { bot, chosen, reply } => {
                     let look = call(scope, "look", &[bot, chosen])?;
@@ -328,17 +370,13 @@ fn run(
                         restyled.push(key);
                     }
                     styles.insert(key, style);
+                    changed_marks = true;
                 }
                 Command::Update { key, working } => {
                     call(scope, "update", &[json!(key), json!(working), json!(now())])?;
+                    changed_marks = true;
                 }
-                Command::Pointer { key, rect, point } => {
-                    let rect = json!({ "left": rect[0], "top": rect[1], "width": rect[2], "height": rect[3] });
-                    call(scope, "pointer", &[json!(key), rect, json!({ "x": point[0], "y": point[1] }), json!(now())])?;
-                }
-                Command::Release { key } => {
-                    call(scope, "release", &[json!(key), json!(now())])?;
-                }
+                Command::Frame { at } => frame_at = Some(at),
                 Command::Unmount { key } => {
                     call(scope, "unmount", &[json!(key), json!(now())])?;
                     styles.remove(&key);
@@ -349,10 +387,27 @@ fn run(
                 }
             }
         }
-        let tick_at = Instant::now();
-        let ticked = call(scope, "tick", &[json!(now())])?;
-        busy = ticked["busy"].as_bool().unwrap_or(false);
-        due = Instant::now() + TICK;
+        if frame_at.is_none() && !changed_marks && restyled.is_empty() {
+            continue;
+        }
+        // The display's frame time, so motion advances by whole display frames.
+        let tick_at = frame_at.unwrap_or_else(Instant::now);
+        let samples = engine.samples.lock().map(|mut samples| std::mem::take(&mut *samples)).unwrap_or_default();
+        for (key, sample) in samples {
+            match sample {
+                Some((rect, point)) => {
+                    let rect = json!({ "left": rect[0], "top": rect[1], "width": rect[2], "height": rect[3] });
+                    let point = json!({ "x": point[0], "y": point[1] });
+                    call(scope, "pointer", &[json!(key), rect, point, json!(clock(tick_at))])?;
+                }
+                None => {
+                    call(scope, "release", &[json!(key), json!(clock(tick_at))])?;
+                }
+            }
+        }
+        let started_tick = Instant::now();
+        let ticked = call(scope, "tick", &[json!(clock(tick_at))])?;
+        engine.busy.store(ticked["busy"].as_bool().unwrap_or(false), Ordering::Release);
         let mut changed = false;
         let fresh = ticked["frames"].as_array().cloned().unwrap_or_default();
         for frame in fresh {
@@ -371,10 +426,12 @@ fn run(
             }
         }
         if trace::on() {
-            let took = tick_at.elapsed().as_secs_f64() * 1000.;
+            let took = started_tick.elapsed().as_secs_f64() * 1000.;
             trace::event("tick", format_args!("{:.3} {took:.3} {}", trace::ms(tick_at), changed as u8));
         }
-        if changed {
+        if frame_at.is_some() {
+            engine.asked.store(false, Ordering::Release);
+        } else if changed {
             let _ = drawn.unbounded_send(());
         }
     }

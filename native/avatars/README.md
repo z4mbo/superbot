@@ -88,8 +88,16 @@ its own thread, shared by every mark. The module exports:
 | `tick(now)`                         | Runs what is due at `now` and returns `{ frames: [[key, svg]], busy }`  |
 
 `now` is milliseconds on the engine's own clock. Each frame is a whole SVG with a 192 viewBox,
-drawn in `#010203`, which Superbot repaints in the bot's colour. While `busy`, Superbot calls
-`tick` 60 times a second; otherwise only after a call.
+drawn in `#010203`, which Superbot repaints in the bot's colour. While `busy`, or while pointer
+input waits, one shared pulse runs on the display's own frames: up to 60 times a second, on every
+display frame or every second, third, ... on faster displays, so motion stays even. Each pulse
+gives the engine only the latest pointer sample per mark, calls `tick` with that frame's time and
+shows what the engine drew for the previous pulse. When nothing moves, nothing runs. Starting a
+mark or a change of work draws at once.
+
+`SUPERBOT_AVATAR_TRACE`, set to a file path, records the pipeline for profiling: `request`
+(a pulse asked for a frame), `tick` (start, duration, whether marks changed), `show` (a mark
+showed a new frame, and when it was drawn) and `pointer`, in milliseconds.
 
 ## Frames files
 
