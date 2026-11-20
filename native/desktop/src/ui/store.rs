@@ -22,6 +22,7 @@ use crate::ui::releases::VersionSwitch;
 use crate::ui::{chip, empty_line, error_line, field_box, icon, page, pill_button, Tone, Type};
 use app_view::{app_parts, OpenApp};
 use confirm::Confirm;
+use marketplace::Shelf;
 use services::{Services, SignIn};
 use superbot_features::AgentSkillEntry;
 
@@ -373,7 +374,11 @@ impl Desktop {
             Section::Agents => self.load_store_templates(window, cx),
             Section::Skills => self.load_store_skills(window, cx),
             Section::Apps => self.load_services(window, cx),
-            Section::Plugins => {}
+            Section::Plugins => {
+                if self.store.marketplace.unread() {
+                    self.load_marketplace(window, cx);
+                }
+            }
         }
     }
 
@@ -384,7 +389,7 @@ impl Desktop {
             Section::Agents => self.store.templates.is_none(),
             Section::Skills => self.store.skills.is_none(),
             Section::Apps => self.store.services.is_none(),
-            Section::Plugins => false,
+            Section::Plugins => self.store.marketplace.unread(),
         };
         if unread {
             self.load_section(window, cx);
@@ -491,37 +496,59 @@ impl Desktop {
     }
 
     fn render_plugins(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        if let Some(error) = self.store.error.clone() {
-            return div()
-                .flex()
-                .flex_col()
-                .items_start()
-                .gap_3()
-                .child(error_line(error, theme))
-                .child(
-                    pill_button("store-retry", "Try again", Tone::Quiet, true, theme)
-                        .on_click(cx.listener(|this, _, window, cx| this.load_store(window, cx))),
-                )
-                .into_any_element();
+        let tab = self.store.tab;
+        let registry = if let Some(error) = self.store.error.clone() {
+            Some(
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_start()
+                    .gap_3()
+                    .child(error_line(error, theme))
+                    .child(
+                        pill_button("store-retry", "Try again", Tone::Quiet, true, theme)
+                            .on_click(cx.listener(|this, _, window, cx| this.load_store(window, cx))),
+                    )
+                    .into_any_element(),
+            )
+        } else if !self.store.loaded {
+            Some(empty_line(if self.store.loading { "Loading plugins…" } else { "" }, theme).into_any_element())
+        } else {
+            match tab {
+                Tab::Yours => return self.render_yours(theme, cx),
+                Tab::Review => return self.render_review(theme, cx),
+                Tab::Discover | Tab::Installed => self.render_catalog(tab == Tab::Installed, theme, window, cx),
+            }
+        };
+        if matches!(tab, Tab::Yours | Tab::Review) {
+            return registry.unwrap_or_else(|| div().into_any_element());
         }
-        if !self.store.loaded {
-            return empty_line(if self.store.loading { "Loading plugins…" } else { "" }, theme).into_any_element();
+        let shelf = if tab == Tab::Installed { Shelf::Installed } else { Shelf::Packages };
+        let packages = self.render_marketplace_section(shelf, theme, cx);
+        if registry.is_none() && packages.is_none() {
+            let line = if !self.store.query.read(cx).value().trim().is_empty() {
+                "No plugin matches that search."
+            } else if tab == Tab::Installed {
+                "Nothing installed in this Space yet. Install a plugin from Discover."
+            } else {
+                "No plugins are published yet. Create the first one."
+            };
+            return empty_line(line, theme).pt_2().into_any_element();
         }
-        match self.store.tab {
-            Tab::Discover => self.render_catalog(false, theme, window, cx),
-            Tab::Installed => self.render_catalog(true, theme, window, cx),
-            Tab::Yours => self.render_yours(theme, cx),
-            Tab::Review => self.render_review(theme, cx),
-        }
+        let registry = registry.map(|list| {
+            div().flex().flex_col().gap_1().child(div().section().pb_1().child("Community")).child(list).into_any_element()
+        });
+        div().flex().flex_col().gap_6().children(registry).children(packages).into_any_element()
     }
 
+    /// The community registry's plugins, or the ones installed here; none when nothing matches.
     fn render_catalog(
         &mut self,
         installed_only: bool,
         theme: &Theme,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> AnyElement {
+    ) -> Option<AnyElement> {
         let query = self.store.query.read(cx).value().trim().to_lowercase();
         // The server has already matched these, on more than the fields shown here.
         let matched = !installed_only && self.store.found.as_ref().is_some_and(|found| found.query == query);
@@ -539,24 +566,19 @@ impl Desktop {
                 .collect();
 
         if shown.is_empty() {
-            let line = if !query.is_empty() {
-                "No plugin matches that search."
-            } else if installed_only {
-                "Nothing installed in this Space yet. Install a plugin from Discover."
-            } else {
-                "No plugins are published yet. Create the first one."
-            };
-            return empty_line(line, theme).pt_2().into_any_element();
+            return None;
         }
 
         let columns = if window.viewport_size().width > px(1180.) { 2 } else { 1 };
-        div()
+        Some(
+            div()
             .grid()
             .grid_cols(columns)
             .gap_x_4()
             .gap_y_1()
             .children(shown.into_iter().map(|version| self.render_card(version, theme, cx)))
-            .into_any_element()
+            .into_any_element(),
+        )
     }
 
     fn render_card(&mut self, version: PluginVersion, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {

@@ -22,18 +22,23 @@ struct Listing {
     direct: Vec<String>,
 }
 
-/// Where a list of registry plugins shows: connectors under Apps, skill packs under Skills.
+/// Where a list of registry plugins shows: connectors under Apps, skill packs under Skills, and
+/// every package under Plugins.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Shelf {
     Apps,
     SkillPacks,
+    /// Every package, under Plugins.
+    Packages,
+    /// The packages installed here, under Plugins.
+    Installed,
 }
 
 #[derive(Default)]
 pub struct Marketplace {
     listing: Option<Result<Listing, String>>,
-    /// How many plugins each shelf shows, Apps first.
-    shown: [usize; 2],
+    /// How many plugins each shelf shows, in the order of `Shelf`.
+    shown: [usize; 4],
     open: Option<OpenPlugin>,
     /// A change to the open plugin is on its way to the server.
     busy: bool,
@@ -72,9 +77,15 @@ impl Listing {
         self.catalog
             .entries
             .iter()
-            .filter(|entry| entry.has_connector == (shelf == Shelf::Apps))
             .filter(|entry| {
-                self.install(entry).is_some() || !self.direct.iter().any(|name| entry.is_brand(name))
+                let installed = self.install(entry).is_some();
+                let listed_elsewhere = !installed && self.direct.iter().any(|name| entry.is_brand(name));
+                match shelf {
+                    Shelf::Apps => entry.has_connector && !listed_elsewhere,
+                    Shelf::SkillPacks => !entry.has_connector && !listed_elsewhere,
+                    Shelf::Packages => true,
+                    Shelf::Installed => installed,
+                }
             })
             .filter(|entry| {
                 query.is_empty()
@@ -217,6 +228,7 @@ impl Desktop {
         let heading = div().section().pb_1().child(match shelf {
             Shelf::Apps => "More apps",
             Shelf::SkillPacks => "Skill packs",
+            Shelf::Packages | Shelf::Installed => "From plugin marketplaces",
         });
         let listing = match &self.store.marketplace.listing {
             None => return Some(div().flex().flex_col().gap_1().child(heading).child(empty_line("Loading…", theme)).into_any_element()),
