@@ -1,4 +1,5 @@
 use gpui_kit::component::input::Input;
+use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
@@ -35,7 +36,9 @@ impl Desktop {
         let tiles = (!pinned.is_empty()).then(|| {
             pinned.sort_by_key(|(primary, _)| !*primary);
             div().flex().flex_wrap().justify_center().gap_1().pt_3p5().pb_4().children(
-                pinned.into_iter().map(|(primary, agent)| self.render_tile(agent, primary, open.as_ref(), &theme, cx)),
+                pinned
+                    .into_iter()
+                    .map(|(primary, agent)| self.render_tile(agent, primary, open.as_ref(), &theme, window, cx)),
             )
         });
         let rows = div()
@@ -173,6 +176,7 @@ impl Desktop {
         primary: bool,
         open: Option<&Target>,
         theme: &Theme,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let target = Target::Agent(agent.id.clone());
@@ -180,6 +184,11 @@ impl Desktop {
         let fill = if selected { theme.raised } else { theme.panel };
         let hover = if selected { theme.raised } else { mix(theme.panel, theme.raised, 0.5) };
         let menu = agent.id.clone();
+        let keys = agent.id.clone();
+        let focus = self.tile_focus(&agent.id, cx);
+        let ring = focus.is_focused(window) && window.last_input_was_keyboard();
+        let bounds = self.tile_bounds(&agent.id);
+        let shape = if primary { radius::CARD } else { radius::FIELD };
         let watch = SharedString::from(format!("tile:{}", agent.id));
         let width = px(if primary { 95. } else { 78. });
         let quote = latest_line(&agent).0;
@@ -197,10 +206,22 @@ impl Desktop {
             .items_center()
             .px_1()
             .pt(px(if primary { 4. } else { 8. }))
-            .rounded(if primary { radius::CARD } else { radius::FIELD })
+            .rounded(shape)
             .bg(fill)
             .cursor_pointer()
             .hover(move |style| style.bg(hover))
+            .track_focus(&focus)
+            // A pointer press leaves focus where opening the bot puts it, on the composer.
+            .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
+            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                if this.tile_key(&keys, &event.keystroke, window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
+            .when(quote.is_empty(), |tile| {
+                let name = SharedString::from(agent.name.clone());
+                tile.tooltip(move |window, cx| Tooltip::new(name.clone()).build(window, cx))
+            })
             .on_click(cx.listener(move |this, _, window, cx| {
                 this.close_tile_preview(cx);
                 this.open(target.clone(), window, cx)
@@ -218,6 +239,7 @@ impl Desktop {
                     move |this, hovering: &bool, _, cx| this.hover_tile(&hovered.0, *hovering, hovered.1, cx),
                 )),
             )
+            .child(canvas(move |drawn, _, _| bounds.set(drawn), |_, _, _, _| {}).absolute().inset_0())
             .children(preview)
             .child(
                 div()
@@ -267,6 +289,9 @@ impl Desktop {
                     .truncate()
                     .child(agent.name.clone()),
             )
+            .when(ring, |tile| {
+                tile.child(div().absolute().inset_0().rounded(shape).border_2().border_color(theme.focus))
+            })
             .into_any_element()
     }
 
