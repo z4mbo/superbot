@@ -527,10 +527,4 @@ impl Desktop {
             }
         }
     }
-
-    pub(crate) fn choose_agent_model(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(id) = chat_agent(self) {
-            self.show_agent_model(&id, window, cx);
-        }
-    }
 }

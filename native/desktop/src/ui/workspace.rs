@@ -43,10 +43,6 @@ impl Desktop {
         }
     }
 
-    pub fn show_agent_model(&mut self, bot_id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_model_menu(bot_id, window, cx);
-    }
-
     pub fn render_workspace(&self, _: &mut Window, _: &mut Context<Self>) -> AnyElement {
         div().size_full().children(self.workspace.panel.clone()).into_any_element()
     }

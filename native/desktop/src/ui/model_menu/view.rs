@@ -195,10 +195,18 @@ impl Desktop {
 
     /// The agent's model in a popover like the Simple menu: the current model pinned, then each
     /// source's suggestions, thinking where the model takes it, and the way to manage models.
-    pub fn render_model_menu(&mut self, bot_id: &str, cx: &mut Context<Self>) -> AnyElement {
+    pub fn render_model_menu(&mut self, bot_id: &str, viewport: Size<Pixels>, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.skin().clone();
         let hover = theme.ink_at(0.06);
-        let at = self.menu.as_ref().map(|menu| menu.at).unwrap_or_default();
+        let trigger = self.model_menu.bounds(self.model_menu.trigger).get();
+        let (menu_edge, button_edge) = if trigger.center().x > viewport.width / 2. {
+            (Anchor::TopRight, Anchor::BottomRight)
+        } else {
+            (Anchor::TopLeft, Anchor::BottomLeft)
+        };
+        let margin = px(8.);
+        let gap = px(6.);
+        let available = (viewport.height - trigger.bottom()).max(trigger.top()) - gap - margin;
         let query = self.model_menu_query(cx);
         let sheet = self.model_sheet(bot_id, &query);
         self.model_menu.search_shown = sheet.search;
@@ -251,8 +259,8 @@ impl Desktop {
 
         let mut sheet = div()
             .id("model-menu")
-            .w(px(324.))
-            .max_h(px(480.))
+            .w(px(324.).min((viewport.width - margin * 2.).max(px(0.))))
+            .max_h(px(480.).min(available.max(px(0.))))
             .flex()
             .flex_col()
             .rounded(radius::CARD)
@@ -306,7 +314,12 @@ impl Desktop {
             .on_mouse_down(MouseButton::Right, cx.listener(|this, _, _, cx| this.close_model_menu(cx)))
             .child(
                 deferred(
-                    anchored().position(at).anchor(Anchor::TopCenter).snap_to_window_with_margin(px(8.)).child(sheet),
+                    anchored()
+                        .anchor(menu_edge)
+                        .attach(trigger, button_edge)
+                        .offset(point(px(0.), gap))
+                        .snap_to_window_with_margin(margin)
+                        .child(sheet),
                 )
                 .with_priority(1),
             )

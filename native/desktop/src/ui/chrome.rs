@@ -45,7 +45,7 @@ impl Render for Desktop {
         #[cfg(not(target_os = "macos"))]
         let frame = frame.child(caption_buttons(window, &theme));
         frame
-            .children(self.render_menu(cx))
+            .children(self.render_menu(window, cx))
             .children(self.render_dialog(cx))
             .children(self.render_create_panel(cx))
             .children(self.render_version_switch(cx))

@@ -1,9 +1,12 @@
 mod local;
 mod view;
 
+use std::cell::Cell;
 use std::collections::HashSet;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
+use gpui_kit::base::ElementExt as _;
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::*;
 use superbot_features::local_cli::{InstalledModel, Provider};
@@ -26,6 +29,9 @@ const TYPEAHEAD_RESET: Duration = Duration::from_millis(1000);
 /// this computer's local engines.
 #[derive(Default)]
 pub struct ModelMenu {
+    header: Rc<Cell<Bounds<Pixels>>>,
+    details: Rc<Cell<Bounds<Pixels>>>,
+    trigger: ModelTrigger,
     query: Option<Entity<InputState>>,
     _query_events: Option<Subscription>,
     focus: Option<FocusHandle>,
@@ -50,6 +56,22 @@ pub struct ModelMenu {
     /// The thinking level just saved, shown until the agent is read again.
     effort: Option<Option<ThinkingLevel>>,
     typed: Option<(String, Instant)>,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum ModelTrigger {
+    #[default]
+    Header,
+    Details,
+}
+
+impl ModelMenu {
+    fn bounds(&self, trigger: ModelTrigger) -> &Rc<Cell<Bounds<Pixels>>> {
+        match trigger {
+            ModelTrigger::Header => &self.header,
+            ModelTrigger::Details => &self.details,
+        }
+    }
 }
 
 /// The keyboard's place: a row, or the favorite star beside it.
@@ -188,15 +210,37 @@ fn next_index(key: &str, current: Option<usize>, count: usize) -> Option<usize> 
 }
 
 impl Desktop {
-    /// Opens the model popover for `bot_id` where the pointer is: under the header's model half
-    /// or the Details row that was clicked.
-    pub(crate) fn open_model_menu(&mut self, bot_id: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn model_menu_button(&self, trigger: ModelTrigger, cx: &mut Context<Self>) -> Stateful<Div> {
+        let bounds = self.model_menu.bounds(trigger).clone();
+        let open = self.model_menu.trigger == trigger
+            && matches!(self.menu.as_ref().map(|menu| &menu.kind), Some(MenuKind::Model(_)));
+        let id = match trigger {
+            ModelTrigger::Header => "chat-head-model",
+            ModelTrigger::Details => "agent-model",
+        };
+        div()
+            .id(id)
+            .relative()
+            .on_prepaint(move |area, window, _| {
+                if bounds.replace(area) != area && open {
+                    window.refresh();
+                }
+            })
+            .on_click(cx.listener(move |this, _, window, cx| {
+                if let Some(bot) = this.chat.as_ref().and_then(|chat| chat.target.agent()).map(str::to_owned) {
+                    this.open_model_menu(&bot, trigger, window, cx);
+                }
+            }))
+    }
+
+    fn open_model_menu(&mut self, bot_id: &str, trigger: ModelTrigger, window: &mut Window, cx: &mut Context<Self>) {
         let kind = MenuKind::Model(bot_id.to_owned());
         if self.menu.as_ref().is_some_and(|menu| menu.kind == kind) {
             self.close_model_menu(cx);
             return;
         }
-        let at = window.mouse_position() + point(px(0.), px(18.));
+        self.model_menu.trigger = trigger;
+        let at = self.model_menu.bounds(trigger).get().bottom_left();
         self.menu = Some(Menu { kind, at });
         let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search models"));
         let events = cx.subscribe_in(&query, window, |this, _, event: &InputEvent, window, cx| match event {

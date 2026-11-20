@@ -53,7 +53,7 @@ impl Desktop {
         items
     }
 
-    pub fn render_menu(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub fn render_menu(&mut self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         let theme = cx.skin().clone();
         let menu = self.menu.as_ref()?;
         let (items, anchor) = match &menu.kind {
@@ -64,7 +64,7 @@ impl Desktop {
             }
             MenuKind::Model(bot_id) => {
                 let bot_id = bot_id.clone();
-                return Some(self.render_model_menu(&bot_id, cx));
+                return Some(self.render_model_menu(&bot_id, window.viewport_size(), cx));
             }
             MenuKind::Spaces => {
                 let mut items = vec![Item::Label("Spaces".into())];

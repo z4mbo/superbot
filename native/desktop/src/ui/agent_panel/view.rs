@@ -171,8 +171,8 @@ impl Desktop {
     fn render_details(&self, bot: &Bot, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
         let model = self.chat_model_label(&bot.id);
         let hover = theme.ink_at(0.04);
-        let model_row = div()
-            .id("agent-model")
+        let model_row = self
+            .model_menu_button(crate::ui::model_menu::ModelTrigger::Details, cx)
             .flex()
             .items_center()
             .gap(px(10.))
@@ -181,7 +181,6 @@ impl Desktop {
             .rounded(radius::FIELD)
             .cursor_pointer()
             .hover(move |style| style.bg(hover))
-            .on_click(cx.listener(|this, _, window, cx| this.choose_agent_model(window, cx)))
             .child(icon("sparkles", px(16.), theme.ink_secondary))
             .child(div().flex_1().name().text_color(theme.ink).child("Model"))
             .children(model.map(|model| {
