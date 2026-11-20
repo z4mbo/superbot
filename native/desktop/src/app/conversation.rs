@@ -28,6 +28,11 @@ impl LocalWrite {
     fn new(text: String, reply: Option<String>) -> Self {
         Self::from(PendingHistory { id: uuid::Uuid::new_v4().to_string(), text, reply })
     }
+
+    /// The message and the local model's reply, as they will be saved.
+    pub(crate) fn exchange(&self) -> (&str, Option<&str>) {
+        (&self.payload.text, self.payload.reply.as_deref())
+    }
 }
 
 impl From<PendingHistory> for LocalWrite {
@@ -56,6 +61,8 @@ pub struct Chat {
     pub cards: crate::cards::Cards,
     _live: Option<Task<()>>,
     pub(crate) local_turn: Option<Task<()>>,
+    /// The message the local model is answering, shown in the transcript until its reply comes.
+    pub(crate) local_prompt: Option<String>,
     /// A message an Inbox line asked to show, and its mark once shown.
     pub reveal: super::reveal::Reveal,
     /// Local-model help with the bot's apps, open beside this conversation.
@@ -164,6 +171,7 @@ impl Desktop {
             cards: crate::cards::Cards::default(),
             _live: None,
             local_turn: None,
+            local_prompt: None,
             reveal: Default::default(),
             app_assist: Default::default(),
         });
@@ -248,6 +256,7 @@ impl Desktop {
     pub fn stop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(chat) = self.chat.as_mut().filter(|chat| chat.local_turn.is_some()) {
             chat.local_turn = None;
+            self.restore_local_prompt(window, cx);
             cx.notify();
             return;
         }
@@ -304,6 +313,7 @@ impl Desktop {
     /// Sets aside what is typed and attached before another conversation takes the composer.
     pub fn keep_draft(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(place) = self.place() else { return };
+        self.restore_local_prompt(window, cx);
         let Some(chat) = self.chat.as_mut() else { return };
         let text = self.composer.read(cx).value().to_string();
         let outbox = std::mem::replace(&mut chat.conversation.outbox, new_outbox());
@@ -642,6 +652,7 @@ impl Desktop {
         };
         chat.error = None;
         chat.list.set_follow_mode(FollowMode::Tail);
+        chat.local_prompt = Some(text.clone());
         chat.local_turn = Some(cx.spawn_in(window, async move |this, cx| {
             let result = network(async move { Ok(run_local_model(&cli, &model, &prompt).await) }).await;
             this.update_in(cx, |this, window, cx| {
@@ -652,17 +663,34 @@ impl Desktop {
                 chat.local_turn = None;
                 match result {
                     Ok(Ok(reply)) => {
+                        chat.local_prompt = None;
                         this.local_writes.insert(place, LocalWrite::new(text, Some(reply)));
                         this.retry_local_write(window, cx);
                     }
-                    Ok(Err(problem)) => chat.error = Some(problem),
-                    Err(_) => chat.error = Some("The local CLI stopped.".into()),
+                    Ok(Err(problem)) => {
+                        chat.error = Some(problem);
+                        this.restore_local_prompt(window, cx);
+                    }
+                    Err(_) => {
+                        chat.error = Some("The local CLI stopped.".into());
+                        this.restore_local_prompt(window, cx);
+                    }
                 }
                 cx.notify();
             })
             .ok();
         }));
+        self.composer.update(cx, |composer, cx| composer.set_value("", window, cx));
         cx.notify();
+    }
+
+    /// Puts a local turn's message back in the composer when its reply never came, ahead of
+    /// anything typed since.
+    fn restore_local_prompt(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(text) = self.chat.as_mut().and_then(|chat| chat.local_prompt.take()) else { return };
+        let typed = self.composer.read(cx).value().trim().to_owned();
+        let restored = if typed.is_empty() { text } else { format!("{text}\n\n{typed}") };
+        self.composer.update(cx, |composer, cx| composer.set_value(restored, window, cx));
     }
 
     fn retry_local_write(&mut self, window: &mut Window, cx: &mut Context<Self>) {
