@@ -17,7 +17,12 @@ impl Render for Desktop {
                     View::Store => self.render_store(window, cx),
                     View::Workspace => self.render_workspace(window, cx),
                 };
-                let side = if self.view == View::Chat { self.render_agent_panel(window, cx) } else { None };
+                self.sync_inbox(window, cx);
+                let side = match self.render_inbox_panel(window, cx) {
+                    Some(inbox) => Some(inbox),
+                    None if self.view == View::Chat => self.render_agent_panel(window, cx),
+                    None => None,
+                };
                 div()
                     .size_full()
                     .flex()

@@ -50,15 +50,43 @@ and so is a shape whose frames file cannot be read. The pack is read once at sta
   colour. Otherwise its server colour is used when the palette has it (directly or through
   `aliases`), a server colour sent as `#rrggbb` takes the nearest `fallback` colour, and
   anything left is picked from `fallback` by the bot's id, so it never changes.
-- **Colours.** `palette` colours draw as they are, `inkColors` in the skin's text colour,
+- **Colours.** `palette` colours draw as they are, `inkColors` in the skin's text colour (or in
+  `ink.light` / `ink.dark` when the pack sets `"ink": { "light": "#000", "dark": "#fff" }`),
   `gradients` top to bottom.
-- **Primary tile.** Set `"primaryTile": true` in a named bot's entry to reserve the first tile for it, 92px wide with a 16px crown badge. It appears on each device that has the pack as soon as the bot is in the Space. Other pinned bots follow it. Search lists matching bots as rows. The setting affects only the local sidebar.
+- **Primary tile.** Set `"primaryTile": true` in a named bot's entry to reserve the first tile for it. The 95px-wide tile has a 16px star badge. It appears on each device that has the pack as soon as the bot is in the Space. Other pinned bots follow it. Search lists matching bots as rows. The setting affects only the local sidebar.
 - **Size.** The mark is drawn in a square `markScale` times the avatar slot (or the size
   `markBoxes` pins for that slot), centred on it, so it may reach past the slot. Squares
   smaller than `compactBelow` use the compact working frames.
 - **Chats.** With `tint`, a conversation with one bot shows the person's own bubbles and the
   Send and Stop button in that bot's `hues` entry (or its colour's name); groups keep the
   app's colours.
+
+## Local avatar engine
+
+A desktop built with the `local-engine` feature can also run a local avatar engine the person
+installs beside the pack, in `avatars/engine/`. Superbot then draws every mark live from that
+engine instead of the pack's frames, and keeps using the pack's palette, tints and bot choices.
+Without the folder, or when the engine fails to start or throws, marks fall back to the pack's
+frames, and without a pack to the built-in face. Like packs, engines are personal files: never
+bundled, downloaded or uploaded.
+
+`engine.json` names the entry module: `{ "version": 1, "module": "bridge.js" }`. Modules are
+ES modules loaded only from files directly inside `engine/`, into one embedded V8 runtime on
+its own thread, shared by every mark. The module exports:
+
+| Function                            | Does                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| `look(bot, chosen)`                 | `{ seed, shape, color }` for `{ id, name, color }`; `chosen` holds a shape or colour from the person's pick or `pack.json` |
+| `mount(key, mark, now)`             | Starts a mark: `{ seed, shape, box, working, reduced }`                   |
+| `update(key, working, now)`         | The mark starts or stops working                                         |
+| `pointer(key, rect, point, now)`    | The pointer is over the mark's region; `rect` is the mark's square        |
+| `release(key, now)`                 | The pointer left or pressed the region                                   |
+| `unmount(key, now)`                 | The mark is gone                                                         |
+| `tick(now)`                         | Runs what is due at `now` and returns `{ frames: [[key, svg]], busy }`  |
+
+`now` is milliseconds on the engine's own clock. Each frame is a whole SVG with a 192 viewBox,
+drawn in `#010203`, which Superbot repaints in the bot's colour. While `busy`, Superbot calls
+`tick` 60 times a second; otherwise only after a call.
 
 ## Frames files
 

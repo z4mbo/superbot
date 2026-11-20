@@ -58,7 +58,9 @@ impl Desktop {
                     .child(tabs(tab, &theme, cx))
                     .child(match tab {
                         PanelTab::Details => self.render_details(bot, &theme, cx),
+                        PanelTab::Library => self.render_library(&theme, cx),
                         PanelTab::Computer => self.render_computer(bot, avatar, &theme, cx),
+                        PanelTab::Inbox => self.render_agent_inbox(bot, &theme, cx),
                     })
                     .into_any_element()
             }
@@ -213,6 +215,7 @@ impl Desktop {
             .flex()
             .flex_col()
             .child(model_row)
+            .child(self.render_conversations(&bot.id, theme, cx))
             .child(card_label("In this space", theme))
             .child(link("agent-routines", "calendar-clock", "Routines", Section::Routines, cx))
             .child(link("agent-approvals", "shield-check", "Approvals", Section::Approvals, cx))

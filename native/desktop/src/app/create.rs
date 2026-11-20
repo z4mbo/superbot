@@ -17,6 +17,8 @@ use crate::api::AgentSummary;
 /// What the sidebar's plus button makes, in the reference's Simple order.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CreateRow {
+    /// Another conversation with the open agent; listed only while one is open.
+    NewConversation,
     NewBot,
     NewGroupChat,
     AddDepartment,
@@ -30,6 +32,7 @@ impl CreateRow {
 
     pub fn label(self) -> &'static str {
         match self {
+            CreateRow::NewConversation => "New conversation",
             CreateRow::NewBot => "New bot",
             CreateRow::NewGroupChat => "New group chat",
             CreateRow::AddDepartment => "Add department",
@@ -40,6 +43,7 @@ impl CreateRow {
 
     pub fn glyph(self) -> &'static str {
         match self {
+            CreateRow::NewConversation => "square-pen",
             CreateRow::NewBot => "bot",
             CreateRow::NewGroupChat => "users",
             CreateRow::AddDepartment => "folder-plus",
@@ -50,6 +54,7 @@ impl CreateRow {
 
     pub fn id(self) -> &'static str {
         match self {
+            CreateRow::NewConversation => "new-conversation",
             CreateRow::NewBot => "new-bot",
             CreateRow::NewGroupChat => "new-group-chat",
             CreateRow::AddDepartment => "add-department",
@@ -57,6 +62,12 @@ impl CreateRow {
             CreateRow::Import => "import",
         }
     }
+}
+
+/// The plus menu's rows: with an agent's conversation open, starting another one comes first,
+/// as the reference menu puts it.
+pub fn menu_rows(agent_open: bool) -> Vec<CreateRow> {
+    agent_open.then_some(CreateRow::NewConversation).into_iter().chain(CreateRow::ALL).collect()
 }
 
 /// The row the arrow keys land on from `from`, wrapping like the reference menu.
@@ -124,14 +135,15 @@ impl Desktop {
         }
     }
 
-    pub fn create_rows(&self) -> &'static [CreateRow] {
-        &CreateRow::ALL
+    pub fn create_rows(&self) -> Vec<CreateRow> {
+        menu_rows(self.chat.as_ref().is_some_and(|chat| chat.target.agent().is_some()))
     }
 
     pub fn choose_create_row(&mut self, row: CreateRow, window: &mut Window, cx: &mut Context<Self>) {
         self.menu = None;
         self.create.highlight = None;
         match row {
+            CreateRow::NewConversation => self.new_conversation(window, cx),
             CreateRow::NewBot => self.new_agent(window, cx),
             CreateRow::NewGroupChat => self.open_group_form(window, cx),
             CreateRow::AddDepartment => self.open_department_form(window, cx),
@@ -219,7 +231,7 @@ impl Desktop {
 
 #[cfg(test)]
 mod tests {
-    use super::{arrivals_first, step_highlight, CreateRow};
+    use super::{arrivals_first, menu_rows, step_highlight, CreateRow};
     use crate::api::AgentSummary;
 
     fn agent(id: &str) -> AgentSummary {
@@ -230,6 +242,10 @@ mod tests {
     fn the_menu_lists_the_reference_rows_in_order() {
         let labels: Vec<&str> = CreateRow::ALL.iter().map(|row| row.label()).collect();
         assert_eq!(labels, ["New bot", "New group chat", "Add department", "Templates", "Import…"]);
+        assert_eq!(menu_rows(false), CreateRow::ALL);
+        let with_agent: Vec<&str> = menu_rows(true).iter().map(|row| row.label()).collect();
+        assert_eq!(with_agent[0], "New conversation");
+        assert_eq!(&with_agent[1..], labels.as_slice());
     }
 
     #[test]

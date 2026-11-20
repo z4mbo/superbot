@@ -6,6 +6,7 @@ use crate::api::{AgentSummary, GroupSummary, Target};
 use crate::app::{Desktop, MenuKind, View};
 use crate::theme::{mix, radius, ActiveTheme, Theme, SIDEBAR_WIDTH};
 use crate::ui::corner::Corner;
+use crate::ui::tile_preview::tile_preview;
 use crate::ui::{bot_avatar, empty_line, icon, person_face, Type};
 
 impl Desktop {
@@ -28,6 +29,9 @@ impl Desktop {
         }
         let nothing = pinned.is_empty() && listed.is_empty() && groups.is_empty();
 
+        if pinned.is_empty() {
+            self.forget_tile_preview();
+        }
         let tiles = (!pinned.is_empty()).then(|| {
             pinned.sort_by_key(|(primary, _)| !*primary);
             div().flex().flex_wrap().justify_center().gap_1().pt_3p5().pb_4().children(
@@ -172,36 +176,60 @@ impl Desktop {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let target = Target::Agent(agent.id.clone());
-        let selected = open == Some(&target);
+        let selected = open.and_then(Target::agent) == Some(agent.id.as_str());
         let fill = if selected { theme.raised } else { theme.panel };
         let hover = if selected { theme.raised } else { mix(theme.panel, theme.raised, 0.5) };
         let menu = agent.id.clone();
         let watch = SharedString::from(format!("tile:{}", agent.id));
+        let width = px(if primary { 95. } else { 78. });
+        let quote = latest_line(&agent).0;
+        let preview = (self.tile_preview_shown(&agent.id) && !quote.is_empty())
+            .then(|| div().absolute().top_0().left_0().child(tile_preview(&agent, quote.clone(), width, theme, cx)));
+        let hovered = (agent.id.clone(), !quote.is_empty());
         superbot_avatars::watch_region(div().id(SharedString::from(format!("tile-{}", agent.id))), watch.clone())
             .group("bot-tile")
-            .w(px(if primary { 92. } else { 78. }))
+            .relative()
+            .w(width)
             .h(px(92.))
             .flex_shrink_0()
             .flex()
             .flex_col()
             .items_center()
             .px_1()
-            .pt(px(if primary { 6. } else { 8. }))
-            .rounded(radius::FIELD)
+            .pt(px(if primary { 4. } else { 8. }))
+            .rounded(if primary { radius::CARD } else { radius::FIELD })
             .bg(fill)
             .cursor_pointer()
             .hover(move |style| style.bg(hover))
-            .on_click(cx.listener(move |this, _, window, cx| this.open(target.clone(), window, cx)))
+            .on_click(cx.listener(move |this, _, window, cx| {
+                this.close_tile_preview(cx);
+                this.open(target.clone(), window, cx)
+            }))
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                    this.close_tile_preview(cx);
                     this.open_menu(MenuKind::Agent(menu.clone()), event.position, cx)
                 }),
             )
             .child(
+                // GPUI (gpui-pre 0.3.12) takes one on_hover per element; the avatar watch region has the tile's.
+                div().id("tile-rest").absolute().inset_0().on_hover(cx.listener(
+                    move |this, hovering: &bool, _, cx| this.hover_tile(&hovered.0, *hovering, hovered.1, cx),
+                )),
+            )
+            .children(preview)
+            .child(
                 div()
                     .relative()
-                    .child(bot_avatar(agent.avatar(), px(56.), agent.working(), Some(watch), theme, cx))
+                    .child(bot_avatar(
+                        agent.avatar(),
+                        px(if primary { 60. } else { 56. }),
+                        agent.working(),
+                        Some(watch),
+                        theme,
+                        cx,
+                    ))
                     .when(primary, |avatar| {
                         avatar.child(
                             div()
@@ -219,11 +247,11 @@ impl Desktop {
                                     div()
                                         .size_4()
                                         .rounded_full()
-                                        .bg(rgb(0xe8993a))
+                                        .bg(rgb(0xf69412))
                                         .flex()
                                         .items_center()
                                         .justify_center()
-                                        .child(icon("tile-crown", px(10.), white())),
+                                        .child(icon("tile-star", px(10.), rgb(0xf5f5f5).into())),
                                 ),
                         )
                     })
@@ -250,14 +278,11 @@ impl Desktop {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let target = Target::Agent(agent.id.clone());
-        let selected = open == Some(&target);
+        let selected = open.and_then(Target::agent) == Some(agent.id.as_str());
         let fill = if selected { theme.raised } else { theme.panel };
-        let preview = if agent.waiting_on_you() {
-            ("Waiting for you".to_owned(), theme.warning)
-        } else if agent.working() {
-            ("Working…".to_owned(), theme.ink_secondary)
-        } else {
-            (agent.preview.clone(), theme.ink_secondary)
+        let preview = match latest_line(&agent) {
+            (line, true) => (line, theme.warning),
+            (line, false) => (line, theme.ink_secondary),
         };
         let menu = agent.id.clone();
         let watch = SharedString::from(format!("row:{}", agent.id));
@@ -376,6 +401,18 @@ fn row(
             text.pt(px(1.)).child(div().mt(px(2.)).body().text_color(preview_ink).truncate().child(preview))
         }))
         .when(unread, |row| row.child(div().size_2().flex_shrink_0().rounded_full().bg(theme.accent)))
+}
+
+/// What a bot's row and tile preview quote: what it waits on or is doing, else its latest line.
+/// The flag marks a wait on the person.
+fn latest_line(agent: &AgentSummary) -> (String, bool) {
+    if agent.waiting_on_you() {
+        ("Waiting for you".to_owned(), true)
+    } else if agent.working() {
+        ("Working…".to_owned(), false)
+    } else {
+        (agent.preview.clone(), false)
+    }
 }
 
 /// The mark on a face for what its bot is doing, ringed in the surface it sits on.

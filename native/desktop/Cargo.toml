@@ -17,7 +17,7 @@ image = { version = "0.25", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-superbot-avatars = { path = "../avatars" }
+superbot-avatars = { path = "../avatars", features = ["local-engine"] }
 superbot-client = { path = "../client" }
 superbot-features = { path = "../features" }
 superbot-workspace-panel = { path = "../workspace-panel" }

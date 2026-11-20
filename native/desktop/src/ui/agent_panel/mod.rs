@@ -8,7 +8,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use superbot_features::{
     model_options, Bot, BotSettings, ComputerMode, ComputerState, ComputerStatus, Error, Features, MainModel,
-    ModelCatalogEntry, ModelOption,
+    ModelCatalogEntry, ModelConnection, ModelOption, ThinkingLevel,
 };
 use superbot_workspace_panel::Section;
 
@@ -18,6 +18,8 @@ use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::{bot_avatar, bot_ink, error_line, icon, Type};
 
 mod computer;
+mod conversations;
+mod library;
 mod look;
 mod parts;
 mod screen;
@@ -25,6 +27,7 @@ mod settings;
 mod view;
 
 use parts::*;
+pub(crate) use parts::round_button;
 
 const PANEL_MAX: Pixels = px(569.);
 const PANEL_MIN: Pixels = px(320.);
@@ -45,6 +48,7 @@ pub struct AgentInfo {
 struct Models {
     options: Vec<ModelOption>,
     catalog: Vec<ModelCatalogEntry>,
+    connections: Vec<ModelConnection>,
     main: MainModel,
 }
 
@@ -78,6 +82,30 @@ impl AgentInfo {
         Some(&self.models.as_ref()?.options)
     }
 
+    /// The levels `provider`/`model_id` can think at: its connection's when it runs on one, else
+    /// the catalog's. Empty when the model takes no setting or the models are not read yet.
+    pub(crate) fn thinking_levels(&self, provider: &str, model_id: &str, credential: Option<&str>) -> Vec<ThinkingLevel> {
+        let Some(models) = self.models.as_ref() else { return Vec::new() };
+        credential
+            .and_then(|id| models.connections.iter().find(|connection| connection.id == id))
+            .map(|connection| connection.thinking_levels.clone())
+            .filter(|levels| !levels.is_empty())
+            .or_else(|| {
+                models
+                    .catalog
+                    .iter()
+                    .find(|entry| entry.provider == provider && entry.id == model_id)
+                    .map(|entry| entry.thinking_levels.clone())
+            })
+            .unwrap_or_default()
+    }
+
+    /// The model agents without their own run on, as provider, model and connection.
+    pub(crate) fn main_choice(&self) -> Option<(String, String, Option<String>)> {
+        let choice = self.models.as_ref()?.main.running()?;
+        Some((choice.provider.clone(), choice.model_id.clone(), choice.credential_id.clone()))
+    }
+
     /// What agents without their own model run on, `None` until read.
     pub(crate) fn main_model_label(&self) -> Option<String> {
         let models = self.models.as_ref()?;
@@ -103,7 +131,9 @@ impl AgentInfo {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PanelTab {
     Details,
+    Library,
     Computer,
+    Inbox,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -137,6 +167,7 @@ pub struct AgentPanel {
     saving: bool,
     problem: Option<String>,
     screen: Option<screen::ScreenSession>,
+    library: Option<(Target, library::LibraryView)>,
     _editor_events: Option<Subscription>,
     look: look::LookEditor,
 }
@@ -153,6 +184,7 @@ impl AgentPanel {
             saving: false,
             problem: None,
             screen: None,
+            library: None,
             _editor_events: None,
             look: look::LookEditor::default(),
         }
@@ -185,7 +217,7 @@ fn computer_tools_set(bot: &Bot, on: bool) -> Vec<String> {
 
 fn chat_agent(desktop: &Desktop) -> Option<String> {
     match &desktop.chat.as_ref()?.target {
-        Target::Agent(id) => Some(id.clone()),
+        Target::Agent(id) | Target::Conversation { agent: id, .. } => Some(id.clone()),
         Target::Group(_) => None,
     }
 }
@@ -203,6 +235,7 @@ impl Desktop {
         if self.agent_panel.take().is_none() {
             if let Some(id) = chat_agent(self) {
                 self.agent_panel = Some(AgentPanel::new(id, PanelTab::Details));
+                self.inbox.open = false;
                 self.agent_info.stale();
                 self.sync_agent_info(window, cx);
             }
@@ -256,6 +289,16 @@ impl Desktop {
         if self.agent_info.models_read != Some(generation) && !self.agent_info.models_reading {
             self.read_models(window, cx);
         }
+        if self.agent_panel.is_some() {
+            self.read_conversations(&id, generation, window, cx);
+        }
+        let shown = self.chat.as_ref().map(|chat| chat.target.clone());
+        let wants_library = self.agent_panel.as_ref().is_some_and(|panel| {
+            panel.tab == PanelTab::Library && panel.library.as_ref().map(|(at, _)| at) != shown.as_ref()
+        });
+        if wants_library {
+            self.read_library(window, cx);
+        }
         let wants_computer =
             self.agent_panel.as_ref().is_some_and(|panel| panel.tab == PanelTab::Computer && panel.computer.is_none());
         if wants_computer {
@@ -290,7 +333,7 @@ impl Desktop {
             this.agent_info.models_read = Some(generation);
             if let Ok((catalog, connections, main)) = result {
                 let options = model_options(&connections, &catalog);
-                this.agent_info.models = Some(Models { options, catalog, main });
+                this.agent_info.models = Some(Models { options, catalog, connections, main });
             }
         });
     }

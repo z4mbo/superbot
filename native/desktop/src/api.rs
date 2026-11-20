@@ -4,8 +4,11 @@ use superbot_client::{Client, Error, ThreadEvent, ThreadTarget};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Target {
+    /// An agent's first conversation, the one the sidebar and every older client open.
     Agent(String),
     Group(String),
+    /// Another conversation with an agent, started with New conversation.
+    Conversation { agent: String, thread: String },
 }
 
 impl Target {
@@ -13,6 +16,25 @@ impl Target {
         match self {
             Self::Agent(id) => ThreadTarget::Bot(id),
             Self::Group(id) => ThreadTarget::Group(id),
+            Self::Conversation { agent, thread } => ThreadTarget::BotConversation { bot_id: agent, thread_id: thread },
+        }
+    }
+
+    /// The agent this conversation is with, whichever of its conversations it is.
+    pub fn agent(&self) -> Option<&str> {
+        match self {
+            Self::Agent(id) | Self::Conversation { agent: id, .. } => Some(id),
+            Self::Group(_) => None,
+        }
+    }
+
+    /// Where this conversation's unsaved local turn is kept: the agent's own key for its first
+    /// conversation, a thread key for the others, so two conversations never share one.
+    pub fn local_key(&self) -> Option<String> {
+        match self {
+            Self::Agent(id) => Some(id.clone()),
+            Self::Conversation { thread, .. } => Some(format!("thread:{thread}")),
+            Self::Group(_) => None,
         }
     }
 }
