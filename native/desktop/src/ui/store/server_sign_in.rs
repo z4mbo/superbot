@@ -2,7 +2,7 @@ use gpui_kit::component::input::InputState;
 use gpui_kit::*;
 use superbot_client::Error;
 
-use crate::api::{self, McpServer, OAuthStatus, SignInStart, SourcePreset, OAUTH_CLIENT_REQUIRED};
+use crate::api::{self, McpServer, OAuthStatus, ServerState, SignInStart, SourcePreset, OAUTH_CLIENT_REQUIRED};
 use crate::app::Desktop;
 use crate::theme::Theme;
 use crate::ui::{chip, Type};
@@ -254,7 +254,12 @@ impl Desktop {
         self.call(window, cx, work, move |this, result, window, cx| {
             this.store.presets.busy = None;
             match result {
-                Ok(()) => this.connected_now(&subject, window, cx),
+                Ok(server) if server.state() == ServerState::Connected => this.connected_now(&subject, window, cx),
+                Ok(server) => {
+                    let problem = server.health.message.unwrap_or_else(|| format!("{} isn't answering yet.", subject.name));
+                    this.fail_connection(&subject.key, problem, cx);
+                    this.load_presets(window, cx);
+                }
                 Err(error) => {
                     this.fail_connection(&subject.key, api::explain(&error), cx);
                     this.load_presets(window, cx);

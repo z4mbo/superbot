@@ -272,8 +272,8 @@ impl Api {
     }
 
     /// Reaches the server once and records how it answered.
-    pub async fn check_mcp_server(&self, space_id: &str, server_id: &str) -> Result<(), Error> {
-        self.done("mcp/servers/test", space_id, json!({ "id": server_id })).await
+    pub async fn check_mcp_server(&self, space_id: &str, server_id: &str) -> Result<McpServer, Error> {
+        self.client.rpc("mcp/servers/test", Some(space_id), json!({ "id": server_id })).await
     }
 
     pub async fn remove_mcp_server(&self, space_id: &str, server_id: &str) -> Result<(), Error> {
