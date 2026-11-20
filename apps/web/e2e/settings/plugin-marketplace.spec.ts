@@ -36,12 +36,14 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
 
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Store", exact: true });
+  // Apps lists services; plugin packages are installed from Plugins.
+  await expect(dialog.getByText("Planning Notes", { exact: true })).toHaveCount(0);
+  await dialog.getByTestId("store-plugins").click();
   const section = dialog.getByTestId("plugin-section").filter({ hasText: "Productivity" });
   await expect(section.getByText("Planning Notes", { exact: true })).toBeVisible();
-  // A skill pack has nothing to connect, so it is offered under Skills instead.
-  await expect(dialog.getByText("Review Kit", { exact: true })).toHaveCount(0);
+  await expect(dialog.getByText("Review Kit", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "integrations-plugins");
-  await dialog.getByRole("textbox", { name: "Search apps", exact: true }).fill("planning");
+  await dialog.getByRole("textbox", { name: "Search plugins", exact: true }).fill("planning");
   const row = dialog.getByTestId("plugin-results").getByTestId("plugin-row");
   await expect(row).toHaveCount(1);
   await captureScreenshot(page, testInfo, "integrations-plugin-search");
@@ -332,8 +334,10 @@ test("integration fallback icons preserve non-BMP initials", async ({ page }, te
   await completeOnboarding(page);
   await page.getByRole("button", { name: "Connect apps", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Store", exact: true });
+  await dialog.getByTestId("store-plugins").click();
   await expect(dialog.getByText("🦞", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "integrations-unicode-plugin");
+  await dialog.getByTestId("store-apps").click();
   const connected = dialog.getByRole("button", { name: /^\d+ connected$/ });
   await expect(connected.locator("span[aria-hidden] .place-items-center")).toHaveText("𠮷");
   await connected.click();

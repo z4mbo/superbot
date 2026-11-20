@@ -16,6 +16,10 @@ import type {
 const api = vi.hoisted(() => ({
   me: vi.fn(),
   bots: { list: vi.fn() },
+  connections: { catalog: vi.fn(), list: vi.fn(), tools: vi.fn() },
+  capabilities: { list: vi.fn(), catalogSearch: vi.fn(), sourcePresets: vi.fn() },
+  mcp: { servers: { list: vi.fn() }, assignments: { list: vi.fn() } },
+  marketplace: { catalog: vi.fn(), preview: vi.fn() },
   pluginRegistry: {
     discover: vi.fn(),
     installations: vi.fn(),
@@ -50,6 +54,7 @@ vi.mock("@lingui/react/macro", () => ({
     (value === 1 ? one : other).replace("#", String(value)),
 }));
 
+import { CommunitySkillGrants } from "./community-skill-grants";
 import { CommunityStore } from "./community-store";
 
 function release(slug: string, number: number, name: string): RegistryVersion {
@@ -92,6 +97,16 @@ beforeEach(() => {
   installs = [];
   api.me.mockReset().mockResolvedValue({ isAdmin: false });
   api.bots.list.mockReset().mockResolvedValue([bot("bot-1", "Ada"), bot("bot-2", "Max")]);
+  api.connections.catalog.mockReset().mockResolvedValue([]);
+  api.connections.list.mockReset().mockResolvedValue([]);
+  api.capabilities.list.mockReset().mockResolvedValue([]);
+  api.capabilities.catalogSearch.mockReset().mockResolvedValue({ enabled: false, results: [] });
+  api.capabilities.sourcePresets.mockReset().mockResolvedValue([]);
+  api.mcp.servers.list.mockReset().mockResolvedValue([]);
+  api.mcp.assignments.list.mockReset().mockResolvedValue([]);
+  api.marketplace.catalog
+    .mockReset()
+    .mockResolvedValue({ entries: [], unavailableRegistries: [], skippedEntries: 0 });
   const registry = api.pluginRegistry;
   for (const fn of Object.values(registry)) fn.mockReset();
   registry.discover.mockImplementation(async (input: { slug?: string }) => ({
@@ -211,7 +226,7 @@ it("finds releases beyond loaded pages and keeps search cursors and versions sco
   api.pluginRegistry.install.mockResolvedValue(installation([]));
   await render();
   const searchInput = () =>
-    container.querySelector<HTMLInputElement>('[aria-label="Search community plugins"]')!;
+    container.querySelector<HTMLInputElement>('[aria-label="Search plugins"]')!;
   async function searchFor(text: string) {
     vi.useFakeTimers();
     try {
@@ -269,7 +284,7 @@ it("finds releases beyond loaded pages and keeps search cursors and versions sco
     ),
   );
   await settle();
-  expect(container.textContent).toContain("No community plugins match your search.");
+  expect(container.textContent).toContain("No plugins match your search.");
   expect(container.contains(searchAgain)).toBe(true);
 });
 
@@ -719,4 +734,135 @@ it("keeps what a member types while the previous entry is still saving", async (
     ),
   );
   expect(labelled("Food").value).toBe("Soup");
+});
+
+it("lists marketplace packages beside community entries and searches both", async () => {
+  api.marketplace.catalog.mockResolvedValue({
+    entries: [
+      {
+        id: "weather-kit",
+        name: "weather-kit",
+        displayName: "Weather kit",
+        description: "Weather kit for tests",
+        keywords: [],
+        category: "data",
+        logo: null,
+        homepage: null,
+        domains: [],
+        registry: "fixture",
+        source: "https://example.test/weather-kit",
+        installedSource: "https://example.test/weather-kit",
+        hasConnector: true,
+        skillCount: 1,
+      },
+      {
+        id: "style-guide",
+        name: "style-guide",
+        displayName: "Style guide",
+        description: "Style guide for tests",
+        keywords: [],
+        category: null,
+        logo: null,
+        homepage: null,
+        domains: [],
+        registry: "fixture",
+        source: "https://example.test/style-guide",
+        installedSource: "https://example.test/style-guide",
+        hasConnector: false,
+        skillCount: 3,
+      },
+    ],
+    unavailableRegistries: [],
+    skippedEntries: 0,
+  });
+  api.capabilities.list.mockResolvedValue([
+    {
+      id: "install-style",
+      kind: "plugin",
+      name: "style-guide",
+      source: "https://example.test/style-guide",
+      config: {},
+      availability: { mode: "current" },
+    },
+  ]);
+  await render();
+  await vi.waitFor(() => expect(container.textContent).toContain("Weather kit"));
+  const sections = [...container.querySelectorAll('[data-testid="plugin-section"]')].map(
+    (section) => section.querySelector("h2")?.textContent,
+  );
+  expect(sections).toEqual(["Data", "More"]);
+  expect(container.querySelector('[data-testid="community-results"]')?.textContent).toContain(
+    "Unit converter",
+  );
+
+  vi.useFakeTimers();
+  try {
+    await type(
+      container.querySelector<HTMLInputElement>('[aria-label="Search plugins"]')!,
+      "weather",
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(200));
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+  } finally {
+    vi.useRealTimers();
+  }
+  await act(flush);
+  await vi.waitFor(() =>
+    expect(container.querySelector('[data-testid="plugin-results"]')?.textContent).toContain(
+      "Weather kit",
+    ),
+  );
+  expect(container.querySelector('[data-testid="plugin-results"]')?.textContent).toContain(
+    "Weather kit",
+  );
+  expect(container.querySelector('[data-testid="plugin-results"]')?.textContent).not.toContain(
+    "Style guide",
+  );
+
+  const installedTab = [...container.querySelectorAll<HTMLElement>('[role="tab"]')].find((tab) =>
+    tab.textContent?.startsWith("Installed"),
+  )!;
+  expect(installedTab.textContent).toBe("Installed1");
+  await click(installedTab);
+  const installedPackage = container.querySelector('[data-testid="package-installed-row"]')!;
+  expect(installedPackage.textContent).toContain("Style guide");
+});
+
+it("lets a member allow one community skill for one agent from Skills", async () => {
+  installs = [installation([{ botId: "bot-2", partId: "conversion-guide" }])];
+  api.pluginRegistry.setGrants.mockImplementation(
+    async (input: { botId: string; partIds: string[] }) => {
+      installs = [
+        installation([
+          { botId: "bot-2", partId: "conversion-guide" },
+          ...input.partIds.map((partId) => ({ botId: input.botId, partId })),
+        ]),
+      ];
+      return installs[0];
+    },
+  );
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  await act(async () => {
+    root.render(
+      <QueryClientProvider client={client}>
+        <CommunitySkillGrants activeBotId="bot-1" />
+      </QueryClientProvider>,
+    );
+  });
+  await settle();
+  const toggle = () =>
+    container.querySelector<HTMLElement>(
+      '[role="switch"][aria-label="Allow conversion-guide for Ada"]',
+    );
+  await vi.waitFor(() => expect(toggle()).not.toBeNull());
+  expect(container.querySelectorAll('[data-testid="community-skill-grant"]')).toHaveLength(1);
+  expect(toggle()!.getAttribute("aria-checked")).toBe("false");
+
+  await click(toggle()!);
+  expect(api.pluginRegistry.setGrants).toHaveBeenCalledExactlyOnceWith({
+    installationId: "install-1",
+    botId: "bot-1",
+    partIds: ["conversion-guide"],
+  });
+  await vi.waitFor(() => expect(toggle()!.getAttribute("aria-checked")).toBe("true"));
 });

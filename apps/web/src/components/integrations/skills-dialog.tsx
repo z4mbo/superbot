@@ -8,6 +8,7 @@ import { ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useSpaceQueries } from "../../lib/query/query";
+import { CommunitySkillGrants } from "../../pages/plugins/community/community-skill-grants";
 import { AgentSkills } from "../../pages/space/KnowledgeSection";
 import type { PluginSelection } from "./plugin-marketplace";
 import {
@@ -30,7 +31,10 @@ function skillCount(install: CapabilityInstall) {
 /** Your skills in this space, the skills plugins added, and skill packs to browse. */
 export function SkillsPanel({
   actions,
+  activeBotId,
 }: {
+  /** The agent whose community skills are shown first. */
+  activeBotId?: string;
   /** Where the panel's own controls go in the Store's header; inline when absent. */
   actions?: HTMLElement | null;
 }) {
@@ -147,6 +151,7 @@ export function SkillsPanel({
             <AgentSkills />
           </div>
         </section>
+        <CommunitySkillGrants activeBotId={activeBotId} />
         {skillSets.length ? (
           <section data-testid="plugin-skill-sets">
             <h3 className="mb-2 px-2.5 text-body font-medium text-muted-foreground">

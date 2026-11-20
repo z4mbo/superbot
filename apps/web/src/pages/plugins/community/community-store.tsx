@@ -2,20 +2,39 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useTimeout } from "@rakazo/chat-ui/hooks";
 import type { Bot } from "@rakazo/contracts";
 import { MAX_REGISTRY_SEARCH_LENGTH } from "@rakazo/contracts";
-import { Button, Input, Spinner, Tabs, TabsList, TabsTrigger } from "@rakazo/ui-web";
+import { catalogItemKey, managedAppFor, matchesPluginQuery } from "@rakazo/core";
+import {
+  Button,
+  Input,
+  SectionHeading,
+  Spinner,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@rakazo/ui-web";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { NotebookPen, Plus } from "lucide-react";
 import { useState } from "react";
+import type {
+  ManagedAppLink,
+  PluginSelection,
+} from "../../../components/integrations/plugin-marketplace";
 import {
+  PluginDetail,
   PluginLogo,
   PluginRow,
+  pluginSelection,
   ROW_BUTTON,
   ROW_HOVER,
   ROW_SHELL,
 } from "../../../components/integrations/plugin-marketplace";
 import { useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
+import { PackageBrowse } from "../package-browse";
 import { ViewTitle } from "../parts";
+import type { PluginPick } from "../plugin-picks";
+import { usePluginCategoryLabel } from "../use-catalog-browse";
+import { usePluginConnections } from "../use-plugin-connections";
 import { AppRunner } from "./app-runner";
 import { CommunityDetail } from "./community-detail";
 import { CreatePlugin } from "./create-plugin";
@@ -25,24 +44,42 @@ import { ReviewQueue } from "./review-queue";
 
 type Tab = "discover" | "installed" | "create" | "review";
 
-/** Community plugins from the deployment's registry: approved ones to install, and authoring. */
+const closeNothing = () => undefined;
+
+/**
+ * Every plugin to install: the source marketplace's packages and the deployment registry's
+ * community entries, what is installed of both, and authoring and review of community entries.
+ */
 export function CommunityStore({
   activeBotId,
-  initialSlug,
+  initialPick,
   onBack,
+  onOpenApps,
 }: {
   activeBotId?: string;
   /** A plugin to show first, picked from elsewhere. */
-  initialSlug?: string;
+  initialPick?: PluginPick;
   /** Shown with a title and a way back when the store is opened from another view. */
   onBack?: () => void;
+  /** Where a plugin for a managed app sends the person to manage that app. */
+  onOpenApps?: () => void;
 }) {
   const { t } = useLingui();
+  const categoryLabel = usePluginCategoryLabel();
+  const connections = usePluginConnections({
+    activeBotId,
+    detailKey: null,
+    closeDetail: closeNothing,
+  });
+  const catalogEntries = connections.pluginCatalog.data?.entries ?? [];
+  const [openPackage, setOpenPackage] = useState<PluginSelection | null>(
+    initialPick?.kind === "package" ? initialPick.selection : null,
+  );
   const queries = useSpaceQueries();
   const registry = queries.pluginRegistry;
   const [tab, setTab] = useState<Tab>("discover");
   const [openPlugin, setOpenPlugin] = useState<{ slug: string; version?: number } | null>(
-    initialSlug ? { slug: initialSlug } : null,
+    initialPick?.kind === "community" ? { slug: initialPick.slug } : null,
   );
   const [openApp, setOpenApp] = useState<{ slug: string; partId: string } | null>(null);
   const [template, setTemplate] = useState<{ key: number; version: RegistryVersion } | null>(null);
@@ -83,6 +120,21 @@ export function CommunityStore({
       />
     );
 
+  if (openPackage)
+    return (
+      <PluginDetail
+        key={openPackage.installedSource}
+        selection={openPackage}
+        installs={connections.pluginInstalls}
+        servers={connections.mcpServers}
+        assigned={connections.assigned}
+        activeBotId={activeBotId}
+        managed={managedLink(openPackage)}
+        onBack={() => setOpenPackage(null)}
+        onChanged={connections.refresh}
+      />
+    );
+
   if (openPlugin)
     return (
       <CommunityDetail
@@ -102,7 +154,29 @@ export function CommunityStore({
       />
     );
 
+  function managedLink(selection: PluginSelection): ManagedAppLink | undefined {
+    const entry = catalogEntries.find((row) => row.installedSource === selection.installedSource);
+    const item = entry && onOpenApps ? managedAppFor(entry, connections.catalog) : undefined;
+    if (!item || !onOpenApps) return undefined;
+    return {
+      name: item.name,
+      logo: item.logo,
+      connected: connections.itemConnected(item),
+      connecting: connections.pending === catalogItemKey(item),
+      onConnect: () => void connections.connect(item),
+      onManage: onOpenApps,
+    };
+  }
+
+  function installedSelection(source: string, name: string): PluginSelection {
+    const entry = catalogEntries.find((row) => row.installedSource === source);
+    return entry ? pluginSelection(entry) : { source, installedSource: source, name };
+  }
+
   const latest = latestBySlug(discover.data?.pages.flatMap((page) => page.items) ?? []);
+  const packageMatch = catalogEntries.some((entry) =>
+    matchesPluginQuery(entry, search, entry.category ? categoryLabel(entry.category) : ""),
+  );
   const loadingResults = waitingForSearch || discover.isPending;
   const discoverError =
     discover.isError && !latest.length ? (
@@ -112,11 +186,63 @@ export function CommunityStore({
       />
     ) : null;
 
+  function communityResults() {
+    if (loadingResults) return <Loading />;
+    if (discoverError) return discoverError;
+    if (!latest.length)
+      return search && !packageMatch ? (
+        <p className="px-1 text-body text-muted-foreground">
+          <Trans>No plugins match your search.</Trans>
+        </p>
+      ) : null;
+    return (
+      <section>
+        <SectionHeading as="h2" className="mb-2 px-2.5">
+          <Trans>Community</Trans>
+        </SectionHeading>
+        <div data-testid="community-results" className="grid gap-2 sm:grid-cols-2">
+          {latest.map((version) => (
+            <PluginRow
+              key={version.slug}
+              name={version.manifest.name}
+              description={version.manifest.description}
+              installed={Boolean(installFor(version.slug))}
+              onOpen={() =>
+                setOpenPlugin({
+                  slug: version.slug,
+                  version: query ? version.version : undefined,
+                })
+              }
+            />
+          ))}
+        </div>
+        {discover.hasNextPage ? (
+          <div className="mt-4 flex justify-center">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={discover.isFetchingNextPage}
+              onClick={() => void discover.fetchNextPage()}
+            >
+              <Trans>Show more</Trans>
+            </Button>
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+
   function discoverTab() {
     if (!search && !query) {
-      if (loadingResults) return <Loading />;
-      if (discoverError) return discoverError;
-      if (!latest.length && !discover.hasNextPage)
+      if (loadingResults && !catalogEntries.length) return <Loading />;
+      if (
+        !loadingResults &&
+        !discoverError &&
+        !latest.length &&
+        !discover.hasNextPage &&
+        connections.pluginCatalog.isSuccess &&
+        !catalogEntries.length
+      )
         return (
           <div className="flex flex-col items-start gap-3 px-1">
             <p className="text-body text-muted-foreground">
@@ -130,58 +256,27 @@ export function CommunityStore({
         );
     }
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <Input
           value={search}
           maxLength={MAX_REGISTRY_SEARCH_LENGTH}
           onChange={(event) => setSearch(event.target.value)}
-          aria-label={t`Search community plugins`}
-          placeholder={t`Search community plugins`}
+          aria-label={t`Search plugins`}
+          placeholder={t`Search plugins`}
         />
-        {loadingResults ? (
-          <Loading />
-        ) : discoverError ? (
-          discoverError
-        ) : latest.length ? (
-          <div data-testid="community-results" className="grid gap-2 sm:grid-cols-2">
-            {latest.map((version) => (
-              <PluginRow
-                key={version.slug}
-                name={version.manifest.name}
-                description={version.manifest.description}
-                installed={Boolean(installFor(version.slug))}
-                onOpen={() =>
-                  setOpenPlugin({
-                    slug: version.slug,
-                    version: query ? version.version : undefined,
-                  })
-                }
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="px-1 text-body text-muted-foreground">
-            <Trans>No community plugins match your search.</Trans>
-          </p>
-        )}
-        {!loadingResults && discover.hasNextPage ? (
-          <div className="flex justify-center">
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={discover.isFetchingNextPage}
-              onClick={() => void discover.fetchNextPage()}
-            >
-              <Trans>Show more</Trans>
-            </Button>
-          </div>
-        ) : null}
+        <PackageBrowse
+          pluginCatalog={connections.pluginCatalog}
+          installs={connections.pluginInstalls}
+          query={searchText}
+          community={communityResults()}
+          onOpen={setOpenPackage}
+        />
       </div>
     );
   }
 
   function installedTab() {
-    if (installations.isPending) return <Loading />;
+    if (installations.isPending || !connections.catalogLoaded) return <Loading />;
     if (installations.isError)
       return (
         <LoadError
@@ -189,14 +284,29 @@ export function CommunityStore({
           onRetry={() => void installations.refetch()}
         />
       );
-    if (!installs.length)
+    if (!installs.length && !connections.pluginInstalls.length)
       return (
         <p className="px-1 text-body text-muted-foreground">
-          <Trans>No community plugins installed in this space.</Trans>
+          <Trans>No plugins installed in this space.</Trans>
         </p>
       );
     return (
       <div data-testid="community-installed" className="space-y-1">
+        {connections.pluginInstalls.map((install) => {
+          const selection = installedSelection(install.source, install.name);
+          return (
+            <div key={install.id} data-testid="package-installed-row">
+              <PluginRow
+                name={selection.name}
+                description={selection.description ?? ""}
+                logo={selection.logo}
+                site={selection.site}
+                installed
+                onOpen={() => setOpenPackage(selection)}
+              />
+            </div>
+          );
+        })}
         {installs.map((installation) => (
           <InstalledRow
             key={installation.id}
@@ -220,8 +330,10 @@ export function CommunityStore({
           </TabsTrigger>
           <TabsTrigger value="installed" className="px-3">
             <Trans>Installed</Trans>
-            {installs.length ? (
-              <span className="text-muted-foreground">{installs.length}</span>
+            {installs.length + connections.pluginInstalls.length ? (
+              <span className="text-muted-foreground">
+                {installs.length + connections.pluginInstalls.length}
+              </span>
             ) : null}
           </TabsTrigger>
           <TabsTrigger value="create" className="px-3" data-testid="community-create-tab">

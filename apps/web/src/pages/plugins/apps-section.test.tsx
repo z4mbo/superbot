@@ -187,7 +187,7 @@ it("offers the public catalog for a search and sends nothing there until it is p
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenCommunity={() => {}} />
+        <AppsSection onOpenPlugins={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -226,7 +226,7 @@ it("keeps complete Unicode initials in the connected-app marks", async () => {
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenCommunity={() => {}} />
+        <AppsSection onOpenPlugins={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -248,39 +248,14 @@ it("opens both Unicode fallback screenshot targets through browse and manage", a
       noAuth: false,
     },
   ]);
-  api.marketplace.catalog.mockResolvedValue({
-    entries: [
-      {
-        id: "openclaw",
-        name: "openclaw",
-        displayName: "🦞 OpenClaw",
-        description: "Fixture integration",
-        keywords: [],
-        category: "productivity",
-        logo: null,
-        homepage: null,
-        domains: [],
-        registry: "fixture",
-        source: "https://example.test/plugin",
-        installedSource: "https://example.test/plugin",
-        hasConnector: true,
-        skillCount: 0,
-      },
-    ],
-    unavailableRegistries: [],
-    skippedEntries: 0,
-  });
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenCommunity={() => {}} />
+        <AppsSection onOpenPlugins={() => {}} />
       </QueryClientProvider>,
     ),
   );
   await vi.waitFor(() => expect(searchBox().disabled).toBe(false));
-  expect(
-    [...host.querySelectorAll(".place-items-center")].some((el) => el.textContent === "🦞"),
-  ).toBe(true);
   const connected = host.querySelector("span[aria-hidden]")!.closest("button")!;
   await act(async () => connected.click());
   const apps = host.querySelector('[data-testid="connected-apps"]')!;
@@ -344,7 +319,7 @@ it("leads from an app that is also a chat app here to messaging, and says nothin
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenCommunity={() => {}} onOpenMessaging={onOpenMessaging} />
+        <AppsSection onOpenPlugins={() => {}} onOpenMessaging={onOpenMessaging} />
       </QueryClientProvider>,
     ),
   );
@@ -384,27 +359,25 @@ it("finds community plugins from the Apps search and opens them in Plugins", asy
     items: !input.query || "kcal diary".includes(input.query.toLowerCase()) ? [diary] : [],
     nextAfter: null,
   }));
-  const onOpenCommunity = vi.fn();
+  const onOpenPlugins = vi.fn();
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenCommunity={onOpenCommunity} />
+        <AppsSection onOpenPlugins={onOpenPlugins} />
       </QueryClientProvider>,
     ),
   );
   await vi.waitFor(() => expect(searchBox().disabled).toBe(false));
-  expect(host.querySelector("[data-testid=community-picks]")).toBeNull();
+  expect(host.querySelector("[data-testid=plugin-picks]")).toBeNull();
   await type(searchBox(), "kcal");
   await vi.waitFor(() =>
-    expect(host.querySelector("[data-testid=community-picks]")?.textContent).toContain(
-      "Kcal diary",
-    ),
+    expect(host.querySelector("[data-testid=plugin-picks]")?.textContent).toContain("Kcal diary"),
   );
   const pick = [
-    ...host.querySelectorAll<HTMLButtonElement>("[data-testid=community-picks] button"),
+    ...host.querySelectorAll<HTMLButtonElement>("[data-testid=plugin-picks] button"),
   ].find((button) => button.textContent === "Add")!;
   await act(async () => pick.click());
-  expect(onOpenCommunity).toHaveBeenCalledWith("kcal-diary");
+  expect(onOpenPlugins).toHaveBeenCalledWith({ kind: "community", slug: "kcal-diary" });
 
   await type(searchBox(), "weather");
   await vi.waitFor(() =>
@@ -413,7 +386,7 @@ it("finds community plugins from the Apps search and opens them in Plugins", asy
       expect.anything(),
     ),
   );
-  await vi.waitFor(() => expect(host.querySelector("[data-testid=community-picks]")).toBeNull());
+  await vi.waitFor(() => expect(host.querySelector("[data-testid=plugin-picks]")).toBeNull());
 });
 
 it("offers the server's connector presets when there is no managed catalog, even if the community registry fails", async () => {
@@ -454,7 +427,7 @@ it("offers the server's connector presets when there is no managed catalog, even
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenCommunity={() => {}} />
+        <AppsSection onOpenPlugins={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -470,7 +443,7 @@ it("offers the server's connector presets when there is no managed catalog, even
     "Code host",
   ]);
   expect(host.textContent).not.toContain("Configure a plugin catalog");
-  expect(host.querySelector("[data-testid=community-picks]")).toBeNull();
+  expect(host.querySelector("[data-testid=plugin-picks]")).toBeNull();
 
   await type(searchBox(), "code");
   await vi.waitFor(() =>
@@ -513,7 +486,7 @@ it("offers a connector preset once, as the managed app, when the catalog also co
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenCommunity={() => {}} />
+        <AppsSection onOpenPlugins={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -574,11 +547,11 @@ it("leads Apps with what is already connected and sends an added preset to its m
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenCommunity={() => {}} />
+        <AppsSection onOpenPlugins={() => {}} />
       </QueryClientProvider>,
     ),
   );
-  const connected = () => host.querySelector('[data-testid="connected-apps"]');
+  const connected = () => host.querySelector('[data-testid="connected-now"]');
   await vi.waitFor(() => expect(connected()?.textContent).toContain("Tracker"));
   expect(connected()?.textContent).toContain("Notes");
   expect(connected()?.textContent).not.toContain("Wiki");
@@ -600,4 +573,73 @@ it("leads Apps with what is already connected and sends an added preset to its m
   await act(async () => wiki.click());
   await vi.waitFor(() => expect(searchBox()).toBeNull());
   expect(host.querySelector('[data-testid="integrations-source-form"]')).toBeNull();
+});
+
+it("lists services in Apps and offers matching plugin packages only from its search", async () => {
+  api.marketplace.catalog.mockResolvedValue({
+    entries: [
+      {
+        id: "weather-kit",
+        name: "weather-kit",
+        displayName: "Weather kit",
+        description: "Weather kit for tests",
+        keywords: [],
+        category: "data",
+        logo: null,
+        homepage: null,
+        domains: [],
+        registry: "fixture",
+        source: "https://example.test/weather-kit",
+        installedSource: "https://example.test/weather-kit",
+        hasConnector: true,
+        skillCount: 1,
+      },
+      {
+        id: "style-guide",
+        name: "style-guide",
+        displayName: "Style guide",
+        description: "Style guide for tests",
+        keywords: [],
+        category: null,
+        logo: null,
+        homepage: null,
+        domains: [],
+        registry: "fixture",
+        source: "https://example.test/style-guide",
+        installedSource: "https://example.test/style-guide",
+        hasConnector: false,
+        skillCount: 3,
+      },
+    ],
+    unavailableRegistries: [],
+    skippedEntries: 0,
+  });
+  const onOpenPlugins = vi.fn();
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <AppsSection onOpenPlugins={onOpenPlugins} />
+      </QueryClientProvider>,
+    ),
+  );
+  await vi.waitFor(() => expect(searchBox().disabled).toBe(false));
+  expect(host.textContent).not.toContain("Weather kit");
+  expect(host.querySelector('[data-testid="plugin-categories"]')).toBeNull();
+
+  await type(searchBox(), "weather");
+  const picks = () => host.querySelector('[data-testid="plugin-picks"]');
+  await vi.waitFor(() => expect(picks()?.textContent).toContain("Weather kit"));
+  await type(searchBox(), "style");
+  await vi.waitFor(() => expect(picks()).toBeNull());
+
+  await type(searchBox(), "weather");
+  await vi.waitFor(() => expect(picks()?.textContent).toContain("Weather kit"));
+  const add = [...picks()!.querySelectorAll("button")].find(
+    (button) => button.textContent === "Add",
+  )!;
+  await act(async () => add.click());
+  expect(onOpenPlugins).toHaveBeenCalledWith({
+    kind: "package",
+    selection: expect.objectContaining({ installedSource: "https://example.test/weather-kit" }),
+  });
 });
