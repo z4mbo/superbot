@@ -26,6 +26,7 @@ impl Desktop {
                         if let Some(panel) = this.agent_panel.as_mut() {
                             panel.settings = !panel.settings;
                             panel.screen = None;
+                            panel.terminal = None;
                             panel.editing = None;
                         }
                         cx.notify();
@@ -67,8 +68,13 @@ impl Desktop {
             }
         };
         let problem = self.agent_panel.as_ref().and_then(|panel| panel.problem.clone());
-        let showing_screen = self.agent_panel.as_ref().is_some_and(|panel| panel.screen.is_some());
+        let showing_terminal = self.agent_panel.as_ref().is_some_and(|panel| panel.terminal.is_some());
+        let showing_screen = showing_terminal || self.agent_panel.as_ref().is_some_and(|panel| panel.screen.is_some());
         let screen = match bot.as_ref() {
+            Some(bot) if showing_terminal => {
+                let name = bot.name.clone();
+                Some(self.render_terminal(&name, window, &theme, cx))
+            }
             Some(bot) if showing_screen => {
                 let name = bot.name.clone();
                 Some(self.render_screen(&name, window, &theme, cx))

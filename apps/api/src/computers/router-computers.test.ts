@@ -12,7 +12,7 @@ import {
   LocalAgentHomeStore,
 } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
-import { openScreenCapability } from "@rakazo/core/node/screen-capability";
+import { openScreenCapability, verifyScreenProof } from "@rakazo/core/node/screen-capability";
 import type { PrismaClient } from "@rakazo/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "../router.js";
@@ -293,7 +293,11 @@ describe("computer terminal and file transfer", () => {
       dataDir: "/tmp/rakazo-router-test",
     } as unknown as RouterDeps;
     const handler = appHandler(deps);
-    const call = async (procedure: string, json: Record<string, unknown>) => {
+    const call = async (
+      procedure: string,
+      json: Record<string, unknown>,
+      session: { sessionId?: string } = {},
+    ) => {
       const response = await handle(
         handler,
         new Request(`http://127.0.0.1/rpc/computer/${procedure}`, {
@@ -301,7 +305,7 @@ describe("computer terminal and file transfer", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ json: { botId: "bot-1", ...json } }),
         }),
-        { prefix: "/rpc", context: { actor } },
+        { prefix: "/rpc", context: { actor, ...session } },
       );
       return { status: response.status, body: await response.json() };
     };
@@ -541,6 +545,24 @@ describe("computer terminal and file transfer", () => {
       scope: { botId: "bot-1", controlLeaseId: "lease-1" },
       target: { hostname: "screen.example", interactive: true },
     });
+  });
+
+  it("gives a native app the terminal socket proof only for a signed-in session that asks", async () => {
+    const { call } = setup(controlled);
+    const plain = await call("terminalUrl", {}, { sessionId: "session-1" });
+    expect(plain.body.json.socketSession).toBeUndefined();
+    const sessionless = await call("terminalUrl", { nativeSession: true });
+    expect(sessionless.body.json.socketSession).toBeUndefined();
+
+    const native = await call("terminalUrl", { nativeSession: true }, { sessionId: "session-1" });
+    expect(native.status).toBe(200);
+    const page = new URL(native.body.json.url);
+    const proof = native.body.json.socketSession;
+    const socket = page.pathname.replace(/\/vnc\.html$/, "/websockify");
+    const secret = "fake-test-secret";
+    expect(verifyScreenProof(proof, socket, secret, page.origin, "socket")).toBe(true);
+    expect(verifyScreenProof(proof, page.pathname, secret, page.origin, "native")).toBe(false);
+    expect(verifyScreenProof(proof, socket, secret, "https://other.example", "socket")).toBe(false);
   });
 
   it("clears the row when the provider reclaimed the sandbox before the terminal opened", async () => {

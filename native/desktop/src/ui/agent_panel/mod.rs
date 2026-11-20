@@ -28,6 +28,7 @@ mod parts;
 mod provider;
 mod screen;
 mod settings;
+mod terminal;
 mod skills;
 mod view;
 
@@ -177,6 +178,7 @@ pub struct AgentPanel {
     saving: bool,
     problem: Option<String>,
     screen: Option<screen::ScreenSession>,
+    terminal: Option<terminal::TerminalSession>,
     library: Option<(Target, library::LibraryView)>,
     files: Option<files::ComputerFiles>,
     providers: Option<provider::Providers>,
@@ -199,6 +201,7 @@ impl AgentPanel {
             saving: false,
             problem: None,
             screen: None,
+            terminal: None,
             library: None,
             files: None,
             providers: None,
@@ -274,6 +277,10 @@ impl Desktop {
             return true;
         }
         let Some(panel) = self.agent_panel.as_mut() else { return false };
+        if panel.terminal.is_some() {
+            // Escape belongs to the shell while its terminal is open; Computer closes it.
+            return true;
+        }
         if panel.screen.take().is_some() {
             panel.computer = None;
         } else if panel.editing.take().is_some() {

@@ -51,6 +51,9 @@ pub struct ComputerStatus {
     pub controlled_by_other: bool,
     /// This account's own control lease, sent only to the person holding control.
     pub control_lease_id: Option<String>,
+    /// The provider gives this computer a terminal, opened by whoever holds control.
+    #[serde(default)]
+    pub terminal_available: bool,
 }
 
 impl ComputerStatus {
@@ -154,6 +157,15 @@ pub struct ComputerScreen {
     pub screen_session: Option<String>,
 }
 
+/// Where to open an agent's terminal, with the proof its socket is opened with. Both are
+/// capabilities, passed only to the terminal's connection, so this type has no `Debug`.
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComputerTerminal {
+    pub url: Option<String>,
+    pub socket_session: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ComputerControl {
@@ -223,6 +235,16 @@ impl SpaceFeatures<'_> {
     pub async fn computer_screen(&self, bot_id: &str) -> Result<ComputerScreen, Error> {
         self.call("computer/screenUrl", json!({ "botId": bot_id, "nativeSession": true }))
             .await
+    }
+
+    /// The terminal of a running computer, for the account holding control; `url` is None when
+    /// the computer has none.
+    pub async fn computer_terminal(&self, bot_id: &str) -> Result<ComputerTerminal, Error> {
+        self.call(
+            "computer/terminalUrl",
+            json!({ "botId": bot_id, "nativeSession": true }),
+        )
+        .await
     }
 
     pub async fn take_computer_control(&self, bot_id: &str) -> Result<ComputerControl, Error> {
@@ -348,6 +370,7 @@ mod tests {
         assert_eq!(status.busy_bot_name.as_deref(), Some("Scout"));
         assert_eq!(status.disk_full_percent, Some(93));
         assert!(!status.runs_on_user_machine && !status.shared && !status.controlled_by_other);
+        assert!(status.terminal_available);
     }
 
     #[test]

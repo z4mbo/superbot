@@ -78,7 +78,10 @@ export const computersRpc = {
         }),
       )
       .output(z.object({ ok: z.literal(true) })),
-    terminalUrl: oc.input(botId).output(z.object({ url: z.string().nullable() })),
+    /** `nativeSession` also returns the proof a native app opens the terminal socket with. */
+    terminalUrl: oc
+      .input(botId.extend({ nativeSession: z.literal(true).optional() }))
+      .output(z.object({ url: z.string().nullable(), socketSession: z.string().optional() })),
     commands: oc
       .input(botId)
       .output(z.array(ComputerCommandSchema.extend({ createdAt: z.string() }))),

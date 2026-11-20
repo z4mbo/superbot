@@ -635,24 +635,29 @@ export function computerRoutes(ctx: RouterContext) {
           .catch((error: unknown) => clearGoneSandbox(deps, computer, error));
         if (!session) return { url: null };
         await keepComputerAwake(deps, computer.id);
-        return {
-          url: addScreenProxyCapability(
-            withViewOnly(session.url, false),
-            deps.env.screenProxySecret,
-            deps.env.webOrigin,
-            {
-              botId: bot.id,
-              computerId: computer.id,
-              botGeneration: bot.screenGeneration,
-              computerGeneration: computer.screenGeneration,
-              controlLeaseId: computer.controlLeaseId,
-              sessionId: context.sessionId,
-              spaceId: context.actor.spaceId,
-            },
-            undefined,
-            session.headers,
-          ),
-        };
+        const url = addScreenProxyCapability(
+          withViewOnly(session.url, false),
+          deps.env.screenProxySecret,
+          deps.env.webOrigin,
+          {
+            botId: bot.id,
+            computerId: computer.id,
+            botGeneration: bot.screenGeneration,
+            computerGeneration: computer.screenGeneration,
+            controlLeaseId: computer.controlLeaseId,
+            sessionId: context.sessionId,
+            spaceId: context.actor.spaceId,
+          },
+          undefined,
+          session.headers,
+        );
+        // A native app opens the terminal socket itself, with no page for the web server to
+        // hand this same proof to. It is still checked against this session and lease.
+        const page = input.nativeSession && context.sessionId ? new URL(url) : undefined;
+        const socketSession =
+          page &&
+          issueScreenProof(page.pathname, deps.env.screenProxySecret, page.origin, "socket");
+        return { url, ...(socketSession ? { socketSession } : {}) };
       }),
       screenUrl: authed.computer.screenUrl.handler(async ({ context, input }) => {
         let bot = await repos.getBot(context.actor, input.botId);
