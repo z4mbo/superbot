@@ -1,9 +1,12 @@
+use std::cell::Cell;
+use std::collections::HashMap;
+use std::rc::Rc;
 use std::time::Duration;
 
 use gpui_kit::*;
 
-use crate::api::AgentSummary;
-use crate::app::Desktop;
+use crate::api::{AgentSummary, Target};
+use crate::app::{Desktop, MenuKind};
 use crate::theme::{radius, Theme};
 use crate::ui::{bot_avatar, Type};
 
@@ -11,11 +14,14 @@ const OPEN_DELAY: Duration = Duration::from_millis(250);
 const POP: Duration = Duration::from_millis(200);
 const WIDTH: Pixels = px(260.);
 
-/// The pinned tile whose latest line shows beside it, and the rest of the pointer that will open one.
+/// The pinned tile whose latest line shows beside it, the rest of the pointer that will open one,
+/// and each tile's place in the keyboard order and on screen.
 #[derive(Default)]
 pub struct TilePreview {
     shown: Option<String>,
     waiting: Option<Task<()>>,
+    focus: HashMap<String, FocusHandle>,
+    bounds: HashMap<String, Rc<Cell<Bounds<Pixels>>>>,
 }
 
 impl Desktop {
@@ -46,11 +52,54 @@ impl Desktop {
 
     /// Drops a preview whose tile is no longer drawn, without asking for another frame.
     pub fn forget_tile_preview(&mut self) {
-        self.tile_preview = TilePreview::default();
+        self.tile_preview.waiting = None;
+        self.tile_preview.shown = None;
+    }
+
+    /// The tile's stop in the Tab order. It lasts as long as the window, so focus survives redraws.
+    pub fn tile_focus(&mut self, agent: &str, cx: &mut Context<Self>) -> FocusHandle {
+        self.tile_preview.focus.entry(agent.to_owned()).or_insert_with(|| cx.focus_handle().tab_stop(true)).clone()
+    }
+
+    /// Where the tile was last drawn, filled in as it is laid out.
+    pub fn tile_bounds(&mut self, agent: &str) -> Rc<Cell<Bounds<Pixels>>> {
+        self.tile_preview.bounds.entry(agent.to_owned()).or_default().clone()
+    }
+
+    /// Enter or Space opens the bot; the menu key or Shift+F10 opens its actions at the tile's
+    /// centre. Returns whether the key was the tile's.
+    pub fn tile_key(&mut self, agent: &str, key: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(command) = TileKey::of(key) else { return false };
+        self.close_tile_preview(cx);
+        match command {
+            TileKey::Open => self.open(Target::Agent(agent.to_owned()), window, cx),
+            TileKey::Menu => {
+                let at = self.tile_bounds(agent).get().center();
+                self.open_menu(MenuKind::Agent(agent.to_owned()), at, cx);
+            }
+        }
+        true
     }
 
     pub fn tile_preview_shown(&self, agent: &str) -> bool {
         self.tile_preview.shown.as_deref() == Some(agent)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum TileKey {
+    Open,
+    Menu,
+}
+
+impl TileKey {
+    fn of(key: &Keystroke) -> Option<Self> {
+        match (key.key.as_str(), key.modifiers) {
+            ("enter" | "space", modifiers) if !modifiers.modified() => Some(Self::Open),
+            ("menu", _) => Some(Self::Menu),
+            ("f10", modifiers) if modifiers.shift && !modifiers.control && !modifiers.alt => Some(Self::Menu),
+            _ => None,
+        }
     }
 }
 
@@ -95,4 +144,25 @@ pub fn tile_preview(agent: &AgentSummary, text: String, tile_width: Pixels, them
     )
     .with_priority(1)
     .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui_kit::Keystroke;
+
+    use super::TileKey;
+
+    #[test]
+    fn tile_keys_follow_the_simple_sidebar() {
+        fn of(key: &'static str) -> Option<TileKey> {
+            TileKey::of(&Keystroke::parse(key).unwrap())
+        }
+        assert_eq!(of("enter"), Some(TileKey::Open));
+        assert_eq!(of("space"), Some(TileKey::Open));
+        assert_eq!(of("menu"), Some(TileKey::Menu));
+        assert_eq!(of("shift-f10"), Some(TileKey::Menu));
+        for other in ["f10", "shift-enter", "ctrl-space", "tab", "shift-tab", "escape", "a"] {
+            assert_eq!(of(other), None, "{other}");
+        }
+    }
 }
