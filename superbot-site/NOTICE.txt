@@ -12,9 +12,9 @@ Third-party notices
    Copyright 2026 Milind Soni and OpenMausBot contributors
    Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
 
-   Changes: the icon's title and description were renamed for Superbot; tokens
-   were transcribed into plain CSS custom properties and a GPUI theme
-   specification.
+   Changes: the Superbot app icon has a full-size white face with a near-centred
+   gaze on a black tile. Tokens were transcribed into plain CSS custom properties
+   and a GPUI theme specification.
 
 2. Icons drawn inline in the HTML pages
 

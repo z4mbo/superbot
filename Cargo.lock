@@ -7394,6 +7394,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
+ "embed-resource",
  "futures-util",
  "gpui-kit",
  "gtk",

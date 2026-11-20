@@ -1,8 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="t">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="t">
   <!-- Adapted from OpenMausBot public/app-icon.svg. Copyright 2026 Milind Soni and OpenMausBot contributors. Apache License 2.0; see NOTICE.txt. -->
   <title id="t">Superbot</title>
-  <rect width="1024" height="1024" rx="224" fill="#0B0B0C"/>
-  <circle cx="512" cy="530" r="318" fill="#F5F5F5"/>
-  <rect x="428" y="400" width="62" height="150" rx="31" fill="#0B0B0C"/>
-  <rect x="566" y="400" width="62" height="150" rx="31" fill="#0B0B0C"/>
+  <defs>
+    <clipPath id="tile">
+      <path d="M69 0h118c46 0 69 23 69 69v118c0 46-23 69-69 69H69c-46 0-69-23-69-69V69C0 23 23 0 69 0Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <path fill="#000" d="M0 0h256v256H0z"/>
+    <path fill="#fff" d="M-12 123C14 70 61 44 111 44c61 0 112 37 133 94 15 39 13 79-7 111l-10 15H-12Z"/>
+    <g fill="#000">
+      <rect x="89" y="101" width="34" height="74" rx="17" transform="rotate(-12 106 138)"/>
+      <rect x="154" y="90" width="29" height="72" rx="14.5" transform="rotate(-12 168.5 126)"/>
+    </g>
+  </g>
 </svg>

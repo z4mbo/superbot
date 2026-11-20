@@ -142,11 +142,13 @@ Used only for things owned by one bot: its avatar plate, that chat's Send button
 Allow once button on its approval cards. The person's own bubbles stay neutral
 (`bubble_user`), as in OpenMausBot's default Simple mode.
 
-**Bot avatar**: a full circle in the identity colour with the app icon's face in white,
+**Built-in bot avatar**: a full circle in the identity colour with a white face,
 scaled so the disc is 62% of the plate. In the icon's 1024 units: disc centre (512, 530),
 radius 318; two eyes 62 × 150, radius 31, at x 428 and x 566, y 400, filled with the plate
-colour (the slight rightward glance is part of the mark). Source: `assets/logo.svg`
-(notice in `NOTICE.txt`). A bot with its own image shows the image instead. No initials.
+colour. A bot with its own image shows the image instead. No initials.
+
+**Application icon**: the white head fills the black rounded tile. Its eyes look almost
+straight ahead with a small tilt. The launcher, web app and site use `assets/logo.svg`.
 
 **Local avatar pack** (`native/avatars/README.md`): when the appearance folder holds
 `avatars/pack.json`, every bot avatar is the pack's mark instead of the face, matched by
