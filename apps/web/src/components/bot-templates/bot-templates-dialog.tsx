@@ -19,7 +19,7 @@ import {
   Sun,
   Telescope,
 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useSave, useSpaceQueries } from "../../lib/query/query";
 import { errorDetails } from "../../lib/query/user-error";
 import { cronLabels } from "../../lib/routines/cron";
@@ -61,6 +61,7 @@ export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void
   const { t } = useLingui();
   const queries = useSpaceQueries();
   const copy = useBotTemplateCopy();
+  const cardId = useId();
   // Read afresh each time it opens: a template's bot may have been made or deleted since.
   const templates = useQuery({ ...queries.bots.templates.queryOptions(), staleTime: 0 });
   const [openId, setOpenId] = useState<string | null>(null);
@@ -92,23 +93,33 @@ export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void
       );
     return (
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {templates.data.map((template) => {
+        {templates.data.map((template, index) => {
           const { name, summary, sample } = copy(template);
+          const titleId = `${cardId}-${index}-title`;
+          const summaryId = `${cardId}-${index}-summary`;
           return (
             <button
               key={template.id}
               type="button"
               data-testid="bot-template-card"
+              aria-labelledby={titleId}
+              aria-describedby={summaryId}
               onClick={() => setOpenId(template.id)}
               className={`flex min-w-0 flex-col gap-3 rounded-2xl border border-border/70 p-4 text-start focus-visible:outline-none ${ROW_HOVER}`}
             >
               <span className="flex min-w-0 items-center gap-3">
                 <TemplateIcon id={template.id} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-body-lg font-medium text-foreground">
+                  <span
+                    id={titleId}
+                    className="block truncate text-body-lg font-medium text-foreground"
+                  >
                     {name}
                   </span>
-                  <span className="block truncate text-body-sm text-muted-foreground">
+                  <span
+                    id={summaryId}
+                    className="block truncate text-body-sm text-muted-foreground"
+                  >
                     {summary}
                   </span>
                 </span>

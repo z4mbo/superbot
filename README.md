@@ -58,6 +58,16 @@ The [landing page](superbot-site/index.html) and [plugin developer guide](superb
 pnpm --dir apps/web exec vite preview --outDir ../../superbot-site --host 127.0.0.1 --port 5363
 ```
 
+`pnpm dev` uses the Postgres in `DATABASE_URL` when it accepts a connection. Otherwise it starts a
+local `rakazo-dev-postgres` container with Docker, and every checkout reuses that one. Without
+Docker, it runs a local Postgres cluster with your installed Postgres (on `PATH` or from Homebrew)
+instead, also shared by every checkout. It applies
+migrations and generates the Prisma client before starting. A branch that adds migrations main
+doesn't have gets its own database on the same server, copied from the shared one when possible,
+so unmerged schema changes stay out of it. When the default ports are taken, for example by
+another git worktree, it moves to the next free block and prints the URL. Set `WEB_PORT` and
+`API_PORT` to choose ports yourself.
+
 ## Project structure
 
 The Rust workspace under `native/` contains the GPUI desktop, command line and API clients. The server API, worker, database, provider adapters, web client and mobile apps share the same workspace contracts. [Feature coverage](docs/superbot/parity.md) · [License](LICENSE) · [Notices](NOTICE)
