@@ -11,8 +11,8 @@ test("a member installs the calorie diary, records meals and reopens the day's t
     await page.getByTestId("user-menu-trigger").click();
     await page.getByRole("button", { name: "Connect apps", exact: true }).click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByRole("textbox", { name: "Search apps" }).fill("Calorie diary");
-    await dialog.getByTestId("community-picks").getByText("Calorie diary", { exact: true }).click();
+    await dialog.getByRole("tab", { name: "Plugins", exact: true }).click();
+    await dialog.getByRole("button", { name: /Calorie diary/ }).first().click();
     return dialog;
   };
 
@@ -34,7 +34,8 @@ test("a member installs the calorie diary, records meals and reopens the day's t
   await expect(app.getByTestId("community-app-total")).toContainText("700");
   await captureScreenshot(page, testInfo, "community-calorie-diary");
   await page.reload();
-  await openDiary();
+  await expect(page.getByTestId("store-plugins")).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("dialog").getByRole("button", { name: /Calorie diary/ }).first().click();
   await openMeals();
   await expect(app.getByTestId("community-app-record")).toHaveCount(2);
   await expect(app.getByTestId("community-app-total")).toContainText("700");
