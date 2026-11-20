@@ -19,7 +19,7 @@ pub use protocol::{
     Agent, Error, Message, MessageAuthor, SendReceipt, Space, ThreadEvent, ThreadSnapshot,
     ThreadTarget,
 };
-pub use server_selection::{remember_server, selected_server};
+pub use server_selection::{remember_server, remember_sign_in_server, selected_server};
 
 pub const DEFAULT_SERVER: &str = "http://127.0.0.1:5173";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);

@@ -8,7 +8,7 @@ use std::time::Duration;
 use gpui_kit::component::input::{InputEvent, InputState, TextareaState};
 use gpui_kit::*;
 use serde_json::json;
-use superbot_client::{remember_server, Client, CredentialStore, Error, SignUpResult, SpaceNotification};
+use superbot_client::{remember_sign_in_server, Client, CredentialStore, Error, SignUpResult, SpaceNotification};
 
 use crate::api::{self, AgentSummary, Api, CurrentSpace, GroupSummary, Me, Navigation, SpaceSummary, Target};
 use crate::outbox::Drafts;
@@ -460,7 +460,8 @@ impl Desktop {
     }
 
     fn save_server_choice(&mut self, client: &Client, cx: &mut Context<Self>) -> bool {
-        if let Err(error) = remember_server(client) {
+        let launch_server = std::env::var("SUPERBOT_SERVER").ok();
+        if let Err(error) = remember_sign_in_server(client, launch_server.as_deref()) {
             self.sign_in.error = Some(format!("Could not save the server address: {error}"));
             cx.notify();
             return false;

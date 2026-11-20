@@ -34,7 +34,7 @@ superbot login
 superbot-plugin list
 ```
 
-The desktop saves the address when you submit sign-in, account creation, or an email-code request with valid fields. All three programs reuse the saved address on that device. Quit and reopen the app after changing the default in your terminal. For a single CLI invocation, `--server URL` takes precedence over `SUPERBOT_SERVER`, and either takes precedence over the saved address. The desktop also honors `SUPERBOT_SERVER` at launch. With no explicit or saved address, clients use `http://127.0.0.1:5173`.
+The desktop saves the address you choose on the sign-in form when you submit valid fields. An origin supplied through `SUPERBOT_SERVER` applies to that launch only. Editing the field to a different origin saves your new choice. All three programs reuse the saved address on that device. Quit and reopen the app after changing the default in your terminal. For a single CLI invocation, `--server URL` takes precedence over `SUPERBOT_SERVER`, and either takes precedence over the saved address. The desktop also honors `SUPERBOT_SERVER` at launch. With no explicit or saved address, clients use `http://127.0.0.1:5173`.
 
 Sign in with your existing account on each device. Desktop and the CLI share the credential vault on the same device and origin. The address is stored separately in `server.txt` in `~/Library/Application Support/Superbot` on macOS and `%LOCALAPPDATA%\Superbot` on Windows. Email-code sign-in requires working mail delivery on the host.
 

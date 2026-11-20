@@ -10,13 +10,32 @@ pub fn selected_server(explicit: Option<&str>) -> String {
 }
 
 pub fn remember_server(client: &Client) -> io::Result<()> {
-    let path = server_file().ok_or_else(|| {
+    remember_sign_in_server(client, None)
+}
+
+/// Keeps a launch-specific server private to that invocation. An address chosen in the form becomes the device default.
+pub fn remember_sign_in_server(client: &Client, launch_server: Option<&str>) -> io::Result<()> {
+    save_choice(client, launch_server, server_file().as_deref())
+}
+
+fn save_choice(
+    client: &Client,
+    launch_server: Option<&str>,
+    path: Option<&Path>,
+) -> io::Result<()> {
+    if launch_server
+        .and_then(|server| server_origin(server.trim()).ok())
+        .is_some_and(|(origin, _)| origin.as_str() == client.server())
+    {
+        return Ok(());
+    }
+    let path = path.ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::NotFound,
             "Superbot settings directory is unavailable",
         )
     })?;
-    save(&path, client)
+    save(path, client)
 }
 
 fn select(explicit: Option<&str>, path: Option<&Path>) -> String {
@@ -71,6 +90,21 @@ fn default_directory() -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_launch_override_preserves_the_default_until_the_user_chooses_another_origin() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("server.txt");
+        let saved = Client::new("https://shared.example.test").unwrap();
+        let explicit = "http://127.0.0.1:54871";
+        let preview = Client::new(explicit).unwrap();
+        save_choice(&saved, None, Some(&path)).unwrap();
+        save_choice(&preview, Some(explicit), Some(&path)).unwrap();
+        assert_eq!(select(None, Some(&path)), saved.server());
+        let replacement = Client::new("https://second.example.test").unwrap();
+        save_choice(&replacement, Some(explicit), Some(&path)).unwrap();
+        assert_eq!(select(None, Some(&path)), replacement.server());
+    }
 
     #[test]
     fn an_explicit_server_takes_precedence_over_a_saved_server() {
