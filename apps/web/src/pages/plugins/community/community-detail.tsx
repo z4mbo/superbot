@@ -2,14 +2,14 @@ import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { Bot } from "@rakazo/contracts";
 import { Button, OptionSelect, Spinner, Switch } from "@rakazo/ui-web";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, FileText, Plug } from "lucide-react";
+import { ChevronLeft, Copy, FileText, NotebookPen, Plug } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { PluginLogo } from "../../../components/integrations/plugin-marketplace";
 import { useSave, useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
 import type { RegistryInstallation, RegistryPart, RegistryVersion } from "./registry";
-import { grantedBots, grantedParts, REGISTRY_PAGE_SIZE, readAllPages } from "./registry";
+import { appParts, grantedBots, grantedParts, REGISTRY_PAGE_SIZE, readAllPages } from "./registry";
 
 type ConfirmedChange =
   | { kind: "uninstall"; installationId: string }
@@ -24,6 +24,8 @@ export function CommunityDetail({
   bots,
   activeBotId,
   onBack,
+  onOpenApp,
+  onUseTemplate,
 }: {
   slug: string;
   preferredVersion?: number;
@@ -31,6 +33,8 @@ export function CommunityDetail({
   bots: readonly Bot[];
   activeBotId?: string;
   onBack: () => void;
+  onOpenApp: (partId: string) => void;
+  onUseTemplate: (version: RegistryVersion) => void;
 }) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
@@ -59,7 +63,7 @@ export function CommunityDetail({
   const botId =
     [chosenBot, activeBotId].find((id) => id && bots.some((bot) => bot.id === id)) ?? bots[0]?.id;
 
-  const stale = [registry.installations.key()];
+  const stale = [registry.installations.key(), registry.appRecords.key()];
   const change = useSave({
     save: async (input: Change, rpc) => {
       if (input.kind === "install")
@@ -104,6 +108,7 @@ export function CommunityDetail({
     );
 
   const viewingInstalled = installed?.id === shown.id;
+  const apps = appParts(shown.manifest);
   const botCount = installation ? grantedBots(installation).length : 0;
   const granted = installation && botId ? grantedParts(installation, botId) : [];
 
@@ -145,13 +150,25 @@ export function CommunityDetail({
     }
     if (installation)
       return viewingInstalled ? (
-        <Button
-          variant="secondary"
-          disabled={busy}
-          onClick={() => setConfirming({ kind: "uninstall", installationId: installation.id })}
-        >
-          <Trans>Uninstall</Trans>
-        </Button>
+        <>
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => setConfirming({ kind: "uninstall", installationId: installation.id })}
+          >
+            <Trans>Uninstall</Trans>
+          </Button>
+          {apps.length === 1 ? (
+            <Button
+              size="lg"
+              className="px-5"
+              disabled={busy}
+              onClick={() => onOpenApp(apps[0]!.id)}
+            >
+              <Trans>Open</Trans>
+            </Button>
+          ) : null}
+        </>
       ) : (
         <Button
           size="lg"
@@ -185,6 +202,12 @@ export function CommunityDetail({
     ? errorText(change.error, t`Could not change this plugin`)
     : grants.error
       ? errorText(grants.error, t`Could not change bot access`)
+      : null;
+  const appWarning =
+    confirming && installation && appParts(installation.plugin.manifest).length
+      ? confirming.kind === "uninstall"
+        ? t`Uninstalling permanently deletes your entries in this app.`
+        : t`Each version keeps its own entries. Switching back shows them again.`
       : null;
   const note = !installation ? (
     <Trans>After installing, choose which bots can use each part.</Trans>
@@ -223,34 +246,52 @@ export function CommunityDetail({
         {shown.manifest.description}
       </p>
 
-      {available.length > 1 ? (
-        <div className="flex items-center gap-3">
-          <span id="community-version-label" className="text-body text-muted-foreground">
-            <Trans>Version</Trans>
-          </span>
-          <OptionSelect
-            aria-labelledby="community-version-label"
-            data-testid="community-version"
-            className="w-auto"
-            value={String(shown.version)}
-            disabled={busy}
-            options={available.map((row) => ({
-              value: String(row.version),
-              label:
-                row.id === installed?.id
-                  ? t`Version ${row.version} (installed)`
-                  : row.id === latest?.id
-                    ? t`Version ${row.version} (latest)`
-                    : t`Version ${row.version}`,
-            }))}
-            onValueChange={(value) => {
-              setConfirming(null);
-              setChosenVersion(Number(value));
-            }}
-          />
-        </div>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-3">
+        {available.length > 1 ? (
+          <div className="flex items-center gap-3">
+            <span id="community-version-label" className="text-body text-muted-foreground">
+              <Trans>Version</Trans>
+            </span>
+            <OptionSelect
+              aria-labelledby="community-version-label"
+              data-testid="community-version"
+              className="w-auto"
+              value={String(shown.version)}
+              disabled={busy}
+              options={available.map((row) => ({
+                value: String(row.version),
+                label:
+                  row.id === installed?.id
+                    ? t`Version ${row.version} (installed)`
+                    : row.id === latest?.id
+                      ? t`Version ${row.version} (latest)`
+                      : t`Version ${row.version}`,
+              }))}
+              onValueChange={(value) => {
+                setConfirming(null);
+                setChosenVersion(Number(value));
+              }}
+            />
+          </div>
+        ) : null}
+        <Button
+          type="button"
+          variant="text"
+          size="sm"
+          className="ms-auto"
+          disabled={busy}
+          onClick={() => onUseTemplate(shown!)}
+        >
+          <Copy />
+          <Trans>Use as template</Trans>
+        </Button>
+      </div>
 
+      {appWarning ? (
+        <p role="alert" className="text-body text-foreground">
+          {appWarning}
+        </p>
+      ) : null}
       {failure ? (
         <p role="alert" className="text-body text-destructive">
           {failure}
@@ -290,6 +331,9 @@ export function CommunityDetail({
               part={part}
               expanded={expanded === part.id}
               onExpand={() => setExpanded((open) => (open === part.id ? null : part.id))}
+              onOpen={
+                viewingInstalled && part.kind === "app" ? () => onOpenApp(part.id) : undefined
+              }
               grant={
                 viewingInstalled && botId
                   ? {
@@ -323,7 +367,7 @@ export function Facts({
   );
 }
 
-function BackButton({
+export function BackButton({
   onBack,
   disabled,
   className = "",
@@ -353,22 +397,31 @@ export function PartRow({
   part,
   expanded,
   onExpand,
+  onOpen,
   grant,
 }: {
   part: RegistryPart;
   expanded: boolean;
   onExpand: () => void;
+  /** Opens an installed app part. */
+  onOpen?: () => void;
   grant?: { on: boolean; disabled: boolean; onChange: (on: boolean) => void };
 }) {
   const { t } = useLingui();
-  const Icon = part.kind === "skill" ? FileText : Plug;
+  const Icon = part.kind === "skill" ? FileText : part.kind === "app" ? NotebookPen : Plug;
+  const detail =
+    part.kind === "skill"
+      ? t`Skill`
+      : part.kind === "app"
+        ? part.fields.map((field) => field.label).join(", ")
+        : t`Tools at ${part.endpoint}`;
   const body = (
     <>
       <Icon size={16} className="shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-body-lg font-medium text-foreground">{part.id}</span>
         <span className="block truncate text-body-sm text-muted-foreground">
-          {part.kind === "skill" ? t`Skill` : t`Tools at ${part.endpoint}`}
+          {part.kind === "app" ? <Trans>App: {detail}</Trans> : detail}
         </span>
       </span>
     </>
@@ -388,6 +441,11 @@ export function PartRow({
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-3">{body}</div>
         )}
+        {onOpen ? (
+          <Button type="button" variant="secondary" size="sm" onClick={onOpen}>
+            <Trans>Open</Trans>
+          </Button>
+        ) : null}
         {grant ? (
           <Switch
             aria-label={t`Allow ${part.id}`}

@@ -66,7 +66,8 @@ export function PluginLogo({
     />
   ) : (
     <div
-      className={`${box} grid shrink-0 place-items-center border border-border/60 bg-favicon-plate font-semibold text-foreground`}
+      aria-hidden
+      className={`${box} grid shrink-0 place-items-center border border-border/60 bg-accent font-semibold text-foreground`}
     >
       {Array.from(name)[0]?.toUpperCase()}
     </div>

@@ -1,10 +1,18 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import type { PluginDraft, RegistryVersion } from "./registry";
 import {
+  calorieDiaryDraft,
+  changeField,
   checkDraft,
   draftFromJson,
+  draftFromManifest,
+  draftFromTemplate,
   emptyDraft,
+  isUntouched,
   latestBySlug,
+  manifestJson,
+  newField,
   newPart,
   nextVersion,
   readAllPages,
@@ -186,5 +194,57 @@ describe("community registry helpers", () => {
     });
     expect(items).toEqual([1, 2, 3, 4]);
     expect(seen).toEqual([undefined, "b", "c"]);
+  });
+
+  it("starts from the published calorie diary example under an ID of the author's own", async () => {
+    const example = calorieDiaryDraft([version("calorie-diary", 2)]);
+    expect(example).toMatchObject({ slug: "calorie-diary", slugEdited: false, version: "3" });
+    expect(checkDraft(example).ok).toBe(true);
+    const manifest = JSON.parse(manifestJson(example));
+    const published = await readFile(
+      new URL("../../../../../../examples/plugins/kcal-diary/plugin.json", import.meta.url),
+      "utf8",
+    );
+    expect(manifest).toEqual(JSON.parse(published));
+    const again = draftFromManifest(manifest, "calorie-diary", 4);
+    expect(JSON.parse(manifestJson(again))).toEqual(manifest);
+    expect(isUntouched(emptyDraft())).toBe(true);
+    expect(isUntouched(example)).toBe(false);
+  });
+
+  it("reports app field problems where the author fixes them", () => {
+    const example = calorieDiaryDraft([]);
+    const [app] = example.parts;
+    if (app?.kind !== "app") throw new Error("expected an app part");
+    const broken = {
+      ...example,
+      parts: [
+        {
+          ...app,
+          summaryField: "meal",
+          fields: [...app.fields, newField({ label: "", id: "meal", idEdited: true })],
+        },
+      ],
+    };
+    const checked = checkDraft(broken);
+    expect(checked.ok).toBe(false);
+    const paths = checked.ok ? [] : checked.issues.map((issue) => issue.path.map(String).join("."));
+    expect(paths).toEqual(
+      expect.arrayContaining(["manifest.parts.0.fields.3.label", "manifest.parts.0.fields"]),
+    );
+  });
+
+  it("lets a field ID follow its label until the author edits it", () => {
+    const followed = changeField(newField(), { label: "Protein (g)" });
+    expect(followed.id).toBe("protein-g");
+    const edited = changeField(followed, { id: "protein" });
+    expect(changeField(edited, { label: "Protein grams" }).id).toBe("protein");
+  });
+
+  it("starts a template under an ID of the author's own", () => {
+    const template = draftFromTemplate(version("kcal-diary", 3, "Kcal diary"), [
+      version("my-kcal-diary", 1),
+    ]);
+    expect(template).toMatchObject({ name: "Kcal diary", slug: "my-kcal-diary", version: "2" });
   });
 });

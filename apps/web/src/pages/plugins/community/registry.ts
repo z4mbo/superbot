@@ -6,10 +6,14 @@ export type RegistryVersion = Awaited<ReturnType<Registry["discover"]>>["items"]
 export type RegistryInstallation = Awaited<ReturnType<Registry["install"]>>;
 export type RegistryManifest = RegistryVersion["manifest"];
 export type RegistryPart = RegistryManifest["parts"][number];
+export type RegistryAppPart = Extract<RegistryPart, { kind: "app" }>;
+export type RegistryAppField = RegistryAppPart["fields"][number];
+export type RegistryAppRecord = Awaited<ReturnType<Registry["addAppRecord"]>>;
 export type SubmitInput = Parameters<Registry["submit"]>[0];
 
 export const REGISTRY_PAGE_SIZE = 50;
 export const MAX_PARTS = 16;
+export const MAX_APP_FIELDS = 16;
 const MAX_PAGES = 100;
 
 const submitSchema = pluginRegistryRpc.pluginRegistry.submit["~orpc"].inputSchema!;
@@ -49,6 +53,10 @@ export function grantedParts(installation: RegistryInstallation, botId: string):
   return installation.grants.filter((grant) => grant.botId === botId).map((grant) => grant.partId);
 }
 
+export function appParts(manifest: RegistryManifest): RegistryAppPart[] {
+  return manifest.parts.filter((part): part is RegistryAppPart => part.kind === "app");
+}
+
 export function slugFromName(name: string): string {
   return name
     .toLowerCase()
@@ -63,9 +71,20 @@ export function nextVersion(mine: readonly RegistryVersion[], slug: string): num
   return Math.max(0, ...mine.filter((row) => row.slug === slug).map((row) => row.version)) + 1;
 }
 
+export type FieldDraft = {
+  key: number;
+  label: string;
+  id: string;
+  /** False while the ID still follows the label. */
+  idEdited: boolean;
+  type: RegistryAppField["type"];
+  required: boolean;
+};
+
 export type PartDraft =
   | { key: number; kind: "skill"; id: string; instructions: string }
-  | { key: number; kind: "mcp"; id: string; endpoint: string };
+  | { key: number; kind: "mcp"; id: string; endpoint: string }
+  | { key: number; kind: "app"; id: string; fields: FieldDraft[]; summaryField: string };
 
 export type PluginDraft = {
   name: string;
@@ -79,14 +98,40 @@ export type PluginDraft = {
 
 let partKeys = 0;
 
+export function newField(patch: Partial<Omit<FieldDraft, "key">> = {}): FieldDraft {
+  partKeys += 1;
+  return {
+    key: partKeys,
+    label: "",
+    id: "",
+    idEdited: false,
+    type: "text",
+    required: true,
+    ...patch,
+  };
+}
+
+/** A field edit; the ID follows the label until the author edits the ID. */
+export function changeField(
+  field: FieldDraft,
+  patch: Partial<Omit<FieldDraft, "key">>,
+): FieldDraft {
+  const next = { ...field, ...patch };
+  if (patch.id !== undefined) next.idEdited = true;
+  else if (patch.label !== undefined && !field.idEdited) next.id = slugFromName(patch.label);
+  return next;
+}
+
+const PART_ID_BASE = { skill: "skill", mcp: "tools", app: "app" } as const;
+
 export function newPart(kind: PartDraft["kind"], taken: readonly PartDraft[]): PartDraft {
-  const base = kind === "skill" ? "skill" : "tools";
-  let id = base;
+  const base = PART_ID_BASE[kind];
+  let id: string = base;
   for (let index = 2; taken.some((part) => part.id === id); index += 1) id = `${base}-${index}`;
   partKeys += 1;
-  return kind === "skill"
-    ? { key: partKeys, kind, id, instructions: "" }
-    : { key: partKeys, kind, id, endpoint: "" };
+  if (kind === "skill") return { key: partKeys, kind, id, instructions: "" };
+  if (kind === "mcp") return { key: partKeys, kind, id, endpoint: "" };
+  return { key: partKeys, kind, id, fields: [newField()], summaryField: "" };
 }
 
 export function emptyDraft(): PluginDraft {
@@ -100,8 +145,39 @@ export function emptyDraft(): PluginDraft {
   };
 }
 
+/** True until the author types or loads anything. */
+export function isUntouched(draft: PluginDraft): boolean {
+  const [part, ...rest] = draft.parts;
+  return (
+    !draft.name &&
+    !draft.slug &&
+    !draft.description &&
+    !rest.length &&
+    part?.kind === "skill" &&
+    part.id === "skill" &&
+    !part.instructions
+  );
+}
+
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function fieldDrafts(raw: unknown): FieldDraft[] {
+  return (Array.isArray(raw) ? raw : []).flatMap((entry): FieldDraft[] => {
+    if (!entry || typeof entry !== "object") return [];
+    const field = entry as Record<string, unknown>;
+    const type = field.type === "number" || field.type === "date" ? field.type : "text";
+    return [
+      newField({
+        label: text(field.label),
+        id: text(field.id),
+        idEdited: true,
+        type,
+        required: field.required !== false,
+      }),
+    ];
+  });
 }
 
 /** A draft from a manifest: one already published, or JSON an author pasted. */
@@ -115,12 +191,21 @@ export function draftFromManifest(manifest: unknown, slug: string, version: numb
     if (!raw || typeof raw !== "object") return [];
     const part = raw as Record<string, unknown>;
     partKeys += 1;
+    const key = partKeys;
     if (part.kind === "skill")
-      return [
-        { key: partKeys, kind: "skill", id: text(part.id), instructions: text(part.instructions) },
-      ];
+      return [{ key, kind: "skill", id: text(part.id), instructions: text(part.instructions) }];
     if (part.kind === "mcp")
-      return [{ key: partKeys, kind: "mcp", id: text(part.id), endpoint: text(part.endpoint) }];
+      return [{ key, kind: "mcp", id: text(part.id), endpoint: text(part.endpoint) }];
+    if (part.kind === "app")
+      return [
+        {
+          key,
+          kind: "app",
+          id: text(part.id),
+          fields: fieldDrafts(part.fields),
+          summaryField: text(part.summaryField),
+        },
+      ];
     return [];
   });
   return {
@@ -131,6 +216,15 @@ export function draftFromManifest(manifest: unknown, slug: string, version: numb
     description: text(source.description),
     parts,
   };
+}
+
+/** Another author's published plugin as the start of a new one under an ID of the author's own. */
+export function draftFromTemplate(
+  template: RegistryVersion,
+  mine: readonly RegistryVersion[],
+): PluginDraft {
+  const slug = slugFromName(`my ${template.slug}`);
+  return draftFromManifest(template.manifest, slug, nextVersion(mine, slug));
 }
 
 /** Pasted JSON as a draft: a bare manifest, or a `{ slug, version, manifest }` submission. */
@@ -149,6 +243,29 @@ export function draftFromJson(json: string, current: PluginDraft): PluginDraft {
   return draft;
 }
 
+function partToInput(part: PartDraft) {
+  if (part.kind === "skill")
+    return { id: part.id.trim(), kind: "skill", instructions: part.instructions };
+  if (part.kind === "mcp")
+    return {
+      id: part.id.trim(),
+      kind: "mcp",
+      transport: "streamable_http",
+      endpoint: part.endpoint.trim(),
+    };
+  return {
+    id: part.id.trim(),
+    kind: "app",
+    fields: part.fields.map(({ id, label, type, required }) => ({
+      id: id.trim(),
+      label,
+      type,
+      required,
+    })),
+    ...(part.summaryField ? { summaryField: part.summaryField } : {}),
+  };
+}
+
 function draftToInput(draft: PluginDraft) {
   return {
     slug: draft.slug.trim(),
@@ -157,16 +274,7 @@ function draftToInput(draft: PluginDraft) {
       schemaVersion: 1,
       name: draft.name,
       description: draft.description,
-      parts: draft.parts.map((part) =>
-        part.kind === "skill"
-          ? { id: part.id.trim(), kind: "skill", instructions: part.instructions }
-          : {
-              id: part.id.trim(),
-              kind: "mcp",
-              transport: "streamable_http",
-              endpoint: part.endpoint.trim(),
-            },
-      ),
+      parts: draft.parts.map(partToInput),
     },
   };
 }
@@ -191,4 +299,32 @@ export function checkDraft(
 
 export function manifestJson(draft: PluginDraft): string {
   return JSON.stringify(draftToInput(draft).manifest, null, 2);
+}
+
+/** The calorie diary example plugin, for authors to start from and adapt. */
+export const CALORIE_DIARY_MANIFEST: RegistryManifest = {
+  schemaVersion: 1,
+  name: "Calorie diary",
+  description: "Log meals and see the total calories for a day.",
+  parts: [
+    {
+      kind: "app",
+      id: "meals",
+      fields: [
+        { id: "date", label: "Date", type: "date", required: true },
+        { id: "meal", label: "Meal", type: "text", required: true },
+        { id: "kcal", label: "Calories (kcal)", type: "number", required: true },
+      ],
+      summaryField: "kcal",
+    },
+  ],
+};
+
+/** The example as a new draft whose ID follows its name, clear of the bundled plugin's ID. */
+export function calorieDiaryDraft(mine: readonly RegistryVersion[]): PluginDraft {
+  const slug = slugFromName(CALORIE_DIARY_MANIFEST.name);
+  return {
+    ...draftFromManifest(CALORIE_DIARY_MANIFEST, slug, nextVersion(mine, slug)),
+    slugEdited: false,
+  };
 }
