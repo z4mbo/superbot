@@ -33,8 +33,9 @@ import {
   userMentionTargets,
 } from "../../lib/messages/message-mentions";
 import {
-  hasMessageSenderContent,
+  isSpecialMessageBlock,
   messagePresentationSegments,
+  pieceShowsSender,
   splitMessageBlocks,
 } from "../../lib/messages/message-presentation";
 import type { RoutineEventBlock } from "../../lib/messages/routine-event-label";
@@ -65,7 +66,7 @@ import { AskBlock } from "./ask-block";
 import { McpAppCard } from "./mcp-app-card";
 import type { MessageRowActions } from "./message-row";
 import { PeerReceiptLine } from "./peer-receipt-line";
-import { isSpecialMessageBlock, SpecialMessageCard } from "./special-message-card";
+import { SpecialMessageCard } from "./special-message-card";
 
 type AskAction = NonNullable<Extract<MessageBlock, { kind: "ask" }>["actions"]>[number];
 
@@ -147,27 +148,9 @@ function MessageBubbleWithMentions({
   );
 }
 
-/** Blocks drawn as their own card between the message's text pieces. */
-function isOwnCardBlock(block: MessageBlock): boolean {
-  return (
-    isSpecialMessageBlock(block) ||
-    block.kind === "page" ||
-    block.kind === "app" ||
-    block.kind === "tool_question"
-  );
-}
-
-function pieceShowsSender(blocks: readonly MessageBlock[]): boolean {
-  return !blocks.some(isOwnCardBlock) && hasMessageSenderContent(blocks);
-}
-
-export function hasSenderLabelContent(message: { blocks: MessageBlock[] }): boolean {
-  return splitMessageBlocks(message.blocks, isOwnCardBlock).some(pieceShowsSender);
-}
-
 function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
   const { message } = props;
-  const pieces = splitMessageBlocks(message.blocks, isOwnCardBlock);
+  const pieces = splitMessageBlocks(message.blocks);
   if (pieces[0] === message.blocks) return <MessageBubbleContent {...props} />;
   const firstContent = pieces.findIndex(pieceShowsSender);
   const content = pieces.map((blocks, index) => {

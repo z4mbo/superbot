@@ -70,7 +70,8 @@ vi.mock("../cards/McpApprovalCard", () => ({ McpApprovalCard: () => null }));
 vi.mock("../native/native-symbol", () => ({ NativeSymbol: () => null }));
 vi.mock("../native/native-action-button", () => ({ NativeActionButton: () => null }));
 
-import { hasSenderLabelContent, MessageBubble } from "./message-bubble";
+import { hasSenderLabelContent } from "../../lib/messages/message-presentation";
+import { MessageBubble } from "./message-bubble";
 
 type BubbleProps = ComponentProps<typeof MessageBubble>;
 
