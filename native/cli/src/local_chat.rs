@@ -10,6 +10,7 @@ pub(crate) struct LocalChat {
     cli: LocalCli,
     space: String,
     bot: String,
+    history_key: String,
 }
 
 impl LocalChat {
@@ -18,11 +19,13 @@ impl LocalChat {
         account: &str,
         space: &Space,
         agent: &Agent,
+        conversation: Option<&str>,
     ) -> Option<Self> {
         Some(Self {
             cli: LocalCli::for_workspace(client.server(), account, &space.id)?,
             space: space.id.clone(),
             bot: agent.id.clone(),
+            history_key: conversation.map_or_else(|| agent.id.clone(), |id| format!("thread:{id}")),
         })
     }
 
@@ -36,7 +39,7 @@ impl LocalChat {
 
     fn pending(&self) -> Result<Option<PendingHistory>> {
         self.cli
-            .pending_history(&self.bot)
+            .pending_history(&self.history_key)
             .map_err(anyhow::Error::msg)
     }
 
@@ -100,7 +103,7 @@ impl LocalChat {
                         reply: Some(reply),
                     };
                     self.cli
-                        .stage_history(&self.bot, &pending)
+                        .stage_history(&self.history_key, &pending)
                         .map_err(anyhow::Error::msg)?;
                     pending
                 }
@@ -132,7 +135,7 @@ impl LocalChat {
         .map_err(auth_hint)
         .context("Could not save the local message. Use /retry in this chat to save it")?;
         self.cli
-            .clear_history(&self.bot, &pending)
+            .clear_history(&self.history_key, &pending)
             .map_err(anyhow::Error::msg)?;
         if let Some(reply) = &pending.reply {
             print_message(thread.agent, "bot", None, reply);

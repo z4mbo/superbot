@@ -1,5 +1,7 @@
+mod conversations;
 mod credentials;
 mod local_history;
+pub use conversations::{BotConversation, BotConversationPatch};
 mod protocol;
 mod server_selection;
 

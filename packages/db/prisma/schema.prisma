@@ -765,6 +765,7 @@ model SpaceMember {
   modelRoleChoices SpaceModelRoleChoice[]
   settingOverrides SpaceSettingOverride[]
   threadReads      ThreadRead[]
+  inboxReceipts    InboxReceipt[]
 
   @@unique([spaceId, userId])
   @@index([organizationId, userId])
@@ -1028,6 +1029,7 @@ model Bot {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   thread            Thread?           @relation("BotThread")
+  conversations     Thread[]          @relation("BotConversations")
   helperThreads     Thread[]          @relation("BotHelperThreads")
   computerId        String?
   computer          Computer?         @relation(fields: [computerId], references: [id], onDelete: SetNull)
@@ -1151,6 +1153,11 @@ model Thread {
   space                       Space      @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   botId                       String?    @unique
   bot                         Bot?       @relation("BotThread", fields: [botId], references: [id], onDelete: Cascade)
+  conversationTitle           String?
+  conversationPinnedAt        DateTime?
+  conversationArchivedAt      DateTime?
+  conversationBotId           String?
+  conversationBot             Bot?       @relation("BotConversations", fields: [conversationBotId], references: [id], onDelete: Cascade)
   /// Set only on a background helper's own thread: the bot that started the helper owns it.
   helperBotId                 String?
   helperBot                   Bot?       @relation("BotHelperThreads", fields: [helperBotId], references: [id], onDelete: Cascade)
@@ -1176,6 +1183,7 @@ model Thread {
 
   @@index([spaceId])
   @@index([spaceId, userId])
+  @@index([conversationBotId, createdAt, id])
   @@index([helperBotId])
   @@map("threads")
 }
@@ -1198,6 +1206,21 @@ model ThreadRead {
   @@id([threadId, userId])
   @@index([spaceId, userId])
   @@map("thread_reads")
+}
+
+model InboxReceipt {
+  spaceId String
+  userId  String
+  runId   String
+  kind    String
+  sourceKey String
+  state   String
+  member  SpaceMember @relation(fields: [spaceId, userId], references: [spaceId, userId], onDelete: Cascade)
+  run     Run         @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@id([spaceId, userId, runId, kind, sourceKey])
+  @@index([runId])
+  @@map("inbox_receipts")
 }
 
 model Message {
@@ -1329,6 +1352,7 @@ model Run {
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   attempts             Attempt[]
+  inboxReceipts        InboxReceipt[]
   effects              ExternalEffect[]
   steeringMessages     SteeringMessage[]
   externalMessage      ExternalMessage?

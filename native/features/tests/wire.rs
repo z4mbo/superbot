@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use superbot_client::Client;
 use superbot_features::{
     ApprovalEffect, ApprovalMatch, BotSettings, Features, MessageAnchor, MessagePageOptions,
@@ -52,6 +52,61 @@ async fn fixture(
 }
 
 const SPACE: Option<&str> = Some("team");
+
+#[tokio::test]
+async fn conversation_update_keeps_false_fields_and_reads_shared_metadata() {
+    let (features, server) = fixture(
+        "threads/updateBotConversation",
+        SPACE,
+        json!({ "botId": "bot", "threadId": "thread", "archived": false, "pinned": false }),
+        "200 OK",
+        json!({
+            "botId": "bot", "threadId": "thread", "createdAt": "2026-01-01T00:00:00Z",
+            "title": "Recovered thread", "pinnedAt": null, "archivedAt": null, "preview": "Hello"
+        }),
+    )
+    .await;
+    let row = features
+        .space("team")
+        .update_bot_conversation(
+            "bot",
+            "thread",
+            superbot_features::BotConversationPatch {
+                archived: Some(false),
+                pinned: Some(false),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(row.thread_id, "thread");
+    assert_eq!(row.title.as_deref(), Some("Recovered thread"));
+    assert_eq!(row.preview.as_deref(), Some("Hello"));
+    assert_eq!(row.pinned_at, None);
+    assert_eq!(row.archived_at, None);
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn conversation_list_accepts_servers_without_metadata() {
+    let (features, server) = fixture(
+        "threads/listBotConversations",
+        SPACE,
+        json!({ "botId": "bot" }),
+        "200 OK",
+        json!([{ "botId": "bot", "threadId": "thread", "createdAt": "2026-01-01T00:00:00Z" }]),
+    )
+    .await;
+    let rows = features
+        .space("team")
+        .bot_conversations("bot")
+        .await
+        .unwrap();
+    assert_eq!(rows[0].thread_id, "thread");
+    assert_eq!(rows[0].title, None);
+    assert_eq!(rows[0].preview, None);
+    server.await.unwrap();
+}
 
 #[tokio::test]
 async fn group_send_accepts_attachment_only_and_preserves_nonce() {
@@ -276,13 +331,15 @@ async fn invite_creation_uses_named_space_and_omits_email_for_shareable_links() 
         json!({"url": "https://example.test/invite/token", "expiresAt": "2026-01-02T00:00:00Z"}),
     )
     .await;
-    assert!(features
-        .space("team")
-        .create_invite(None)
-        .await
-        .unwrap()
-        .emailed
-        .is_none());
+    assert!(
+        features
+            .space("team")
+            .create_invite(None)
+            .await
+            .unwrap()
+            .emailed
+            .is_none()
+    );
     server.await.unwrap();
 }
 
@@ -296,12 +353,14 @@ async fn runs_filter_decodes_activity_envelope() {
         json!({"runs": []}),
     )
     .await;
-    assert!(features
-        .space("team")
-        .list_runs(superbot_features::RunFilter::Active)
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(
+        features
+            .space("team")
+            .list_runs(superbot_features::RunFilter::Active)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     server.await.unwrap();
 }
 
@@ -356,12 +415,14 @@ async fn rejected_session_keeps_client_error_classification() {
         json!({"code": "UNAUTHORIZED", "status": 401, "message": "Session expired"}),
     )
     .await;
-    assert!(features
-        .space("team")
-        .list_groups()
-        .await
-        .unwrap_err()
-        .is_unauthorized());
+    assert!(
+        features
+            .space("team")
+            .list_groups()
+            .await
+            .unwrap_err()
+            .is_unauthorized()
+    );
     server.await.unwrap();
 }
 
@@ -460,5 +521,66 @@ async fn a_server_probe_reports_the_models_it_lists() {
         .await
         .unwrap();
     assert_eq!(models, ["local-a", "local-b"]);
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn inbox_targets_round_trip_into_conversation_library_requests() {
+    use superbot_features::{InboxKind, InboxState, LibraryKind};
+
+    let (features, server) = fixture(
+        "inbox/list",
+        SPACE,
+        json!({"includeDone": true}),
+        "200 OK",
+        json!([{
+            "id": "question:run", "kind": "question", "state": "unread",
+            "target": {"kind": "botConversation", "botId": "bot", "threadId": "thread"},
+            "messageId": "ask", "runId": "run", "botId": "bot",
+            "title": "Fixture bot", "updatedAt": "2026-01-01T00:00:00Z"
+        }]),
+    )
+    .await;
+    let items = features.space("team").inbox(true).await.unwrap();
+    let item = &items[0];
+    assert_eq!(item.kind, InboxKind::Question);
+    assert_eq!(item.state, InboxState::Unread);
+    assert_eq!(item.message_id.as_deref(), Some("ask"));
+    server.await.unwrap();
+
+    let (features, server) = fixture(
+        "conversationLibrary/list",
+        SPACE,
+        json!({"botId": "bot", "threadId": "thread"}),
+        "200 OK",
+        json!([{
+            "id": "file", "kind": "artifact", "title": "notes.txt", "messageId": "message",
+            "authorUserId": "member", "authorBotId": null, "mimeType": "text/plain",
+            "createdAt": "2026-01-01T00:00:00Z"
+        }]),
+    )
+    .await;
+    let items = features
+        .space("team")
+        .conversation_library(item.target.as_target())
+        .await
+        .unwrap();
+    assert_eq!(items[0].kind, LibraryKind::Artifact);
+    assert_eq!(items[0].author_user_id.as_deref(), Some("member"));
+    server.await.unwrap();
+
+    let (features, server) = fixture(
+        "inbox/setState",
+        SPACE,
+        json!({"id": item.id, "state": "done"}),
+        "200 OK",
+        json!({"ok": true}),
+    )
+    .await;
+    features
+        .space("team")
+        .set_inbox_state(&item.id, InboxState::Done)
+        .await
+        .unwrap();
     server.await.unwrap();
 }

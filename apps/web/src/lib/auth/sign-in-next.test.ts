@@ -16,6 +16,10 @@ it("returns to integration setup, plugin admin, MCP sign-in and invite links onl
   expect(signInNext("/join/abc/../../app")).toBeNull();
   expect(signInNext(null)).toBeNull();
   expect(signInNext("/app")).toBeNull();
+  expect(signInNext("/app/bot-1?threadId=conversation-2&m=message-3")).toBe(
+    "/app/bot-1?threadId=conversation-2&m=message-3",
+  );
+  expect(signInNext("//example.com/app/bot-1?threadId=conversation-2")).toBeNull();
   expect(signInNext("https://example.com/invite/abc")).toBeNull();
   expect(signInNext("//example.com/invite/abc")).toBeNull();
   expect(signInNext("/invite/abc/../../app")).toBeNull();

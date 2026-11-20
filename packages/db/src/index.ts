@@ -21,6 +21,7 @@ export * from "./bots/bot-email-address.js";
 export * from "./bots/bot-email-attachments.js";
 export * from "./bots/bot-email-sends.js";
 export * from "./bots/bot-instructions.js";
+export { botThreadPreviews } from "./bots/bot-previews.js";
 export * from "./bots/bot-repository.js";
 export * from "./bots/bot-update.js";
 export * from "./bots/memory-config.js";
@@ -69,6 +70,7 @@ export * from "./spaces/space-members.js";
 export * from "./spaces/space-settings.js";
 export * from "./spaces/spaces.js";
 export * from "./speech/costs.js";
+export { assertOpenBotConversation, lockBotConversation } from "./threads/bot-conversations.js";
 export * from "./threads/chat-alerts.js";
 export {
   eventsAfter,

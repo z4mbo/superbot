@@ -7,10 +7,14 @@ export const threadTarget = z
   .object({
     botId: Id.optional(),
     groupId: Id.optional(),
+    threadId: Id.optional(),
   })
   .superRefine((input, ctx) => {
     const hasBot = Boolean(input.botId);
     const hasGroup = Boolean(input.groupId);
+    if (input.threadId && !hasBot) {
+      ctx.addIssue({ code: "custom", message: "threadId requires botId", path: ["threadId"] });
+    }
     if (hasBot === hasGroup) {
       ctx.addIssue({
         code: "custom",

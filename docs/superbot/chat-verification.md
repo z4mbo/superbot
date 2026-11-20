@@ -21,6 +21,9 @@ The harness creates the CLI session through Superbot's password sign-in endpoint
 - Concurrent retries of local notes and completed CLI exchanges return the same message IDs. A second signed-in member receives the local messages live and reloads them with the same author and origin. Unauthorized writes and attempts to supply a server run ID are rejected.
 - Both prompts arrive at the model emulator and consume its two scripted responses. The API starts the live runs immediately while the worker is up with PostgreSQL's durable queue.
 
+- Two additional conversations for the same bot carry separate hosted context and replies, survive a subscriber reconnect, and paginate independently of the default chat. The invited member can open both conversations, while an outsider cannot list, create, read, send, or follow in the Space.
+- With `--local-cli`, the synthetic local CLI runs in two additional conversations. A pending retry from one stays pending while the other continues, then commits only to its original conversation.
+
 ## Recorded run
 
 Passed on November 20, 2026 with the installed Windows `superbot-cli 0.1.0` and PostgreSQL 18.7. The verifier exited with status 0 and printed the lines below. CLI logout returned `Signed out.` and the fixture directory was removed.
@@ -103,3 +106,12 @@ again on return, and the client displayed the change made while the board was cl
 Capture the same fixture conversation at a client size of 1280 × 820 and 100% display scale in Midnight and Daylight. Open sidebar search to take focus away from the composer. Move the pointer over the composer, then click in it and move the pointer back to the transcript. The border brightens for hover and stays bright for keyboard input. Typing a draft hides the hint. Clearing it restores the hint, and the editable field keeps its accessible name in both states.
 
 In the Windows release, the empty hint matched the reference at its strongest pixels in both themes (green channel 108 in Midnight and 173 in Daylight). The top edge of the composer had the same position and its rest colour differed by one level. To check the code font separately, display the same fenced Markdown reply in two fixture clients with the same sans face, one with a private mono face and one using the bundled mono face. The glyphs in the rendered reply changed when only the mono face changed.
+
+## Web links to bot conversations
+
+Open an additional bot conversation at `/app/<botId>?threadId=<threadId>`.
+The native workspace handoff uses this link when an additional conversation
+is selected. The web app asks the member to sign in if necessary and resolves
+the selected thread in the bot's Space. An unavailable conversation shows an
+error and has no composer. Direct bot chat uses `/app/<botId>` and group chat
+uses `/app/g/<groupId>`.

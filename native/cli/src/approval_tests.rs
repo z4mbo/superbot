@@ -187,6 +187,7 @@ async fn answer_through_stream(input: &'static str, action: &'static str, stale:
     let thread = ChatThread {
         space: features.space("space-1"),
         agent: &agent,
+        conversation: None,
         interactive: true,
     };
     let mut reply = Some(input.to_owned());
@@ -236,6 +237,7 @@ async fn noninteractive_and_empty_input_leave_pending() {
     let mut thread = ChatThread {
         space: features.space("space-1"),
         agent: &agent,
+        conversation: None,
         interactive: false,
     };
     let mut cursor = 3;
@@ -273,6 +275,7 @@ async fn protects_secret_typed_and_space_permission_cards() {
     let thread = ChatThread {
         space: features.space("space-1"),
         agent: &agent,
+        conversation: None,
         interactive: true,
     };
     let mut secret = card();
@@ -317,6 +320,7 @@ async fn resumes_an_outstanding_approval_from_the_initial_snapshot() {
     let thread = ChatThread {
         space: features.space("space-1"),
         agent: &agent,
+        conversation: None,
         interactive: true,
     };
     let snapshot = thread.space.thread(thread.target()).await.unwrap();
@@ -349,6 +353,7 @@ async fn a_replayed_waiting_event_for_an_answered_card_does_not_prompt() {
     let thread = ChatThread {
         space: features.space("space-1"),
         agent: &agent,
+        conversation: None,
         interactive: true,
     };
     let mut cursor = 3;

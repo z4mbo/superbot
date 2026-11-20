@@ -18,6 +18,7 @@ type JumpTarget = { botId?: string; groupId?: string; messageId: string };
  */
 export function useMessageJump({
   rpc,
+  threadId,
   queries,
   thread,
   commitComputer,
@@ -35,6 +36,7 @@ export function useMessageJump({
   resetRoutineTarget,
 }: {
   rpc: ReturnType<typeof createSpaceRpc>;
+  threadId?: string;
   queries: SpaceQueries;
   thread: ThreadState;
   commitComputer: (next: ComputerStatus | null) => void;
@@ -99,7 +101,8 @@ export function useMessageJump({
   }
 
   async function jumpToMessage(target: JumpTarget) {
-    const threadTarget = searchHitThreadTarget(target);
+    const chat = searchHitThreadTarget(target);
+    const threadTarget = chat.botId && threadId !== undefined ? { ...chat, threadId } : chat;
     const epoch = historyEpoch.current;
     jumpGeneration.current += 1;
     const jumpId = jumpGeneration.current;

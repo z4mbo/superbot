@@ -57,7 +57,13 @@ enum Command {
         dry_run: bool,
     },
     /// Open a chat with any agent, including agents named after commands
-    Chat { agent: String },
+    Chat {
+        agent: String,
+        #[arg(long, conflicts_with = "conversation")]
+        new_conversation: bool,
+        #[arg(long, value_name = "THREAD_ID")]
+        conversation: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -83,7 +89,7 @@ async fn run(args: Args) -> Result<()> {
         _ => selected_server(args.server.as_deref()),
     };
     let client = Client::new(&server)?;
-    let agent_name = match args.command {
+    let (agent_name, new_conversation, conversation) = match args.command {
         Some(Command::Server { url }) => {
             if url.is_some() {
                 remember_server(&client).context("Could not save the Superbot server address")?;
@@ -112,8 +118,12 @@ async fn run(args: Args) -> Result<()> {
             let names = roster::read(&file)?;
             return roster::import(connect(&client).await?, destination, names, dry_run).await;
         }
-        Some(Command::Chat { agent }) => Some(agent),
-        None => args.agent,
+        Some(Command::Chat {
+            agent,
+            new_conversation,
+            conversation,
+        }) => (Some(agent), new_conversation, conversation),
+        None => (args.agent, false, None),
     };
     let client = connect(&client).await?;
     let catalog = discover(&client, args.space.as_deref()).await?;
@@ -127,7 +137,17 @@ async fn run(args: Args) -> Result<()> {
         .unwrap_or_default();
     if let Some(name) = agent_name {
         let (space, agent) = find_agent(&catalog, &name)?;
-        chat(&client, account, space, agent).await?;
+        let conversation = if new_conversation {
+            let created = client
+                .create_bot_conversation(&space.id, &agent.id)
+                .await
+                .map_err(auth_hint)?;
+            println!("Conversation {}", terminal_text(&created.thread_id));
+            Some(created.thread_id)
+        } else {
+            conversation
+        };
+        chat(&client, account, space, agent, conversation.as_deref()).await?;
     } else {
         loop {
             let options: Vec<_> = catalog
@@ -162,7 +182,7 @@ async fn run(args: Args) -> Result<()> {
                 eprintln!("Choose a number from 1 to {}.", options.len());
                 continue;
             };
-            if !chat(&client, account, space, agent).await? {
+            if !chat(&client, account, space, agent, None).await? {
                 break;
             }
         }
@@ -323,12 +343,19 @@ fn auth_hint(error: Error) -> anyhow::Error {
     }
 }
 
-async fn chat(client: &Client, account: &str, space: &Space, agent: &Agent) -> Result<bool> {
-    let local = local_chat::LocalChat::open(client, account, space, agent);
+async fn chat(
+    client: &Client,
+    account: &str,
+    space: &Space,
+    agent: &Agent,
+    conversation: Option<&str>,
+) -> Result<bool> {
+    let local = local_chat::LocalChat::open(client, account, space, agent, conversation);
     let features = Features::new(client.clone());
     let thread = ChatThread {
         space: features.space(&space.id),
         agent,
+        conversation,
         interactive: io::stdin().is_terminal() && io::stdout().is_terminal(),
     };
     let snapshot = thread
@@ -336,6 +363,9 @@ async fn chat(client: &Client, account: &str, space: &Space, agent: &Agent) -> R
         .thread(thread.target())
         .await
         .map_err(auth_hint)?;
+    if conversation.is_some_and(|id| id != snapshot.thread_id) {
+        bail!("The server did not open the requested conversation.");
+    }
     let mut cursor = snapshot.cursor;
     let mut read_approval = || prompt("Approval (Enter to leave pending): ");
     println!(
@@ -390,7 +420,12 @@ async fn chat(client: &Client, account: &str, space: &Space, agent: &Agent) -> R
             }
         }
         let nonce = Uuid::new_v4().to_string();
-        let send = || client.send_with_nonce(&space.id, &agent.id, &input, &nonce);
+        let message = superbot_features::SendMessage {
+            text: Some(&input),
+            client_nonce: Some(&nonce),
+            ..Default::default()
+        };
+        let send = || thread.space.send(thread.target(), &message);
         let result = match send().await {
             Err(error) if error.is_retryable() => send().await,
             result => result,
@@ -496,12 +531,19 @@ async fn follow_reply(
 struct ChatThread<'a> {
     space: SpaceFeatures<'a>,
     agent: &'a Agent,
+    conversation: Option<&'a str>,
     interactive: bool,
 }
 
 impl ChatThread<'_> {
     fn target(&self) -> ThreadTarget<'_> {
-        ThreadTarget::Bot(&self.agent.id)
+        match self.conversation {
+            Some(thread_id) => ThreadTarget::BotConversation {
+                bot_id: &self.agent.id,
+                thread_id,
+            },
+            None => ThreadTarget::Bot(&self.agent.id),
+        }
     }
 
     async fn offer(
@@ -662,7 +704,7 @@ mod tests {
             Some("Research agent")
         );
         assert!(
-            matches!(Args::try_parse_from(["superbot", "chat", "login"]).unwrap().command, Some(Command::Chat { agent }) if agent == "login")
+            matches!(Args::try_parse_from(["superbot", "chat", "login"]).unwrap().command, Some(Command::Chat { agent, conversation: None, new_conversation: false }) if agent == "login")
         );
     }
 

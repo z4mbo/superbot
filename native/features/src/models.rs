@@ -74,6 +74,9 @@ pub struct ModelCatalogEntry {
     pub endpoint_presets: Vec<EndpointPreset>,
     /// `chat`, or `decisions` for a model that only reviews actions.
     pub protocol: Option<String>,
+    /// How hard the model can be asked to think; empty when it takes no setting.
+    #[serde(default)]
+    pub thinking_levels: Vec<crate::ThinkingLevel>,
 }
 
 impl ModelCatalogEntry {
@@ -124,6 +127,9 @@ pub struct ModelConnection {
     #[serde(default)]
     pub reconnect_required: bool,
     pub preference_rank: Option<u32>,
+    /// How hard this connection's model can be asked to think; empty when it takes no setting.
+    #[serde(default)]
+    pub thinking_levels: Vec<crate::ThinkingLevel>,
 }
 
 /// A model chosen for a purpose, and the connection it runs on when pinned.
@@ -476,6 +482,21 @@ mod tests {
             .unwrap()
             .extend(extra.as_object().unwrap().clone());
         serde_json::from_value(value).unwrap()
+    }
+
+    #[test]
+    fn thinking_levels_are_read_and_absent_on_older_servers() {
+        let levels = json!({ "thinkingLevels": ["low", "high", "xhigh"] });
+        assert_eq!(
+            entry("alpha", "a-1", levels.clone()).thinking_levels,
+            [crate::ThinkingLevel::Low, crate::ThinkingLevel::High, crate::ThinkingLevel::Xhigh]
+        );
+        assert_eq!(
+            connection("alpha", levels).thinking_levels,
+            [crate::ThinkingLevel::Low, crate::ThinkingLevel::High, crate::ThinkingLevel::Xhigh]
+        );
+        assert!(entry("alpha", "a-1", json!({})).thinking_levels.is_empty());
+        assert!(connection("alpha", json!({})).thinking_levels.is_empty());
     }
 
     #[test]

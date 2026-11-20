@@ -49,6 +49,7 @@ type ThreadRefresh = RefObject<(id: string) => Promise<ThreadSnapshot>>;
  * answers, reactions, and the errors they leave.
  */
 export function useComposerActions({
+  threadId,
   rpc,
   pageSession,
   activeId,
@@ -70,6 +71,7 @@ export function useComposerActions({
   clearReadBoundary,
   flushPendingBrowserNotifications,
 }: {
+  threadId?: string;
   rpc: ReturnType<typeof createSpaceRpc>;
   /** The chat's open page, whose card a message sent from it replies to. */
   pageSession: PageSession;
@@ -93,6 +95,7 @@ export function useComposerActions({
   flushPendingBrowserNotifications: () => void;
 }) {
   const { t } = useLingui();
+  const conversation = threadId === undefined ? {} : { threadId };
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   usePendingAttachmentPreviewCleanup(pendingAttachments);
   const [replyTarget, setReplyTarget] = useState<ThreadMessage | null>(null);
@@ -228,7 +231,7 @@ export function useComposerActions({
       if (!botId && !groupId) return;
       clearReadBoundary();
       await rpc.threads.answer({
-        ...(groupId ? { groupId } : { botId: botId! }),
+        ...(groupId ? { groupId } : { botId: botId!, ...conversation }),
         runId: message.runId ?? "",
         messageId: message.id,
         answer: text,
@@ -254,7 +257,7 @@ export function useComposerActions({
       if (!botId && !groupId) return;
       try {
         const result = await rpc.threads.react({
-          ...(groupId ? { groupId } : { botId: botId! }),
+          ...(groupId ? { groupId } : { botId: botId!, ...conversation }),
           messageId: message.id,
           reaction,
           clientNonce: newClientId(),
@@ -395,7 +398,7 @@ export function useComposerActions({
         if (!plan.shouldSend) {
           if (plan.shouldRunRoutines) {
             await rpc.threads.sendWithRoutines({
-              ...(groupTarget ? { groupId: groupTarget } : { botId: botTarget! }),
+              ...(groupTarget ? { groupId: groupTarget } : { botId: botTarget!, ...conversation }),
               clientNonce,
               routineIds: plan.routineIds,
             });
@@ -452,6 +455,7 @@ export function useComposerActions({
                 }
               : {
                   botId: botTarget!,
+                  ...conversation,
                   name: pending.file.name,
                   mimeType,
                   contentBase64,
@@ -462,7 +466,7 @@ export function useComposerActions({
           artifactIds.push(artifact.id);
         }
         const payload = {
-          ...(groupTarget ? { groupId: groupTarget } : { botId: botTarget! }),
+          ...(groupTarget ? { groupId: groupTarget } : { botId: botTarget!, ...conversation }),
           clientNonce,
           imageHandling: imageHandling ?? "confirm",
           text: trimmed || undefined,
@@ -576,7 +580,7 @@ export function useComposerActions({
       if (!botTarget) return;
       setSendError(null);
       try {
-        await rpc.threads.stop({ botId: botTarget });
+        await rpc.threads.stop({ botId: botTarget, ...conversation });
       } catch (error) {
         if (activeBotId.current === botTarget) {
           setSendError(errorText(error, t`Failed to stop`));

@@ -31,6 +31,7 @@ import {
   showSessionUnavailable,
 } from "./lib/auth/session-gate";
 import {
+  isBotConversationLink,
   MCP_OAUTH_CALLBACK_PATH,
   newAccountDestination,
   SLACK_INSTALL_CALLBACK_PATH,
@@ -311,7 +312,14 @@ function SessionApp() {
                       <Outlet />
                     </SubscriptionGate>
                   ) : (
-                    <Navigate to="/sign-in" replace />
+                    <Navigate
+                      to={
+                        isBotConversationLink(pathname, search)
+                          ? `/sign-in?next=${encodeURIComponent(pathname + search)}`
+                          : "/sign-in"
+                      }
+                      replace
+                    />
                   )
                 }
               >

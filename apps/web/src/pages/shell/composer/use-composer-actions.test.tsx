@@ -142,6 +142,27 @@ it.each([undefined, 1, 8])(
   },
 );
 
+it("uploads and sends an attachment to the linked bot conversation", async () => {
+  act(() => root.render(<Harness extras={{ threadId: "conversation-2" }} />));
+  const file = new File(["fixture"], "fixture.txt", { type: "text/plain" });
+  rpc.artifacts.create.mockResolvedValue({ id: "fixture-artifact" });
+  rpc.threads.send.mockResolvedValue(null);
+  act(() => void latest.onAttachmentPick([file]));
+  await act(async () => {
+    await latest.sendMessage("Fixture message", [], "fixture-nonce");
+  });
+  expect(rpc.artifacts.create).toHaveBeenCalledWith(
+    expect.objectContaining({ botId: "bot-1", threadId: "conversation-2" }),
+  );
+  expect(rpc.threads.send).toHaveBeenCalledWith(
+    expect.objectContaining({
+      botId: "bot-1",
+      threadId: "conversation-2",
+      artifactIds: ["fixture-artifact"],
+    }),
+  );
+});
+
 it("removes only the picked attachment when name, size and date match another", () => {
   // Two picks of equal metadata used to derive the same id, so removing one dropped both.
   const fileA = new File(["a"], "a.txt", { type: "text/plain", lastModified: 100 });
