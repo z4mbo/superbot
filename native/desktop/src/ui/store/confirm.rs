@@ -11,6 +11,7 @@ pub enum Confirm {
     RemoveRecord { record_id: String, label: String },
     Disconnect { name: String, connection_ids: Vec<String> },
     DisconnectSource { name: String, source: super::presets::Source },
+    RemovePlugin { install_id: String, name: String },
 }
 
 impl Desktop {
@@ -32,6 +33,7 @@ impl Desktop {
             Confirm::RemoveRecord { record_id, .. } => self.remove_record(record_id, window, cx),
             Confirm::Disconnect { connection_ids, .. } => self.disconnect(connection_ids, window, cx),
             Confirm::DisconnectSource { source, .. } => self.disconnect_source(source, window, cx),
+            Confirm::RemovePlugin { install_id, .. } => self.remove_plugin(install_id, window, cx),
         }
         cx.notify();
     }
@@ -71,6 +73,12 @@ impl Desktop {
                 },
                 "Disconnect",
                 "Disconnecting…",
+            ),
+            Confirm::RemovePlugin { name, .. } => (
+                format!("Remove {name}?"),
+                "Its connector and skills are removed, and agents can no longer use them.".to_owned(),
+                "Remove",
+                "Removing…",
             ),
             Confirm::DisconnectSource { name, .. } => (
                 format!("Disconnect {name}?"),
