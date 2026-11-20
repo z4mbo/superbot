@@ -1,4 +1,5 @@
 pub mod agent_panel;
+pub mod app_assist;
 pub mod chat;
 pub mod chrome;
 pub mod corner;
