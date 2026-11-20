@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
 
-import { T3McpEmulator } from "../../packages/adapters/src/providers/cloud-agent/t3code/t3code-mcp-emulator.test-support.ts";
+import { T3McpEmulator } from "@rakazo/testkit/t3-mcp-emulator";
 
 const base64url = (bytes) => Buffer.from(bytes).toString("base64url");
 

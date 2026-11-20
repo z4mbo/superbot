@@ -12,6 +12,7 @@
     "./meeting-media": "./src/meetings/meeting-media-grant.ts",
     "./model-json": "./src/models/model-json.ts",
     "./remote-mcp": "./src/mcp/remote-mcp.ts",
+    "./testing/t3-mcp": "./src/providers/cloud-agent/t3code/t3code-mcp-emulator.test-support.ts",
     "./wuying-screen-policy": "./src/providers/computer/wuying/wuying-screen-policy.ts",
     "./user-device-client": "./src/computers/host/user-device-client.ts"
   },
