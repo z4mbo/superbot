@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::ui::drag_region;
+
 impl Desktop {
     pub fn render_agent_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         let panel = self.agent_panel.as_ref()?;
@@ -9,7 +11,7 @@ impl Desktop {
         let summary = self.agent(&id).cloned();
         let bot = self.agent_info.bot(&id).cloned();
 
-        let header = div()
+        let header = drag_region(div(), "agent-panel-drag", window, cx)
             .h(px(56.))
             .flex_shrink_0()
             .flex()
@@ -18,9 +20,9 @@ impl Desktop {
             .pl(px(11.))
             .pr(px(13.))
             .pt_3()
-            .window_control_area(WindowControlArea::Drag)
             .child(
                 round_button("agent-settings", "settings", panel.settings, &theme)
+                    .when(cfg!(target_os = "macos"), |button| button.occlude())
                     .tooltip(|window, cx| Tooltip::new("Agent settings").build(window, cx))
                     .on_click(cx.listener(|this, _, _, cx| {
                         if let Some(panel) = this.agent_panel.as_mut() {
@@ -35,6 +37,7 @@ impl Desktop {
             .child(div().flex_1())
             .child(
                 round_button("agent-panel-close", "x", false, &theme)
+                    .when(cfg!(target_os = "macos"), |button| button.occlude())
                     .tooltip(|window, cx| Tooltip::new("Close").build(window, cx))
                     .on_click(cx.listener(|this, _, _, cx| this.close_agent_panel(cx))),
             )

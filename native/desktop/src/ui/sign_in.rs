@@ -3,10 +3,10 @@ use gpui_kit::*;
 
 use crate::app::{Desktop, SignInMode};
 use crate::theme::{radius, ActiveTheme, Theme};
-use crate::ui::{agent_face, error_line, field, pill_button, Tone, Type};
+use crate::ui::{agent_face, drag_region, error_line, field, pill_button, Tone, Type};
 
 impl Desktop {
-    pub fn render_sign_in(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    pub fn render_sign_in(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.skin().clone();
         let form = &self.sign_in;
         let (title, action, working) = match form.mode {
@@ -57,12 +57,11 @@ impl Desktop {
             (_, true) => switches.push(("forget-invite", "Don't use the invite", Switch::ForgetInvite)),
         }
 
-        div()
+        drag_region(div(), "sign-in-drag", window, cx)
             .size_full()
             .flex()
             .items_center()
             .justify_center()
-            .window_control_area(WindowControlArea::Drag)
             .child(
                 div()
                     .w(px(360.))
@@ -116,16 +115,16 @@ impl Desktop {
             .into_any_element()
     }
 
-    pub fn render_restoring(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    pub fn render_restoring(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let region = drag_region(div(), "restoring-drag", window, cx);
         let theme = cx.skin();
-        div()
+        region
             .size_full()
             .flex()
             .flex_col()
             .items_center()
             .justify_center()
             .gap_5()
-            .window_control_area(WindowControlArea::Drag)
             .child(agent_face(theme.identity_for("blue"), px(56.)))
             .children(self.sign_in.error.clone().map(|error| error_line(error, theme).w(px(360.))))
             .into_any_element()

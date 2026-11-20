@@ -11,7 +11,7 @@ use crate::api::{self, Target};
 use crate::app::Desktop;
 use crate::clock;
 use crate::theme::{radius, ActiveTheme, Theme};
-use crate::ui::{bot_avatar, error_line, icon, Type};
+use crate::ui::{bot_avatar, drag_region, error_line, icon, Type};
 
 /// The reference's 320, and room for the caption buttons that share its header off macOS.
 const PANEL_WIDTH: Pixels = if cfg!(target_os = "macos") { px(320.) } else { px(360.) };
@@ -221,7 +221,7 @@ impl Desktop {
         let rows: Vec<InboxItem> = self.inbox.listed().filter(|item| matches(item)).cloned().collect();
         let done: Vec<InboxItem> = self.inbox.done().filter(|item| matches(item)).cloned().collect();
         let show_done = self.inbox.show_done;
-        let header = div()
+        let header = drag_region(div(), "inbox-drag", window, cx)
             .h(px(50.))
             .flex_shrink_0()
             .flex()
@@ -230,7 +230,6 @@ impl Desktop {
             .pl(px(13.))
             .pr(px(13.))
             .pt(px(13.))
-            .window_control_area(WindowControlArea::Drag)
             .child(
                 div()
                     .h(px(34.))
@@ -252,6 +251,7 @@ impl Desktop {
             .when(unread, |header| {
                 header.child(
                     crate::ui::agent_panel::round_button("inbox-mark-all", "check-check", false, &theme)
+                        .when(cfg!(target_os = "macos"), |button| button.occlude())
                         .tooltip(|window, cx| {
                             gpui_kit::component::tooltip::Tooltip::new("Mark all as read").build(window, cx)
                         })
@@ -260,6 +260,7 @@ impl Desktop {
             })
             .child(
                 crate::ui::agent_panel::round_button("inbox-close", "x", false, &theme)
+                    .when(cfg!(target_os = "macos"), |button| button.occlude())
                     .tooltip(|window, cx| gpui_kit::component::tooltip::Tooltip::new("Close inbox").build(window, cx))
                     .on_click(cx.listener(|this, _, _, cx| this.toggle_inbox(cx))),
             )
