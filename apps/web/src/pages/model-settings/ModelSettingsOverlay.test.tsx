@@ -336,6 +336,7 @@ beforeEach(() => {
   vi.mocked(rpc.me).mockResolvedValue(account("deepseek", "deepseek-chat"));
   models.list.mockResolvedValue([deepseekEntry]);
   models.credentials.mockResolvedValue([]);
+  models.probeOpenAiCompatible.mockResolvedValue({ models: [] });
   autoReview.get.mockResolvedValue({
     mode: "ask",
     enabled: false,
@@ -1129,12 +1130,17 @@ it("filters the models a probe found and keeps a hidden tick", async () => {
   }
 });
 
-it("lists saved models as checked rows before the server is probed", async () => {
+it("lists saved models as checked rows while the server probe is pending", async () => {
+  const probe = deferred<{ models: string[] }>();
+  models.probeOpenAiCompatible.mockReturnValue(probe.promise);
   const view = await renderCompatible({
     ...compatibleCredential,
     enabledModelIds: ["model-a", "model-b"],
   });
   try {
+    await act(async () =>
+      vi.waitFor(() => expect(models.probeOpenAiCompatible).toHaveBeenCalled()),
+    );
     expect(modelCheckbox(view.container, "model-b").checked).toBe(true);
     await click(view.container.querySelector('[role="combobox"][aria-label="Models from server"]'));
     expect(pickerOptions()).toEqual(["model-a", "model-b", "Other model…"]);
