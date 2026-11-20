@@ -6991,6 +6991,7 @@ dependencies = [
  "superbot-avatars",
  "superbot-client",
  "superbot-features",
+ "superbot-t3-inbox",
  "superbot-workspace-panel",
  "tokio",
  "url",
@@ -7025,6 +7026,23 @@ dependencies = [
  "superbot-features",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "superbot-t3-inbox"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "getrandom 0.2.17",
+ "keyring",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
 ]
 
 [[package]]
