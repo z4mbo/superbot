@@ -16,6 +16,7 @@ import {
   isPeerReceiptBlocks,
   liveActivityLine,
   liveMessageComposing,
+  otherAuthor,
   peerExchangeLines,
   projectBotMentions,
   projectMessageReactions,
@@ -649,7 +650,7 @@ export const Transcript = memo(function Transcript({
             {t`Load earlier messages`}
           </Button>
         ) : null}
-        {shownItems.map((item) => {
+        {shownItems.map((item, index) => {
           if (item.kind === "voiceChat") {
             return (
               <div key={item.key}>
@@ -675,6 +676,12 @@ export const Transcript = memo(function Transcript({
             );
           }
           const message = item.message;
+          const author = message.role === "user" ? otherAuthor(message.author, meId) : undefined;
+          const mine = message.role === "user" && !author;
+          const joinAbove = continuedSenderIds.has(message.id);
+          const nextItem = shownItems[index + 1];
+          const joinBelow =
+            nextItem?.kind === "message" && continuedSenderIds.has(nextItem.message.id);
           const peerReceipt = isPeerReceiptBlocks(message.blocks);
           const messageReactions = reactionView.reactions.get(message.id);
           return (
@@ -687,13 +694,16 @@ export const Transcript = memo(function Transcript({
               ) : null}
               <div
                 data-message-id={message.id}
-                className={peerReceipt ? "relative" : "group/message relative hover:z-[1]"}
+                className={cn(
+                  peerReceipt ? "relative" : "group/message relative hover:z-[1]",
+                  joinAbove && "-mt-3",
+                )}
               >
                 <div
                   className={
                     peerReceipt
                       ? undefined
-                      : `relative flex ${message.role === "user" ? "justify-end" : "justify-start"}`
+                      : `relative flex ${mine ? "justify-end" : "justify-start"}`
                   }
                 >
                   <div
@@ -718,7 +728,7 @@ export const Transcript = memo(function Transcript({
                               ) || pageView.pages.has(message.id)
                                 ? "w-full"
                                 : "w-fit"
-                            } min-w-0 ${bubbleFrameWidth(message.role)}`
+                            } min-w-0 ${bubbleFrameWidth(mine ? "user" : "bot")}`
                     }
                   >
                     <MessageView
@@ -735,14 +745,15 @@ export const Transcript = memo(function Transcript({
                       onOpenBot={onOpenBot}
                       onOpenPeerMessages={onOpenPeerMessages}
                       peerExchange={exchanges.lines.get(message.id)}
-                      hideSenderLabel={continuedSenderIds.has(message.id)}
+                      joinAbove={joinAbove}
+                      joinBelow={joinBelow}
                       onAnswer={onAnswer}
                       speakerName={
                         peerReceipt
                           ? undefined
                           : message.role === "bot"
                             ? memberName?.(message.botId)
-                            : undefined
+                            : author?.name
                       }
                       memberName={memberName}
                       peerBot={peerBot}
@@ -773,10 +784,7 @@ export const Transcript = memo(function Transcript({
                 {!peerReceipt && messageReactions ? (
                   <div
                     data-testid="message-reactions"
-                    className={cn(
-                      "mt-1 flex flex-wrap gap-1",
-                      message.role === "user" && "justify-end",
-                    )}
+                    className={cn("mt-1 flex flex-wrap gap-1", mine && "justify-end")}
                   >
                     {[...messageReactions].map(([emoji, count]) => (
                       <span

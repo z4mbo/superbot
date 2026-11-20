@@ -151,12 +151,14 @@ export function ComposerReplyPreview({
 
 export function ReplyLine({
   message,
+  alignEnd = message.role === "user",
   fallbackText,
   target,
   author,
   onJump,
 }: {
   message: ThreadMessage;
+  alignEnd?: boolean;
   fallbackText?: string;
   target?: ArtifactTarget;
   author: string;
@@ -171,10 +173,7 @@ export function ReplyLine({
     return (
       <div
         data-testid="reply-parent-preview"
-        className={cn(
-          "mb-1 truncate text-label text-muted-foreground",
-          message.role === "user" && "text-end",
-        )}
+        className={cn("mb-1 truncate text-label text-muted-foreground", alignEnd && "text-end")}
       >{t`Original message unavailable`}</div>
     );
   const attachment = message.replyPreview?.attachment;
@@ -187,7 +186,7 @@ export function ReplyLine({
   const excerpt = text.replace(/\s+/gu, " ").slice(0, 120);
   // The wrapper aligns in the frame's direction; the quote keeps its own text direction.
   return (
-    <div className={cn("flex", message.role === "user" && "justify-end")}>
+    <div className={cn("flex", alignEnd && "justify-end")}>
       <button
         type="button"
         data-testid="reply-parent-preview"
@@ -203,7 +202,7 @@ export function ReplyLine({
           <ReplyThumbnail attachment={attachment} target={target} lazy />
         ) : null}
         <span className="min-w-0 truncate">
-          {author}: {text}
+          {author}: <bdi>{text}</bdi>
         </span>
       </button>
     </div>

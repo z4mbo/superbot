@@ -7,7 +7,6 @@ import type {
   SpaceMemoryConfig,
 } from "@rakazo/contracts";
 import { parseLabs } from "@rakazo/contracts";
-import type { connectedAppMarks } from "@rakazo/core";
 import { writeSaved } from "@rakazo/core/query";
 import type { RefObject } from "react";
 import { lazyOverlay } from "../../components/ErrorBoundary";
@@ -54,7 +53,6 @@ export function AppOverlays({
   activeBotId,
   stdioEnabled,
   messagingEnabled,
-  onConnectedAppsChange,
   onOpenBot,
 }: {
   overlay: ShellOverlay;
@@ -63,7 +61,6 @@ export function AppOverlays({
   stdioEnabled: boolean;
   /** Messaging settings can be opened; a link there is shown only then. */
   messagingEnabled: boolean;
-  onConnectedAppsChange: (apps: ReturnType<typeof connectedAppMarks>) => void;
   onOpenBot: (bot: Bot) => void;
 }) {
   const section = storeSection(overlay);
@@ -75,7 +72,6 @@ export function AppOverlays({
           onSectionChange={(next) => setOverlay(storeOverlay(next))}
           onClose={() => setOverlay(null)}
           activeBotId={activeBotId}
-          onConnectedAppsChange={onConnectedAppsChange}
           onOpenMcp={() => setOverlay({ kind: "mcp" })}
           onOpenMessaging={
             messagingEnabled

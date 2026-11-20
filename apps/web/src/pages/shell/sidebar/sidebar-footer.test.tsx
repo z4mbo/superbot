@@ -6,7 +6,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DesktopUpdatesProvider } from "../../../components/DesktopUpdates";
-import { SidebarFooter, sidebarMarkCount } from "./sidebar-footer";
+import { SidebarFooter } from "./sidebar-footer";
 
 vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({
@@ -33,14 +33,14 @@ async function render(
   image?: string,
   onIntegrations = vi.fn(),
   onBoard?: () => void,
-  logos?: Array<{ name: string; logo?: string }>,
+  { mini = false, onSettings = vi.fn() }: { mini?: boolean; onSettings?: () => void } = {},
 ) {
   const email = "account@rakazo.test";
   await act(async () =>
     root.render(
       <DesktopUpdatesProvider>
         <SidebarFooter
-          logos={logos}
+          mini={mini}
           name={name}
           initials={name
             .split(" ")
@@ -56,7 +56,7 @@ async function render(
           onSkills={vi.fn()}
           onBoard={onBoard}
           onArtifacts={() => {}}
-          onSettings={() => {}}
+          onSettings={onSettings}
           onLogOut={() => {}}
           signingOut={false}
           logOutError={null}
@@ -113,6 +113,7 @@ it("installs the ready update only through the footer button", async () => {
   await render("Ada Lovelace");
   const icon = document.querySelector<HTMLButtonElement>('[aria-label="Install update"]')!;
   expect(icon).not.toBeNull();
+  expect(icon.nextElementSibling?.getAttribute("aria-label")).toBe("Store");
   expect(document.body.textContent).not.toContain("New update available");
   await act(async () => icon.click());
   expect(install).toHaveBeenCalledTimes(1);
@@ -127,20 +128,23 @@ it("shows the account image and falls back to the initial after a load error", a
   expect(image.src).toBe("https://example.test/avatar.png");
   await act(async () => image.dispatchEvent(new Event("error")));
   expect(trigger.querySelector("img")).toBeNull();
-  expect(trigger.textContent).toBe("AL");
+  expect(trigger.textContent).toBe("ALAda Lovelace");
 });
 
-it("opens integrations and keeps the existing account actions", async () => {
+it("opens Store and Settings from the footer and lists neither in the account menu", async () => {
   const onIntegrations = vi.fn();
-  await render("Demo User", undefined, onIntegrations, vi.fn());
-  const connect = [...host.querySelectorAll("button")].find((button) =>
-    button.textContent?.includes("Store"),
-  )!;
-  await act(async () => connect.click());
+  const onSettings = vi.fn();
+  await render("Demo User", undefined, onIntegrations, vi.fn(), { onSettings });
+  const footer = host.querySelector('[data-testid="sidebar-footer"]')!;
+  const store = footer.querySelector<HTMLButtonElement>('[aria-label="Store"]')!;
+  const settings = footer.querySelector<HTMLButtonElement>('[aria-label="Settings"]')!;
+  expect(store.nextElementSibling).toBe(settings);
+  await act(async () => store.click());
+  await act(async () => settings.click());
   expect(onIntegrations).toHaveBeenCalledOnce();
+  expect(onSettings).toHaveBeenCalledOnce();
   const menu = document.querySelector('[data-slot="popover-content"]')!;
   expect([...menu.querySelectorAll("button, a")].map((row) => row.textContent)).toEqual([
-    "Settings",
     "Skills",
     "Artifacts",
     "Board",
@@ -150,6 +154,22 @@ it("opens integrations and keeps the existing account actions", async () => {
     "Account menu for Demo User",
   );
 });
+
+it("keeps Store and Settings in the account menu when the sidebar is collapsed", async () => {
+  await render("Demo User", undefined, undefined, undefined, { mini: true });
+  const footer = host.querySelector('[data-testid="sidebar-footer"]')!;
+  expect([...footer.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
+    "DU",
+  ]);
+  const menu = document.querySelector('[data-slot="popover-content"]')!;
+  expect([...menu.querySelectorAll("button")].map((row) => row.textContent)).toEqual([
+    "Store",
+    "Settings",
+    "Skills",
+    "Artifacts",
+    "Log out",
+  ]);
+});
 it("omits Board when unavailable", async () => {
   await render();
   expect(document.querySelector('[data-slot="popover-content"]')?.textContent).not.toContain(
@@ -157,21 +177,6 @@ it("omits Board when unavailable", async () => {
   );
 });
 
-it("falls back when app artwork fails and accepts replacement artwork", async () => {
-  await render("Demo User", undefined, undefined, undefined, [
-    { name: "Slack", logo: "https://example.test/slack.svg" },
-  ]);
-  const pill = [...host.querySelectorAll("button")].find((button) =>
-    button.textContent?.includes("Store"),
-  )!;
-  await act(async () => pill.querySelector("img")!.dispatchEvent(new Event("error")));
-  expect(pill.querySelector("img")).toBeNull();
-  expect(pill.textContent).toContain("S");
-  await render("Demo User", undefined, undefined, undefined, [
-    { name: "Slack", logo: "https://example.test/new-slack.svg" },
-  ]);
-  expect(pill.querySelector("img")?.src).toBe("https://example.test/new-slack.svg");
-});
 it.each(["throw", "state"] as const)(
   "reveals a %s install failure after Later",
   async (failure) => {
@@ -205,33 +210,6 @@ it.each(["throw", "state"] as const)(
     await vi.waitFor(() => expect(notice()).toBeNull());
   },
 );
-
-it.each([
-  [-20, 0],
-  [0, 0],
-  [25, 0],
-  [26, 1],
-  [47, 1],
-  [48, 2],
-  [69, 2],
-  [70, 3],
-  [200, 3],
-])("fits marks into %ipx without consuming label or padding space", (width, count) => {
-  expect(sidebarMarkCount(width)).toBe(count);
-});
-
-it("keeps at most three marks with the same tile and a missing-logo fallback", async () => {
-  await render("Demo User", undefined, undefined, undefined, [
-    { name: "Gmail", logo: "https://example.test/gmail.svg" },
-    { name: "Notion" },
-    { name: "GitHub", logo: "https://example.test/github.svg" },
-    { name: "Slack" },
-  ]);
-  const tiles = [...host.querySelectorAll('span[aria-hidden="true"] > span')];
-  expect(tiles).toHaveLength(3);
-  expect(new Set(tiles.map((tile) => tile.className)).size).toBe(1);
-  expect(tiles[1]!.textContent).toBe("N");
-});
 
 const personal = {
   id: "org-personal",
@@ -294,14 +272,14 @@ async function openOrganizations() {
 
 it("shows the active organization as one row, even when it is the only one", async () => {
   const rows = await renderOrganizations([personal]);
-  expect(rows.map((row) => row.textContent).slice(0, 2)).toEqual(["Personal", "Settings"]);
+  expect(rows.map((row) => row.textContent).slice(0, 2)).toEqual(["Personal", "Skills"]);
 });
 
 it("lists organizations in a submenu with the active one checked, then New organization", async () => {
   const onSwitch = vi.fn();
   const onCreate = vi.fn();
   const rows = await renderOrganizations([personal, work], onSwitch, onCreate);
-  expect(rows.map((row) => row.textContent).slice(0, 2)).toEqual(["Personal", "Settings"]);
+  expect(rows.map((row) => row.textContent).slice(0, 2)).toEqual(["Personal", "Skills"]);
   const items = await openOrganizations();
   expect(items.map((item) => item.textContent)).toEqual(["Personal", "Work", "New organization"]);
   expect(items[0]!.getAttribute("aria-current")).toBe("true");

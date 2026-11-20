@@ -1,6 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot } from "@rakazo/contracts";
-import type { connectedAppMarks } from "@rakazo/core";
 import {
   Button,
   Dialog,
@@ -30,7 +29,6 @@ export function StoreDialog({
   onOpenBot,
   onOpenMcp,
   onOpenMessaging,
-  onConnectedAppsChange,
 }: {
   section: StoreSection;
   onSectionChange: (section: StoreSection) => void;
@@ -39,7 +37,6 @@ export function StoreDialog({
   onOpenBot: (bot: Bot) => void;
   onOpenMcp?: () => void;
   onOpenMessaging?: () => void;
-  onConnectedAppsChange?: (apps: ReturnType<typeof connectedAppMarks>) => void;
 }) {
   const { t } = useLingui();
   const [actions, setActions] = useState<HTMLElement | null>(null);
@@ -97,7 +94,6 @@ export function StoreDialog({
           <AppsSection
             actions={actions}
             activeBotId={activeBotId}
-            onConnectedAppsChange={onConnectedAppsChange}
             onOpenMcp={onOpenMcp}
             onOpenMessaging={onOpenMessaging}
             onOpenPlugins={(pick) => open("plugins", pick)}
