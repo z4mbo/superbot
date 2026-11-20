@@ -56,6 +56,8 @@ pub struct Chat {
     pub cards: crate::cards::Cards,
     _live: Option<Task<()>>,
     pub(crate) local_turn: Option<Task<()>>,
+    /// A message an Inbox line asked to show, and its mark once shown.
+    pub reveal: super::reveal::Reveal,
 }
 
 impl Chat {
@@ -66,7 +68,7 @@ impl Chat {
     }
 
     /// The list row a message is drawn in.
-    fn row_of(entry: usize) -> usize {
+    pub(crate) fn row_of(entry: usize) -> usize {
         entry + 1
     }
 }
@@ -160,6 +162,7 @@ impl Desktop {
             cards: crate::cards::Cards::default(),
             _live: None,
             local_turn: None,
+            reveal: Default::default(),
         });
         self.resume_draft(window, cx);
         self.restore_local_write();
@@ -170,7 +173,7 @@ impl Desktop {
             api.mark_read(&space_id, &read).await.ok();
             Ok(snapshot)
         };
-        self.call(window, cx, work, move |this, result, _, cx| {
+        self.call(window, cx, work, move |this, result, window, cx| {
             if this.space_selection != selection {
                 return;
             }
@@ -193,6 +196,7 @@ impl Desktop {
                     chat.error = Some(api::explain(&error));
                 }
             }
+            this.seek_reveal(window, cx);
         });
         cx.notify();
     }
@@ -343,7 +347,7 @@ impl Desktop {
         let target = chat.target.clone();
         let read = target.clone();
         let work = async move { api.older(&space_id, &read, before).await };
-        self.call(window, cx, work, move |this, result, _, _| {
+        self.call(window, cx, work, move |this, result, window, cx| {
             let Some(chat) = this.chat.as_mut().filter(|chat| chat.target == target) else { return };
             let state = &mut chat.conversation;
             if !state.loading_older || state.older != Some(before) {
@@ -375,6 +379,7 @@ impl Desktop {
                     chat.list.remeasure_items(0..1);
                 }
             }
+            this.seek_reveal(window, cx);
         });
         cx.notify();
     }

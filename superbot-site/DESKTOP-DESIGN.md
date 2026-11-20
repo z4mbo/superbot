@@ -44,7 +44,8 @@ leaves room for it.
 | Bot colour, avatar, preview line in the sidebar           | The navigation response includes bot summaries. | Live. The sidebar shows a face, identity colour, preview line and unread state.                            | `spaces/list`                                                                             |
 | Routines, approval rules, run activity                    | Live (native service)                           | Available in the workspace management panel with Bots, Groups, People and Files.                           | `routines/*`, `approvalRules/*`, `runs/list`                                              |
 | Board: tickets by status, edit, move, comments            | Live (Labs feature per account)                 | Live in the workspace panel's Board section, following `boards/subscribe`. Verified on Windows (§4.2).     | `boards/{get,subscribe}`, `tickets/{list,create,update,move,comment,comments}`            |
-| Bot computer, voice, calls                                | Live in the web app only                        | Native views Planned. The web app opens in the workspace window (§4.1); it is not GPUI.                    | retained app/API                                                                          |
+| Agent computer | Live on hosts with computer provisioning | The Computer tab starts, stops and shows the computer. Watch and Take control use the server's signed screen. The Windows panel was tested against a fixture. | `computer/*` |
+| Voice and calls | Available in the web client on configured hosts | The web workspace handles media. See §4.1 for platform support. | retained app/API |
 
 Asks from design to the client/runtime owners (UI code must not invent these):
 
@@ -327,7 +328,7 @@ uses the panel's page layout and controls; no new tokens.
 - **Off for the account.** One notice line, with **Turn on Board** as a link button when
   the account may switch the Lab.
 
-## 5. Sign in (server Live, desktop To build)
+## 5. Sign in
 
 Centred card, 400 wide, `card` fill, radius 14, 32px padding, app icon 56px above.
 
@@ -350,21 +351,23 @@ On launch: `CredentialStore::load`; if a client comes back, skip this screen. An
 `is_unauthorized()` returns here with the server and email prefilled and a one-line note
 "Your session ended. Sign in again." Sign out lives in the profile menu.
 
-## 6. Sidebar (server Live, desktop To build)
+## 6. Sidebar
 
 Top row (60px tall, 12px top padding): traffic-light space, then at the end two 36px round
 icon buttons 8px apart, each a charcoal "elevated control": `composer` fill (`#1f1f1f`
 Midnight, `#ffffff` Daylight), a 1px inset ring of `ink` at 6%, icon in `ink` at 90%
 (Lucide `search` at 18px, `plus` at 20px, stroke 1.5), hover fill = `composer` mixed 7%
 toward `ink`. They are **Search** (`search`, `Cmd/Ctrl+K`) and **New** (`plus`,
-`Cmd/Ctrl+N`, opens a menu: "New bot…", "New group…", "Join a space…"; "New plugin…" only once §10 ships).
+click to open the creation menu). Cmd/Ctrl+N creates a bot directly. While a bot is open,
+Cmd/Ctrl+Shift+N starts another conversation with it.
 
 - **Space switcher**: only when `list_spaces` returns more than one. A 32px row
   under the top row: space name 13/500 + `chevrons-up-down` 14px; opens a menu of spaces
   (30px rows, check mark on the current one). The selection persists per server.
-- **Inbox row** (Planned): 48px row, `inbox` icon in a 36px circle. Hidden until it exists.
-- **Main bot tile**: the first bot in the list, centred, 92×92, avatar 56 with its name
-  12/500 under it.
+- **Inbox** opens from the account menu. Each bot has its own Inbox tab in the right panel.
+- **Main bot tile** is centred, 95×92, with a 60px avatar, a gold star badge and its name below.
+  Hovering a tile with a preview for 250ms opens a 260px card beside it.
+  Tab focuses pinned tiles. Enter or Space opens the bot, and the Menu key or Shift+F10 opens its actions.
 - **Bot rows**: 54px tall, radius 8, 8px inline padding, 10px gap. Avatar 42 with a −3px
   margin, so it takes 36px and names start 66px from the sidebar's edge. Name 14/20/500
   `ink`, 3px above the last-message preview 13/18/400 `ink_secondary`, one line each, the
@@ -381,15 +384,15 @@ toward `ink`. They are **Search** (`search`, `Cmd/Ctrl+K`) and **New** (`plus`,
 - Loading: keep the header; reserve rows; show a spinner only after 300ms.
 - Error: inline row "Couldn't load bots." + text button "Try again".
 
-## 7. Chat (server Live, desktop To build)
+## 7. Chat
 
 ### 7.1 Header pill
 
 Centred 10px from the top, 41px tall, `composer` fill, 1px ring of `ink` at 6%, full
 radius, padding 9.5px block, 10px start, 12px end. Contents 8px apart: avatar 22, bot name
 14/20/500, a 1px × 16px `hairline` divider, the
-model name 13/400 `ink_secondary` + `chevron-down` 14 when a model can be chosen (Planned),
-else omitted. Clicking the name opens the side panel with the bot's details.
+model name 13/400 `ink_secondary` + `chevron-down` 14 in an agent chat. Clicking the model
+opens its picker. Clicking the bot name opens the side panel.
 No other header buttons.
 
 ### 7.2 Transcript
@@ -487,17 +490,19 @@ Start-aligned, `composer` fill, radius 18, 440px wide. Answered with `threads/an
 - History failed: inline card in the column, "Couldn't load this conversation." + "Try
   again".
 
-## 8. Side panel: bot details (desktop To build)
+## 8. Agent side panel
 
-Tabs (segmented control, 28px, full radius) at the top: **Details**, **Plugins**.
+The panel docks on the right. Click the avatar to choose its shape and colour, the name to
+rename the bot, or the gear to edit instructions, job and notifications.
 
-- Details: avatar 72 with the name 20/600 under it; rows (`NavRow` pattern: 44px, label
-  13/400 start, value 13/400 `ink_secondary` end, chevron) for Model, Instructions,
-  Memory (Planned rows are omitted, not disabled).
-- Plugins: every installed plugin's parts with a switch per part for this bot
-  (`setGrants` with this bot's full list). Empty: "No plugins installed." + "Open store".
+- **Details** lets members select a model and create, switch, rename, pin or archive additional conversations.
+- **Library** lists files, pages and apps referenced by the open conversation.
+- **Computer** opens the agent's computer and its screen controls when enabled on the host.
+- **Inbox** shows the current member's questions, work in progress and results for this bot.
 
-## 9. Marketplace page (server Live, desktop To build)
+The store manages access to installed plugins per bot.
+
+## 9. Marketplace page
 
 Opened from the sidebar Store button or `Cmd/Ctrl+Shift+P`. Uses the page frame (§4).
 
@@ -672,7 +677,7 @@ text), Rejected (`danger` text) with the reviewer's reason under the row in 12
 `ink_secondary`. Rejected slugs stay reserved: "New version…" is offered, never
 "Delete". Versions are immutable: no edit on a submitted version.
 
-## 11. Review queue page (server Live, desktop To build; deployment admins only)
+## 11. Review queue for deployment admins
 
 Today: `superbot-plugin list submissions` and `superbot-plugin review`. In the app: only
 listed in the profile menu when the account is a deployment admin (an account in the
