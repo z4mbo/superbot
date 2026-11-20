@@ -1,6 +1,6 @@
 # Superbot desktop
 
-The native macOS and Windows apps use Rust and GPUI. Surfaces they do not draw open in the default browser on macOS and in a workspace window on Windows.
+Superbot uses Rust and GPUI on Windows, macOS and Linux. The desktop also opens the hosted web client in an app window.
 
 ## Install from source
 
@@ -38,11 +38,11 @@ superbot-plugin list
 
 The desktop saves the address you choose on the sign-in form when you submit valid fields. An origin supplied through `SUPERBOT_SERVER` applies to that launch only. Editing the field to a different origin saves your new choice. All three programs reuse the saved address on that device. Quit and reopen the app after changing the default in your terminal. For a single CLI invocation, `--server URL` takes precedence over `SUPERBOT_SERVER`, and either takes precedence over the saved address. The desktop also honors `SUPERBOT_SERVER` at launch. With no explicit or saved address, clients use `http://127.0.0.1:5173`.
 
-Sign in with your existing account on each device. Desktop and the CLI share the credential vault on the same device and origin. The address is stored separately in `server.txt` in `~/Library/Application Support/Superbot` on macOS and `%LOCALAPPDATA%\Superbot` on Windows. Email-code sign-in requires working mail delivery on the host.
+Sign in to the same Superbot server and account on each device to see your workspaces. Desktop and CLI share the device credential vault for that server. The saved server address lives in `server.txt` under the Superbot settings directory. On Windows this is `%LOCALAPPDATA%\Superbot`, on macOS it is `~/Library/Application Support/Superbot`, and on Linux it is `$XDG_CONFIG_HOME/superbot` (default `~/.config/superbot`). Email-code sign-in requires mail delivery on the host.
 
 ## Private appearance files
 
-Keep your appearance pack in `~/Library/Application Support/Superbot/appearance` on macOS or `%LOCALAPPDATA%\Superbot\appearance` on Windows. To transfer it, quit Superbot, copy only your own appearance files through a private channel you control, and put them in the destination's appearance folder with their relative paths intact. Create the folder if needed and reopen Superbot. Keep these files outside the source checkout and app bundle. Sign in separately on the destination device.
+Keep your appearance pack in the `appearance` subdirectory of your Superbot settings directory. To transfer it, quit Superbot, copy your appearance files through a private channel you control, and preserve their relative paths in the destination’s appearance folder. Reopen Superbot and sign in separately on the destination device.
 
 To use the same type on both clients, copy `typography.json` and its `fonts/` directory together. Each optional role, `sans` or `mono`, takes a relative OpenType or TrueType file path and a list of family names. Supply the names from the font itself. Windows and macOS can report different names for the same face. The first available family wins. A missing role uses the bundled Geist family for that role.
 
@@ -57,7 +57,7 @@ For matching bot avatars, keep the same `avatars/` directory on both clients. It
 
 ## Conversations and shared Spaces
 
-At sign-in, desktop opens a Space you already share when one is available. Otherwise it opens the server's default Space. The upper-left menu selects a different Space, and your choice stays active while you work. Select an agent or group in the sidebar to read its history and follow replies. Search filters the sidebar. To create a bot, choose **+ → New bot** or press Ctrl+N on Windows or Cmd+N on macOS. The bot receives an available name and its chat opens.
+At first sign-in, keep Personal, create a workspace or join with an invite. On your next visit, Superbot opens the last workspace you selected for that account and server. Use the Space switcher to move between workspaces. With a single Space, find these actions in the account menu. Select an agent or group to open its chat. To create a bot, choose **+ → New bot**, press Ctrl+N on Windows or Linux, or press Cmd+N on macOS.
 
 Click the bot's name or avatar in the pill at the top of its chat to open the right sidebar. Click its name in the sidebar to rename it. The gear opens the agent's instructions, job and notification settings. The model name in the chat header and the **Model** row in **Details** open the model choice for that particular bot.
 
@@ -77,7 +77,7 @@ When an agent waits on you, its question appears as a card in the conversation. 
 
 While connected, the sidebar picks up other Space members' agent and group changes and chat activity, including activity outside the open conversation. A refresh preserves the selected chat, composer focus and typed text, and an open rename draft. The desktop catches up on reconnect. It uses these signals to refresh the sidebar. System chat alerts and other workspace panels have their own update behavior.
 
-New accounts start in **Personal**, with the account holder as its only member. To collaborate there from the start, open **Manage workspace** from the account menu or use the settings control at the bottom of the sidebar. Under **People**, choose **Copy an invite link**. To keep existing Personal work private, first choose **New space** in the upper-left menu and send an invite from that Space. Each link can be used once, and the teammate signs in with a separate account. They can redeem it in the browser or paste it under **People** on desktop. Email delivery requires a configured mail service.
+To collaborate, open **Manage workspace → People** and copy an invite link. To keep Personal private, create a separate workspace and issue the invite there. Each recipient signs in with their own account and can redeem the link on web, desktop or CLI. [Workspace guide](workspaces.md)
 
 ## Models
 
@@ -126,17 +126,17 @@ When several releases are approved, open the installed plugin, choose the desire
 
 ## Open the web workspace
 
-Choose **Open web workspace** in the account menu for the full Superbot client, including meetings, boards, live voice and the agent computer. A card the native chat does not draw opens there too. It opens the current conversation in a separate Superbot window. That window shows the server's own web app, with all of its navigation, inside Microsoft Edge WebView2. It is not a native view. **Open in browser**, in the same menu and in the window's toolbar, opens the same page in your default browser instead.
+Choose **Open web workspace** in the account menu to open the selected chat in the hosted web client. Cards with a web view open there too. **Open in browser** opens the same page in your default browser.
 
-**Supported platform.** Windows 10 and 11 with the Evergreen WebView2 Runtime, which Windows 11 includes. Without the runtime the window says so and offers **Open in browser**. On macOS and Linux, **Open web workspace** opens the browser.
+**Platforms.** Windows uses the Evergreen WebView2 Runtime. macOS uses WKWebView. Linux uses GTK 3 and WebKitGTK 4.1 in a graphical session. The computer screen embeds inside the panel on Windows, macOS and X11. On native Wayland it opens in its own Superbot window.
 
-**Sign-in and cookies.** The window signs in on its own, on the server's normal sign-in page. Desktop does not pass its session to the window: no token in an address, no injected script, no copied cookie. Each desktop account on each server gets its own WebView2 profile under `%LOCALAPPDATA%\Superbot\WebView\`. The folder name is a hash of the server's canonical origin and the account's user ID, so neither can be read from it. The profile keeps cookies, site storage, cache and saved form data. A different desktop account on the same server never sees an earlier account's web sign-in. Signing out of desktop, or an expired desktop session, closes that account's workspace windows. The web sign-in stays in its profile for that account's next visit. Sign out inside the window to end it. Delete the `WebView` folder while the app is closed to remove every profile. A server that does not report the account's user ID gets the browser instead.
+**Sign-in and cookies.** Sign in on the server’s web sign-in page when the workspace window opens for the first time. Each server and desktop account has its own web profile. On macOS 14 and later, WKWebView keeps an account-specific store. Earlier macOS releases use a private session and ask for sign-in again. Windows stores profiles under `%LOCALAPPDATA%\Superbot\WebView`, and Linux under `$XDG_DATA_HOME/Superbot/WebView` (default `~/.local/share/Superbot/WebView`). Signing out of desktop closes that account’s workspace windows. To end a persistent web session, sign out inside the web workspace. Agent screens use a separate private view.
 
 **External links.** **Open in browser** and links to other sites use your default browser. The browser keeps its own cookies and may be signed in to a different account.
 
 **Links and other sites.** Pages on the server, and sign-in popups the web app opens, stay in the app. Popups share the window's profile so the sign-in can finish. A popup closes when it is done. Other links open in your default browser. If a sign-in moves the whole window to another site, the toolbar names that site and **Back to workspace** returns to the server. Plain `http` addresses on other hosts and `mailto:` links go to the system. `file:`, `javascript:` and other schemes are refused.
 
-**Limits.** Camera, microphone and location prompts are WebView2's own, and each permission is saved in the server's profile. Downloads use WebView2's download panel and your Downloads folder. Some identity providers refuse sign-in inside embedded browsers; use **Open in browser** for those. Developer tools are off. Popup windows are WebView2's own windows, without the Superbot toolbar. Opening the same page twice brings its window forward instead of reloading it. A different page opens a second window, so a meeting already open keeps running.
+**Windows WebView2.** The runtime handles camera, microphone and location permissions, downloads and sign-in popups. Some identity providers require the system browser. Opening the same workspace page again brings its window forward. A different page opens another window, so an open meeting can keep running.
 
 ## Developing the UI
 
