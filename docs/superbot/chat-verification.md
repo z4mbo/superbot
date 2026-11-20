@@ -34,6 +34,28 @@ PASS local notes and CLI turns retry safely and reload with matching live attrib
 PASS a second signed-in Space member streamed the human and agent messages with matching author IDs
 ```
 
+## Granted record apps with a local CLI model
+
+Open `superbot <agent>` with a prompt-only local model selected for your agent.
+Use `/apps` to list its granted record apps. `/app 1` shows recent records from
+the first app. An optional `--date YYYY-MM-DD` filters the preview on the app's
+first date field. Append a request to ask the selected model for help using
+that preview. If the model proposes a record, type `save` after reviewing its
+fields or press Enter to skip. After an unconfirmed save, `/app retry` in the
+same chat session reuses the approved operation. App interactions stay outside
+the conversation transcript.
+
+```powershell
+cargo build --locked -p superbot-cli
+node --import tsx infra/superbot/verify-chat.mjs "C:/path/to/postgresql/bin" target/debug/superbot.exe --local-app-records
+```
+
+The isolated fixture uses a fake local CLI and two accounts in one Space. It
+checks real record context, skipping and approving a draft, revocation while
+approval is pending, stale pins after re-grant or version switch, and identical
+operation replay. It also checks that the other account's records and the chat
+transcript stay separate from the app interaction.
+
 ## Native sidebar notifications
 
 Add the Rust probe to verify the signed sidebar stream with the same two disposable accounts.

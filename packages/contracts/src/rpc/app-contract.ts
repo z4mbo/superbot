@@ -10,6 +10,7 @@ import { botsRpc } from "../bots/bots-rpc.js";
 import { serverRpc } from "../clients/server-rpc.js";
 import { computersRpc } from "../computers/computers-rpc.js";
 import { integrationsRpc } from "../integrations/integrations-rpc.js";
+import { localAppRecordsRpc } from "../integrations/local-app-records.js";
 import { pluginRegistryRpc } from "../integrations/plugin-registry.js";
 import { meetingCalendarRpc } from "../meetings/calendar.js";
 import { meetingsRpc } from "../meetings/meetings.js";
@@ -38,6 +39,7 @@ export const appContract = {
   ...skillsRpc,
   ...integrationsRpc,
   ...pluginRegistryRpc,
+  ...localAppRecordsRpc,
   ...runsRpc,
 };
 

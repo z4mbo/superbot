@@ -13,6 +13,7 @@ import { startModelEmulator } from "../../scripts/superbot-test-support.mjs";
 
 import { checkBotConversations, conversationSteps } from "./verify-bot-conversations.mjs";
 import { checkConversationContent } from "./verify-conversation-content.mjs";
+import { checkLocalAppRecords } from "./verify-local-app-records.mjs";
 import { prepareMarketplaceApp } from "./verify-marketplace-app.mjs";
 import { checkSearch } from "./verify-search.mjs";
 
@@ -26,6 +27,7 @@ const {
     "marketplace-app": marketplaceApp,
     roster,
     "local-cli": localCli,
+    "local-app-records": localAppRecords,
   },
 } = parseArgs({
   allowPositionals: true,
@@ -35,11 +37,12 @@ const {
     "marketplace-app": { type: "boolean" },
     roster: { type: "boolean" },
     "local-cli": { type: "boolean" },
+    "local-app-records": { type: "boolean" },
   },
 });
 assert(
   process.platform === "win32" && postgresBin && executable,
-  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--marketplace-app] [--roster] [--local-cli]",
+  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--marketplace-app] [--roster] [--local-cli] [--local-app-records]",
 );
 const cli = resolve(executable);
 const pg = (file) => resolve(postgresBin, `${file}.exe`);
@@ -64,7 +67,7 @@ async function loopbackPort() {
 const [apiPort, dbPort] = await Promise.all([loopbackPort(), loopbackPort()]);
 const origin = `http://127.0.0.1:${apiPort}`;
 const reviewerEmail =
-  desktopExecutable || marketplace || marketplaceApp
+  desktopExecutable || marketplace || marketplaceApp || localAppRecords
     ? `reviewer-${randomUUID()}@example.test`
     : undefined;
 const credentialTarget = `${origin}/.com.superbot.rakazo.session`;
@@ -431,6 +434,18 @@ async function checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedOb
   console.log(
     "PASS named and picker chats ran the selected local CLI and retried shared history without duplication",
   );
+  if (localAppRecords) {
+    await checkLocalAppRecords({
+      rpc,
+      owner: scopedOwner,
+      observer: scopedObserver,
+      botId: agent.id,
+      cli,
+      args: ["--server", origin, "--space", spaceName, agent.name],
+      env: childEnv,
+      cwd: root,
+    });
+  }
 }
 
 const modelKey = secret();
@@ -825,7 +840,7 @@ try {
       throw error;
     }
   }
-  if (localCli) {
+  if (localCli || localAppRecords) {
     await checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedObserver, source: first });
   }
   await checkBotConversations({

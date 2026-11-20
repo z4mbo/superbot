@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod approval_tests;
 mod approvals;
+mod local_app_chat;
 mod local_chat;
 mod roster;
 
@@ -350,7 +351,7 @@ async fn chat(
     agent: &Agent,
     conversation: Option<&str>,
 ) -> Result<bool> {
-    let local = local_chat::LocalChat::open(client, account, space, agent, conversation);
+    let mut local = local_chat::LocalChat::open(client, account, space, agent, conversation);
     let features = Features::new(client.clone());
     let thread = ChatThread {
         space: features.space(&space.id),
@@ -386,18 +387,27 @@ async fn chat(
         .map(|chat| chat.has_pending())
         .transpose()?
         .unwrap_or(false);
+    let model = if pending {
+        None
+    } else {
+        local
+            .as_ref()
+            .map(|chat| chat.selection())
+            .transpose()?
+            .flatten()
+    };
     if pending {
         println!("A local message is waiting to be saved. Type /retry to save it.");
-    } else if local
-        .as_ref()
-        .map(|chat| chat.selection())
-        .transpose()?
-        .flatten()
-        .is_none()
-    {
+    } else if model.is_none() {
         resume_waiting(&thread, &snapshot, &mut cursor, &mut read_approval).await?;
     }
     println!("Type a message and press Enter. /back returns to the picker. /quit exits.");
+    if model
+        .as_ref()
+        .is_some_and(superbot_features::local_app_records::supports_app_assistance)
+    {
+        println!("Type /apps to see record apps granted to this agent.");
+    }
     loop {
         let Some(input) = prompt("You > ").await? else {
             return Ok(false);
@@ -408,7 +418,7 @@ async fn chat(
             "/back" => return Ok(true),
             _ => {}
         }
-        if let Some(local) = &local {
+        if let Some(local) = &mut local {
             match local.handle(client, &thread, input.trim()).await {
                 Ok(true) => continue,
                 Ok(false) => {}
@@ -418,6 +428,10 @@ async fn chat(
                 }
                 Err(error) => return Err(error),
             }
+        }
+        if local_app_chat::is_command(input.trim()) {
+            eprintln!("App assistance requires a selected prompt-only local model.");
+            continue;
         }
         let nonce = Uuid::new_v4().to_string();
         let message = superbot_features::SendMessage {
