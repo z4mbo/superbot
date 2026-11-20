@@ -73,7 +73,7 @@ function WorkspaceSetup() {
     <main className="min-h-full bg-background px-6 py-12" data-rakazo-surface="onboarding">
       <AccountMenu signingOut={signingOut} onLogOut={() => void logOut()} />
       <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
-        <h1 className="text-2xl font-semibold">
+        <h1 className="text-heading1 font-semibold">
           <Trans>Workspaces</Trans>
         </h1>
         <div className="flex flex-wrap gap-2">
@@ -171,7 +171,7 @@ function WorkspaceSetup() {
         </ul>
         {members ? (
           <section className="flex flex-col gap-3" aria-labelledby="workspace-member-heading">
-            <h2 id="workspace-member-heading" className="text-lg font-semibold">
+            <h2 id="workspace-member-heading" className="text-heading3 font-semibold">
               {members.name}
             </h2>
             <SpaceRpcProvider spaceId={members.id}>
