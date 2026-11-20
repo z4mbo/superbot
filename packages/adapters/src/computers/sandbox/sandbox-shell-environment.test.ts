@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -42,10 +42,10 @@ describe("sourceEnvironmentCommand", () => {
     if (directory) rmSync(directory, { recursive: true, force: true });
   });
 
-  function run(envFile: string, argv: string, PATH = process.env.PATH) {
-    return spawnSync("bash", ["-c", sourceEnvironmentCommand(envFile, argv)], {
+  function run(envFile: string, argv: string, setup = "") {
+    return spawnSync("bash", ["-c", setup + sourceEnvironmentCommand(envFile, argv)], {
       encoding: "utf8",
-      env: { PATH },
+      env: { PATH: process.env.PATH },
     });
   }
 
@@ -80,10 +80,8 @@ describe("sourceEnvironmentCommand", () => {
     directory = mkdtempSync(path.join(tmpdir(), "rakazo-env-"));
     const envFile = path.join(directory, "env");
     writeFileSync(envFile, shellExportScript({ FAKE_TOKEN: "fake" }));
-    const bin = path.join(directory, "bin");
-    mkdirSync(bin);
-    writeFileSync(path.join(bin, "cat"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
-    const result = run(envFile, "echo ran", `${bin}:${process.env.PATH}`);
+    // Define the stub after shell startup, which can reset PATH on some hosts.
+    const result = run(envFile, "echo ran", "cat() { return 1; }\n");
     expect(result.stdout).toBe("");
     expect(result.status).toBe(1);
   });

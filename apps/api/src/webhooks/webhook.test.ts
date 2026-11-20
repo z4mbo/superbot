@@ -804,22 +804,22 @@ describe("GitHub event HTTP route", () => {
     expect(deps.enqueue).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects a signature made with the wrong secret", async () => {
+  it.each(["/github", "/github/issues/opened"])("rejects a wrong signature at %s", async (path) => {
     const deps = createDeps({
       routines: [{ id: "routine-1", name: "Review pushes", prompt: "Inspect the change" }],
     });
     const app = mount(deps);
-    const raw = JSON.stringify({ ref: "refs/heads/main" });
+    const raw = JSON.stringify({ action: "opened", issue: { number: 42 } });
     const res = await app.request(
-      "/api/v1/bots/bot-1/github",
-      await githubRequest(raw, "wrong-secret"),
+      `/api/v1/bots/bot-1${path}`,
+      await githubRequest(raw, "wrong-secret", "delivery-1", "issues"),
     );
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Unauthorized" });
     expect(deps.sendUserMessage).not.toHaveBeenCalled();
     const unknown = await mount(createDeps({ bot: null })).request(
-      "/api/v1/bots/missing/github",
-      await githubRequest(raw, SECRET, "delivery-1", "push", "missing"),
+      `/api/v1/bots/missing${path}`,
+      await githubRequest(raw, SECRET, "delivery-1", "issues", "missing"),
     );
     expect(unknown.status).toBe(401);
   });
