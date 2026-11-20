@@ -7,7 +7,7 @@ use url::Url;
 
 use super::*;
 use crate::runtime::{detach, network};
-use crate::web::screen::{parent_window, ScreenFailure, ScreenState, ScreenView};
+use crate::web::screen::{parent_window, ScreenDocument, ScreenFailure, ScreenState, ScreenView};
 
 /// How often an open screen checks in: it keeps the computer awake, and control alive while held.
 const HEARTBEAT: Duration = Duration::from_secs(60);
@@ -58,6 +58,15 @@ pub(super) struct ScreenSession {
     placed: Option<(Bounds<Pixels>, bool)>,
     owner: (Features, String),
     _tasks: Vec<Task<()>>,
+}
+
+impl ScreenSession {
+    fn unavailable(&mut self, message: impl Into<String>) {
+        self.view = None;
+        self.lease = None;
+        self.busy = false;
+        self.phase = ScreenPhase::Unavailable(message.into());
+    }
 }
 
 /// The screen page on the server this app is signed in to. Screens are proxied under `/novnc/`
@@ -146,37 +155,45 @@ impl Desktop {
         let work = async move { features.space(space).computer_screen(&agent).await };
         self.call(window, cx, work, move |this, result, window, cx| {
             let issued = match result {
-                Ok(screen) => screen.url,
+                Ok(screen) => screen,
                 Err(error) => {
                     if let Some(screen) = this.screen_of(serial) {
-                        screen.phase = ScreenPhase::Unavailable(api::explain(&error));
-                        screen.busy = false;
+                        screen.unavailable(api::explain(&error));
                     }
                     return;
                 }
             };
             let Some(screen) = this.screen_of(serial) else { return };
             screen.busy = false;
-            let Some(issued) = issued else {
-                screen.phase =
-                    ScreenPhase::Unavailable("The screen isn't ready yet. Start the computer and try again.".into());
+            let Some(address) = issued.url else {
+                screen.unavailable("The screen isn't ready yet. Start the computer and try again.");
                 return;
             };
-            let Some(page) = screen_address(&server, &issued) else {
-                screen.phase = ScreenPhase::Unavailable("This computer's screen can't be shown in the app.".into());
+            let Some(url) = screen_address(&server, &address) else {
+                screen.unavailable("This computer's screen can't be shown in the app.");
                 return;
             };
+            let page = ScreenDocument { url, session: issued.screen_session };
             match &screen.view {
                 Some(view) => {
                     screen.state = None;
-                    view.load(&page);
+                    if view.load(&page).is_err() {
+                        screen.unavailable("The screen couldn't open. Try again.");
+                    }
                 }
                 None => this.build_screen(serial, server, page, window, cx),
             }
         });
     }
 
-    fn build_screen(&mut self, serial: u64, server: Url, page: String, window: &mut Window, cx: &mut Context<Self>) {
+    fn build_screen(
+        &mut self,
+        serial: u64,
+        server: Url,
+        page: ScreenDocument,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let (states, mut received) = unbounded_channel();
         let listen = cx.spawn(async move |this, cx| {
             while let Some(state) = received.recv().await {
@@ -208,15 +225,12 @@ impl Desktop {
                         screen.phase = ScreenPhase::Live;
                     }
                     Err(failure) => {
-                        screen.phase = ScreenPhase::Unavailable(
-                            match failure {
-                                ScreenFailure::NoRuntime => "The screen needs the Microsoft Edge WebView2 Runtime.",
-                                #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-                                ScreenFailure::Unsupported => "Live screens aren't available on this system yet.",
-                                ScreenFailure::Failed => "The screen couldn't open. Try again.",
-                            }
-                            .into(),
-                        )
+                        screen.unavailable(match failure {
+                            ScreenFailure::NoRuntime => "The screen needs the Microsoft Edge WebView2 Runtime.",
+                            #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+                            ScreenFailure::Unsupported => "Live screens aren't available on this system yet.",
+                            ScreenFailure::Failed => "The screen couldn't open. Try again.",
+                        });
                     }
                 }
                 cx.notify();

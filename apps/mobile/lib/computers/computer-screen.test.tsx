@@ -26,6 +26,9 @@ const screens = vi.hoisted(() => ({
     | ((event: { nativeEvent: { data: string; url?: string } }) => void)
     | undefined,
   source: "",
+  headers: undefined as Record<string, string> | undefined,
+  shouldNavigate: undefined as ((event: { url: string }) => boolean) | undefined,
+  rendererLost: undefined as (() => void) | undefined,
   onLoadStart: undefined as ((event?: { nativeEvent: { url: string } }) => void) | undefined,
 }));
 const picker = vi.hoisted(() => ({
@@ -128,12 +131,17 @@ vi.mock("react-native-webview", () => {
       importantForAccessibility?: string;
       onMessage?: (event: { nativeEvent: { data: string; url?: string } }) => void;
       onError?: () => void;
-      source?: { uri: string };
+      source?: { uri: string; headers?: Record<string, string> };
+      onShouldStartLoadWithRequest?: (event: { url: string }) => boolean;
+      onRenderProcessGone?: () => void;
       onLoadStart?: (event?: { nativeEvent: { url: string } }) => void;
     }) => {
       screens.onMessage = props.onMessage;
       screens.error = props.onError;
       screens.source = props.source?.uri ?? "";
+      screens.headers = props.source?.headers;
+      screens.shouldNavigate = props.onShouldStartLoadWithRequest;
+      screens.rendererLost = props.onRenderProcessGone;
       screens.onLoadStart = props.onLoadStart;
       useEffect(() => {
         screens.mounts += 1;
@@ -254,10 +262,14 @@ const botWorking: ComputerStatus = {
   terminalAvailable: false,
 };
 
-function respond(status: ComputerStatus, screenUrl = "https://screen.example.test/embed") {
+function respond(
+  status: ComputerStatus,
+  screenUrl = "https://screen.example.test/embed",
+  screenSession?: string,
+) {
   rpc.mockImplementation(async (method: string) => {
     if (method === "computer/status") return status;
-    if (method === "computer/screenUrl") return { url: screenUrl };
+    if (method === "computer/screenUrl") return { url: screenUrl, screenSession };
     return {};
   });
 }
@@ -280,6 +292,8 @@ describe("computer screen", () => {
     foreground.value = true;
     folds.regions = [];
     screens.mounts = 0;
+    screens.headers = undefined;
+    screens.shouldNavigate = undefined;
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   });
 
@@ -291,6 +305,7 @@ describe("computer screen", () => {
     root = undefined;
     container = undefined;
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   async function settle() {
@@ -309,6 +324,147 @@ describe("computer screen", () => {
     await settle();
     return container;
   }
+
+  it("opts into an exact same-origin document handoff and rejects other navigations", async () => {
+    const url = "https://api.example.test/novnc/session/view/1.token/vnc.html?view_only=true";
+    respond(botWorking, url, "screen-hand-off");
+    await render();
+    expect(calls("computer/screenUrl")).toContainEqual([
+      "computer/screenUrl",
+      { botId: "bot-1", nativeSession: true },
+    ]);
+    expect(screens.source).toBe(url);
+    expect(screens.headers).toEqual({ "X-Rakazo-Screen-Session": "screen-hand-off" });
+    expect(screens.shouldNavigate?.({ url })).toBe(true);
+    for (const destination of [
+      url.replace("api.example.test", "external.example.test"),
+      url.replace("1.token", "1.anotherToken"),
+      url.replace("vnc.html", "websockify"),
+      `${url}&rakazo_probe=1`,
+    ]) {
+      expect(screens.shouldNavigate?.({ url: destination })).toBe(false);
+    }
+  });
+
+  it.each([
+    "https://external.example.test/novnc/session/view/1.token/vnc.html",
+    "https://api.example.test:444/novnc/session/view/1.token/vnc.html",
+    "http://127.0.0.1:5173/novnc/session/view/1.token/vnc.html",
+    "https://api.example.test/embed",
+    "https://api.example.test/novnc/session/view/1.token/websockify",
+    "https://api.example.test/novnc/session/view/1.token/vnc.html?rakazo_probe=1",
+  ])("never attaches a handoff to %s", async (url) => {
+    respond(botWorking, url, "screen-hand-off");
+    const view = await render();
+    expect(view.querySelector("iframe")).not.toBeNull();
+    expect(screens.headers).toBeUndefined();
+    expect(screens.shouldNavigate).toBeUndefined();
+  });
+
+  it("uses the new paired handoff for reconnects, with no authenticated fetch probe", async () => {
+    vi.useFakeTimers();
+    const fetchStub = vi.fn();
+    vi.stubGlobal("fetch", fetchStub);
+    const url = "https://api.example.test/novnc/session/view/1.token/vnc.html";
+    respond(botWorking, url, "old-handoff");
+    await render();
+    const opened = screens.mounts;
+    const newUrl = url.replace("1.token", "1.renewed");
+    respond(botWorking, newUrl, "new-handoff");
+    await act(async () => {
+      screens.onLoadStart?.();
+      screens.onMessage?.({ nativeEvent: { url, data: '{"rakazoScreen":"connected"}' } });
+      screens.onMessage?.({ nativeEvent: { url, data: '{"rakazoScreen":"disconnected"}' } });
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(fetchStub).not.toHaveBeenCalled();
+    expect(screens.mounts).toBe(opened + 1);
+    expect(screens.source).toBe(newUrl);
+    expect(screens.headers).toEqual({ "X-Rakazo-Screen-Session": "new-handoff" });
+  });
+
+  it("refreshes a stale handoff before remounting a screen after backgrounding", async () => {
+    vi.useFakeTimers();
+    const url = "https://api.example.test/novnc/session/view/1.token/vnc.html";
+    respond(botWorking, url, "old-handoff");
+    const view = await render();
+    const original = rpc.getMockImplementation()!;
+    const fresh = deferred<{ url: string; screenSession: string }>();
+    rpc.mockImplementation((method: string, ...args: unknown[]) =>
+      method === "computer/screenUrl" ? fresh.promise : original(method, ...args),
+    );
+    vi.setSystemTime(Date.now() + 120_000);
+    await act(async () => {
+      foreground.value = false;
+      root?.render(<Computer />);
+    });
+    await act(async () => {
+      foreground.value = true;
+      root?.render(<Computer />);
+    });
+    expect(view.querySelector("iframe")).toBeNull();
+    await act(async () => fresh.resolve({ url, screenSession: "new-handoff" }));
+    expect(screens.source).toBe(url);
+    expect(screens.headers).toEqual({ "X-Rakazo-Screen-Session": "new-handoff" });
+  });
+
+  it("asks for a fresh handoff when the WebView renderer is lost", async () => {
+    const url = "https://api.example.test/novnc/session/view/1.token/vnc.html";
+    respond(botWorking, url, "old-handoff");
+    await render();
+    const opened = screens.mounts;
+    respond(botWorking, url, "new-handoff");
+    await act(async () => screens.rendererLost?.());
+    await settle();
+    expect(screens.mounts).toBe(opened + 1);
+    expect(screens.headers).toEqual({ "X-Rakazo-Screen-Session": "new-handoff" });
+  });
+
+  it("replaces a held control document when the lease changes in the same stream", async () => {
+    vi.useFakeTimers();
+    const oldUrl = `https://api.example.test/novnc/session/control/${Date.now() + 3_600_000}.one/vnc.html`;
+    const held = {
+      ...botWorking,
+      controlHolder: "user",
+      controlBotId: "bot-1",
+      controlLeaseId: "first-lease",
+    } as const;
+    respond(held, oldUrl, "first-handoff");
+    await render();
+    const newUrl = oldUrl.replace(".one/", ".two/");
+    respond({ ...held, controlLeaseId: "second-lease" }, newUrl, "second-handoff");
+    await act(async () => vi.advanceTimersByTimeAsync(2_000));
+    expect(screens.source).toBe(newUrl);
+    expect(screens.headers).toEqual({ "X-Rakazo-Screen-Session": "second-handoff" });
+  });
+
+  it("waits for the view handoff before mounting after handing back control", async () => {
+    const controlUrl = "https://api.example.test/novnc/session/control/1.token/vnc.html";
+    respond(
+      { ...botWorking, controlHolder: "user", controlBotId: "bot-1", controlLeaseId: "lease" },
+      controlUrl,
+      "control-handoff",
+    );
+    const view = await render();
+    await act(async () => preview(view).click());
+    await settle();
+    const status = deferred<ComputerStatus>();
+    const viewUrl = controlUrl.replace("/control/", "/view/");
+    rpc.mockImplementation(async (method: string) => {
+      if (method === "computer/status") return status.promise;
+      if (method === "computer/screenUrl") return { url: viewUrl, screenSession: "view-handoff" };
+      return {};
+    });
+    const handBack = Array.from(view.querySelectorAll<HTMLButtonElement>("section button")).find(
+      (button) => button.textContent === "Hand back control",
+    );
+    expect(handBack).toBeDefined();
+    await act(async () => handBack?.click());
+    expect(view.querySelector("iframe")).toBeNull();
+    await act(async () => status.resolve(botWorking));
+    expect(screens.source).toBe(viewUrl);
+    expect(screens.headers).toEqual({ "X-Rakazo-Screen-Session": "view-handoff" });
+  });
 
   function preview(view: HTMLElement) {
     const element = view.querySelector<HTMLButtonElement>('[aria-label="Open computer"]');

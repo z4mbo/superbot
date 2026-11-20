@@ -42,15 +42,16 @@ import { NativeActionButton } from "../components/native/native-action-button";
 import { currentApiBase, rpc } from "../lib/api/api";
 import { errorText } from "../lib/api/user-error";
 import { stacksAtTextScale } from "../lib/appearance/text-scale";
+import type { ScreenLink } from "../lib/computers/computer";
 import {
   COMPUTER_LIFECYCLE_TIMEOUT_MS,
   computerLabel,
   controlLabel,
-  embeddableScreenUrl,
+  embeddableScreenLink,
   fromScreenPage,
   isProxiedScreenPage,
-  nextLoadedScreenUrl,
-  retainScreenSource,
+  retainScreenLink,
+  SCREEN_SESSION_HEADER,
   screenPageState,
   screenPageStatus,
   screenStreamKey,
@@ -86,8 +87,8 @@ export default function Computer() {
   const {
     computer,
     setComputer,
-    screenUrl,
-    setScreenUrl,
+    screen,
+    setScreen,
     error,
     setError,
     readyBotId,
@@ -114,20 +115,21 @@ export default function Computer() {
     session: 0,
     bridge: createComputerKeyboardBridge(),
   });
-  const heldScreenUrl = useRef<string | null>(null);
+  const heldScreen = useRef<{ full: boolean; link: ScreenLink | null } | null>(null);
   // Bumped to load the screen page again after the app returns from the background or the
   // WebView loses its renderer; either can leave the stream black until it reconnects.
   const [screenReload, setScreenReload] = useState(0);
 
-  const embeddedScreenUrl = embeddableScreenUrl(screenUrl, currentApiBase());
+  const embeddedScreen = embeddableScreenLink(screen, currentApiBase());
+  const embeddedScreenUrl = embeddedScreen?.url;
   // Every screen URL read rotates its token, so only a different stream earns a fresh load.
   // Clearing on a rotated token reloaded a screen this device cannot reach every few seconds,
   // and each reload blanked the preview in place of the error.
   const embeddedScreenStream = embeddedScreenUrl ? screenStreamKey(embeddedScreenUrl) : null;
-  useEffect(() => setScreenError(null), [embeddedScreenStream]);
+  const controlLeaseId = computer?.controlLeaseId;
+  useEffect(() => setScreenError(null), [embeddedScreenStream, controlLeaseId]);
   // Without a WebView a dropped URL never fails on its own, so say so instead of a dead preview.
-  const unreachableScreen =
-    computer?.state === "running" && Boolean(screenUrl) && !embeddedScreenUrl;
+  const unreachableScreen = computer?.state === "running" && Boolean(screen) && !embeddedScreenUrl;
 
   const hasControl =
     computer?.controlHolder === "user" &&
@@ -136,16 +138,32 @@ export default function Computer() {
   // Propped open like a laptop, the desktop stays above the fold and the keys go below it.
   const tabletop = hasControl ? tabletopLayout(windowSize.width, windowSize.height, folds) : null;
   const screenVisible =
-    computerOpen && computer?.state === "running" && Boolean(embeddedScreenUrl) && !screenError;
-  const loadedScreenUrl = nextLoadedScreenUrl(
-    heldScreenUrl.current,
-    embeddedScreenUrl,
-    screenVisible,
+    foreground && computer?.botId === botId && computer?.state === "running" && !screenError;
+  const leaseMatches =
+    !embeddedScreen?.nativeSession || embeddedScreen.controlLeaseId === controlLeaseId;
+  const previouslyLoaded =
+    heldScreen.current?.full === computerOpen ? heldScreen.current.link : null;
+  const nextScreen = retainScreenLink(
+    previouslyLoaded,
+    screenVisible && leaseMatches ? embeddedScreen : null,
   );
-  heldScreenUrl.current = loadedScreenUrl;
+  const needsScreenSession =
+    nextScreen !== previouslyLoaded &&
+    nextScreen?.nativeSession !== undefined &&
+    Date.now() >= nextScreen.nativeSession.refreshAt;
+  const loadedScreen = needsScreenSession ? null : nextScreen;
+  heldScreen.current = { full: computerOpen, link: loadedScreen };
+  const loadedScreenUrl = loadedScreen?.url;
+  const documentKey = loadedScreen
+    ? JSON.stringify([
+        loadedScreen.url,
+        Boolean(loadedScreen.nativeSession),
+        loadedScreen.nativeSession ? loadedScreen.controlLeaseId : undefined,
+      ])
+    : "";
   // The gate follows the page the WebView actually loaded. A capability refresh that
   // does not reload that page must not open a session the bridge will never acknowledge.
-  const keyboardSurfaceKey = `${computerOpen}:${hasControl}:${screenReload}:${loadedScreenUrl ?? ""}`;
+  const keyboardSurfaceKey = `${computerOpen}:${hasControl}:${screenReload}:${documentKey}`;
   if (keyboardGate.current.key !== keyboardSurfaceKey) {
     keyboardGate.current = {
       key: keyboardSurfaceKey,
@@ -178,7 +196,7 @@ export default function Computer() {
 
   useEffect(() => {
     setComputer(null);
-    setScreenUrl(null);
+    setScreen(null);
     setScreenError(null);
     setScreenOriginError(false);
     setError(null);
@@ -201,6 +219,12 @@ export default function Computer() {
   }, [botId, foreground, refreshController]);
 
   useEffect(() => {
+    if (!needsScreenSession) return;
+    refreshController.invalidateScreen();
+    void refresh().catch(() => undefined);
+  }, [needsScreenSession, refresh, refreshController]);
+
+  useEffect(() => {
     if (!botId || readyBotId !== botId || switching) return;
     if (computer?.state === "booting" || computer?.state === "suspended") return;
     if (autoBooted.current === botId) return;
@@ -214,7 +238,7 @@ export default function Computer() {
 
   const reloadScreen = useCallback(async () => {
     await refresh().catch(() => undefined);
-    heldScreenUrl.current = null;
+    heldScreen.current = null;
     setScreenError(null);
     setScreenReload((count) => count + 1);
   }, [refresh]);
@@ -231,8 +255,6 @@ export default function Computer() {
   const screenReconnect = useMemo(() => createScreenReconnect(), [botId]);
   const screenReconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const screenReconnectWait = useRef<AbortController | null>(null);
-  const currentScreenUrl = useRef<string | null>(null);
-  currentScreenUrl.current = loadedScreenUrl ?? embeddedScreenUrl;
   const onScreenState = useCallback(
     (state: ScreenPageState) => {
       const next = screenReconnect.report(state);
@@ -257,13 +279,16 @@ export default function Computer() {
       screenReconnectWait.current?.abort();
       const wait = new AbortController();
       screenReconnectWait.current = wait;
-      const url = currentScreenUrl.current;
+      const screen = heldScreen.current?.link;
       const delay = screenReconnect.delayMs();
       screenReconnectTimer.current = setTimeout(() => {
         // Wait out an API that can't be reached, so the one reconnect isn't spent on it; the
         // reload then shows whatever the page answers.
-        // Only the proxy answers probes; another screen is loaded again straight away.
-        const probe = url && isProxiedScreenPage(url) ? screenProbeUrl(url) : null;
+        // The WebView's screen authorization is unavailable to React Native fetch.
+        const probe =
+          screen && !screen.nativeSession && isProxiedScreenPage(screen.url)
+            ? screenProbeUrl(screen.url)
+            : null;
         void waitForScreenPage(
           async (signal) => (probe ? screenPageStatus(probe, fetch, signal) : 200),
           { signal: wait.signal },
@@ -291,12 +316,7 @@ export default function Computer() {
       screenReconnecting.current = false;
     },
     // A renewed link for the same screen keeps the page and the pending reconnect.
-    [
-      botId,
-      computerOpen,
-      foreground,
-      embeddedScreenUrl ? screenStreamKey(embeddedScreenUrl) : null,
-    ],
+    [botId, computerOpen, foreground, embeddedScreenStream, controlLeaseId],
   );
 
   useEffect(() => {
@@ -387,6 +407,8 @@ export default function Computer() {
       // Hand back and I'm done end whatever control this person holds on the bot's screen.
       await rpc("computer/release", { botId, reason });
       if (!action.isActive()) return;
+      setScreen((current) => (current?.nativeSession ? null : current));
+      refreshController.invalidateScreen();
       setComputerOpen(false);
       await action.refresh().catch(() => undefined);
     } catch {
@@ -416,7 +438,7 @@ export default function Computer() {
       await rpc("bots/setComputer", { botId, mode }, { timeoutMs: COMPUTER_LIFECYCLE_TIMEOUT_MS });
       if (!action.isActive()) return;
       setComputer(null);
-      setScreenUrl(null);
+      setScreen(null);
       autoBooted.current = null;
       await action.refresh();
     } catch (err) {
@@ -525,10 +547,10 @@ export default function Computer() {
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ color: tokens.mutedForeground }}>{t`Open in full window`}</Text>
           </View>
-        ) : foreground && computer?.state === "running" && embeddedScreenUrl && !screenError ? (
+        ) : loadedScreen ? (
           <ScreenWebView
-            key={screenReload}
-            url={embeddedScreenUrl}
+            key={`${screenReload}:${documentKey}`}
+            screen={loadedScreen}
             interactive={false}
             onScreenState={onScreenState}
             onLoadStart={onScreenLoadStart}
@@ -714,10 +736,10 @@ export default function Computer() {
               </Text>
             ) : null}
             <View style={{ flex: 1, backgroundColor: tokens.card }}>
-              {foreground && loadedScreenUrl ? (
+              {loadedScreen ? (
                 <ScreenWebView
-                  key={screenReload}
-                  url={loadedScreenUrl}
+                  key={`${screenReload}:${documentKey}`}
+                  screen={loadedScreen}
                   interactive={hasControl}
                   nativeKeyboard={hasControl}
                   keyboardSession={keyboardSession}
@@ -801,7 +823,7 @@ function ComputerReleaseActions({
 }
 
 function ScreenWebView({
-  url,
+  screen,
   interactive,
   nativeKeyboard = false,
   keyboardSession,
@@ -812,7 +834,7 @@ function ScreenWebView({
   onRendererLost,
   onError,
 }: {
-  url: string;
+  screen: ScreenLink;
   interactive: boolean;
   nativeKeyboard?: boolean;
   keyboardSession?: string;
@@ -824,23 +846,28 @@ function ScreenWebView({
   onError: () => void;
 }) {
   const tokens = useMobileTokens();
-  const sourceUrl = useRef(url);
-  sourceUrl.current = retainScreenSource(sourceUrl.current, url);
-  const loadedSource = sourceUrl.current;
+  const { url, nativeSession } = screen;
+  const source = useMemo(
+    () =>
+      nativeSession
+        ? { uri: url, headers: { [SCREEN_SESSION_HEADER]: nativeSession.credential } }
+        : { uri: url },
+    [url, nativeSession],
+  );
   const loadedPageUrl = useRef<string | null>(null);
   const reportStarted = useRef(false);
   const reportCallback = useRef(onScreenState);
   reportCallback.current = onScreenState;
   useEffect(() => {
     reportStarted.current = false;
-  }, [loadedSource, nativeKeyboard]);
+  }, [url, nativeKeyboard]);
   // Only proxy pages report their state; one that never starts shows as failed.
-  const pageLoad = useMemo(() => ({}), [loadedSource, nativeKeyboard]);
+  const pageLoad = useMemo(() => ({}), [url, nativeKeyboard]);
   useTimeout(
     () => {
       if (!reportStarted.current) reportCallback.current?.("failed");
     },
-    isProxiedScreenPage(loadedSource) ? 15_000 : null,
+    isProxiedScreenPage(url) ? 15_000 : null,
     pageLoad,
   );
   return (
@@ -848,8 +875,9 @@ function ScreenWebView({
       ref={webViewRef}
       // Reload when control enables the native keyboard. The boot script only
       // runs on load, and a view-only page never attaches the key bridge.
-      key={`${nativeKeyboard ? "keys" : "view"}:${sourceUrl.current}`}
-      source={{ uri: sourceUrl.current }}
+      key={nativeKeyboard ? "keys" : "view"}
+      source={source}
+      onShouldStartLoadWithRequest={nativeSession ? (request) => request.url === url : undefined}
       injectedJavaScriptBeforeContentLoaded={
         nativeKeyboard ? NATIVE_COMPUTER_KEYBOARD_BOOT : undefined
       }
@@ -857,11 +885,7 @@ function ScreenWebView({
         nativeKeyboard && keyboardSession ? computerKeyboardReadyProbe(keyboardSession) : undefined
       }
       onMessage={(event) => {
-        const state = fromScreenPage(
-          event.nativeEvent.url,
-          sourceUrl.current,
-          loadedPageUrl.current,
-        )
+        const state = fromScreenPage(event.nativeEvent.url, url, loadedPageUrl.current)
           ? screenPageState(event.nativeEvent.data)
           : null;
         if (state) {

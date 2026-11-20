@@ -67,7 +67,7 @@ Open **Inbox** from the account menu to see your questions, running work and res
 
 Open the **Computer** tab to see the current state, select the shared team computer or a dedicated one, and start or stop it. **Turn on** enables computer tools for the chosen agent. Starting a computer also requires a host configured to run agent computers. [NixOS hosting](nixos-hosting.md#enable-isolated-agent-computers)
 
-Once the computer is running, choose **Watch** to see its screen inside the sidebar. Choose **Take control** to send keyboard and pointer input, then **Hand back** when finished. Closing the panel or switching agents also hands back control. After an abrupt disconnect, the server expires the control lease.
+Once the computer is running, choose **Watch** to see its screen inside the sidebar. The desktop uses your signed-in session to open the screen. Each member opens their own view from the bot. Choose **Take control** to send keyboard and pointer input, then **Hand back** when finished. Closing the panel or switching agents also hands back control. After an abrupt disconnect, the server expires the control lease.
 
 When an agent waits on you, its question appears as a card in the conversation. Type an answer and press Enter, pick one of its options, or enter a requested key or code in the masked field; **Dismiss** turns a key request down. The value is sent once and never shown again. In a shared Space only the person who started the run can answer its cards. Website logins, payment cards and contacts are entered in the web app.
 

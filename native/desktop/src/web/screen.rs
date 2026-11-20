@@ -1,5 +1,11 @@
 pub use system::{parent_window, ScreenView};
 
+/// Only the initial document request carries the short-lived screen session.
+pub struct ScreenDocument {
+    pub url: String,
+    pub session: Option<String>,
+}
+
 /// What the server's screen page says about its connection. The page's shim sends only this word,
 /// through the bridge the mobile app also uses: never the address or the page's text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,7 +57,7 @@ mod system {
     use wry::raw_window_handle::{self as rwh, HasWindowHandle, RawWindowHandle};
     use wry::{NewWindowResponse, Rect, WebContext, WebView, WebViewBuilder};
 
-    use super::{ScreenFailure, ScreenState};
+    use super::{ScreenDocument, ScreenFailure, ScreenState};
     use crate::web::policy;
 
     const BRIDGE: &str = r#"Object.defineProperty(window, "ReactNativeWebView", {
@@ -70,7 +76,7 @@ mod system {
         pub fn build(
             parent: ParentWindow,
             server: &Url,
-            screen: &str,
+            screen: &ScreenDocument,
             bounds: Bounds<Pixels>,
             background: Hsla,
             states: UnboundedSender<ScreenState>,
@@ -79,15 +85,13 @@ mod system {
             if !crate::web::window::runtime_installed() {
                 return Err(ScreenFailure::NoRuntime);
             }
-            if !policy::screen_page(server, screen) {
-                return Err(ScreenFailure::Failed);
-            }
+            let headers = document_headers(server, screen)?;
             let mut context = WebContext::new(data_folder());
             let (navigation_server, ipc_server) = (server.clone(), server.clone());
             let fill = Rgba::from(background);
             let channel = |value: f32| (value * 255.0).round() as u8;
             let webview = WebViewBuilder::new_with_web_context(&mut context)
-                .with_url(screen)
+                .with_url_and_headers(&screen.url, headers)
                 .with_bounds(rect(bounds))
                 .with_focused(false)
                 .with_incognito(true)
@@ -119,11 +123,36 @@ mod system {
         }
 
         /// Loads a newer address of the same screen, as after taking or handing back control.
-        pub fn load(&self, screen: &str) {
-            if policy::screen_page(&self.server, screen) {
-                let _ = self.webview.load_url(screen);
-            }
+        pub fn load(&self, screen: &ScreenDocument) -> Result<(), ScreenFailure> {
+            let headers = document_headers(&self.server, screen)?;
+            self.webview.load_url_with_headers(&screen.url, headers).map_err(|_| ScreenFailure::Failed)
         }
+    }
+
+    pub(super) fn document_headers(
+        server: &Url,
+        screen: &ScreenDocument,
+    ) -> Result<wry::http::HeaderMap, ScreenFailure> {
+        let url = Url::parse(&screen.url).map_err(|_| ScreenFailure::Failed)?;
+        let parts: Vec<_> = url.path_segments().into_iter().flatten().collect();
+        let document = matches!(parts.as_slice(),
+            ["novnc", "session", "view" | "control", grant, .., "vnc.html" | "vnc_lite.html" | "embed.html"]
+            if !grant.is_empty()
+        );
+        if !document
+            || !policy::screen_page(server, &screen.url)
+            || !url.username().is_empty()
+            || url.password().is_some()
+        {
+            return Err(ScreenFailure::Failed);
+        }
+        let mut headers = wry::http::HeaderMap::new();
+        if let Some(session) = &screen.session {
+            let mut header = wry::http::HeaderValue::from_str(session).map_err(|_| ScreenFailure::Failed)?;
+            header.set_sensitive(true);
+            headers.insert("x-rakazo-screen-session", header);
+        }
+        Ok(headers)
     }
 
     fn rect(bounds: Bounds<Pixels>) -> Rect {
@@ -169,7 +198,7 @@ mod system {
     use tokio::sync::mpsc::UnboundedSender;
     use url::Url;
 
-    use super::{ScreenFailure, ScreenState};
+    use super::{ScreenDocument, ScreenFailure, ScreenState};
 
     pub struct ParentWindow;
 
@@ -183,7 +212,7 @@ mod system {
         pub fn build(
             _: ParentWindow,
             _: &Url,
-            _: &str,
+            _: &ScreenDocument,
             _: Bounds<Pixels>,
             _: Hsla,
             _: UnboundedSender<ScreenState>,
@@ -195,13 +224,38 @@ mod system {
 
         pub fn show(&self, _: bool) {}
 
-        pub fn load(&self, _: &str) {}
+        pub fn load(&self, _: &ScreenDocument) -> Result<(), ScreenFailure> {
+            Err(ScreenFailure::Unsupported)
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[test]
+    fn only_the_trusted_screen_document_receives_the_session_header() {
+        use super::system::document_headers;
+        let origin = url::Url::parse("https://superbot.example.test").unwrap();
+        let page = |url: &str| ScreenDocument { url: url.into(), session: Some("fixture-proof".into()) };
+        let mut document = page("https://superbot.example.test/novnc/session/view/fixture/embed.html");
+        let headers = document_headers(&origin, &document).unwrap();
+        assert_eq!(headers.len(), 1);
+        assert!(headers["x-rakazo-screen-session"].is_sensitive());
+        assert_eq!(headers["x-rakazo-screen-session"], "fixture-proof");
+        document.session = None;
+        assert!(document_headers(&origin, &document).unwrap().is_empty());
+        for url in [
+            "about:blank",
+            "https://other.example.test/novnc/session/view/fixture/embed.html",
+            "https://superbot.example.test/novnc/session/control/fixture/websockify",
+            "https://superbot.example.test/novnc/session/view//embed.html",
+        ] {
+            assert!(document_headers(&origin, &page(url)).is_err());
+        }
+    }
 
     #[test]
     fn the_bridge_carries_only_known_state_words() {
