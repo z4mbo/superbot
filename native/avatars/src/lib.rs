@@ -3,15 +3,18 @@
 //! the pack's shapes: still at rest, turning toward the pointer over their row, and moving
 //! while they work. Packs are never bundled with the app.
 
+mod blink;
 #[cfg(feature = "local-engine")]
 mod engine;
+pub mod face;
+mod face_motion;
 mod frames;
 mod motion;
 mod pack;
 #[cfg(feature = "local-engine")]
 mod trace;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -19,6 +22,8 @@ use std::time::{Duration, Instant};
 
 use gpui_kit::*;
 
+pub use blink::conversation_blink;
+pub use face_motion::{Face, FaceTiming};
 pub use frames::{Frame, Frames};
 pub use motion::{Gaze, Work};
 pub use pack::{parse_hex, ChatTone, Choices, Look, Pack, PackError, PackFile, Paint, Picked};
@@ -33,6 +38,7 @@ pub struct Bot<'a> {
 }
 
 struct Watched {
+    owner: EntityId,
     bounds: Bounds<Pixels>,
     reach: f32,
     rate: f32,
@@ -53,6 +59,9 @@ pub struct Avatars {
     shapes: HashMap<String, Arc<OnceLock<Option<Arc<Frames>>>>>,
     gazes: HashMap<SharedString, Gaze>,
     watched: HashMap<SharedString, Watched>,
+    watched_faces: HashMap<SharedString, face_motion::WatchedFace>,
+    blinks: HashMap<WindowId, WeakEntity<blink::ConversationBlink>>,
+    face_work_pending: HashSet<WindowId>,
     epoch: Instant,
     rasters: Rasters,
     #[cfg(feature = "local-engine")]
@@ -117,6 +126,9 @@ impl Avatars {
             shapes,
             gazes: HashMap::new(),
             watched: HashMap::new(),
+            watched_faces: HashMap::new(),
+            blinks: HashMap::new(),
+            face_work_pending: HashSet::new(),
             epoch: Instant::now(),
             rasters: Rasters::default(),
             #[cfg(feature = "local-engine")]
@@ -227,6 +239,13 @@ pub fn chat_tone(look: &Look, dark: bool, cx: &App) -> Option<ChatTone> {
 /// knows to redraw.
 pub fn follow(key: &SharedString, position: Point<Pixels>, cx: &mut App) -> bool {
     let Some(avatars) = cx.try_global::<Avatars>() else { return false };
+    if let Some(face) = avatars.watched_faces.get(key) {
+        let (bounds, state) = (face.bounds, face.state.upgrade());
+        return state.is_some_and(|state| {
+            state.update(cx, |state, _| state.follow(bounds, position));
+            true
+        });
+    }
     let Some(watched) = avatars.watched.get(key) else { return false };
     let center = watched.bounds.center();
     #[cfg(feature = "local-engine")]
@@ -251,6 +270,9 @@ pub fn follow(key: &SharedString, position: Point<Pixels>, cx: &mut App) -> bool
 
 /// Turns the watched mark `key` back to rest. Returns whether it changed.
 pub fn rest(key: &SharedString, cx: &mut App) -> bool {
+    if let Some(state) = watched_face(key, cx) {
+        return state.update(cx, |state, _| state.rest());
+    }
     #[cfg(feature = "local-engine")]
     if let Some(avatars) = cx.try_global::<Avatars>() {
         if let (Some(live), Some(engine)) = (avatars.watched.get(key).and_then(|watched| watched.live), avatars.live())
@@ -285,6 +307,36 @@ fn release_outside_window(key: &SharedString, window: &mut Window, cx: &mut App)
     }
 }
 
+/// A packed mark's gaze belongs to the frame state of its visible element.
+fn mark_watch_owner(key: &SharedString, window: &mut Window, cx: &mut App) -> EntityId {
+    window
+        .use_keyed_state("packed-avatar-watch", cx, |_, cx| {
+            let key = key.clone();
+            let owner = cx.entity_id();
+            cx.on_release(move |_, cx| {
+                let owns_watch = cx
+                    .try_global::<Avatars>()
+                    .and_then(|avatars| avatars.watched.get(&key))
+                    .is_some_and(|watched| watched.owner == owner);
+                if owns_watch {
+                    let avatars = cx.global_mut::<Avatars>();
+                    let watch = avatars.watched.remove(&key);
+                    avatars.gazes.remove(&key);
+                    #[cfg(feature = "local-engine")]
+                    if avatars.held.remove(&key) {
+                        if let (Some(engine), Some(live)) = (avatars.live(), watch.and_then(|watch| watch.live)) {
+                            engine.release(live);
+                        }
+                    }
+                    #[cfg(not(feature = "local-engine"))]
+                    let _ = watch;
+                }
+            })
+            .detach();
+        })
+        .entity_id()
+}
+
 /// Pointer input for marks the engine draws waits for the next pulse rather than redrawing.
 fn pulse_for_input(window: &mut Window, cx: &mut App) {
     #[cfg(feature = "local-engine")]
@@ -295,10 +347,44 @@ fn pulse_for_input(window: &mut Window, cx: &mut App) {
     let _ = (window, cx);
 }
 
-/// Makes `region` (the row, tile or pill around a watched mark) turn the mark toward the pointer
-/// while it is over the region, and back to rest when it leaves or presses.
+fn watched_face(key: &SharedString, cx: &App) -> Option<Entity<face_motion::FaceMotion>> {
+    cx.try_global::<Avatars>()?.watched_faces.get(key)?.state.upgrade()
+}
+
+fn press_face(key: &SharedString, down: bool, cx: &mut App) -> bool {
+    watched_face(key, cx).is_some_and(|state| state.update(cx, |state, _| state.press(down)))
+}
+
+/// Applies the avatar reaction to the row, tile or pill that contains it.
 pub fn watch_region(region: Stateful<Div>, key: SharedString) -> Stateful<Div> {
-    let (leaving, pressing) = (key.clone(), key.clone());
+    let (down, up, up_out) = (key.clone(), key.clone(), key.clone());
+    gaze_region(region, key)
+        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+            let changed = if let Some(state) = watched_face(&down, cx) {
+                state.update(cx, |state, _| state.press(true))
+            } else {
+                rest(&down, cx)
+            };
+            if changed {
+                window.refresh();
+            }
+            pulse_for_input(window, cx);
+        })
+        .on_mouse_up(MouseButton::Left, move |_, window, cx| {
+            if press_face(&up, false, cx) {
+                window.refresh();
+            }
+        })
+        .on_mouse_up_out(MouseButton::Left, move |_, window, cx| {
+            if press_face(&up_out, false, cx) {
+                window.refresh();
+            }
+        })
+}
+
+/// A gaze region without a press gesture, for the empty conversation's background.
+pub fn gaze_region(region: Stateful<Div>, key: SharedString) -> Stateful<Div> {
+    let leaving = key.clone();
     region
         .on_mouse_move(move |event: &MouseMoveEvent, window, cx| {
             if follow(&key, event.position, cx) {
@@ -308,12 +394,6 @@ pub fn watch_region(region: Stateful<Div>, key: SharedString) -> Stateful<Div> {
         })
         .on_hover(move |hovered, window, cx| {
             if !hovered && rest(&leaving, cx) {
-                window.refresh();
-            }
-            pulse_for_input(window, cx);
-        })
-        .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-            if rest(&pressing, cx) {
                 window.refresh();
             }
             pulse_for_input(window, cx);
@@ -406,8 +486,11 @@ impl RenderOnce for Mark {
                     canvas(
                         move |bounds, window, cx| {
                             release_outside_window(&key, window, cx);
-                            if cx.try_global::<Avatars>().is_some_and(Avatars::has_pack) {
+                            if bounds.intersects(&window.content_mask().bounds)
+                                && cx.try_global::<Avatars>().is_some_and(Avatars::has_pack)
+                            {
                                 let watched = Watched {
+                                    owner: mark_watch_owner(&key, window, cx),
                                     bounds,
                                     reach: side / 2.,
                                     rate,
@@ -530,9 +613,12 @@ impl Mark {
             Some(watch) => slot.child(
                 canvas(
                     move |bounds, window, cx| {
-                        let watched = Watched { bounds, reach: side / 2., rate: 0., live: Some(key) };
-                        cx.global_mut::<Avatars>().watched.insert(watch.clone(), watched);
-                        release_outside_window(&watch, window, cx);
+                        if bounds.intersects(&window.content_mask().bounds) {
+                            let owner = mark_watch_owner(&watch, window, cx);
+                            let watched = Watched { owner, bounds, reach: side / 2., rate: 0., live: Some(key) };
+                            cx.global_mut::<Avatars>().watched.insert(watch.clone(), watched);
+                            release_outside_window(&watch, window, cx);
+                        }
                     },
                     |_, _, _, _| {},
                 )
