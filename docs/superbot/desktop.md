@@ -106,9 +106,13 @@ Every member of the Space shares the board. While it is open, changes from other
 
 Board is a Labs feature upstream. If it is off for your account, the section says so and offers **Turn on Board** when the server lets your account switch it. That keeps your other Labs choices. The icon beside **New ticket** opens the web board in the workspace window, for what only the web does, such as Markdown in descriptions and comments.
 
-## Community plugins
+## Store
 
-Open the grid icon at the bottom of the sidebar to enter **Plugins**. In **Discover**, select **Calorie diary**, then **Install → Open**. Enter a date, meal and calories to see the day's total. **All days** includes entries from every date. To let a bot read your diary and propose an addition, grant it the **Meals** part in the plugin details. [Record app walkthrough](build-a-marketplace-plugin.md)
+Open the grid icon at the bottom of the sidebar to enter **Store**. **Agents** offers the server’s ready-made agents. **Skills** lists Space skills and installable skill packs. **Plugins** lets you discover, install, create and manage plugin packages. **Apps** shows your connected services and the services you can connect.
+
+In **Plugins → Discover**, select **Calorie diary**, then **Install → Open**. Enter a date, meal and calories to see the day's total. **All days** includes entries from every date. Grant a bot the **Meals** part in the plugin details so it can read the diary and propose an addition. [Record app walkthrough](build-a-marketplace-plugin.md)
+
+Install **T3 Code inbox** to collect programming requests from you and your agents. Open the app, connect T3, choose a project and confirm the brief to start a supervised thread. Superbot saves the receipt so you can reopen the thread. [T3 Code inbox guide](t3-code-inbox-desktop.md)
 
 If that bot uses a supported model CLI on this computer, open its direct chat and click **Apps** in the composer. You can also type `/apps Log oatmeal with berries, 320 kcal`. Select the app, review the records that will go to the model and choose **Ask**. **Add** saves the proposed fields to the diary. **Skip** discards the proposal. The app's records and the model's answer stay out of the shared chat transcript.
 
@@ -116,7 +120,7 @@ Choose **Create plugin** to enter a name, identifier, version and description. *
 
 The form reads and writes the `plugin.json` produced by each `superbot-plugin init` template. **Open file…** fills the name, description and parts from a manifest; the identifier and version stay as typed, because a manifest holds neither. A manifest with fields a plugin can't carry, such as headers, commands or another transport, is refused with the field to remove, and the form stays as it was. Values over the registry's limits load with a note on what to fix. When the form has unsaved edits, it asks before replacing them. **Save file…** writes the form to a file you choose, in the CLI's format, and Windows asks before replacing an existing file. A draft that isn't ready to submit can still be saved. **Submit for review** checks the same limits as `superbot-plugin validate`.
 
-The hosted client exposes the same registry under the account menu in **Integrations → Community**. Discovery covers approved releases on the server you signed into. Installs and agent grants belong to the installing account in the selected Space.
+On the web, open **Store → Plugins**. Discovery shows the approved releases on the server you signed into. Installs and agent grants belong to the installing account in the selected Space.
 
 A verified deployment reviewer sees **Review** and can inspect each part before approving or rejecting the version. An approved entry appears in **Discover**. Choose **Install**, then **Manage** to give a specific agent access to a specific part. A new installation starts with zero grants. Removing a grant or uninstalling takes effect on the server. [Registry and reviewer setup](plugin-contract.md) · [How the agent uses a granted part](plugin-runtime.md)
 
