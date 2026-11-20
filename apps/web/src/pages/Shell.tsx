@@ -273,6 +273,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
     useQuery(queries.voice.status.queryOptions()).data ?? null;
   const { mobileSidebarOpen, setMobileSidebarOpen, swipeHandlers } = useMobileSidebar();
   const isMobileSidebar = useIsMobile();
+  const [panelCoversChat, setPanelCoversChat] = useState(false);
   const pages = usePagesForChat();
   const miniSidebar = botsSidebarCollapsed && !isMobileSidebar;
   const [botMenu, setBotMenu] = useState<ChatMenuTarget | null>(null);
@@ -1165,7 +1166,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
       <main
         data-space-switch="main"
         aria-hidden={mobileSidebarOpen || undefined}
-        inert={mobileSidebarOpen}
+        inert={mobileSidebarOpen || panelCoversChat}
         className="isolate flex min-w-0 flex-1 flex-col bg-background"
       >
         {/* Inside main so the composer and its menus stay above it. */}
@@ -1396,6 +1397,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
         refreshBots={refreshBots}
         refreshGroupThread={refreshGroupThread}
         discardChatAttachments={composer.discardThreadAttachments}
+        onCoversChat={setPanelCoversChat}
         computerOpen={computerOpen}
         computerPanel={
           active ? (
