@@ -287,7 +287,12 @@ export const Transcript = memo(function Transcript({
       item.kind === "voiceChat" || messageHasVisibleBlocks(item.message.blocks, showToolActivity),
   );
   const shownItems = showTail ? items.slice(-FIRST_FRAME_ROWS) : items;
-  const continuedSenderIds = continuedSenderMessageIds(shownItems, separatorIds, unreadDividerId);
+  const continuedSenderIds = continuedSenderMessageIds(
+    shownItems,
+    separatorIds,
+    unreadDividerId,
+    (message) => !(message.role === "bot" && message.origin === "local_cli"),
+  );
   const workingLabel =
     liveActivityLine(messages) ?? (workingRoutine ? t`Running ${workingRoutine}…` : t`Working…`);
   const [quoteDraft, setQuoteDraft] = useState<{

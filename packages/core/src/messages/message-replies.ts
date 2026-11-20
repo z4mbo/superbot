@@ -65,11 +65,11 @@ export function otherAuthor(
 type SenderMessage = VoiceChatMessage & { author?: MessageAuthor; botId?: string };
 
 /** Later messages in a visible sender group do not need another sender header. */
-export function continuedSenderMessageIds(
-  items: readonly ThreadItem<SenderMessage>[],
+export function continuedSenderMessageIds<Message extends SenderMessage>(
+  items: readonly ThreadItem<Message>[],
   separatorIds: ReadonlySet<string>,
   unreadDividerId: string | null,
-  canShowSender?: (message: SenderMessage) => boolean,
+  canShowSender?: (message: Message) => boolean,
 ): Set<string> {
   const continued = new Set<string>();
   let previousRole: string | undefined;

@@ -271,3 +271,30 @@ it("labels each consecutive sender once and starts over after a time separator",
     ["first", "follow-up", "other-bot", "back", "later", "member", "member-follow-up"].map(header),
   ).toEqual(["G1", null, "G2", "G1", "G1", "A member", null]);
 });
+
+it("keeps Local CLI attribution and labels the first hosted reply after it", () => {
+  const text = [{ kind: "text", text: "A reply" }] as const;
+  const member = { id: "member", name: "A member" };
+  renderTranscript(
+    [
+      message("hosted-first", G1, [...text]),
+      message("local-first", G1, [...text], { origin: "local_cli", author: member }),
+      message("local-second", G1, [...text], { origin: "local_cli" }),
+      message("hosted-next", G1, [...text]),
+      message("hosted-follow-up", G1, [...text]),
+    ],
+    { members: [{ botId: G1, name: "G1" }], bots: [], archivedBots: [] },
+  );
+
+  expect(container.querySelector('[data-message-id="local-first"]')?.textContent).toContain(
+    "Local CLI used by A member",
+  );
+  expect(container.querySelector('[data-message-id="local-second"]')?.textContent).toContain(
+    "Local CLI",
+  );
+  expect(["hosted-first", "hosted-next", "hosted-follow-up"].map(header)).toEqual([
+    "G1",
+    "G1",
+    null,
+  ]);
+});
