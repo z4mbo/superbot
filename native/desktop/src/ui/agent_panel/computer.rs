@@ -232,6 +232,7 @@ impl Desktop {
             .children(disk.map(|percent| {
                 div().mt_3().px(px(14.)).body().text_color(theme.warning).child(format!("Its disk is {percent}% full."))
             }))
+            .children(self.render_computer_files(bot, theme, cx))
             .into_any_element()
     }
 }

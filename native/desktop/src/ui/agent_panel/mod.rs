@@ -19,6 +19,7 @@ use crate::ui::{bot_avatar, bot_ink, error_line, icon, Type};
 
 mod computer;
 mod conversations;
+mod files;
 mod library;
 mod look;
 mod parts;
@@ -173,6 +174,7 @@ pub struct AgentPanel {
     problem: Option<String>,
     screen: Option<screen::ScreenSession>,
     library: Option<(Target, library::LibraryView)>,
+    files: Option<files::ComputerFiles>,
     _editor_events: Option<Subscription>,
     look: look::LookEditor,
 }
@@ -190,6 +192,7 @@ impl AgentPanel {
             problem: None,
             screen: None,
             library: None,
+            files: None,
             _editor_events: None,
             look: look::LookEditor::default(),
         }
@@ -352,7 +355,10 @@ impl Desktop {
             window,
             cx,
             async move { features.space(space).computer_status(&read).await },
-            move |this, result, _, _| this.show_computer(&id, result),
+            move |this, result, window, cx| {
+                this.show_computer(&id, result);
+                this.sync_computer_files(window, cx);
+            },
         );
     }
 
@@ -384,7 +390,10 @@ impl Desktop {
                 space.stop_computer(&target).await
             }
         };
-        self.call(window, cx, work, move |this, result, _, _| this.show_computer(&id, result));
+        self.call(window, cx, work, move |this, result, window, cx| {
+            this.show_computer(&id, result);
+            this.sync_computer_files(window, cx);
+        });
         cx.notify();
     }
 
@@ -405,6 +414,7 @@ impl Desktop {
                 this.saved(&id, result, window, cx);
                 if let Some(panel) = this.agent_panel.as_mut().filter(|panel| panel.agent_id == id) {
                     panel.computer = None;
+                    panel.files = None;
                 }
                 this.sync_agent_info(window, cx);
             },
@@ -439,7 +449,10 @@ impl Desktop {
             }
             features.space(space).update_bot(&target, &settings).await
         };
-        self.call(window, cx, work, move |this, result, window, cx| this.saved(&id, result, window, cx));
+        self.call(window, cx, work, move |this, result, window, cx| {
+            this.saved(&id, result, window, cx);
+            this.sync_computer_files(window, cx);
+        });
         cx.notify();
     }
 
