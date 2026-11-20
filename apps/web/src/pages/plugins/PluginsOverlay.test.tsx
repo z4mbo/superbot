@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   capabilities: { list: vi.fn(), catalogSearch: vi.fn(), sourcePresets: vi.fn() },
   mcp: { servers: { list: vi.fn() }, assignments: { list: vi.fn() } },
   marketplace: { catalog: vi.fn() },
+  pluginRegistry: { discover: vi.fn(), installations: vi.fn() },
 }));
 
 vi.mock("../../lib/query/rpc", () => ({
@@ -117,6 +118,8 @@ beforeEach(() => {
   api.connections.tools.mockReset().mockResolvedValue([]);
   api.capabilities.list.mockReset().mockResolvedValue([]);
   api.capabilities.sourcePresets.mockReset().mockResolvedValue([]);
+  api.pluginRegistry.discover.mockReset().mockResolvedValue({ items: [], nextAfter: null });
+  api.pluginRegistry.installations.mockReset().mockResolvedValue({ items: [], nextAfter: null });
   api.capabilities.catalogSearch
     .mockReset()
     .mockImplementation(async (input: { usePublicCatalog?: boolean }) =>
@@ -353,4 +356,169 @@ it("leads from an app that is also a chat app here to messaging, and says nothin
   ]);
   await act(async () => hints[0]!.querySelector("button")!.click());
   expect(onOpenMessaging).toHaveBeenCalledOnce();
+});
+
+it("shows community plugins beside the catalog and narrows them with the search", async () => {
+  const diary = {
+    id: "kcal-diary-v1",
+    slug: "kcal-diary",
+    version: 1,
+    manifest: {
+      schemaVersion: 1,
+      name: "Kcal diary",
+      description: "Calories per day",
+      parts: [
+        {
+          id: "diary",
+          kind: "app",
+          fields: [{ id: "kcal", label: "Calories", type: "number", required: true }],
+        },
+      ],
+    },
+    status: "approved",
+    reason: null,
+    createdAt: "2026-11-01T00:00:00.000Z",
+    reviewedAt: "2026-11-01T00:00:00.000Z",
+  };
+  api.pluginRegistry.discover.mockImplementation(async (input: { query?: string }) => ({
+    items: !input.query || "kcal diary".includes(input.query.toLowerCase()) ? [diary] : [],
+    nextAfter: null,
+  }));
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <PluginsOverlay onClose={() => {}} />
+      </QueryClientProvider>,
+    ),
+  );
+  await vi.waitFor(() =>
+    expect(host.querySelector("[data-testid=community-picks]")?.textContent).toContain(
+      "Kcal diary",
+    ),
+  );
+
+  await type(searchBox(), "weather");
+  await vi.waitFor(() =>
+    expect(api.pluginRegistry.discover).toHaveBeenCalledWith(
+      expect.objectContaining({ query: "weather" }),
+      expect.anything(),
+    ),
+  );
+  await vi.waitFor(() => expect(host.querySelector("[data-testid=community-picks]")).toBeNull());
+});
+
+it("offers the server's connector presets when there is no managed catalog, even if the community registry fails", async () => {
+  api.capabilities.sourcePresets.mockResolvedValue([
+    { id: "tracker", name: "Tracker", url: "https://mcp.tracker.example.test/mcp", signIn: true },
+    {
+      id: "code-host",
+      name: "Code host",
+      url: "https://mcp.code.example.test/mcp",
+      signIn: true,
+      oauthSetupUrl: "https://docs.code.example.test/oauth",
+    },
+  ]);
+  api.pluginRegistry.discover.mockRejectedValue(new Error("registry offline"));
+  // A marketplace plugin of the same name does not stand in for the direct connection.
+  api.marketplace.catalog.mockResolvedValue({
+    entries: [
+      {
+        id: "tracker-skills",
+        name: "tracker-skills",
+        displayName: "Tracker",
+        description: "Tracker writing guide",
+        keywords: [],
+        category: null,
+        logo: null,
+        homepage: null,
+        domains: [],
+        registry: "fixture",
+        source: "https://example.test/tracker-skills",
+        installedSource: "https://example.test/tracker-skills",
+        hasConnector: false,
+        skillCount: 2,
+      },
+    ],
+    unavailableRegistries: [],
+    skippedEntries: 0,
+  });
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <PluginsOverlay onClose={() => {}} />
+      </QueryClientProvider>,
+    ),
+  );
+  const rows = () => [...host.querySelectorAll('[data-testid="source-preset"]')];
+  await vi.waitFor(() =>
+    expect(rows().map((row) => row.textContent)).toEqual([
+      expect.stringMatching(/Tracker\s*Connect$/),
+      expect.stringMatching(/Code host\s*Connect$/),
+    ]),
+  );
+  expect(rows().map((row) => row.querySelector("button")?.getAttribute("aria-label"))).toEqual([
+    "Tracker",
+    "Code host",
+  ]);
+  expect(host.textContent).not.toContain("Configure a plugin catalog");
+  expect(host.querySelector("[data-testid=community-picks]")).toBeNull();
+
+  await type(searchBox(), "code");
+  await vi.waitFor(() =>
+    expect(rows().map((row) => row.textContent)).toEqual([
+      expect.stringMatching(/Code host\s*Connect$/),
+    ]),
+  );
+  expect(host.textContent).not.toContain("No apps match your search.");
+
+  const connect = [...rows()[0]!.querySelectorAll("button")].find(
+    (button) => button.textContent === "Connect",
+  )!;
+  await act(async () => connect.click());
+  await vi.waitFor(() =>
+    expect(
+      [...host.querySelectorAll<HTMLInputElement>("input")].map((input) => input.value),
+    ).toContain("Code host"),
+  );
+  const guide = host.querySelector<HTMLAnchorElement>("[data-testid=integrations-source-form] a");
+  expect(guide?.textContent).toBe("Sign-in setup guide");
+  expect(guide?.href).toBe("https://docs.code.example.test/oauth");
+  expect(guide?.rel).toBe("noopener noreferrer");
+});
+
+it("offers a connector preset once, as the managed app, when the catalog also connects it", async () => {
+  api.capabilities.sourcePresets.mockResolvedValue([
+    { id: "tracker", name: "Tracker", url: "https://mcp.tracker.example.test/mcp", signIn: true },
+    { id: "code-host", name: "Code host", url: "https://mcp.code.example.test/mcp" },
+  ]);
+  api.connections.catalog.mockResolvedValue([
+    {
+      connectorId: "fixture",
+      slug: "tracker",
+      name: "Tracker",
+      logo: null,
+      connected: false,
+      noAuth: false,
+    },
+  ]);
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={client}>
+        <PluginsOverlay onClose={() => {}} />
+      </QueryClientProvider>,
+    ),
+  );
+  await vi.waitFor(() => expect(searchBox().disabled).toBe(false));
+  await type(searchBox(), "tracker");
+  await vi.waitFor(() => expect(host.textContent).toContain("Tracker"));
+  expect(host.querySelector('[data-testid="source-preset"]')).toBeNull();
+
+  await type(searchBox(), "code");
+  await vi.waitFor(() =>
+    expect(
+      [...host.querySelectorAll('[data-testid="source-preset"] button')].map((button) =>
+        button.getAttribute("aria-label"),
+      ),
+    ).toEqual(["Code host", "Connect Code host"]),
+  );
 });

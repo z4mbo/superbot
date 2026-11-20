@@ -223,6 +223,16 @@ export function SourceFormView({
           </Field>
         ) : null}
         {sourceHint ? <p className="text-body text-muted-foreground">{sourceHint}</p> : null}
+        {oauth && sourcePreset?.oauthSetupUrl ? (
+          <a
+            href={sourcePreset.oauthSetupUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex text-body text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            <Trans>Sign-in setup guide</Trans>
+          </a>
+        ) : null}
         {sourceError ? (
           <p role="alert" className="text-body text-destructive">
             {sourceError}

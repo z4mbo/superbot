@@ -1,5 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { ConnectionCatalogItem, PluginMarketplaceEntry } from "@rakazo/contracts";
+import type {
+  ConnectionCatalogItem,
+  McpSourcePreset,
+  PluginMarketplaceEntry,
+} from "@rakazo/contracts";
 import { CATALOG_SEARCH_QUERY_MAX_LENGTH } from "@rakazo/contracts";
 import {
   CONNECTION_CATALOG_PAGE_SIZE,
@@ -10,8 +14,10 @@ import {
 } from "@rakazo/core";
 import { Button, SectionHeading, Spinner } from "@rakazo/ui-web";
 import { Search } from "lucide-react";
+import type { ReactNode } from "react";
 import type { PluginSelection } from "../../components/integrations/plugin-marketplace";
 import {
+  PluginLogo,
   PluginRow,
   pluginSelection,
   ROW_BUTTON,
@@ -33,6 +39,8 @@ export function PluginBrowse({
   tileContext,
   onOpenPlugin,
   onSearchPublic,
+  onConnectPreset,
+  community,
 }: {
   browse: CatalogBrowse;
   state: PluginConnections;
@@ -40,6 +48,10 @@ export function PluginBrowse({
   onOpenPlugin: (selection: PluginSelection) => void;
   /** Opens the public MCP catalog searched for the query. */
   onSearchPublic: (query: string) => void;
+  /** Opens the source form for one of the server's connector presets. */
+  onConnectPreset: (preset: McpSourcePreset) => void;
+  /** Community plugins for the same search, shown outside a category. */
+  community?: ReactNode;
 }) {
   const { t } = useLingui();
   const { catalogLoaded, catalog, pluginCatalog, pluginInstalls } = state;
@@ -65,6 +77,28 @@ export function PluginBrowse({
     searching,
     pluginMatches,
   } = browse;
+  // A preset the managed catalog also connects is offered once, as the managed app.
+  const managedNames = new Set(catalog.map((item) => item.name.toLowerCase()));
+  const needle = query.trim().toLowerCase();
+  const presets = state.sourcePresets.filter(
+    (preset) =>
+      !managedNames.has(preset.name.toLowerCase()) &&
+      (!needle || preset.name.toLowerCase().includes(needle)),
+  );
+  const presetGrid = presets.length ? (
+    <div data-testid="source-presets" className="grid grid-cols-2 gap-2">
+      {presets.map((preset) => (
+        <PresetRow
+          key={preset.id}
+          preset={preset}
+          connected={Boolean(
+            preset.url && state.mcpServers.some((server) => server.endpoint === preset.url),
+          )}
+          onConnect={() => onConnectPreset(preset)}
+        />
+      ))}
+    </div>
+  ) : null;
   const installedPlugin = (installedSource: string) =>
     pluginInstalls.find((row) => row.source === installedSource);
 
@@ -207,7 +241,7 @@ export function PluginBrowse({
             onSearchPublic(query);
           }}
         >
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border/60 bg-favicon-plate text-muted-foreground">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border/60 bg-accent text-muted-foreground">
             <Search className="size-4" />
           </div>
           <span className="min-w-0 flex-1 truncate text-body-lg font-medium text-foreground">
@@ -223,7 +257,9 @@ export function PluginBrowse({
       {catalogLoaded && showFeatured && !category ? (
         <div className="mb-6" data-testid="featured-connectors">
           {catalog.length === 0 ? (
-            !catalogsReady || plugins.length ? null : (
+            presetGrid ? (
+              presetGrid
+            ) : !catalogsReady || plugins.length ? null : (
               <p className="text-body leading-6 text-muted-foreground/80">
                 <Trans>Configure a plugin catalog on the server to connect apps.</Trans>
               </p>
@@ -272,13 +308,15 @@ export function PluginBrowse({
       visible.length === 0 &&
       !showFeatured &&
       !pluginMatches.length &&
-      !brandMatches.length ? (
+      !brandMatches.length &&
+      !presets.length ? (
         <p className="text-muted-foreground/80">
           <Trans>No apps match your search.</Trans>
         </p>
       ) : null}
       {showFeatured ? (
         <>
+          {category ? null : community}
           {renderPluginSections()}
           {catalogLoaded && catalog.length > 0 && !category ? (
             <SectionHeading as="h2" className="mt-8 mb-2 px-2.5">
@@ -317,6 +355,8 @@ export function PluginBrowse({
               )}
             </div>
           ) : null}
+          {category || !presetGrid ? null : <div className="mb-2">{presetGrid}</div>}
+          {category ? null : community}
           {renderPluginSections()}
           {rendered.length > 0 && !category ? (
             <div className="mt-2 grid grid-cols-2 gap-2">
@@ -345,5 +385,37 @@ export function PluginBrowse({
         </>
       )}
     </>
+  );
+}
+
+function PresetRow({
+  preset,
+  connected,
+  onConnect,
+}: {
+  preset: McpSourcePreset;
+  connected: boolean;
+  onConnect: () => void;
+}) {
+  const { t } = useLingui();
+  const site = preset.url ?? preset.defaultUrl;
+  return (
+    <div data-testid="source-preset" className={`${ROW_SHELL} ${ROW_HOVER}`}>
+      <button type="button" aria-label={preset.name} onClick={onConnect} className={ROW_BUTTON}>
+        <PluginLogo name={preset.name} site={site ? new URL(site).hostname : null} />
+        <span className="min-w-0 flex-1 truncate text-body-lg font-medium text-foreground">
+          {preset.name}
+        </span>
+      </button>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        aria-label={connected ? t`${preset.name} connected` : t`Connect ${preset.name}`}
+        onClick={onConnect}
+      >
+        {connected ? <Trans>Connected</Trans> : <Trans>Connect</Trans>}
+      </Button>
+    </div>
   );
 }

@@ -42,6 +42,7 @@ import { connectMcpOauth } from "../../lib/integrations/mcp-connect";
 import { rpc } from "../../lib/query/rpc";
 import { errorCode, errorText } from "../../lib/query/user-error";
 import { AddMenu } from "./add-menu";
+import { CommunityPicks } from "./community/community-picks";
 import { CommunityStore } from "./community/community-store";
 import { ConnectorDetail } from "./connector-detail";
 import { DomainSearch, useDomainSearch } from "./domain-search";
@@ -82,6 +83,7 @@ export function PluginsOverlay({
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [view, setView] = useState<OverlayView>("browse");
   const [publicCatalogQuery, setPublicCatalogQuery] = useState("");
+  const [communitySlug, setCommunitySlug] = useState<string | undefined>();
   // Where a source form returns: the domain search that prefilled it, or browse.
   const [sourceBack, setSourceBack] = useState<OverlayView>("browse");
   const [plugin, setPlugin] = useState<PluginSelection | null>(null);
@@ -376,6 +378,11 @@ export function PluginsOverlay({
     setView(next);
   }
 
+  function openCommunity(slug?: string) {
+    setCommunitySlug(slug);
+    openAddView("community");
+  }
+
   function leaveSource() {
     sourceForm.close();
     setSourceError(null);
@@ -415,7 +422,7 @@ export function PluginsOverlay({
                           className="h-6 w-6 rounded-lg bg-favicon-plate object-contain p-0.5"
                         />
                       ) : (
-                        <span className="grid h-6 w-6 place-items-center rounded-lg border border-border/60 bg-favicon-plate text-caption font-semibold text-foreground">
+                        <span className="grid h-6 w-6 place-items-center rounded-lg border border-border/60 bg-accent text-caption font-semibold text-foreground">
                           {Array.from(mark.name)[0]?.toUpperCase()}
                         </span>
                       )}
@@ -432,7 +439,7 @@ export function PluginsOverlay({
                 size="lg"
                 className="-my-1 gap-2 px-2.5 text-body text-muted-foreground"
                 data-testid="open-community-plugins"
-                onClick={() => openAddView("community")}
+                onClick={() => openCommunity()}
               >
                 <Store />
                 <Trans>Community</Trans>
@@ -626,7 +633,12 @@ export function PluginsOverlay({
               onPick={beginCatalogSurface}
             />
           ) : view === "community" ? (
-            <CommunityStore activeBotId={activeBotId} onBack={() => setView("browse")} />
+            <CommunityStore
+              key={communitySlug ?? ""}
+              activeBotId={activeBotId}
+              initialSlug={communitySlug}
+              onBack={() => setView("browse")}
+            />
           ) : view === "browseMcp" ? (
             <div className="space-y-6">
               <ViewTitle
@@ -650,6 +662,14 @@ export function PluginsOverlay({
               state={state}
               tileContext={tileContext}
               onOpenPlugin={openPlugin}
+              onConnectPreset={(preset) => beginSource("mcp", preset)}
+              community={
+                <CommunityPicks
+                  query={query}
+                  onOpen={openCommunity}
+                  onViewAll={() => openCommunity()}
+                />
+              }
               onSearchPublic={(publicQuery) => {
                 setPublicCatalogQuery(publicQuery);
                 openAddView("browseMcp");

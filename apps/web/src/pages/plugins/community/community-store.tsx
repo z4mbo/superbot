@@ -4,7 +4,7 @@ import type { Bot } from "@rakazo/contracts";
 import { MAX_REGISTRY_SEARCH_LENGTH } from "@rakazo/contracts";
 import { Button, Input, Spinner, Tabs, TabsList, TabsTrigger } from "@rakazo/ui-web";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { NotebookPen, Plus } from "lucide-react";
 import { useState } from "react";
 import {
   PluginLogo,
@@ -16,10 +16,11 @@ import {
 import { useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
 import { ViewTitle } from "../parts";
+import { AppRunner } from "./app-runner";
 import { CommunityDetail } from "./community-detail";
 import { CreatePlugin } from "./create-plugin";
-import type { RegistryInstallation } from "./registry";
-import { grantedBots, latestBySlug, REGISTRY_PAGE_SIZE, readAllPages } from "./registry";
+import type { RegistryInstallation, RegistryVersion } from "./registry";
+import { appParts, grantedBots, latestBySlug, REGISTRY_PAGE_SIZE, readAllPages } from "./registry";
 import { ReviewQueue } from "./review-queue";
 
 type Tab = "discover" | "installed" | "create" | "review";
@@ -27,16 +28,23 @@ type Tab = "discover" | "installed" | "create" | "review";
 /** Community plugins from the deployment's registry: approved ones to install, and authoring. */
 export function CommunityStore({
   activeBotId,
+  initialSlug,
   onBack,
 }: {
   activeBotId?: string;
+  /** A plugin to show first, picked from elsewhere. */
+  initialSlug?: string;
   onBack: () => void;
 }) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
   const registry = queries.pluginRegistry;
   const [tab, setTab] = useState<Tab>("discover");
-  const [openPlugin, setOpenPlugin] = useState<{ slug: string; version?: number } | null>(null);
+  const [openPlugin, setOpenPlugin] = useState<{ slug: string; version?: number } | null>(
+    initialSlug ? { slug: initialSlug } : null,
+  );
+  const [openApp, setOpenApp] = useState<{ slug: string; partId: string } | null>(null);
+  const [template, setTemplate] = useState<{ key: number; version: RegistryVersion } | null>(null);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const searchText = search.trim();
@@ -44,13 +52,7 @@ export function CommunityStore({
   useTimeout(() => setQuery(searchText), waitingForSearch ? 200 : null, searchText);
   const me = useQuery(queries.me.queryOptions());
   const bots = useQuery(queries.bots.list.queryOptions());
-  const installations = useQuery({
-    queryKey: registry.installations.queryKey({ input: { limit: REGISTRY_PAGE_SIZE } }),
-    queryFn: ({ signal }) =>
-      readAllPages((after) =>
-        registry.installations.call({ limit: REGISTRY_PAGE_SIZE, after }, { signal }),
-      ),
-  });
+  const installations = useRegistryInstallations();
   const discover = useInfiniteQuery(
     registry.discover.infiniteOptions({
       input: (after: string | null) => ({
@@ -66,6 +68,20 @@ export function CommunityStore({
   const installFor = (slug: string) => installs.find((row) => row.plugin.slug === slug);
   const botList = bots.data ?? [];
 
+  const appInstallation = openApp ? installFor(openApp.slug) : undefined;
+  const appPart = appInstallation
+    ? appParts(appInstallation.plugin.manifest).find((part) => part.id === openApp?.partId)
+    : undefined;
+  if (openApp && appInstallation && appPart)
+    return (
+      <AppRunner
+        key={`${appInstallation.id}:${appInstallation.plugin.id}:${appPart.id}`}
+        installation={appInstallation}
+        part={appPart}
+        onBack={() => setOpenApp(null)}
+      />
+    );
+
   if (openPlugin)
     return (
       <CommunityDetail
@@ -76,6 +92,12 @@ export function CommunityStore({
         bots={botList}
         activeBotId={activeBotId}
         onBack={() => setOpenPlugin(null)}
+        onOpenApp={(partId) => setOpenApp({ slug: openPlugin.slug, partId })}
+        onUseTemplate={(version) => {
+          setTemplate({ key: Date.now(), version });
+          setOpenPlugin(null);
+          setTab("create");
+        }}
       />
     );
 
@@ -180,6 +202,7 @@ export function CommunityStore({
             installation={installation}
             bots={botList}
             onOpen={() => setOpenPlugin({ slug: installation.plugin.slug })}
+            onOpenApp={(partId) => setOpenApp({ slug: installation.plugin.slug, partId })}
           />
         ))}
       </div>
@@ -213,22 +236,40 @@ export function CommunityStore({
       </Tabs>
       {tab === "discover" ? discoverTab() : null}
       {tab === "installed" ? installedTab() : null}
-      {tab === "create" ? <CreatePlugin /> : null}
+      {tab === "create" ? (
+        <CreatePlugin key={template?.key ?? 0} template={template?.version} />
+      ) : null}
       {tab === "review" && me.data?.isAdmin ? <ReviewQueue /> : null}
     </div>
   );
+}
+
+/** Every community plugin this member installed in the Space. */
+export function useRegistryInstallations() {
+  const registry = useSpaceQueries().pluginRegistry;
+  return useQuery({
+    queryKey: registry.installations.queryKey({ input: { limit: REGISTRY_PAGE_SIZE } }),
+    queryFn: ({ signal }) =>
+      readAllPages((after) =>
+        registry.installations.call({ limit: REGISTRY_PAGE_SIZE, after }, { signal }),
+      ),
+  });
 }
 
 function InstalledRow({
   installation,
   bots,
   onOpen,
+  onOpenApp,
 }: {
   installation: RegistryInstallation;
   bots: readonly Bot[];
   onOpen: () => void;
+  onOpenApp: (partId: string) => void;
 }) {
   const { plugin } = installation;
+  const apps = appParts(plugin.manifest);
+  const { t } = useLingui();
   const names = grantedBots(installation).flatMap((id) => {
     const bot = bots.find((row) => row.id === id);
     return bot ? [bot.name] : [];
@@ -255,7 +296,24 @@ function InstalledRow({
           </span>
         </span>
       </button>
-      <Button type="button" variant="secondary" size="sm" onClick={onOpen}>
+      {apps.length === 1 ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          aria-label={t`Open ${plugin.manifest.name}`}
+          onClick={() => onOpenApp(apps[0]!.id)}
+        >
+          <NotebookPen />
+          <Trans>Open</Trans>
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        variant={apps.length === 1 ? "ghost" : "secondary"}
+        size="sm"
+        onClick={onOpen}
+      >
         <Trans>Manage</Trans>
       </Button>
     </div>

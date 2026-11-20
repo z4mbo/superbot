@@ -6,7 +6,12 @@ import { act } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { RegistryInstallation, RegistryVersion } from "./registry";
+import type {
+  RegistryAppRecord,
+  RegistryInstallation,
+  RegistryVersion,
+  SubmitInput,
+} from "./registry";
 
 const api = vi.hoisted(() => ({
   me: vi.fn(),
@@ -22,6 +27,9 @@ const api = vi.hoisted(() => ({
     submit: vi.fn(),
     submissions: vi.fn(),
     review: vi.fn(),
+    appRecords: vi.fn(),
+    addAppRecord: vi.fn(),
+    removeAppRecord: vi.fn(),
   },
 }));
 
@@ -462,4 +470,230 @@ it("switches a pinned install to another approved version only after confirming"
   expect(api.pluginRegistry.uninstall).not.toHaveBeenCalled();
   expect(api.pluginRegistry.install).not.toHaveBeenCalled();
   expect(container.textContent).toContain("Version 2 installed");
+});
+
+const diaryApp = {
+  id: "diary",
+  kind: "app" as const,
+  fields: [
+    { id: "food", label: "Food", type: "text" as const, required: true },
+    { id: "kcal", label: "Calories (kcal)", type: "number" as const, required: true },
+    { id: "date", label: "Date", type: "date" as const, required: true },
+    { id: "note", label: "Note", type: "text" as const, required: false },
+  ],
+  summaryField: "kcal",
+};
+const diary: RegistryVersion = {
+  ...release("kcal-diary", 1, "Kcal diary"),
+  manifest: {
+    schemaVersion: 1,
+    name: "Kcal diary",
+    description: "Calories per day",
+    parts: [diaryApp],
+  },
+};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function localDay(offset = 0) {
+  const day = new Date();
+  day.setDate(day.getDate() + offset);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+}
+
+function labelled(text: string): HTMLInputElement {
+  const label = [...container.querySelectorAll("label")].find((element) =>
+    element.textContent?.startsWith(text),
+  );
+  if (!label) throw new Error(`No field ${text}`);
+  return document.getElementById(label.htmlFor) as HTMLInputElement;
+}
+
+function useDiaryRecords() {
+  let records: RegistryAppRecord[] = [];
+  api.pluginRegistry.appRecords.mockImplementation(async (input: { date?: string }) => {
+    const items = records.filter((row) => !input.date || row.values.date === input.date);
+    return {
+      items,
+      nextAfter: null,
+      total: items.reduce((sum, row) => sum + Number(row.values.kcal), 0),
+    };
+  });
+  api.pluginRegistry.addAppRecord.mockImplementation(
+    async (input: { operationId: string; values: RegistryAppRecord["values"] }) => {
+      const record = {
+        id: `00000000-0000-4000-8000-00000000000${records.length + 1}`,
+        values: input.values,
+        createdAt: "2026-11-20T08:00:00.000Z",
+      };
+      records = [record, ...records];
+      return record;
+    },
+  );
+  api.pluginRegistry.removeAppRecord.mockImplementation(async (input: { recordId: string }) => {
+    records = records.filter((row) => row.id !== input.recordId);
+    return { ok: true };
+  });
+}
+
+async function openInstalledDiary() {
+  installs = [{ id: "install-app", plugin: diary, grants: [], createdAt: diary.createdAt }];
+  await render();
+  const installedTab = [...container.querySelectorAll<HTMLElement>('[role="tab"]')].find((tab) =>
+    tab.textContent?.startsWith("Installed"),
+  )!;
+  await click(installedTab);
+  await click(button("Open Kcal diary"));
+}
+
+it("lets a member add, total, filter and remove entries in an installed app", async () => {
+  useDiaryRecords();
+  await openInstalledDiary();
+  const target = { installationId: "install-app", partId: "diary" };
+  expect(api.pluginRegistry.appRecords).toHaveBeenLastCalledWith(
+    { ...target, limit: 20, date: localDay() },
+    expect.anything(),
+  );
+  expect(container.textContent).toContain("No entries on this day.");
+  expect(labelled("Date").value).toBe(localDay());
+  expect(labelled("Note").required).toBe(false);
+  expect(labelled("Food").required).toBe(true);
+
+  await click(button("Add entry"));
+  expect(api.pluginRegistry.addAppRecord).not.toHaveBeenCalled();
+  expect(labelled("Food").getAttribute("aria-invalid")).toBe("true");
+  expect(container.textContent).toContain("Enter Food.");
+  expect(document.activeElement).toBe(labelled("Food"));
+
+  await type(labelled("Food"), "Oats");
+  await type(labelled("Calories (kcal)"), "350.5");
+  await click(button("Add entry"));
+  expect(api.pluginRegistry.addAppRecord).toHaveBeenCalledExactlyOnceWith({
+    ...target,
+    operationId: expect.stringMatching(UUID),
+    values: { food: "Oats", kcal: 350.5, date: localDay() },
+  });
+  await vi.waitFor(() =>
+    expect(container.querySelector('[data-testid="community-app-total"]')?.textContent).toContain(
+      "350.5",
+    ),
+  );
+  expect(labelled("Food").value).toBe("");
+  const rows = () => [...container.querySelectorAll('[data-testid="community-app-record"]')];
+  expect(rows().map((row) => row.getAttribute("aria-label"))).toEqual(["Oats"]);
+
+  await type(labelled("Food"), "Soup");
+  await type(labelled("Calories (kcal)"), "200");
+  await type(labelled("Date"), localDay(-1));
+  await click(button("Add entry"));
+  const [firstOperation, secondOperation] = api.pluginRegistry.addAppRecord.mock.calls.map(
+    ([input]) => (input as { operationId: string }).operationId,
+  );
+  expect(secondOperation).not.toBe(firstOperation);
+  await vi.waitFor(() =>
+    expect(api.pluginRegistry.appRecords).toHaveBeenLastCalledWith(
+      { ...target, limit: 20, date: localDay(-1) },
+      expect.anything(),
+    ),
+  );
+  await vi.waitFor(() =>
+    expect(rows().map((row) => row.getAttribute("aria-label"))).toEqual(["Soup"]),
+  );
+
+  await click(button("All dates"));
+  expect(api.pluginRegistry.appRecords).toHaveBeenLastCalledWith(
+    { ...target, limit: 20 },
+    expect.anything(),
+  );
+  await vi.waitFor(() => expect(rows()).toHaveLength(2));
+  expect(container.querySelector('[data-testid="community-app-total"]')?.textContent).toContain(
+    "550.5",
+  );
+
+  await click(button("Remove Soup"));
+  expect(api.pluginRegistry.removeAppRecord).not.toHaveBeenCalled();
+  await click(button("Remove"));
+  expect(api.pluginRegistry.removeAppRecord).toHaveBeenCalledExactlyOnceWith({
+    ...target,
+    recordId: "00000000-0000-4000-8000-000000000002",
+  });
+  await vi.waitFor(() =>
+    expect(rows().map((row) => row.getAttribute("aria-label"))).toEqual(["Oats"]),
+  );
+});
+
+it("warns that uninstalling an app deletes its entries and opens it from its page", async () => {
+  useDiaryRecords();
+  installs = [{ id: "install-app", plugin: diary, grants: [], createdAt: diary.createdAt }];
+  api.pluginRegistry.discover.mockResolvedValue({ items: [diary], nextAfter: null });
+  await render();
+  await click(button("Added"));
+  const part = container.querySelector('[data-testid="community-part"]')!;
+  expect(part.textContent).toContain("App: Food, Calories (kcal), Date, Note");
+
+  await click(button("Uninstall"));
+  expect(container.textContent).toContain(
+    "Uninstalling permanently deletes your entries in this app.",
+  );
+  await click(button("Cancel"));
+  await click(button("Open", part));
+  expect(container.querySelector('[data-testid="community-app"]')).not.toBeNull();
+  await click(button("Back"));
+  expect(container.querySelector('[data-testid="community-plugin-detail"]')).not.toBeNull();
+});
+
+it("starts an app from the calorie diary example or a published plugin", async () => {
+  api.pluginRegistry.discover.mockResolvedValue({ items: [diary], nextAfter: null });
+  api.pluginRegistry.submit.mockImplementation(async (input: SubmitInput) => ({
+    ...diary,
+    ...input,
+    status: "pending",
+  }));
+  await render();
+  await click(container.querySelector<HTMLElement>('[data-testid="community-create-tab"]')!);
+  await click(
+    container.querySelector<HTMLElement>('[data-testid="community-example-calorie-diary"]')!,
+  );
+  expect(container.querySelector<HTMLInputElement>("#community-slug")!.value).toBe("calorie-diary");
+  expect(container.querySelectorAll('[data-testid="community-app-field-editor"]')).toHaveLength(3);
+
+  await click(button("Add field"));
+  const labels = [...container.querySelectorAll<HTMLInputElement>('input[id$="-label"]')];
+  await type(labels.at(-1)!, "Protein (g)");
+  const ids = [...container.querySelectorAll<HTMLInputElement>('input[id$="-id"]')];
+  expect(ids.at(-1)!.value).toBe("protein-g");
+
+  await click(button("Submit for review"));
+  expect(api.pluginRegistry.submit).toHaveBeenCalledExactlyOnceWith({
+    slug: "calorie-diary",
+    version: 1,
+    manifest: {
+      schemaVersion: 1,
+      name: "Calorie diary",
+      description: "Log meals and see the total calories for a day.",
+      parts: [
+        {
+          id: "meals",
+          kind: "app",
+          fields: [
+            { id: "date", label: "Date", type: "date", required: true },
+            { id: "meal", label: "Meal", type: "text", required: true },
+            { id: "kcal", label: "Calories (kcal)", type: "number", required: true },
+            { id: "protein-g", label: "Protein (g)", type: "text", required: true },
+          ],
+          summaryField: "kcal",
+        },
+      ],
+    },
+  });
+
+  const discoverTab = [...container.querySelectorAll<HTMLElement>('[role="tab"]')].find(
+    (tab) => tab.textContent === "Discover",
+  )!;
+  await click(discoverTab);
+  await click(button("Add"));
+  await click(button("Use as template"));
+  expect(container.querySelector<HTMLInputElement>("#community-name")!.value).toBe("Kcal diary");
+  expect(container.querySelector<HTMLInputElement>("#community-slug")!.value).toBe("my-kcal-diary");
+  expect(container.querySelectorAll('[data-testid="community-app-field-editor"]')).toHaveLength(4);
 });

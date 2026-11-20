@@ -2,31 +2,47 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Badge,
   Button,
+  Checkbox,
   Disclosure,
   Field,
   FieldDescription,
   FieldLabel,
   Input,
+  OptionSelect,
   SectionHeading,
   Spinner,
   Textarea,
   toast,
 } from "@rakazo/ui-web";
 import { useQuery } from "@tanstack/react-query";
-import { CircleCheck, FileText, Plug, Trash2 } from "lucide-react";
+import { CircleCheck, FileText, NotebookPen, Plug, Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useSave, useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
 import { Facts } from "./community-detail";
-import type { DraftIssue, PartDraft, PluginDraft, RegistryVersion, SubmitInput } from "./registry";
+import type {
+  DraftIssue,
+  FieldDraft,
+  PartDraft,
+  PluginDraft,
+  RegistryVersion,
+  SubmitInput,
+} from "./registry";
 import {
+  CALORIE_DIARY_MANIFEST,
+  calorieDiaryDraft,
+  changeField,
   checkDraft,
   draftFromJson,
   draftFromManifest,
+  draftFromTemplate,
   emptyDraft,
+  isUntouched,
+  MAX_APP_FIELDS,
   MAX_PARTS,
   manifestJson,
+  newField,
   newPart,
   nextVersion,
   REGISTRY_PAGE_SIZE,
@@ -35,7 +51,7 @@ import {
 } from "./registry";
 
 /** Where an author writes a plugin version, checks it, sends it for review and follows its status. */
-export function CreatePlugin() {
+export function CreatePlugin({ template }: { template?: RegistryVersion }) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
   const registry = queries.pluginRegistry;
@@ -51,6 +67,11 @@ export function CreatePlugin() {
   const [json, setJson] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const issueText = useIssueText();
+  const [pendingTemplate, setPendingTemplate] = useState(template);
+  if (pendingTemplate && !mine.isPending) {
+    setPendingTemplate(undefined);
+    setDraftState(draftFromTemplate(pendingTemplate, versions));
+  }
 
   const submit = useSave({
     save: (input: SubmitInput, rpc) => rpc.pluginRegistry.submit(input),
@@ -137,6 +158,23 @@ export function CreatePlugin() {
 
   return (
     <div data-testid="community-create" className="space-y-10">
+      {isUntouched(draft) && !pendingTemplate ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-body text-muted-foreground">
+            <Trans>Start from an example</Trans>
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            data-testid="community-example-calorie-diary"
+            onClick={() => setDraft(calorieDiaryDraft(versions))}
+          >
+            <NotebookPen />
+            {CALORIE_DIARY_MANIFEST.name}
+          </Button>
+        </div>
+      ) : null}
       <form
         className="space-y-5"
         noValidate
@@ -221,12 +259,20 @@ export function CreatePlugin() {
               index={index}
               removable={draft.parts.length > 1}
               idError={fieldError("manifest", "parts", index, "id")}
-              valueError={fieldError(
-                "manifest",
-                "parts",
-                index,
-                part.kind === "skill" ? "instructions" : "endpoint",
-              )}
+              valueError={
+                part.kind === "app"
+                  ? (fieldError("manifest", "parts", index, "fields") ??
+                    fieldError("manifest", "parts", index, "summaryField"))
+                  : fieldError(
+                      "manifest",
+                      "parts",
+                      index,
+                      part.kind === "skill" ? "instructions" : "endpoint",
+                    )
+              }
+              fieldIssue={(fieldIndex, key) =>
+                fieldError("manifest", "parts", index, "fields", fieldIndex, key)
+              }
               onChange={(patch) => updatePart(part.key, patch)}
               onRemove={() =>
                 update({ parts: draft.parts.filter((entry) => entry.key !== part.key) })
@@ -252,6 +298,15 @@ export function CreatePlugin() {
               >
                 <Plug />
                 <Trans>Add MCP tools</Trans>
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => update({ parts: [...draft.parts, newPart("app", draft.parts)] })}
+              >
+                <NotebookPen />
+                <Trans>Add app</Trans>
               </Button>
             </div>
           ) : null}
@@ -376,6 +431,7 @@ function PartEditor({
   removable,
   idError,
   valueError,
+  fieldIssue,
   onChange,
   onRemove,
 }: {
@@ -384,11 +440,12 @@ function PartEditor({
   removable: boolean;
   idError: string | null;
   valueError: string | null;
+  fieldIssue: (fieldIndex: number, key: "id" | "label") => string | null;
   onChange: (patch: Partial<PartDraft>) => void;
   onRemove: () => void;
 }) {
   const { t } = useLingui();
-  const Icon = part.kind === "skill" ? FileText : Plug;
+  const Icon = part.kind === "skill" ? FileText : part.kind === "app" ? NotebookPen : Plug;
   const idField = `community-part-${part.key}-id`;
   const valueField = `community-part-${part.key}-value`;
   return (
@@ -399,7 +456,13 @@ function PartEditor({
       <div className="flex items-center gap-3">
         <Icon size={16} className="shrink-0 text-muted-foreground" />
         <span className="flex-1 text-body font-medium text-foreground">
-          {part.kind === "skill" ? <Trans>Skill</Trans> : <Trans>MCP tools</Trans>}
+          {part.kind === "skill" ? (
+            <Trans>Skill</Trans>
+          ) : part.kind === "app" ? (
+            <Trans>App</Trans>
+          ) : (
+            <Trans>MCP tools</Trans>
+          )}
         </span>
         {removable ? (
           <Button
@@ -443,6 +506,13 @@ function PartEditor({
           />
           <FieldIssue text={valueError} />
         </Field>
+      ) : part.kind === "app" ? (
+        <AppFieldsEditor
+          part={part}
+          error={valueError}
+          fieldIssue={fieldIssue}
+          onChange={onChange}
+        />
       ) : (
         <Field data-invalid={Boolean(valueError)}>
           <FieldLabel htmlFor={valueField}>
@@ -466,6 +536,167 @@ function PartEditor({
         </Field>
       )}
     </div>
+  );
+}
+
+const FIELD_TYPES = ["text", "number", "date"] as const;
+
+/** The form an installed app shows its members, and the number field it totals. */
+function AppFieldsEditor({
+  part,
+  error,
+  fieldIssue,
+  onChange,
+}: {
+  part: Extract<PartDraft, { kind: "app" }>;
+  error: string | null;
+  fieldIssue: (fieldIndex: number, key: "id" | "label") => string | null;
+  onChange: (patch: { fields: FieldDraft[]; summaryField: string }) => void;
+}) {
+  const { t } = useLingui();
+  const typeLabel = { text: t`Text`, number: t`Number`, date: t`Date` };
+  const numberFields = part.fields.filter((field) => field.type === "number" && field.id.trim());
+  const summaryId = `community-part-${part.key}-summary`;
+
+  /** Keeps the total on its field through renames, and drops it once that field is not a number. */
+  function setFields(fields: FieldDraft[], summaryKey = summaryFieldKey()) {
+    const summary = fields.find((field) => field.key === summaryKey && field.type === "number");
+    onChange({ fields, summaryField: summary?.id ?? "" });
+  }
+
+  function summaryFieldKey() {
+    return part.summaryField
+      ? part.fields.find((field) => field.id === part.summaryField)?.key
+      : undefined;
+  }
+
+  function changeAt(key: number, patch: Partial<Omit<FieldDraft, "key">>) {
+    setFields(part.fields.map((field) => (field.key === key ? changeField(field, patch) : field)));
+  }
+
+  return (
+    <fieldset className="space-y-3">
+      <legend className="mb-2 text-body font-medium text-foreground">
+        <Trans>Fields</Trans>
+      </legend>
+      {part.fields.map((field, fieldIndex) => {
+        const base = `community-part-${part.key}-field-${field.key}`;
+        const labelIssue = fieldIssue(fieldIndex, "label");
+        const idIssue = fieldIssue(fieldIndex, "id");
+        return (
+          <div
+            key={field.key}
+            data-testid="community-app-field-editor"
+            className="grid items-start gap-3 sm:grid-cols-[1fr_9rem_7rem_auto_auto]"
+          >
+            <Field data-invalid={Boolean(labelIssue)}>
+              <FieldLabel htmlFor={`${base}-label`}>
+                <Trans>Label</Trans>
+              </FieldLabel>
+              <Input
+                id={`${base}-label`}
+                value={field.label}
+                maxLength={120}
+                placeholder={t`Calories (kcal)`}
+                onChange={(event) => changeAt(field.key, { label: event.target.value })}
+              />
+              <FieldIssue text={labelIssue} />
+            </Field>
+            <Field data-invalid={Boolean(idIssue)}>
+              <FieldLabel htmlFor={`${base}-id`}>
+                <Trans>Field ID</Trans>
+              </FieldLabel>
+              <Input
+                id={`${base}-id`}
+                value={field.id}
+                maxLength={64}
+                spellCheck={false}
+                autoCapitalize="off"
+                className="font-mono"
+                onChange={(event) => changeAt(field.key, { id: event.target.value })}
+              />
+              <FieldIssue text={idIssue} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={`${base}-type`}>
+                <Trans>Type</Trans>
+              </FieldLabel>
+              <OptionSelect
+                id={`${base}-type`}
+                value={field.type}
+                options={FIELD_TYPES.map((value) => ({ value, label: typeLabel[value] }))}
+                onValueChange={(type) => changeAt(field.key, { type })}
+              />
+            </Field>
+            <Field orientation="horizontal" className="w-auto sm:mt-8">
+              <Checkbox
+                id={`${base}-required`}
+                checked={field.required}
+                onCheckedChange={(required) => changeAt(field.key, { required })}
+              />
+              <FieldLabel htmlFor={`${base}-required`} className="font-normal">
+                <Trans>Required</Trans>
+              </FieldLabel>
+            </Field>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground sm:mt-7"
+              aria-label={t`Remove field ${field.label || fieldIndex + 1}`}
+              disabled={part.fields.length === 1}
+              onClick={() => setFields(part.fields.filter((entry) => entry.key !== field.key))}
+            >
+              <Trash2 />
+            </Button>
+          </div>
+        );
+      })}
+      <FieldIssue text={error} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {part.fields.length < MAX_APP_FIELDS ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setFields([...part.fields, newField()])}
+          >
+            <Plus />
+            <Trans>Add field</Trans>
+          </Button>
+        ) : (
+          <span />
+        )}
+        {numberFields.length ? (
+          <div className="flex items-center gap-2">
+            <label htmlFor={summaryId} className="text-body-sm text-muted-foreground">
+              <Trans>Total</Trans>
+            </label>
+            <OptionSelect
+              id={summaryId}
+              size="sm"
+              className="w-auto"
+              value={part.summaryField || "none"}
+              options={[
+                { value: "none", label: t`No total` },
+                ...numberFields.map((field) => ({
+                  value: field.id,
+                  label: field.label || field.id,
+                })),
+              ]}
+              onValueChange={(value) =>
+                setFields(
+                  part.fields,
+                  value === "none"
+                    ? undefined
+                    : part.fields.find((field) => field.id === value)?.key,
+                )
+              }
+            />
+          </div>
+        ) : null}
+      </div>
+    </fieldset>
   );
 }
 
@@ -560,6 +791,17 @@ function useIssueText() {
     if (index === undefined)
       return issue.code === "custom" ? t`Give every part a different ID.` : t`Add 1 to 16 parts.`;
     const part = Number(index) + 1;
+    if (field === "fields") {
+      const fieldIndex = path[4];
+      if (fieldIndex === undefined)
+        return issue.code === "custom"
+          ? t`Give every field a different ID.`
+          : t`Add 1 to 16 fields.`;
+      if (path[5] === "label") return t`Add a label of up to 120 characters.`;
+      if (path[5] === "id") return t`Use 1–64 lowercase letters, numbers and single hyphens.`;
+      return t`Field ${Number(fieldIndex) + 1}: ${issue.message}`;
+    }
+    if (field === "summaryField") return t`Total a number field, or choose no total.`;
     if (field === "id") return t`Use 1–64 lowercase letters, numbers and single hyphens.`;
     if (field === "instructions") return t`Add instructions of up to 16,000 characters.`;
     if (field === "endpoint")
