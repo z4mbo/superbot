@@ -71,6 +71,12 @@ fn socket_target(server: &str, issued: &ComputerTerminal) -> Result<(Url, String
     Ok((socket, server.origin().ascii_serialization(), proof))
 }
 
+/// A screen the computer cannot show right now (its screens are full, or its display is not
+/// ready) still leaves the terminal to answer for itself; anything else ends the opening.
+fn screen_problem_leaves_terminal(error: &Error) -> bool {
+    matches!(error, Error::Server { status: 409, .. })
+}
+
 impl Desktop {
     fn terminal_mut(&mut self) -> Option<&mut TerminalSession> {
         self.agent_panel.as_mut()?.terminal.as_mut()
@@ -94,6 +100,7 @@ impl Desktop {
             return;
         }
         let agent_id = panel.agent_id.clone();
+        let has_screen = matches!(&panel.computer, Some(ComputerView::Ready(status)) if status.screen_available);
         let serial = TERMINALS.fetch_add(1, Ordering::Relaxed);
         let focus = cx.focus_handle();
         let heartbeat = {
@@ -129,7 +136,17 @@ impl Desktop {
         let read = agent_id.clone();
         let work = async move {
             let lease = taking.await?;
-            let issued = features.space(space).computer_terminal(&read).await?;
+            let space = features.space(space);
+            // The computer learns of a control lease only from an interactive screen, and its
+            // terminal starts only for the lease it knows.
+            if has_screen {
+                if let Err(error) = space.computer_screen(&read).await {
+                    if !screen_problem_leaves_terminal(&error) {
+                        return Err(error);
+                    }
+                }
+            }
+            let issued = space.computer_terminal(&read).await?;
             Ok((lease, issued))
         };
         self.call(window, cx, work, move |this, result, window, cx| {
@@ -443,7 +460,7 @@ fn color(color: vt100::Color) -> Option<Hsla> {
 mod tests {
     use superbot_features::ComputerTerminal;
 
-    use super::{color, runs, socket_target};
+    use super::{color, runs, screen_problem_leaves_terminal, socket_target};
 
     #[test]
     fn a_terminal_opens_only_with_its_proof_on_the_signed_in_server() {
@@ -473,6 +490,16 @@ mod tests {
         assert!(first.iter().any(|(text, look)| look.inverse && text == " "));
         let hidden = runs(parser.screen(), false);
         assert!(hidden[0].iter().all(|(_, look)| !look.inverse));
+    }
+
+    #[test]
+    fn only_an_unavailable_screen_still_opens_the_terminal() {
+        let server = |status: u16| superbot_features::Error::Server { status, code: None, message: "fixture".into() };
+        assert!(screen_problem_leaves_terminal(&server(409)));
+        for status in [401, 403, 404, 500] {
+            assert!(!screen_problem_leaves_terminal(&server(status)), "{status}");
+        }
+        assert!(!screen_problem_leaves_terminal(&superbot_features::Error::Protocol("fixture")));
     }
 
     #[test]
