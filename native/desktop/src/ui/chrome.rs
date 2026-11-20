@@ -11,6 +11,9 @@ impl Render for Desktop {
         let content = match self.session {
             Session::Restoring => self.render_restoring(cx),
             Session::SignedOut => self.render_sign_in(cx),
+            Session::SignedIn if self.onboarding.page.is_some() => {
+                self.render_onboarding(cx).unwrap_or_else(|| div().into_any_element())
+            }
             Session::SignedIn => {
                 let main = match self.view {
                     View::Chat => self.render_chat(window, cx),

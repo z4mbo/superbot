@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 pub use credentials::CredentialStore;
 pub use local_history::LocalHistoryReceipt;
+pub use server_selection::{remember_space, remembered_space};
 pub use protocol::{
     Agent, Error, Message, MessageAuthor, SendReceipt, Space, ThreadEvent, ThreadSnapshot,
     ThreadTarget,

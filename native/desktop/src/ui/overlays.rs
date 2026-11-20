@@ -50,6 +50,9 @@ impl Desktop {
         items.push(item("new-space", "plus", "New space…", |this, window, cx| {
             this.open_dialog(DialogKind::NewSpace, window, cx)
         }));
+        items.push(item("join-space", "link", "Join with an invite…", |this, window, cx| {
+            this.open_dialog(DialogKind::JoinSpace, window, cx)
+        }));
         items
     }
 
@@ -202,6 +205,7 @@ impl Desktop {
         let dialog = self.dialog.as_ref()?;
         let (title, label, action, working) = match dialog.kind {
             DialogKind::NewSpace => ("New space", "Name", "Create space", "Creating…"),
+            DialogKind::JoinSpace => ("Join a workspace", "Invite link", "Continue", "Checking…"),
             DialogKind::RenameAgent(_) => ("Rename agent", "Name", "Save", "Saving…"),
         };
         Some(

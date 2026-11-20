@@ -2,6 +2,7 @@ pub mod conversation;
 pub mod conversations;
 pub mod create;
 pub mod new_agent;
+pub mod onboarding;
 pub mod reveal;
 
 use std::future::Future;
@@ -44,6 +45,8 @@ pub enum SignInMode {
     CreateAccount,
     /// A sign-in code is on its way to the address in the email field.
     Code,
+    /// Pasting an invite link, which names the server and is used once signed in.
+    Invite,
 }
 
 pub struct SignIn {
@@ -53,6 +56,7 @@ pub struct SignIn {
     pub email: Entity<InputState>,
     pub password: Entity<InputState>,
     pub code: Entity<InputState>,
+    pub invite: Entity<InputState>,
     pub busy: bool,
     pub error: Option<String>,
     /// What happened last, when it was not an error: a code was sent, an address needs verifying.
@@ -77,6 +81,7 @@ pub struct Menu {
 #[derive(Clone, PartialEq, Eq)]
 pub enum DialogKind {
     NewSpace,
+    JoinSpace,
     RenameAgent(String),
 }
 
@@ -140,6 +145,7 @@ pub struct Desktop {
     pub agent_info: AgentInfo,
     pub model_menu: crate::ui::model_menu::ModelMenu,
     pub conversations: conversations::Conversations,
+    pub onboarding: onboarding::Onboarding,
     pub menu: Option<Menu>,
     pub dialog: Option<Dialog>,
     /// The Space selection a new agent is being made in.
@@ -167,6 +173,7 @@ impl Desktop {
             email: field("you@example.com", window, cx),
             password,
             code: field("123456", window, cx),
+            invite: field("Paste the link you were sent", window, cx),
             busy: false,
             error: None,
             status: None,
@@ -200,7 +207,7 @@ impl Desktop {
                 }
             }),
         ];
-        for input in [&sign_in.email, &sign_in.password, &sign_in.code, &sign_in.name, &sign_in.server] {
+        for input in [&sign_in.email, &sign_in.password, &sign_in.code, &sign_in.name, &sign_in.server, &sign_in.invite] {
             subscriptions.push(cx.subscribe_in(input, window, |this, _, event: &InputEvent, window, cx| {
                 if let InputEvent::PressEnter { .. } = event {
                     this.submit_sign_in(window, cx);
@@ -234,6 +241,7 @@ impl Desktop {
             agent_info: AgentInfo::default(),
             model_menu: Default::default(),
             conversations: Default::default(),
+            onboarding: Default::default(),
             menu: None,
             dialog: None,
             creating_agent: None,
@@ -349,7 +357,10 @@ impl Desktop {
             };
             let api = Api { client };
             match tokio::try_join!(api.me(), api.initial_navigation()) {
-                Ok((me, navigation)) => Ok(Some((api, me, navigation))),
+                Ok((me, navigation)) => {
+                    let navigation = onboarding::resumed(&api, &me, navigation).await?;
+                    Ok(Some((api, me, navigation)))
+                }
                 Err(error) if error.is_unauthorized() => {
                     CredentialStore::delete(&api.client).await.ok();
                     Ok(None)
@@ -358,7 +369,10 @@ impl Desktop {
             }
         };
         self.call(window, cx, work, |this, result, window, cx| match result {
-            Ok(Some((api, me, navigation))) => this.enter(api, me, navigation, window, cx),
+            Ok(Some((api, me, navigation))) => {
+                this.enter(api, me, navigation, window, cx);
+                this.signed_in(false, window, cx);
+            }
             Ok(None) => this.session = Session::SignedOut,
             Err(error) => {
                 this.session = Session::SignedOut;
@@ -378,6 +392,10 @@ impl Desktop {
         if self.sign_in.busy {
             return;
         }
+        if self.sign_in.mode == SignInMode::Invite {
+            self.continue_with_invite(window, cx);
+            return;
+        }
         let client = match self.server_client(cx) {
             Ok(client) => client,
             Err(error) => {
@@ -394,6 +412,7 @@ impl Desktop {
             SignInMode::CreateAccount if name.is_empty() => Some("Enter your name."),
             SignInMode::Password | SignInMode::CreateAccount if password.is_empty() => Some("Enter your password."),
             SignInMode::Code if code.is_empty() => Some("Enter the code from your email."),
+            SignInMode::Invite => None,
             _ => None,
         };
         if let Some(missing) = missing {
@@ -412,7 +431,7 @@ impl Desktop {
         let mode = self.sign_in.mode;
         let work = async move {
             let client = match mode {
-                SignInMode::Password => client.sign_in(&email, &password).await?,
+                SignInMode::Password | SignInMode::Invite => client.sign_in(&email, &password).await?,
                 SignInMode::Code => client.sign_in_with_code(&email, &code).await?,
                 SignInMode::CreateAccount => match client.sign_up(&name, &email, &password).await? {
                     SignUpResult::SignedIn(client) => client,
@@ -422,15 +441,17 @@ impl Desktop {
             CredentialStore::save(&client).await?;
             let api = Api { client };
             let (me, navigation) = tokio::try_join!(api.me(), api.initial_navigation())?;
+            let navigation = onboarding::resumed(&api, &me, navigation).await?;
             Ok(Some((api, me, navigation)))
         };
-        self.call(window, cx, work, |this, result, window, cx| {
+        self.call(window, cx, work, move |this, result, window, cx| {
             this.sign_in.busy = false;
             match result {
                 Ok(Some((api, me, navigation))) => {
                     this.sign_in.password.update(cx, |input, cx| input.set_value("", window, cx));
                     this.sign_in.code.update(cx, |input, cx| input.set_value("", window, cx));
                     this.enter(api, me, navigation, window, cx);
+                    this.signed_in(mode == SignInMode::CreateAccount, window, cx);
                 }
                 Ok(None) => {
                     this.sign_in.mode = SignInMode::Password;
@@ -544,6 +565,7 @@ impl Desktop {
         self.search.update(cx, |search, cx| search.set_value("", window, cx));
         self.search_open = false;
         self.forget_message_search();
+        self.forget_onboarding();
         self.menu = None;
         self.dialog = None;
         self.notice = None;
@@ -558,6 +580,7 @@ impl Desktop {
         self.spaces = navigation.spaces;
         self.space = Some(navigation.current);
         self.place_arrivals();
+        self.remember_open_space();
     }
 
     fn first_conversation(&self) -> Option<Target> {
@@ -751,6 +774,7 @@ impl Desktop {
     pub fn open_dialog(&mut self, kind: DialogKind, window: &mut Window, cx: &mut Context<Self>) {
         let (placeholder, value) = match &kind {
             DialogKind::NewSpace => ("Marketing", String::new()),
+            DialogKind::JoinSpace => ("Paste the link you were sent", self.copied_invite(cx).unwrap_or_default()),
             DialogKind::RenameAgent(id) => ("Name", self.agent(id).map(|agent| agent.name.clone()).unwrap_or_default()),
         };
         let input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder).default_value(value));
@@ -766,6 +790,10 @@ impl Desktop {
     }
 
     pub fn submit_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.dialog.as_ref().is_some_and(|dialog| dialog.kind == DialogKind::JoinSpace) {
+            self.submit_invite_dialog(window, cx);
+            return;
+        }
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         let selection = self.space_selection;
         let Some(dialog) = self.dialog.as_mut().filter(|dialog| !dialog.busy) else { return };
@@ -778,6 +806,7 @@ impl Desktop {
         dialog.busy = true;
         dialog.error = None;
         let kind = dialog.kind.clone();
+        let created = kind == DialogKind::NewSpace;
         let work = async move {
             match kind {
                 DialogKind::RenameAgent(id) => {
@@ -788,6 +817,7 @@ impl Desktop {
                     let space = api.create_space(&name).await?;
                     Ok((None, api.navigation(Some(&space.id)).await?))
                 }
+                DialogKind::JoinSpace => unreachable!("joining is submitted before naming"),
             }
         };
         self.call(window, cx, work, move |this, result, window, cx| match result {
@@ -807,6 +837,9 @@ impl Desktop {
                 }
                 if let Some(target) = target.or_else(|| moved.then(|| this.first_conversation()).flatten()) {
                     this.open(target, window, cx);
+                }
+                if created {
+                    this.open_new_space(window, cx);
                 }
             }
             Err(error) => {
