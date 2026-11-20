@@ -109,6 +109,27 @@ it("keeps the sender label on a reply after an unlabeled question card", () => {
   }
 });
 
+it("keeps the hosted sender label after a Local CLI reply from the same bot", () => {
+  const reply: BubbleProps["message"] = {
+    id: "reply",
+    role: "bot",
+    botId: "bot-a",
+    blocks: [{ kind: "text", text: "A reply." }],
+  };
+  const hidden = continuedSenderMessageIds(
+    [
+      { kind: "message", message: reply },
+      { kind: "message", message: { ...reply, id: "local", origin: "local_cli" } },
+      { kind: "message", message: { ...reply, id: "hosted" } },
+      { kind: "message", message: { ...reply, id: "follow-up" } },
+    ],
+    new Set(),
+    null,
+    hasSenderLabelContent,
+  );
+  expect([...hidden]).toEqual(["follow-up"]);
+});
+
 function Bubble(props: Partial<BubbleProps> & Pick<BubbleProps, "message">) {
   return (
     <MessageBubble
