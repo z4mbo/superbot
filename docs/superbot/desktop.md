@@ -110,6 +110,8 @@ Board is a Labs feature upstream. If it is off for your account, the section say
 
 Open the grid icon at the bottom of the sidebar to enter **Store**. **Agents** offers the server’s ready-made agents. **Skills** lists Space skills and installable skill packs. **Plugins** lets you discover, install, create and manage plugin packages. **Apps** shows your connected services and the services you can connect.
 
+To connect a service, choose it in **Store → Apps** and follow its sign-in prompt. If the service asks you to use a browser, choose **Open in browser**. When sign-in opens in your default browser, use the same Superbot account and server as the desktop app. After you authorize the service, return to **Apps** to see the connection and choose which agents can use it.
+
 In **Plugins → Discover**, select **Calorie diary**, then **Install → Open**. Enter a date, meal and calories to see the day's total. **All days** includes entries from every date. Grant a bot the **Meals** part in the plugin details so it can read the diary and propose an addition. [Record app walkthrough](build-a-marketplace-plugin.md)
 
 Install **T3 Code inbox** to collect programming requests from you and your agents. Open the app, connect T3, choose a project and confirm the brief to start a supervised thread. Superbot saves the receipt so you can reopen the thread. [T3 Code inbox guide](t3-code-inbox-desktop.md)
