@@ -61,6 +61,7 @@ const screenHtml = `<!doctype html><title>Fake screen</title>
   const socketUrl = new URL('./websockify', location.href);
   socketUrl.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const socket = new WebSocket(socketUrl);
+  if (!Object.hasOwn(Object.getPrototypeOf(socket), "send")) throw new Error("noVNC raw channel has no send");
   if (new URL(location.href).searchParams.get("view_only") === "false") {
     socket.onopen = () => socket.send("fixture-control-input");
   }
