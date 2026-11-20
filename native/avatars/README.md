@@ -90,7 +90,9 @@ its own thread, shared by every mark. The module exports:
 `now` is milliseconds on the engine's own clock. Each frame is a whole SVG with a 192 viewBox,
 drawn in `#010203`, which Superbot repaints in the bot's colour. While `busy`, or while pointer
 input waits, one shared pulse runs on the display's own frames: up to 60 times a second, on every
-display frame or every second, third, ... on faster displays, so motion stays even. Each pulse
+display frame or every second, third, ... on faster displays, so motion stays even. While the
+pointer moves over, leaves or presses a mark, and for a second after while it turns back, the pulse
+runs up to 120 times a second (every frame of a 144 Hz display); never with reduced motion on. Each pulse
 gives the engine only the latest pointer sample per mark, calls `tick` with that frame's time and
 shows what the engine drew for the previous pulse. When nothing moves, nothing runs. Starting a
 mark or a change of work draws at once.
