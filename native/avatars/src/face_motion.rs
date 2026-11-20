@@ -248,13 +248,11 @@ impl RenderOnce for Face {
                     if !bounds.intersects(&window.content_mask().bounds) {
                         return None;
                     }
-                    let Some(avatars) = cx.try_global::<Avatars>() else {
-                        return Some(status.still_at(d));
-                    };
-                    if cx.reduce_motion() {
-                        return Some(status.still_at(d));
+                    let avatars = cx.try_global::<Avatars>();
+                    if let Some(pose) = static_pose(status, d, cx.reduce_motion() || avatars.is_none()) {
+                        return Some(pose);
                     }
-                    let epoch = avatars.epoch;
+                    let epoch = avatars?.epoch;
                     let watch = watch.filter(|_| !small);
                     let eligibility = blink_scope.filter(|_| !small && status != FaceState::Asleep);
                     let shared_blink = eligibility.as_ref().and_then(|scope| blink::active(scope, window, cx));
@@ -311,6 +309,10 @@ impl RenderOnce for Face {
     }
 }
 
+fn static_pose(status: FaceState, diameter: Pixels, still: bool) -> Option<Pose> {
+    still.then(|| status.still_at(diameter))
+}
+
 /// One pending 30 Hz frame for all visible working spheres in the window.
 fn request_work_frame(window: &mut Window, cx: &mut App) {
     let id = window.window_handle().window_id();
@@ -328,4 +330,48 @@ fn request_work_frame(window: &mut Window, cx: &mut App) {
             });
         })
         .detach();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{static_pose, FaceState, FaceTiming, Instant, Press, PRESS};
+    use gpui_kit::{linear, px};
+    use std::time::Duration;
+
+    #[test]
+    fn reduced_motion_uses_the_centered_pose_even_while_working() {
+        assert!(static_pose(FaceState::Working, px(48.), false).is_none());
+        let pose = static_pose(FaceState::Working, px(48.), true).unwrap();
+        assert_eq!(pose.eye_dx, 0.);
+        assert_eq!(pose.eye_dy, 0.);
+        assert_eq!(pose.shine_dx, 0.);
+        assert_eq!(pose.shine_dy, 0.);
+    }
+
+    #[test]
+    fn pressure_finishes_at_70_ms_and_release_uses_the_supplied_settle_time() {
+        let at = Instant::now();
+        let timing = FaceTiming {
+            standard: linear,
+            emphasis: linear,
+            settle: Duration::from_millis(160),
+            state: Duration::from_millis(240),
+            ease_in: linear,
+        };
+        let press = Press {
+            at,
+            from: 0.,
+            down: true,
+        };
+        assert_eq!(PRESS, Duration::from_millis(70));
+        assert!(press.sample(at + PRESS - Duration::from_millis(1), timing).1);
+        assert_eq!(press.sample(at + PRESS, timing), (1., false));
+        let release = Press {
+            at,
+            from: 1.,
+            down: false,
+        };
+        assert!(release.sample(at + timing.settle - Duration::from_millis(1), timing).1);
+        assert_eq!(release.sample(at + timing.settle, timing), (0., false));
+    }
 }

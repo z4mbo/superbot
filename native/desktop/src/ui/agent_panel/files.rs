@@ -777,7 +777,7 @@ fn small_button(
         .items_center()
         .justify_center()
         .rounded_full()
-        .tooltip(move |window, cx| Tooltip::new(tip.clone()).build(window, cx))
+        .map(|button| tooltip::on(button, tip))
         .map(
             |button| {
                 if ready {

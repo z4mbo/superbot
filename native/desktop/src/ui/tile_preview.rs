@@ -1,24 +1,24 @@
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::time::Duration;
+use std::time::Instant;
 
 use gpui_kit::*;
 
 use crate::api::{AgentSummary, Target};
 use crate::app::{Desktop, MenuKind};
 use crate::theme::{radius, Theme};
-use crate::ui::{bot_avatar_with, motion, AvatarSlot, Type};
+use crate::ui::{bot_avatar_with, tooltip, AvatarSlot, Type};
 use superbot_avatars::face::FaceState;
 
-const OPEN_DELAY: Duration = Duration::from_millis(250);
 const WIDTH: Pixels = px(260.);
 
 /// The pinned tile whose latest line shows beside it, the rest of the pointer that will open one,
 /// and each tile's place in the keyboard order and on screen.
 #[derive(Default)]
 pub struct TilePreview {
-    shown: Option<String>,
+    shown: Option<(String, tooltip::Visible)>,
+    hovered: Option<String>,
     waiting: Option<Task<()>>,
     focus: HashMap<String, FocusHandle>,
     bounds: HashMap<String, Rc<Cell<Bounds<Pixels>>>>,
@@ -26,17 +26,28 @@ pub struct TilePreview {
 
 impl Desktop {
     /// The pointer came to rest on, or left, a pinned tile. A tile with nothing to quote opens nothing.
-    pub fn hover_tile(&mut self, agent: &str, hovered: bool, quotable: bool, cx: &mut Context<Self>) {
+    pub fn hover_tile(&mut self, agent: &str, hovered: bool, quotable: bool, window: &Window, cx: &mut Context<Self>) {
+        if !hovered && self.tile_preview.hovered.as_deref() != Some(agent) {
+            return;
+        }
         self.close_tile_preview(cx);
         if !hovered || !quotable {
             return;
         }
         let agent = agent.to_owned();
+        self.tile_preview.hovered = Some(agent.clone());
+        let history = tooltip::history(window, cx);
+        let delay = history.delay(Instant::now());
+        if delay.is_zero() {
+            self.tile_preview.shown = Some((agent, history.show()));
+            cx.notify();
+            return;
+        }
         self.tile_preview.waiting = Some(cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(OPEN_DELAY).await;
+            cx.background_executor().timer(delay).await;
             this.update(cx, |this, cx| {
                 this.tile_preview.waiting = None;
-                this.tile_preview.shown = Some(agent);
+                this.tile_preview.shown = Some((agent, history.show()));
                 cx.notify();
             })
             .ok();
@@ -44,8 +55,9 @@ impl Desktop {
     }
 
     pub fn close_tile_preview(&mut self, cx: &mut Context<Self>) {
-        self.tile_preview.waiting = None;
-        if self.tile_preview.shown.take().is_some() {
+        let was_shown = self.tile_preview.shown.is_some();
+        self.forget_tile_preview();
+        if was_shown {
             cx.notify();
         }
     }
@@ -53,6 +65,7 @@ impl Desktop {
     /// Drops a preview whose tile is no longer drawn, without asking for another frame.
     pub fn forget_tile_preview(&mut self) {
         self.tile_preview.waiting = None;
+        self.tile_preview.hovered = None;
         self.tile_preview.shown = None;
     }
 
@@ -82,7 +95,10 @@ impl Desktop {
     }
 
     pub fn tile_preview_shown(&self, agent: &str) -> bool {
-        self.tile_preview.shown.as_deref() == Some(agent)
+        self.tile_preview
+            .shown
+            .as_ref()
+            .is_some_and(|(shown, _)| shown == agent)
     }
 }
 
@@ -136,15 +152,7 @@ pub fn tile_preview(
                 .child(div().min_w_0().name().font_weight(FontWeight::SEMIBOLD).truncate().child(agent.name.clone())),
         )
         .child(div().mt_1().body().text_color(theme.ink_secondary).line_clamp(2).child(text));
-    let span = motion::duration(motion::POP, cx.reduce_motion());
-    let card = if let Some(animation) = motion::animation(span, motion::EMPHASIS) {
-        card.with_animation(SharedString::from(format!("tile-preview-{}", agent.id)), animation, |card, delta| {
-            card.opacity(delta).mt(px(-4.) * (1. - delta))
-        })
-        .into_any_element()
-    } else {
-        card.into_any_element()
-    };
+    let card = tooltip::enter(SharedString::from(format!("tile-preview-{}", agent.id)), card, cx);
     deferred(
         anchored()
             .position_mode(AnchoredPositionMode::Local)

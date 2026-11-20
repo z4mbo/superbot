@@ -251,7 +251,7 @@ impl Desktop {
             .cursor_pointer()
             .when(open, |face| face.bg(hover))
             .hover(move |style| style.bg(hover))
-            .tooltip(|window, cx| Tooltip::new("Edit avatar").build(window, cx))
+            .map(|button| tooltip::on(button, "Edit avatar"))
             .on_click(cx.listener(|this, _, _, cx| this.toggle_look_editor(cx)))
             .child(bot_avatar_with(avatar, px(64.), working, slot, theme, cx));
         div().flex().flex_col().items_center().child(face).when(open, |column| {
@@ -306,10 +306,7 @@ impl Desktop {
                     .cursor_pointer()
                     .when(chosen, |button| button.border(px(1.5)).border_color(ring))
                     .hover(move |style| style.bg(hover))
-                    .tooltip({
-                        let name = shape.clone();
-                        move |window, cx| Tooltip::new(name.clone()).build(window, cx)
-                    })
+                    .map(|button| tooltip::on(button, shape.clone()))
                     .on_click(cx.listener(move |this, _, window, cx| {
                         let shape = shape_name.clone();
                         this.pick_look(agent.clone(), move |pick| pick.shape = Some(shape), window, cx)
@@ -319,19 +316,19 @@ impl Desktop {
             .child(bot_avatar(mark, px(36.), false, Some(key), theme, cx))
         });
 
-        let colors = choices.iter().flat_map(|choices| choices.colors.iter()).map(|(name, paint)| {
-            let chosen = current_color.as_deref() == Some(name.as_str());
-            let (agent, color_name) = (agent.clone(), name.clone());
-            color_swatch(SharedString::from(format!("look-color-{name}")), paint, chosen, theme)
-                .tooltip({
-                    let name = name.clone();
-                    move |window, cx| Tooltip::new(name.clone()).build(window, cx)
-                })
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    let color = color_name.clone();
-                    this.pick_look(agent.clone(), move |pick| pick.pack_color = Some(color), window, cx)
-                }))
-        });
+        let colors = choices
+            .iter()
+            .flat_map(|choices| choices.colors.iter())
+            .map(|(name, paint)| {
+                let chosen = current_color.as_deref() == Some(name.as_str());
+                let (agent, color_name) = (agent.clone(), name.clone());
+                color_swatch(SharedString::from(format!("look-color-{name}")), paint, chosen, theme)
+                    .map(|button| tooltip::on(button, name.clone()))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        let color = color_name.clone();
+                        this.pick_look(agent.clone(), move |pick| pick.pack_color = Some(color), window, cx)
+                    }))
+            });
 
         let selected = BotColor::from_value(avatar.color);
         let shared_colors = BOT_COLORS.iter().map(|color| {
@@ -339,7 +336,7 @@ impl Desktop {
             let paint = Paint::Color(theme.identity_for(color.hex));
             let agent = agent.clone();
             color_swatch(color.name, &paint, chosen, theme)
-                .tooltip(move |window, cx| Tooltip::new(color.name).build(window, cx))
+                .map(|button| tooltip::on(button, color.name))
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.pick_look(agent.clone(), |pick| pick.shared_color = Some(*color), window, cx)
                 }))

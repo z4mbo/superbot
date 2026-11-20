@@ -3,7 +3,6 @@ use std::time::Instant;
 
 use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
 use gpui_kit::component::spinner::Spinner;
-use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::Sizable as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
@@ -17,6 +16,7 @@ use crate::api::{self, Target};
 use crate::app::{Desktop, View};
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::motion::Tween;
+use crate::ui::tooltip;
 use crate::ui::{bot_avatar, error_line, icon, Type};
 
 mod computer;
@@ -37,6 +37,7 @@ mod view;
 
 use parts::*;
 use transition::PanelLayout;
+pub(crate) use transition::PanelPerformance;
 pub(crate) use parts::round_button;
 
 const PANEL_WIDTH: Pixels = px(400.);
@@ -268,11 +269,22 @@ impl Desktop {
             self.close_agent_panel(cx);
             return;
         }
+        self.show_agent_panel(false, window, cx);
+    }
+
+    pub(in crate::ui) fn open_agent_details(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.show_agent_panel(true, window, cx);
+    }
+
+    fn show_agent_panel(&mut self, details: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = chat_agent(self) else { return };
         let now = Instant::now();
-        let panel = self.agent_panel.get_or_insert_with(|| {
-            AgentPanel::new(id, PanelTab::Details, Tween::at_rest(px(0.), now))
-        });
+        let panel = self
+            .agent_panel
+            .get_or_insert_with(|| AgentPanel::new(id.clone(), PanelTab::Details, Tween::at_rest(px(0.), now)));
+        if panel.agent_id != id || details && (panel.tab != PanelTab::Details || panel.settings) {
+            *panel = AgentPanel::new(id, PanelTab::Details, panel.width);
+        }
         transition::aim(&mut panel.width, true, now, cx.reduce_motion());
         self.inbox.open = false;
         self.agent_info.stale();
@@ -290,9 +302,13 @@ impl Desktop {
     }
 
     pub(in crate::ui) fn agent_panel_layout(&mut self, window: &Window, cx: &App) -> Option<PanelLayout> {
-        let panel = self.agent_panel.as_mut()?;
+        let Some(panel) = &mut self.agent_panel else {
+            self.panel_performance.stop();
+            return None;
+        };
         let target = panel.width.target();
         if self.view != View::Chat || self.inbox.open {
+            self.panel_performance.stop();
             if target == px(0.) {
                 self.agent_panel = None;
             }
@@ -303,19 +319,25 @@ impl Desktop {
             transition::aim(&mut panel.width, target == PANEL_WIDTH, now, true);
         }
         let visible = transition::sample(&panel.width, now);
-        if panel.width.moving(now) {
+        let moving = panel.width.moving(now);
+        self.panel_performance.observe(window, moving);
+        if moving {
             window.request_animation_frame();
         } else if target == px(0.) {
             self.agent_panel = None;
             return None;
         }
-        Some(PanelLayout::new(visible, target, transition::use_fixed_chat_width()))
+        Some(PanelLayout::new(
+            visible,
+            target,
+            self.panel_performance.fixed_chat_width(),
+        ))
     }
 
     pub(in crate::ui) fn agent_panel_reserves_sidebar(&self) -> bool {
-        self.agent_panel.as_ref().is_some_and(|panel| {
-            panel.width.target() == PANEL_WIDTH || !transition::use_fixed_chat_width()
-        })
+        self.agent_panel
+            .as_ref()
+            .is_some_and(|panel| panel.width.target() == PANEL_WIDTH || !self.panel_performance.fixed_chat_width())
     }
 
     /// Escape inside the panel: leaves an editor, then the settings page.

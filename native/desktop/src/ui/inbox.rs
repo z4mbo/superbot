@@ -11,6 +11,7 @@ use crate::api::{self, Target};
 use crate::app::Desktop;
 use crate::clock;
 use crate::theme::{radius, ActiveTheme, Theme};
+use crate::ui::tooltip;
 use crate::ui::{drag_region, error_line, icon, Type, MANUAL_WINDOW_DRAG};
 
 /// The reference's 320, and room for the caption buttons that share its header off macOS.
@@ -253,9 +254,7 @@ impl Desktop {
                     crate::ui::agent_panel::round_button("inbox-mark-all", "check-check", false, &theme, |button| {
                         button
                             .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
-                            .tooltip(|window, cx| {
-                                gpui_kit::component::tooltip::Tooltip::new("Mark all as read").build(window, cx)
-                            })
+                            .map(|button| tooltip::on(button, "Mark all as read"))
                             .on_click(cx.listener(|this, _, window, cx| this.mark_inbox_read(window, cx)))
                     }),
                 )
@@ -264,7 +263,7 @@ impl Desktop {
                 crate::ui::agent_panel::round_button("inbox-close", "x", false, &theme, |button| {
                     button
                         .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
-                        .tooltip(|window, cx| gpui_kit::component::tooltip::Tooltip::new("Close inbox").build(window, cx))
+                        .map(|button| tooltip::on(button, "Close inbox"))
                         .on_click(cx.listener(|this, _, _, cx| this.toggle_inbox(cx)))
                 }),
             )
@@ -515,9 +514,7 @@ impl Desktop {
                                 .rounded_full()
                                 .bg(theme.raised)
                                 .hover(move |style| style.bg(hover))
-                                .tooltip(|window, cx| {
-                                    gpui_kit::component::tooltip::Tooltip::new("Done").build(window, cx)
-                                })
+                                .map(|button| tooltip::on(button, "Done"))
                                 .on_click(cx.listener(move |this, _, window, cx| {
                                     cx.stop_propagation();
                                     this.set_inbox_state(vec![done_id.clone()], InboxState::Done, window, cx);

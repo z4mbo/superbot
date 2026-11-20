@@ -20,13 +20,13 @@ use superbot_avatars::{Bot, ChatTone, Mark};
 use crate::ui::traffic_lights_reserve;
 use crate::ui::focus::{self, Ring};
 use crate::ui::motion::{self, Colors, Pointer};
+use crate::ui::tooltip;
 use crate::ui::{
     bot_avatar_with, bot_ink, chat_tone, drag_region, error_line, face_state, icon, pill_button, AvatarSlot, Tone, Type,
 };
 
 mod composer;
 mod file;
-pub(super) mod tooltip;
 mod transitions;
 pub(crate) use transitions::ChatMotion;
 
@@ -50,25 +50,59 @@ fn model_label_opacity(key: (Target, String), window: &mut Window, cx: &mut App)
     let state = window.use_keyed_state("header-model-label", cx, |_, _| {
         (key.clone(), motion::Tween::at_rest(1., now))
     });
-    let span = motion::duration(motion::FADE, cx.reduce_motion());
-    state.update(cx, |(previous, alpha), _| {
-        let interpolate = |from, to, progress| from + (to - from) * progress;
-        if previous.0 == key.0 && previous.1 != key.1 {
-            *alpha = motion::Tween::at_rest(0.4, now);
-        } else if previous.0 != key.0 {
-            *alpha = motion::Tween::at_rest(1., now);
-        }
-        *previous = key;
-        alpha.aim(1., now, span, motion::STANDARD, interpolate);
-        if alpha.moving(now) {
+    let reduced_motion = cx.reduce_motion();
+    state.update(cx, |state, _| {
+        let (opacity, moving) = model_label_frame(state, key, now, reduced_motion);
+        if moving {
             window.request_animation_frame();
         }
-        alpha.sample(now, motion::STANDARD, interpolate)
+        opacity
     })
 }
 
+fn model_label_frame(
+    (previous, alpha): &mut ((Target, String), motion::Tween<f32>),
+    key: (Target, String),
+    now: Instant,
+    reduced_motion: bool,
+) -> (f32, bool) {
+    let span = motion::duration(motion::FADE, reduced_motion);
+    let interpolate = |from, to, progress| from + (to - from) * progress;
+    if previous.0 == key.0 && previous.1 != key.1 {
+        *alpha = motion::Tween::at_rest(0.4, now);
+    } else if previous.0 != key.0 {
+        *alpha = motion::Tween::at_rest(1., now);
+    }
+    *previous = key;
+    alpha.aim(1., now, span, motion::STANDARD, interpolate);
+    (alpha.sample(now, motion::STANDARD, interpolate), alpha.moving(now))
+}
+
+#[cfg(test)]
+mod header_motion_tests {
+    use super::{model_label_frame, motion, Instant, Target};
+
+    #[test]
+    fn reduced_motion_shows_a_changed_model_label_at_full_opacity() {
+        let now = Instant::now();
+        let agent = Target::Agent("fixture".into());
+        let mut state = ((agent.clone(), "Before".into()), motion::Tween::at_rest(1., now));
+        let next = (agent, "After".into());
+        assert_eq!(model_label_frame(&mut state, next.clone(), now, false), (0.4, true));
+        assert_eq!(
+            model_label_frame(&mut state, next, now + motion::FADE / 2, true),
+            (1., false)
+        );
+    }
+}
+
 impl Desktop {
-    pub fn render_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_chat(
+        &mut self,
+        panel_width: Pixels,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         self.prepare_cards(window, cx);
         self.sync_agent_info(window, cx);
         self.sync_app_assist(window, cx);
@@ -169,7 +203,7 @@ impl Desktop {
                     .child(transcript_fade(theme.app, px(48.), 0.92, 0.).top_0())
                     .child(transcript_fade(theme.app, px(24.), 0., 1.).bottom_0())
                     .child(
-                        self.render_chat_header(&target, &theme, window, cx)
+                        self.render_chat_header(&target, panel_width, &theme, window, cx)
                             .absolute()
                             .top_0()
                             .left_0()
@@ -231,7 +265,12 @@ impl Desktop {
     }
 
     fn render_chat_header(
-        &mut self, target: &Target, theme: &Theme, window: &mut Window, cx: &mut Context<Self>,
+        &mut self,
+        target: &Target,
+        panel_width: Pixels,
+        theme: &Theme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let name = self.target_name(target);
         let elevated = Colors::elevated(theme);
@@ -253,10 +292,15 @@ impl Desktop {
             .pr(px(11.))
             .rounded_full()
             .cursor_pointer()
-            .on_click(cx.listener(|this, _, window, cx| match this.chat.as_ref().map(|chat| &chat.target) {
-                Some(Target::Agent(_) | Target::Conversation { .. }) => this.toggle_agent_panel(window, cx),
-                _ => this.show(View::Workspace, window, cx),
-            }))
+            .when(!docked && target.agent().is_some(), |button| {
+                tooltip::on(button, "Open details")
+            })
+            .on_click(cx.listener(
+                |this, _, window, cx| match this.chat.as_ref().map(|chat| &chat.target) {
+                    Some(Target::Agent(_) | Target::Conversation { .. }) => this.toggle_agent_panel(window, cx),
+                    _ => this.show(View::Workspace, window, cx),
+                },
+            ))
             .child(self.target_face(target, px(22.), Some(watch), theme, cx))
             .child(div().name().truncate().child(name));
         let identity = focus::control(identity, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(docked), elevated);
@@ -323,7 +367,11 @@ impl Desktop {
         let left = px(20.);
         #[cfg(target_os = "macos")]
         let left = if self.sidebar_hidden(window) { left.max(traffic_lights_reserve(window)) } else { left };
-        let caption_space = !docked && !cfg!(target_os = "macos");
+        let caption_space = if cfg!(target_os = "macos") {
+            px(0.)
+        } else {
+            (CAPTION_WIDTH - panel_width).max(px(0.))
+        };
         drag_region(div(), "chat-header-drag", window, cx)
             .flex()
             .items_center()
@@ -331,20 +379,9 @@ impl Desktop {
             .pl(left)
             .pr_5()
             .h(HEADER_HEIGHT)
-            .when(caption_space, |header| {
-                header.child(div().w(CAPTION_WIDTH).flex_shrink_0())
-            })
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .flex()
-                    .when(!docked, |row| row.justify_center())
-                    .child(pill),
-            )
-            .when(caption_space, |header| {
-                header.child(div().w(CAPTION_WIDTH).flex_shrink_0())
-            })
+            .child(div().w(caption_space).flex_shrink_0())
+            .child(div().flex_1().min_w_0().flex().justify_center().child(pill))
+            .child(div().w(caption_space).flex_shrink_0())
     }
 
     fn chat_tone(&self, theme: &Theme, cx: &App) -> Option<ChatTone> {

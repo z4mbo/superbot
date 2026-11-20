@@ -627,10 +627,7 @@ impl Desktop {
                         .child(div().flex_1())
                         .child(
                             crate::ui::pill_button("taught-try", "Try it", crate::ui::Tone::Quiet, !blocked, theme)
-                                .tooltip({
-                                    let tip = format!("{} runs it once in its chat", bot.name);
-                                    move |window, cx| Tooltip::new(tip.clone()).build(window, cx)
-                                })
+                                .map(|button| tooltip::on(button, format!("{} runs it once in its chat", bot.name)))
                                 .when(!blocked, |button| {
                                     button.on_click(cx.listener(|this, _, window, cx| {
                                         this.save_taught_skill(true, false, window, cx)

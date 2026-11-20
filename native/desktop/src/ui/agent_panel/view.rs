@@ -26,25 +26,31 @@ impl Desktop {
             .pl(px(11.))
             .pr(px(13.))
             .pt_3()
-            .child(round_button("agent-settings", "settings", panel.settings, &theme, |button| {
-                button
-                    .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
-                    .tooltip(|window, cx| Tooltip::new("Agent settings").build(window, cx))
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        if let Some(panel) = this.agent_panel.as_mut() {
-                            panel.settings = !panel.settings;
-                            panel.screen = None;
-                            panel.terminal = None;
-                            panel.editing = None;
-                        }
-                        cx.notify();
-                    }))
-            }))
+            .child(round_button(
+                "agent-settings",
+                "settings",
+                panel.settings,
+                &theme,
+                |button| {
+                    button
+                        .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
+                        .map(|button| tooltip::on(button, "Agent settings"))
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            if let Some(panel) = this.agent_panel.as_mut() {
+                                panel.settings = !panel.settings;
+                                panel.screen = None;
+                                panel.terminal = None;
+                                panel.editing = None;
+                            }
+                            cx.notify();
+                        }))
+                },
+            ))
             .child(div().flex_1())
             .child(round_button("agent-panel-close", "x", false, &theme, |button| {
                 button
                     .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
-                    .tooltip(|window, cx| Tooltip::new("Close").build(window, cx))
+                    .map(|button| tooltip::on(button, "Close"))
                     .on_click(cx.listener(|this, _, _, cx| this.close_agent_panel(cx)))
             }))
             .when(cfg!(not(target_os = "macos")), |header| header.mr(crate::theme::CAPTION_WIDTH));
@@ -161,7 +167,7 @@ impl Desktop {
                 .truncate()
                 .cursor_pointer()
                 .hover(move |style| style.bg(hover))
-                .tooltip(|window, cx| Tooltip::new("Rename").build(window, cx))
+                .map(|button| tooltip::on(button, "Rename"))
                 .on_click(cx.listener(|this, _, window, cx| this.edit(Field::Name, window, cx)))
                 .child(bot.name.clone())
                 .into_any_element(),

@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use gpui_kit::base::ElementExt as _;
 use gpui_kit::component::input::Input;
-use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
@@ -14,6 +13,7 @@ use crate::ui::corner::Corner;
 use crate::ui::focus::{self, Ring};
 use crate::ui::motion::{Colors, Pointer};
 use crate::ui::tile_preview::tile_preview;
+use crate::ui::tooltip;
 use crate::ui::{
     bot_avatar_with, drag_region, empty_line, face_state, icon, person_face, traffic_lights_reserve, AvatarSlot, Type,
 };
@@ -109,8 +109,8 @@ impl Desktop {
         let new = self.corner_control(Corner::New, creating, theme, window, cx);
         let space = self.space.as_ref().map(|space| space.name.clone()).filter(|_| self.spaces.len() > 1);
         let hover = theme.ink_at(0.06);
-        let tooltip = !cfg!(target_os = "macos")
-            || !self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::Spaces);
+        let show_space_tooltip =
+            !cfg!(target_os = "macos") || !self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::Spaces);
         let left = traffic_lights_reserve(window).max(px(8.));
         drag_region(div(), "sidebar-drag", window, cx)
             .h(px(56.))
@@ -124,8 +124,9 @@ impl Desktop {
             .children(space.map(|space| {
                 let name = StyledText::new(space.clone());
                 let layout = name.layout().clone();
-                let name = InteractiveText::new("space-name", name).tooltip(move |_, window, cx| {
-                    (tooltip && layout.text() != space).then(|| Tooltip::new(space.clone()).build(window, cx))
+                let name = div().id("space-name").name().truncate().child(name);
+                let name = name.when(show_space_tooltip, |name| {
+                    tooltip::when(name, space.clone().into(), move || layout.text() != space)
                 });
                 let button = div()
                     .id("space-switcher")
@@ -142,7 +143,7 @@ impl Desktop {
                     .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                         this.open_menu(MenuKind::Spaces, event.position() + point(px(-8.), px(22.)), cx)
                     }))
-                    .child(div().name().truncate().child(name))
+                    .child(name)
                     .child(icon("chevron-down", px(14.), theme.ink_secondary));
                 focus::control(button, Ring::InnerPill, theme)
             }))
@@ -368,10 +369,7 @@ impl Desktop {
                         cx.stop_propagation();
                     }
                 }))
-                .when(quote.is_empty(), |tile| {
-                    let name = SharedString::from(agent.name.clone());
-                    tile.tooltip(move |window, cx| Tooltip::new(name.clone()).build(window, cx))
-                })
+                .when(quote.is_empty(), |tile| tooltip::on(tile, agent.name.clone()))
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.close_tile_preview(cx);
                     this.open(target.clone(), window, cx)
@@ -386,7 +384,9 @@ impl Desktop {
                 .child(
                     // GPUI (gpui-pre 0.3.12) takes one on_hover per element; the avatar watch region has the tile's.
                     div().id("tile-rest").absolute().inset_0().on_hover(cx.listener(
-                        move |this, hovering: &bool, _, cx| this.hover_tile(&hovered.0, *hovering, hovered.1, cx),
+                        move |this, hovering: &bool, window, cx| {
+                            this.hover_tile(&hovered.0, *hovering, hovered.1, window, cx)
+                        },
                     )),
                 )
                 .child(canvas(move |drawn, _, _| bounds.set(drawn), |_, _, _, _| {}).absolute().inset_0())

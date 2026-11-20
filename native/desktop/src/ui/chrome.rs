@@ -20,9 +20,30 @@ use crate::ui::Type;
 /// the selected button. Its motion is local to the track, even while the panel is sliding.
 pub(crate) struct SegmentTrack {
     selected: Rc<Cell<Option<Bounds<Pixels>>>>,
-    motion: Rc<Cell<Option<motion::Tween<(Pixels, Pixels)>>>>,
+    motion: Rc<Cell<Option<motion::Tween<Segment>>>>,
     fill: Hsla,
     indicator: Hsla,
+}
+
+type Segment = (Pixels, Pixels);
+
+fn indicator_frame(
+    previous: Option<motion::Tween<Segment>>,
+    key: Segment,
+    now: Instant,
+    reduced_motion: bool,
+) -> (motion::Tween<Segment>, Segment) {
+    let mut position = previous.unwrap_or_else(|| motion::Tween::at_rest(key, now));
+    let span = motion::duration(motion::SLIDE, reduced_motion);
+    let interpolate = |(left, width), (next_left, next_width), progress| {
+        (
+            left + (next_left - left) * progress,
+            width + (next_width - width) * progress,
+        )
+    };
+    position.aim(key, now, span, motion::EMPHASIS, interpolate);
+    let drawn = position.sample(now, motion::EMPHASIS, interpolate);
+    (position, drawn)
 }
 
 impl SegmentTrack {
@@ -63,13 +84,7 @@ impl SegmentTrack {
                 let Some(mut bounds) = selected.get() else { return };
                 let key = (bounds.left() - track.left(), bounds.size.width);
                 let now = Instant::now();
-                let mut position = tween.get().unwrap_or_else(|| motion::Tween::at_rest(key, now));
-                let span = motion::duration(motion::SLIDE, cx.reduce_motion());
-                let interpolate = |(left, width), (next_left, next_width), progress| {
-                    (left + (next_left - left) * progress, width + (next_width - width) * progress)
-                };
-                position.aim(key, now, span, motion::EMPHASIS, interpolate);
-                let (left, width) = position.sample(now, motion::EMPHASIS, interpolate);
+                let (position, (left, width)) = indicator_frame(tween.get(), key, now, cx.reduce_motion());
                 tween.set(Some(position));
                 if position.moving(now) {
                     window.request_animation_frame();
@@ -80,6 +95,24 @@ impl SegmentTrack {
             },
         );
         div().relative().flex().p(px(3.)).rounded_full().bg(self.fill).child(indicator.absolute().inset_0())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{indicator_frame, motion, px, Instant};
+
+    #[test]
+    fn reduced_motion_finishes_the_active_indicator_slide() {
+        let now = Instant::now();
+        let old = (px(3.), px(50.));
+        let new = (px(55.), px(65.));
+        let (moving, first) = indicator_frame(Some(motion::Tween::at_rest(old, now)), new, now, false);
+        assert_eq!(first, old);
+        assert!(moving.moving(now));
+        let (rest, final_position) = indicator_frame(Some(moving), new, now + motion::SLIDE / 2, true);
+        assert_eq!(final_position, new);
+        assert!(!rest.moving(now + motion::SLIDE / 2));
     }
 }
 
@@ -158,7 +191,11 @@ impl Render for Desktop {
             Session::SignedIn => {
                 let agent_layout = self.agent_panel_layout(window, cx);
                 let main = match self.view {
-                    View::Chat => self.render_chat(window, cx),
+                    View::Chat => self.render_chat(
+                        agent_layout.as_ref().map_or(px(0.), |layout| layout.occupied),
+                        window,
+                        cx,
+                    ),
                     View::Store => self.render_store(window, cx),
                     View::Workspace => self.render_workspace(window, cx),
                 };

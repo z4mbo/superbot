@@ -16,7 +16,7 @@ use superbot_client::{remember_sign_in_server, Client, CredentialStore, Error, S
 use crate::api::{self, AgentSummary, Api, CurrentSpace, GroupSummary, Me, Navigation, SpaceSummary, Target};
 use crate::outbox::Drafts;
 use crate::runtime::{follow_space, network, Live};
-use crate::ui::agent_panel::{AgentInfo, AgentPanel};
+use crate::ui::agent_panel::{AgentInfo, AgentPanel, PanelPerformance};
 use crate::ui::inbox::Inbox;
 use crate::ui::message_search::MessageSearch;
 use crate::ui::corner::Corner;
@@ -143,6 +143,7 @@ pub struct Desktop {
     pub store: Store,
     pub workspace: Workspace,
     pub agent_panel: Option<AgentPanel>,
+    pub panel_performance: PanelPerformance,
     pub inbox: Inbox,
     pub agent_info: AgentInfo,
     pub model_menu: crate::ui::model_menu::ModelMenu,
@@ -217,8 +218,11 @@ impl Desktop {
                 }
             }),
             cx.observe_window_activation(window, |this, window, cx| {
-                if window.is_window_active() && this.session == Session::SignedIn {
-                    this.reload_space(cx);
+                if window.is_window_active() {
+                    gpui_kit::base::apply_system_reduce_motion(cx);
+                    if this.session == Session::SignedIn {
+                        this.reload_space(cx);
+                    }
                 }
             }),
         ];
@@ -252,6 +256,7 @@ impl Desktop {
             store: Store::new(window, cx),
             workspace: Workspace::default(),
             agent_panel: None,
+            panel_performance: PanelPerformance::default(),
             inbox: Inbox::default(),
             agent_info: AgentInfo::default(),
             model_menu: Default::default(),
@@ -581,6 +586,7 @@ impl Desktop {
         self.store.forget();
         self.workspace = Workspace::default();
         self.agent_panel = None;
+        self.panel_performance.stop();
         self.inbox = Inbox::default();
         self.agent_info = AgentInfo::default();
     }
