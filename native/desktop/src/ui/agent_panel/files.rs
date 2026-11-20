@@ -121,6 +121,11 @@ impl ComputerFiles {
             preview_serial: 0,
         }
     }
+
+    /// Escape inside the browser: closes an open preview.
+    pub(super) fn back(&mut self) -> bool {
+        self.preview.take().is_some()
+    }
 }
 
 impl Desktop {
@@ -131,7 +136,8 @@ impl Desktop {
 
     /// Keeps the browser in step with the computer's status: shown when there are files to
     /// browse, and read again when the computer starts or stops, since the files then come from
-    /// another place.
+    /// another place. Files are read only while the browser is on screen, since reading them
+    /// keeps a running computer awake.
     pub(super) fn sync_computer_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(panel) = self.agent_panel.as_ref() else { return };
         let status = match &panel.computer {
@@ -143,6 +149,13 @@ impl Desktop {
             if let Some(panel) = self.agent_panel.as_mut() {
                 panel.files = None;
             }
+            return;
+        }
+        let shown = match &panel.page {
+            Some(page) => matches!(page, knowledge::Page::Folder),
+            None => panel.tab == PanelTab::Computer,
+        };
+        if !shown {
             return;
         }
         let live = status.state == ComputerState::Running;
