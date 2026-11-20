@@ -201,7 +201,7 @@ it("offers the public catalog for a search and sends nothing there until it is p
   expect(publicCatalogRow()).toBeUndefined();
 
   await type(searchBox(), " canva ");
-  expect(host.textContent).toContain("No apps match your search.");
+  expect(host.querySelector('[role="status"]')?.textContent).toBe("No apps match your search.");
   expect(publicCatalogRow()?.textContent).toBe("Search MCP servers for “canva”");
   expect(publicSearches()).toHaveLength(0);
 

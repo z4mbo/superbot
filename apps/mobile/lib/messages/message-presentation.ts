@@ -47,6 +47,53 @@ export function messagePresentationSegments(
   return content.length > 0 ? [{ kind: "content", blocks: content }] : [];
 }
 
+export type SpecialMessageBlock = Extract<
+  MessageBlock,
+  { kind: "subagent" | "child_bot" | "cloud_agent" }
+>;
+
+export function isSpecialMessageBlock(block: MessageBlock): block is SpecialMessageBlock {
+  return block.kind === "subagent" || block.kind === "child_bot" || block.kind === "cloud_agent";
+}
+
+/** Blocks drawn as their own card between the message's text pieces. */
+function isOwnCardBlock(block: MessageBlock): boolean {
+  return (
+    isSpecialMessageBlock(block) ||
+    block.kind === "page" ||
+    block.kind === "app" ||
+    block.kind === "tool_question"
+  );
+}
+
+/** Keep standalone cards between the contiguous bubble content around them. */
+export function splitMessageBlocks(blocks: MessageBlock[]): MessageBlock[][] {
+  if (!blocks.some(isOwnCardBlock)) return [blocks];
+  const pieces: MessageBlock[][] = [];
+  for (const block of blocks) {
+    const previous = pieces.at(-1);
+    if (isOwnCardBlock(block) || !previous || isOwnCardBlock(previous[0]!)) {
+      pieces.push([block]);
+    } else {
+      previous.push(block);
+    }
+  }
+  return pieces;
+}
+
+export function pieceShowsSender(blocks: readonly MessageBlock[]): boolean {
+  if (blocks.some(isOwnCardBlock)) return false;
+  if (blocks.some((block) => block.kind === "ask") || isCenteredAgentEvent(blocks)) return false;
+  if (blocks.every((block) => block.kind === "app_connect" || block.kind === "mcp_approval")) {
+    return false;
+  }
+  return messagePresentationSegments(blocks).length > 0;
+}
+
+export function hasSenderLabelContent(message: { blocks: MessageBlock[] }): boolean {
+  return splitMessageBlocks(message.blocks).some(pieceShowsSender);
+}
+
 export function hasVisibleMessagePresentation(blocks: readonly MessageBlock[]): boolean {
   return blocks.some(
     (block) =>
