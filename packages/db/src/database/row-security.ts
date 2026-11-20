@@ -111,6 +111,7 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "EmailSend",
   "Thread",
   "ThreadRead",
+  "InboxReceipt",
   "Message",
   "PrunedMessageNonce",
   "Event",
@@ -185,6 +186,10 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "AuditEvent",
   "Page",
   "PageVersion",
+  "RegistryPlugin",
+  "RegistryPluginVersion",
+  "RegistryPluginInstall",
+  "RegistryPluginGrant",
   "RegistryAppRecord",
 ]);
 

@@ -18,6 +18,8 @@ export const SESSIONLESS_ROUTES: Readonly<Record<string, string>> = {
   "DELETE /api/auth/scim/v2/*": "the directory's bearer token",
   "POST /api/v1/bots/:botId/webhook": "the bot's webhook secret as a bearer token",
   "POST /api/v1/bots/:botId/github": "a body signature made with the bot's webhook secret",
+  "POST /api/v1/bots/:botId/github/issues/opened":
+    "the same bot-specific body signature as the GitHub webhook, for opened issues only",
   "GET /api/v1/email/unsubscribe": "a signed token in the link, bound to one user",
   "POST /api/v1/email/unsubscribe": "a signed token in the link, bound to one user",
   "GET /api/meetings/media": "public: static meeting camera page, no session data",
