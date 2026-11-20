@@ -83,6 +83,11 @@ EMAIL_FROM=superbot@example.com
 
 To let a verified account review community plugins, add its email to `SUPERBOT_ADMIN_EMAILS` in the same private environment file and restart the service. This gives that account deployment-wide admin access. [Registry roles and permissions](plugin-contract.md)
 
+The database migration publishes **Calorie diary** in the Store on hosts where the
+`kcal-diary` slug is available. Existing publishers retain their slugs and releases.
+Each member chooses whether to install the diary and which bots may use it. Diary
+records are stored in PostgreSQL, including in the deployment's database backups.
+
 ## Connect Mac and Windows
 
 Install the native client on each device, connect both devices to the tailnet, then run the following in each terminal. Use the HTTPS origin reported by `tailscale serve status`. The desktop and CLI share the saved server address on that device. Sign in with the same Superbot account on both devices to open the same Spaces.
