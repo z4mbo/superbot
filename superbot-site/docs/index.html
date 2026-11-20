@@ -63,7 +63,7 @@
       <p>A plugin has 1 to 16 parts, in any mix. It cannot carry credentials, HTTP headers, commands, packages, hooks or any field the schema doesn't name. The server stores the manifest and never runs code from it.</p>
 
       <h2 id="apps">Record apps in plain terms</h2>
-      <p>A record app is a small database with a fixed set of fields. The person who installs it adds and removes entries in Superbot. A bot they grant it to can read the same entries and propose new ones. Superbot draws the same form, list and total for every record app. A plugin can't bring its own screens, HTML or JavaScript.</p>
+      <p>A record app is a small database with a fixed set of fields. The person who installs it adds and removes entries in Superbot. A bot they grant it to can read the same entries and propose new ones. Superbot draws the form, list and total. For a custom interactive view in chat, an MCP tool can serve an MCP App resource. Superbot opens that view inside a sandbox after the user approves the tool call.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th scope="col">Part</th><th scope="col">What you write</th><th scope="col">Where it runs</th><th scope="col">What a granted bot gets</th></tr></thead>
