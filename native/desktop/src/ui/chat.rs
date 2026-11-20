@@ -498,11 +498,25 @@ impl Desktop {
         let presence = self.working_presence(theme, cx);
         let Some(chat) = self.chat.as_ref() else { return div().into_any_element() };
         let last = chat.entries.len();
+        // A local exchange shows at once, faded until it is saved to the conversation.
+        let unsaved = chat.local_prompt.clone().map(|text| (text, None)).or_else(|| {
+            let (text, reply) = self.pending_local_write()?.exchange();
+            Some((text.to_owned(), reply.map(str::to_owned)))
+        });
         div()
             .pb_4()
             .flex()
             .flex_col()
             .items_start()
+            .when_some(unsaved, |row, (text, reply)| {
+                let mine = bubble(&text, true, false, Join::default(), (last, 1), &[], own, theme);
+                row.child(div().pt_4().w_full().flex().justify_end().opacity(0.6).child(mine)).children(reply.map(
+                    |reply| {
+                        let theirs = bubble(&reply, false, true, Join::default(), (last, 2), &[], own, theme);
+                        div().pt_4().w_full().flex().opacity(0.6).child(theirs)
+                    },
+                ))
+            })
             .when(!chat.draft.is_empty(), |row| {
                 let draft = bubble(&chat.draft, false, true, Join::default(), (last, 0), &[], own, theme);
                 row.child(div().pt_4().w_full().flex().child(draft))
