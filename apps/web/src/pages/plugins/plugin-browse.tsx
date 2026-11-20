@@ -311,7 +311,11 @@ function PresetRow({
   return (
     <div data-testid="source-preset" className={`${ROW_SHELL} ${ROW_HOVER}`}>
       <button type="button" aria-label={preset.name} onClick={onOpen} className={ROW_BUTTON}>
-        <PluginLogo name={preset.name} site={site ? new URL(site).hostname : null} />
+        <PluginLogo
+          name={preset.name}
+          logo={preset.logo}
+          site={site ? new URL(site).hostname : null}
+        />
         <span className="min-w-0 flex-1 truncate text-body-lg font-medium text-foreground">
           {preset.name}
         </span>
