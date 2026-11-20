@@ -17,6 +17,8 @@ export const SpaceBotSchema = BotSchema.pick({
   name: true,
   title: true,
   color: true,
+  lookShape: true,
+  lookColor: true,
   avatarSet: true,
   notifyOnFinish: true,
   pinned: true,

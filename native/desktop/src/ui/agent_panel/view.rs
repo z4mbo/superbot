@@ -48,13 +48,13 @@ impl Desktop {
                 .into_any_element(),
             Some(bot) if panel.settings => self.render_agent_settings(bot, &theme, cx).into_any_element(),
             Some(bot) => {
-                let avatar = superbot_avatars::Bot { id: &bot.id, name: &bot.name, color: &bot.color };
+                let avatar = look::avatar_of(bot);
                 let working = summary.as_ref().is_some_and(|agent| agent.working());
                 let tab = panel.tab;
                 div()
                     .flex()
                     .flex_col()
-                    .child(self.render_hero(bot, avatar, working, &theme, cx))
+                    .child(self.render_hero(bot, working, &theme, cx))
                     .child(tabs(tab, &theme, cx))
                     .child(match tab {
                         PanelTab::Details => self.render_details(bot, &theme, cx),
@@ -107,7 +107,6 @@ impl Desktop {
     fn render_hero(
         &self,
         bot: &Bot,
-        avatar: superbot_avatars::Bot,
         working: bool,
         theme: &Theme,
         cx: &mut Context<Self>,
@@ -162,7 +161,7 @@ impl Desktop {
             .flex()
             .flex_col()
             .items_center()
-            .child(bot_avatar(avatar, px(64.), working, None, theme, cx))
+            .child(self.render_look_avatar(bot, working, theme, cx))
             .child(div().mt_2().max_w_full().flex().justify_center().child(name))
             .children(job)
     }

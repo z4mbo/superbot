@@ -15,6 +15,11 @@ pub struct Bot {
     pub instructions: String,
     pub instruction_history: Option<Vec<InstructionVersion>>,
     pub color: String,
+    /// Avatar shape and colour picked for this bot, by pack names; `None` when nothing is picked.
+    #[serde(default)]
+    pub look_shape: Option<String>,
+    #[serde(default)]
+    pub look_color: Option<String>,
     pub unread: bool,
     pub snoozed_until: Option<String>,
     pub preview: String,
@@ -164,6 +169,10 @@ pub struct BotSettings<'a> {
     pub memory_scope: Patch<MemoryScope>,
     #[serde(skip_serializing_if = "Patch::is_unchanged")]
     pub thinking_level: Patch<ThinkingLevel>,
+    #[serde(skip_serializing_if = "Patch::is_unchanged")]
+    pub look_shape: Patch<&'a str>,
+    #[serde(skip_serializing_if = "Patch::is_unchanged")]
+    pub look_color: Patch<&'a str>,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub model: Option<ModelSelection<'a>>,
 }

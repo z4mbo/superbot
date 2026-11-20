@@ -85,7 +85,7 @@ impl Desktop {
         };
 
         let notify = bot.notify_on_finish;
-        let color = bot_ink(superbot_avatars::Bot { id: &bot.id, name: &bot.name, color: &bot.color }, theme, cx);
+        let color = bot_ink(look::avatar_of(bot), theme, cx);
         let notifications = div()
             .id("agent-notifications")
             .flex()

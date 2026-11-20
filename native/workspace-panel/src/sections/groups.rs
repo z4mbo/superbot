@@ -744,6 +744,7 @@ fn group_face(group: &Group, t: &Tokens, cx: &App) -> Div {
         id: &member.bot_id,
         name: &member.name,
         color: &member.color,
+        picked: superbot_avatars::Picked::default(),
     });
     ui::group_face(members, 40., t, cx)
 }

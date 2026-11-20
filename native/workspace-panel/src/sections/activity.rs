@@ -218,6 +218,7 @@ impl WorkspacePanel {
             id: &run.bot_id,
             name: &run.bot_name,
             color: &color,
+            picked: superbot_avatars::Picked::default(),
         };
         let face = ui::bot_avatar(bot, 40., working, t, cx);
         let title = match &run.group_name {

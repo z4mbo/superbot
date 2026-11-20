@@ -18,6 +18,7 @@ use gpui_kit::*;
 pub use frames::{Frame, Frames};
 pub use motion::{Gaze, Work};
 pub use pack::{parse_hex, ChatTone, Look, Pack, PackError, PackFile, Paint};
+pub use pack::{Choices, Picked};
 
 /// A bot as the server describes it.
 #[derive(Clone, Copy, Debug)]
@@ -25,6 +26,7 @@ pub struct Bot<'a> {
     pub id: &'a str,
     pub name: &'a str,
     pub color: &'a str,
+    pub picked: Picked<'a>,
 }
 
 struct Watched {
@@ -115,8 +117,13 @@ fn load(pack: &Pack, shape: &str, slot: &OnceLock<Option<Arc<Frames>>>) -> Optio
 /// How the pack draws this bot, or `None` to use the built-in face.
 pub fn look(bot: Bot, cx: &App) -> Option<Look> {
     let avatars = cx.try_global::<Avatars>()?;
-    let look = avatars.pack.as_ref()?.look(bot.id, bot.name, bot.color);
+    let look = avatars.pack.as_ref()?.look(bot.id, bot.name, bot.color, bot.picked);
     avatars.frames(&look.shape).map(|_| look)
+}
+
+/// What the appearance editor offers, `None` without a pack.
+pub fn choices(cx: &App) -> Option<Choices> {
+    Some(cx.try_global::<Avatars>()?.pack.as_ref()?.choices())
 }
 
 /// Whether this bot occupies the appearance pack's primary tile.

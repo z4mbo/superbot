@@ -204,7 +204,7 @@ impl Desktop {
     fn render_template_card(&self, template: &Template, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
         let made = template.bot_id.as_ref().is_some_and(|id| self.agent(id).is_some());
         let picked = template.clone();
-        let avatar = superbot_avatars::Bot { id: &template.id, name: &template.name, color: "" };
+        let avatar = superbot_avatars::Bot { id: &template.id, name: &template.name, color: "", picked: Default::default() };
         let button = round_button(SharedString::from(format!("template-{}", template.id)), theme)
             .when(!made, |button| button.child(icon("plus", px(14.), theme.ink)))
             .child(if made { "Open" } else { "Add" })

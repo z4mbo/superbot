@@ -18,6 +18,7 @@ use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::{bot_avatar, bot_ink, error_line, icon, Type};
 
 mod computer;
+mod look;
 mod parts;
 mod screen;
 mod settings;
@@ -137,6 +138,7 @@ pub struct AgentPanel {
     problem: Option<String>,
     screen: Option<screen::ScreenSession>,
     _editor_events: Option<Subscription>,
+    look: look::LookEditor,
 }
 
 impl AgentPanel {
@@ -152,6 +154,7 @@ impl AgentPanel {
             problem: None,
             screen: None,
             _editor_events: None,
+            look: look::LookEditor::default(),
         }
     }
 }
@@ -214,6 +217,9 @@ impl Desktop {
 
     /// Escape inside the panel: leaves an editor, then the settings page.
     pub fn agent_panel_back(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.close_look_editor(cx) {
+            return true;
+        }
         let Some(panel) = self.agent_panel.as_mut() else { return false };
         if panel.screen.take().is_some() {
             panel.computer = None;

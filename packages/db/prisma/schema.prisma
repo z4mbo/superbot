@@ -1011,6 +1011,9 @@ model Bot {
   avatarSet         String            @default("organic")
   /// True once the owner picks this bot a set other than their default; the default no longer moves it.
   avatarSetPinned   Boolean           @default(false)
+  /// Avatar shape and colour picked for this bot, by the names avatar packs use; unknown names fall back.
+  lookShape         String?
+  lookColor         String?
   notifyOnFinish    Boolean           @default(true)
   pinned            Boolean           @default(false)
   position          Int               @default(0)
