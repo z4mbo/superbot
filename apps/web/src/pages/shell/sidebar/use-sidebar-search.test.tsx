@@ -24,6 +24,7 @@ const hit = (title: string): SearchHit => ({
 let requests: Request[];
 let root: Root;
 let latest: SidebarSearch;
+const navigate = vi.fn();
 
 const rpc = {
   search: {
@@ -35,7 +36,7 @@ const rpc = {
 } as unknown as Parameters<typeof useSidebarSearch>[0]["rpc"];
 
 function Harness() {
-  latest = useSidebarSearch({ rpc, navigate: vi.fn() });
+  latest = useSidebarSearch({ rpc, navigate });
   return null;
 }
 
@@ -99,4 +100,21 @@ it("cancels the running search when the box is cleared or the sidebar unmounts",
   await search("second");
   await act(async () => root.render(null));
   expect(requests[1]!.signal.aborted).toBe(true);
+});
+
+it("opens a match in a bot's additional conversation at its message", async () => {
+  await act(async () =>
+    latest.jumpToSearchHit({
+      kind: "message",
+      botId: "bot-1",
+      threadId: "thread-2",
+      title: "Bot",
+      snippet: "match",
+      messageId: "message-3",
+    }),
+  );
+  expect(navigate).toHaveBeenLastCalledWith({
+    pathname: "/app/bot-1",
+    search: "?threadId=thread-2&m=message-3",
+  });
 });

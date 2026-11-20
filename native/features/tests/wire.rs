@@ -584,3 +584,44 @@ async fn inbox_targets_round_trip_into_conversation_library_requests() {
         .unwrap();
     server.await.unwrap();
 }
+
+#[tokio::test]
+async fn search_hits_name_the_conversation_each_one_is_in() {
+    use superbot_features::{ConversationTarget, SearchHitKind};
+
+    let (features, server) = fixture(
+        "search/query",
+        SPACE,
+        json!({"q": "okapi"}),
+        "200 OK",
+        json!({"hits": [
+            {"kind": "message", "botId": "bot", "botName": "Ada", "title": "Ada",
+             "snippet": "the okapi plan", "messageId": "first", "seq": 2},
+            {"kind": "message", "botId": "bot", "botName": "Ada", "threadId": "thread",
+             "title": "Ada", "snippet": "an okapi", "messageId": "other", "seq": 0},
+            {"kind": "link", "groupId": "group", "groupName": "Team", "title": "https://okapi.test",
+             "snippet": "see https://okapi.test", "messageId": "shared", "seq": 4,
+             "url": "https://okapi.test"},
+            {"kind": "poll", "botId": "bot", "title": "Ada", "snippet": "okapi"}
+        ]}),
+    )
+    .await;
+    let hits = features.space("team").search("okapi").await.unwrap();
+    let targets: Vec<_> = hits.iter().map(|hit| hit.target()).collect();
+    assert_eq!(
+        targets,
+        [
+            Some(ConversationTarget::Bot { bot_id: "bot".into() }),
+            Some(ConversationTarget::BotConversation {
+                bot_id: "bot".into(),
+                thread_id: "thread".into()
+            }),
+            Some(ConversationTarget::Group { group_id: "group".into() }),
+            Some(ConversationTarget::Bot { bot_id: "bot".into() }),
+        ]
+    );
+    assert_eq!(hits[2].kind, SearchHitKind::Link);
+    assert_eq!(hits[3].kind, SearchHitKind::Other);
+    assert_eq!(hits[1].message_id.as_deref(), Some("other"));
+    server.await.unwrap();
+}

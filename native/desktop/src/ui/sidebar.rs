@@ -13,7 +13,7 @@ use crate::ui::{bot_avatar, empty_line, icon, person_face, Type};
 impl Desktop {
     pub fn render_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.skin().clone();
-        let query = self.search.read(cx).value().trim().to_lowercase();
+        let query = if self.search_open { self.search.read(cx).value().trim().to_lowercase() } else { String::new() };
         let matches = |name: &str| query.is_empty() || name.to_lowercase().contains(&query);
         let open = self.chat.as_ref().filter(|_| self.view == View::Chat).map(|chat| chat.target.clone());
 
@@ -28,7 +28,8 @@ impl Desktop {
                 listed.push(agent.clone());
             }
         }
-        let nothing = pinned.is_empty() && listed.is_empty() && groups.is_empty();
+        let found = self.search_open.then(|| self.render_message_search(&theme, cx)).flatten();
+        let nothing = pinned.is_empty() && listed.is_empty() && groups.is_empty() && found.is_none();
 
         if pinned.is_empty() {
             self.forget_tile_preview();
@@ -70,6 +71,7 @@ impl Desktop {
                     .px_3()
                     .children(tiles)
                     .child(rows)
+                    .children(found)
                     .when(nothing, |scroll| {
                         scroll.child(div().px_2().pt_2().child(empty_line(
                             if query.is_empty() {

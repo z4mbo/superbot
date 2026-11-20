@@ -8,6 +8,8 @@ export const SearchHitSchema = z
     kind: SearchHitKindSchema,
     botId: Id.optional(),
     botName: z.string().optional(),
+    /** Set when the hit is in one of the bot's additional conversations instead of its first one. */
+    threadId: Id.optional(),
     groupId: Id.optional(),
     groupName: z.string().optional(),
     title: z.string(),
@@ -27,6 +29,9 @@ export const SearchHitSchema = z
         message: "Provide exactly one of botId or groupId",
         path: ["botId"],
       });
+    }
+    if (input.threadId && !hasBot) {
+      ctx.addIssue({ code: "custom", message: "A conversation needs its bot", path: ["threadId"] });
     }
   });
 export type SearchHit = z.infer<typeof SearchHitSchema>;

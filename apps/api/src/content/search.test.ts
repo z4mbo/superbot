@@ -308,3 +308,25 @@ it("finds text stored beside entries that are not blocks, in a bot chat and in a
     { kind: "message", groupId: "g-1", messageId: "message-2", seq: 4 },
   ]);
 });
+
+it("names the thread only for a match in one of the bot's additional conversations", async () => {
+  const { prisma } = fixture(0);
+  const blocks = [{ kind: "text", text: "the quarterly report" }];
+  const row = { seq: 1, blocks, botId: "bot-1", botName: "Bot" };
+  prisma.$queryRaw.mockImplementation(async (sql: readonly string[] | object) => {
+    const text = Array.isArray(sql) ? sql.join("") : "";
+    if (!text.includes('b.id AS "botId"')) return [];
+    expect(text).toContain('b.id = COALESCE(t."botId", t."conversationBotId")');
+    return [
+      { ...row, id: "first-message", threadId: "first-thread", conversation: false },
+      { ...row, id: "other-message", threadId: "other-thread", conversation: true },
+    ];
+  });
+
+  const hits = await querySpaceSearch(prisma as never, actor, "report");
+
+  expect(hits.map(({ messageId, threadId }) => ({ messageId, threadId }))).toEqual([
+    { messageId: "first-message", threadId: undefined },
+    { messageId: "other-message", threadId: "other-thread" },
+  ]);
+});

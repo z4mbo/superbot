@@ -79,6 +79,7 @@ export function useSidebarSearch({
     setSearchOpen(false);
     setSearchHits([]);
     const params = new URLSearchParams();
+    if (hit.threadId) params.set("threadId", hit.threadId);
     if (hit.messageId) params.set("m", hit.messageId);
     if (hit.routineId) params.set("routine", hit.routineId);
     navigate({
