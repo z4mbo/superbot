@@ -1,11 +1,14 @@
-//! Embedded Superbot workspace on Windows and agent computer screen on Windows and macOS.
+//! Server pages shown in the system web view: the workspace window and an agent's screen on
+//! Windows, macOS and Linux, and the sign-in window on Windows.
 
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+pub mod engine;
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux", test))]
 mod policy;
 pub mod screen;
 #[cfg(target_os = "windows")]
 mod sign_in;
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 mod window;
 
 use gpui_kit::*;
@@ -56,14 +59,14 @@ pub fn sign_in(
 /// forward the one already showing it. False when there is no embedded web view to use, so the
 /// caller opens the browser instead.
 pub fn open(server: &str, account: &str, url: &str, cx: &mut App) -> bool {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     {
         let Ok(server) = url::Url::parse(server) else { return false };
         let Some(profile) = policy::profile_key(&server, account) else { return false };
         window::open(server, profile, url.to_owned(), cx);
         true
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
         let _ = (server, account, url, cx);
         false
@@ -72,10 +75,10 @@ pub fn open(server: &str, account: &str, url: &str, cx: &mut App) -> bool {
 
 /// Closes every workspace window of `account` on `server`, when that native session ends.
 pub fn close(server: &str, account: &str, cx: &mut App) {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     if let Some(profile) = url::Url::parse(server).ok().and_then(|server| policy::profile_key(&server, account)) {
         window::close(&profile, cx);
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     let _ = (server, account, cx);
 }

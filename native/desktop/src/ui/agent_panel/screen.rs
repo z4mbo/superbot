@@ -211,6 +211,8 @@ impl Desktop {
         // The system web view pumps window messages while it starts, so it is built outside any update.
         let build = cx.spawn_in(window, async move |this, cx| {
             let Ok(Some((parent, bounds, background))) = this.update_in(cx, |_, window, cx| {
+                #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+                crate::web::engine::pump(cx);
                 Some((parent_window(window)?, screen_bounds(window.viewport_size()), cx.skin().app))
             }) else {
                 return;
@@ -227,7 +229,7 @@ impl Desktop {
                     Err(failure) => {
                         screen.unavailable(match failure {
                             ScreenFailure::NoRuntime => "The screen needs the Microsoft Edge WebView2 Runtime.",
-                            #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+                            #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
                             ScreenFailure::Unsupported => "Live screens aren't available on this system yet.",
                             ScreenFailure::Failed => "The screen couldn't open. Try again.",
                         });
@@ -314,6 +316,7 @@ impl Desktop {
         let holding = screen.lease.is_some();
         let busy = screen.busy;
         let live = matches!(screen.phase, ScreenPhase::Live);
+        let own_window = screen.view.as_ref().is_some_and(|view| view.in_own_window());
         let status = match (&screen.phase, screen.state) {
             (ScreenPhase::Opening, _) | (ScreenPhase::Live, None | Some(ScreenState::Loading)) => "Opening…",
             (ScreenPhase::Live, Some(ScreenState::Connecting)) => "Connecting…",
@@ -395,6 +398,13 @@ impl Desktop {
                                 this.open_screen(window, cx);
                             })),
                     ),
+                None if own_window => body.child(icon("app-window", px(28.), theme.ink_tertiary)).child(
+                    div()
+                        .body()
+                        .text_color(theme.ink_secondary)
+                        .text_center()
+                        .child("The screen is open in its own window."),
+                ),
                 None => body.child(Spinner::new().with_size(px(16.)).color(theme.ink_tertiary)),
             });
         div().size_full().flex().flex_col().child(toolbar).child(body).into_any_element()

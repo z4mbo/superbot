@@ -41,23 +41,21 @@ pub enum ScreenFailure {
     /// Windows without the Microsoft Edge WebView2 Runtime.
     NoRuntime,
     /// A system with no web view this app embeds.
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     Unsupported,
     Failed,
 }
 
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 mod system {
-    use std::path::PathBuf;
-
     use gpui_kit::{Bounds, Hsla, Pixels, Rgba};
     use tokio::sync::mpsc::UnboundedSender;
     use url::Url;
     use wry::dpi::{LogicalPosition, LogicalSize};
-    use wry::raw_window_handle::{self as rwh, HasWindowHandle, RawWindowHandle};
-    use wry::{NewWindowResponse, Rect, WebContext, WebView, WebViewBuilder};
+    use wry::{NewWindowResponse, Rect, WebView, WebViewBuilder};
 
     use super::{ScreenDocument, ScreenFailure, ScreenState};
+    use crate::web::engine::{self, Host, Missing, Profile};
     use crate::web::policy;
 
     const BRIDGE: &str = r#"Object.defineProperty(window, "ReactNativeWebView", {
@@ -70,31 +68,33 @@ mod system {
     pub struct ScreenView {
         webview: WebView,
         server: Url,
+        /// Set where the window system cannot hold the view inside the app window (Linux on
+        /// Wayland): the screen shows in a window of its own while its controls stay in the panel.
+        own: Option<engine::Own>,
     }
 
     impl ScreenView {
         pub fn build(
-            parent: ParentWindow,
+            host: Host,
             server: &Url,
             screen: &ScreenDocument,
             bounds: Bounds<Pixels>,
             background: Hsla,
             states: UnboundedSender<ScreenState>,
         ) -> Result<Self, ScreenFailure> {
-            #[cfg(target_os = "windows")]
-            if !crate::web::window::runtime_installed() {
-                return Err(ScreenFailure::NoRuntime);
-            }
+            engine::ready().map_err(|missing| match missing {
+                Missing::Runtime => ScreenFailure::NoRuntime,
+                Missing::Display => ScreenFailure::Failed,
+            })?;
             let headers = document_headers(server, screen)?;
-            let mut context = WebContext::new(data_folder());
+            let mut context = engine::context(&Profile::Private);
             let (navigation_server, ipc_server) = (server.clone(), server.clone());
             let fill = Rgba::from(background);
             let channel = |value: f32| (value * 255.0).round() as u8;
-            let webview = WebViewBuilder::new_with_web_context(&mut context)
+            let builder = WebViewBuilder::new_with_web_context(&mut context)
                 .with_url_and_headers(&screen.url, headers)
                 .with_bounds(rect(bounds))
                 .with_focused(false)
-                .with_incognito(true)
                 .with_devtools(false)
                 .with_clipboard(false)
                 .with_background_color((channel(fill.r), channel(fill.g), channel(fill.b), 255))
@@ -108,18 +108,38 @@ mod system {
                     if let Some(state) = ScreenState::parse(request.body()) {
                         let _ = states.send(state);
                     }
-                })
-                .build_as_child(&parent)
-                .map_err(|_| ScreenFailure::Failed)?;
-            Ok(Self { webview, server: server.clone() })
+                });
+            let builder = engine::isolate(builder, &Profile::Private);
+            let server = server.clone();
+            match host {
+                Host::Child(parent) => Ok(Self {
+                    webview: builder.build_as_child(&parent).map_err(|_| ScreenFailure::Failed)?,
+                    server,
+                    own: None,
+                }),
+                Host::Own => {
+                    let (own, webview) =
+                        engine::Own::build("Agent screen", 1280, 820, builder).map_err(|_| ScreenFailure::Failed)?;
+                    Ok(Self { webview, server, own: Some(own) })
+                }
+            }
+        }
+
+        /// The screen shows in a window of its own rather than over the panel.
+        pub fn in_own_window(&self) -> bool {
+            self.own.is_some()
         }
 
         pub fn place(&self, bounds: Bounds<Pixels>) {
-            let _ = self.webview.set_bounds(rect(bounds));
+            if !self.in_own_window() {
+                let _ = self.webview.set_bounds(rect(bounds));
+            }
         }
 
         pub fn show(&self, visible: bool) {
-            let _ = self.webview.set_visible(visible);
+            if !self.in_own_window() {
+                let _ = self.webview.set_visible(visible);
+            }
         }
 
         /// Loads a newer address of the same screen, as after taking or handing back control.
@@ -170,29 +190,12 @@ mod system {
         }
     }
 
-    /// Screens keep nothing between visits: they run in-private, in a folder of their own.
-    fn data_folder() -> Option<PathBuf> {
-        let local = std::env::var_os("LOCALAPPDATA").or_else(|| std::env::var_os("HOME"))?;
-        Some(PathBuf::from(local).join("Superbot").join("WebView").join("screens"))
-    }
-
-    /// The app window a screen view is a child of, read on the GUI thread just before the build.
-    pub struct ParentWindow(RawWindowHandle);
-
-    pub fn parent_window(window: &gpui_kit::Window) -> Option<ParentWindow> {
-        Some(ParentWindow(HasWindowHandle::window_handle(window).ok()?.as_raw()))
-    }
-
-    impl HasWindowHandle for ParentWindow {
-        fn window_handle(&self) -> Result<rwh::WindowHandle<'_>, rwh::HandleError> {
-            // SAFETY: the handle is the app window that asked for the screen, read on this thread just
-            // before the build. Closing it during the build fails the build instead of reusing the handle.
-            Ok(unsafe { rwh::WindowHandle::borrow_raw(self.0) })
-        }
+    pub fn parent_window(window: &gpui_kit::Window) -> Option<Host> {
+        engine::host(window)
     }
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
 mod system {
     use gpui_kit::{Bounds, Hsla, Pixels};
     use tokio::sync::mpsc::UnboundedSender;
@@ -224,6 +227,10 @@ mod system {
 
         pub fn show(&self, _: bool) {}
 
+        pub fn in_own_window(&self) -> bool {
+            false
+        }
+
         pub fn load(&self, _: &ScreenDocument) -> Result<(), ScreenFailure> {
             Err(ScreenFailure::Unsupported)
         }
@@ -234,7 +241,7 @@ mod system {
 mod tests {
     use super::*;
 
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     #[test]
     fn only_the_trusted_screen_document_receives_the_session_header() {
         use super::system::document_headers;

@@ -1,3 +1,4 @@
+#[cfg(target_os = "windows")]
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -6,11 +7,14 @@ use gpui_kit::*;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use url::Url;
 use wry::dpi::{LogicalPosition, LogicalSize};
+#[cfg(target_os = "windows")]
 use wry::raw_window_handle::{self as rwh, HasWindowHandle, RawWindowHandle};
-use wry::{NewWindowResponse, Rect, WebContext, WebView, WebViewBuilder, WebViewBuilderExtWindows};
+use wry::{NewWindowResponse, Rect, WebView, WebViewBuilder};
 
+use super::engine::{self, Host, Missing, Profile};
 use super::policy::{self, Navigate, Popup};
 use crate::theme::{ActiveTheme, Skin, Theme, CAPTION_HEIGHT, CAPTION_WIDTH};
+#[cfg(not(target_os = "macos"))]
 use crate::ui::overlays::caption_buttons;
 use crate::ui::{icon, pill_button, Tone, Type};
 
@@ -45,6 +49,10 @@ pub fn open(server: Url, profile: String, url: String, cx: &mut App) {
             return;
         }
     }
+    if engine::wayland() {
+        own::open(server, profile, url, cx);
+        return;
+    }
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, size(px(1240.), px(840.)), cx))),
         window_min_size: Some(size(px(640.), px(480.))),
@@ -66,6 +74,7 @@ pub fn open(server: Url, profile: String, url: String, cx: &mut App) {
 }
 
 pub fn close(profile: &str, cx: &mut App) {
+    own::close(profile, cx);
     let closing: Vec<_> = open_windows(cx)
         .iter()
         .filter(|opened| opened.profile == profile)
@@ -86,7 +95,7 @@ enum Signal {
 enum Page {
     Starting,
     Open,
-    NoRuntime,
+    Unavailable(Missing),
     Failed,
 }
 
@@ -115,13 +124,20 @@ impl WebWorkspace {
         let build_server = server.clone();
         // WebView2 pumps window messages while it starts, so it is built here, outside any update.
         let build = cx.spawn_in(window, async move |this, cx| {
-            let Ok(Some((parent, bounds, skin, background))) = this.update_in(cx, |_, window, cx| {
-                let parent = window.window_handle().ok()?.as_raw();
-                Some((parent, content(window.viewport_size()), cx.skin().skin, cx.skin().app))
+            let Ok(Some((host, bounds, skin, background))) = this.update_in(cx, |_, window, cx| {
+                engine::pump(cx);
+                Some((engine::host(window)?, content(window.viewport_size()), cx.skin().skin, cx.skin().app))
             }) else {
                 return;
             };
-            let built = build(&build_server, &profile, &start, Parent(parent), bounds, skin, background, signals);
+            let built = match host {
+                Host::Child(parent) => {
+                    build(&build_server, &profile, &start, bounds, skin, background, signals, |builder| {
+                        builder.build_as_child(&parent)
+                    })
+                }
+                Host::Own => Err(Page::Failed),
+            };
             this.update(cx, |this, cx| {
                 match built {
                     Ok(webview) => {
@@ -212,8 +228,15 @@ impl WebWorkspace {
         div()
             .h(CAPTION_HEIGHT)
             .flex_shrink_0()
-            .pl_4()
-            .pr(CAPTION_WIDTH + px(8.))
+            .map(
+                |bar| {
+                    if cfg!(target_os = "macos") {
+                        bar.pl(px(84.)).pr_3()
+                    } else {
+                        bar.pl_4().pr(CAPTION_WIDTH + px(8.))
+                    }
+                },
+            )
             .flex()
             .items_center()
             .gap_1()
@@ -261,7 +284,7 @@ impl WebWorkspace {
 
     fn render_failure(&self, theme: &Theme, cx: &mut Context<Self>) -> Option<Div> {
         let text = match self.page {
-            Page::NoRuntime => "This window needs the Microsoft Edge WebView2 Runtime.",
+            Page::Unavailable(missing) => missing.sentence(),
             Page::Failed => "The workspace couldn't open in this window.",
             Page::Starting | Page::Open => return None,
         };
@@ -286,7 +309,7 @@ impl Render for WebWorkspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.fit(window.viewport_size());
         let theme = cx.skin().clone();
-        div()
+        let frame = div()
             .relative()
             .size_full()
             .flex()
@@ -297,8 +320,10 @@ impl Render for WebWorkspace {
             .text_size(px(13.))
             .line_height(px(18.))
             .child(self.render_toolbar(&theme, cx))
-            .children(self.render_failure(&theme, cx))
-            .child(caption_buttons(window, &theme))
+            .children(self.render_failure(&theme, cx));
+        #[cfg(not(target_os = "macos"))]
+        let frame = frame.child(caption_buttons(window, &theme));
+        frame
     }
 }
 
@@ -334,8 +359,10 @@ pub(super) fn content(viewport: Size<Pixels>) -> Rect {
     }
 }
 
+#[cfg(target_os = "windows")]
 pub(super) struct Parent(pub(super) RawWindowHandle);
 
+#[cfg(target_os = "windows")]
 impl HasWindowHandle for Parent {
     fn window_handle(&self) -> Result<rwh::WindowHandle<'_>, rwh::HandleError> {
         // SAFETY: the handle is the GPUI window that asked for the web view, read on this thread just
@@ -344,51 +371,45 @@ impl HasWindowHandle for Parent {
     }
 }
 
+#[cfg(target_os = "windows")]
 pub(super) fn runtime_installed() -> bool {
-    use webview2_com::Microsoft::Web::WebView2::Win32::GetAvailableCoreWebView2BrowserVersionString;
-    let mut version = windows_core::PWSTR::null();
-    let found = unsafe { GetAvailableCoreWebView2BrowserVersionString(windows_core::PCWSTR::null(), &mut version) };
-    found.is_ok() && !webview2_com::take_pwstr(version).is_empty()
+    engine::runtime_installed()
 }
 
 /// One native account's WebView2 profile on one server: its cookies and storage, kept apart from
 /// every browser, other servers and other accounts. Nothing from the desktop's session is copied in.
+#[cfg(target_os = "windows")]
 pub(super) fn profile_folder(profile: &str) -> Option<PathBuf> {
     let local = std::env::var_os("LOCALAPPDATA")?;
     Some(PathBuf::from(local).join("Superbot").join("WebView").join(profile))
 }
 
-fn build(
+/// Builds the workspace's web view for one account's profile and hands it to `place`, which
+/// puts it inside an app window or in a window of its own.
+fn build<T>(
     server: &Url,
     profile: &str,
     start: &str,
-    parent: Parent,
     bounds: Rect,
     skin: Skin,
     background: Hsla,
     signals: UnboundedSender<Signal>,
-) -> Result<WebView, Page> {
-    if !runtime_installed() {
-        return Err(Page::NoRuntime);
-    }
-    let mut context = WebContext::new(Some(profile_folder(profile).ok_or(Page::Failed)?));
+    place: impl FnOnce(WebViewBuilder<'_>) -> wry::Result<T>,
+) -> Result<T, Page> {
+    engine::ready().map_err(Page::Unavailable)?;
+    let profile = Profile::Account(profile.to_owned());
+    let mut context = engine::context(&profile);
     let (navigations, popups, titles, pages) = (signals.clone(), signals.clone(), signals.clone(), signals);
     let (navigation_server, popup_server) = (server.clone(), server.clone());
     let fill = Rgba::from(background);
     let channel = |value: f32| (value * 255.0).round() as u8;
-    WebViewBuilder::new_with_web_context(&mut context)
+    let builder = WebViewBuilder::new_with_web_context(&mut context)
         .with_url(start)
         .with_bounds(bounds)
         .with_focused(true)
         .with_devtools(false)
         .with_clipboard(false)
         .with_background_color((channel(fill.r), channel(fill.g), channel(fill.b), 255))
-        // An empty list keeps WebView2's defaults, SmartScreen included, which wry would otherwise turn off.
-        .with_additional_browser_args("")
-        .with_theme(match skin {
-            Skin::Midnight => wry::Theme::Dark,
-            Skin::Daylight => wry::Theme::Light,
-        })
         .with_navigation_handler(move |target| match policy::navigation(&navigation_server, &target) {
             Navigate::Here => true,
             Navigate::Browser => {
@@ -412,7 +433,97 @@ fn build(
         })
         .with_on_page_load_handler(move |_, location| {
             let _ = pages.send(Signal::Location(location));
+        });
+    #[cfg(target_os = "windows")]
+    let builder = {
+        use wry::WebViewBuilderExtWindows;
+        // An empty list keeps WebView2's defaults, SmartScreen included, which wry would otherwise turn off.
+        builder.with_additional_browser_args("").with_theme(match skin {
+            Skin::Midnight => wry::Theme::Dark,
+            Skin::Daylight => wry::Theme::Light,
         })
-        .build_as_child(&parent)
-        .map_err(|_| Page::Failed)
+    };
+    #[cfg(not(target_os = "windows"))]
+    let _ = skin;
+    place(engine::isolate(builder, &profile)).map_err(|_| Page::Failed)
+}
+
+/// The workspace in a GTK window of its own, where the app window cannot hold a child view
+/// (Linux on Wayland). Same profile and navigation rules as inside an app window.
+mod own {
+    use gpui_kit::{px, size, App, Global, Task};
+    use tokio::sync::mpsc::unbounded_channel;
+    use url::Url;
+
+    use super::super::engine::{self, Own};
+    use super::{build, content, Signal, TITLE};
+    use crate::theme::ActiveTheme;
+
+    struct Opened {
+        profile: String,
+        start: String,
+        host: Own,
+        _webview: wry::WebView,
+        _signals: Task<()>,
+    }
+
+    #[derive(Default)]
+    struct OwnWindows(Vec<Opened>);
+
+    impl Global for OwnWindows {}
+
+    fn same(opened: &Opened, profile: &str, start: &str) -> bool {
+        opened.profile == profile && opened.start == start
+    }
+
+    pub fn open(server: Url, profile: String, url: String, cx: &mut App) {
+        if let Some(opened) = cx.default_global::<OwnWindows>().0.iter().find(|opened| same(opened, &profile, &url)) {
+            opened.host.present();
+            return;
+        }
+        engine::pump(cx);
+        let (signals, mut received) = unbounded_channel();
+        let (skin, background) = (cx.skin().skin, cx.skin().app);
+        let bounds = content(size(px(1240.), px(840.)));
+        let Ok((host, webview)) = build(&server, &profile, &url, bounds, skin, background, signals, |builder| {
+            Own::build(TITLE, 1240, 840, builder)
+        }) else {
+            cx.open_url(&url);
+            return;
+        };
+        let (key, start) = (profile.clone(), url.clone());
+        let listen = cx.spawn(async move |cx| {
+            while let Some(signal) = received.recv().await {
+                cx.update(|cx| match signal {
+                    Signal::Title(title) => {
+                        let title = title.trim();
+                        let title = if title.is_empty() { TITLE } else { title };
+                        let open = &cx.default_global::<OwnWindows>().0;
+                        if let Some(opened) = open.iter().find(|opened| same(opened, &key, &start)) {
+                            opened.host.set_title(title);
+                        }
+                    }
+                    Signal::Browser(url) => cx.open_url(&url),
+                    Signal::Location(_) => {}
+                });
+            }
+        });
+        let (key, start, app) = (profile.clone(), url.clone(), cx.to_async());
+        host.on_close(move || {
+            let _ = app.update(|cx| {
+                cx.default_global::<OwnWindows>().0.retain(|opened| !same(opened, &key, &start));
+            });
+        });
+        cx.default_global::<OwnWindows>().0.push(Opened {
+            profile,
+            start: url,
+            host,
+            _webview: webview,
+            _signals: listen,
+        });
+    }
+
+    pub fn close(profile: &str, cx: &mut App) {
+        cx.default_global::<OwnWindows>().0.retain(|opened| opened.profile != profile);
+    }
 }
