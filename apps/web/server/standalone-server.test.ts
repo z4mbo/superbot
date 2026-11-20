@@ -41,6 +41,12 @@ async function start(handler?: http.RequestListener) {
   const root = await mkdtemp(path.join(tmpdir(), "rakazo-standalone-web-"));
   cleanup.push(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, "dist", "assets"), { recursive: true });
+  await mkdir(path.join(root, "dist", "welcome", "docs"), { recursive: true });
+  await writeFile(path.join(root, "dist", "welcome", "index.html"), "<title>Welcome</title>");
+  await writeFile(
+    path.join(root, "dist", "welcome", "docs", "index.html"),
+    "<title>Developer guide</title>",
+  );
   await writeFile(path.join(root, "dist", "index.html"), "<!doctype html><title>app</title>");
   await writeFile(path.join(root, "dist", "assets", "app-1.js"), "export {};");
   await writeFile(path.join(root, "dist", "build-id"), "test\n");
@@ -107,6 +113,19 @@ describe("standalone web server", () => {
     expect((await get(port, "/assets/gone.js")).status).toBe(404);
     expect((await get(port, "/p/shared")).headers["x-robots-tag"]).toBe("noindex, nofollow");
     expect((await get(port, "/", { host: "evil.example" })).status).toBe(403);
+  });
+
+  it("opens the public landing page and developer guide without a session", async () => {
+    const port = await start();
+    const redirect = await get(port, "/welcome/docs?lang=en");
+    expect(redirect.status).toBe(308);
+    expect(redirect.headers.location).toBe("/welcome/docs/?lang=en");
+    expect((await get(port, "/welcome/")).body).toContain("<title>Welcome</title>");
+    const guide = await get(port, "/welcome/docs/");
+    expect(guide.body).toContain("<title>Developer guide</title>");
+    expect(guide.headers["content-type"]).toContain("text/html");
+    expect((await get(port, "/welcome/DESKTOP-DESIGN.md")).status).toBe(404);
+    expect((await get(port, "/app")).body).toContain("<title>app</title>");
   });
 
   it("forwards API requests with the hop it saw", async () => {

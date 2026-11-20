@@ -59,6 +59,7 @@ import {
   screenUpstreamReachable,
   watchScreenAuthorization,
 } from "./screen-proxy.js";
+import { welcomePages } from "./welcome.js";
 
 export type Middleware = (
   req: IncomingMessage,
@@ -617,6 +618,7 @@ export function attachPreviewMiddleware(
   });
   // A shared page's link is its only key: keep it out of search results and Referer.
   middlewares.use(sharedPageHeaders);
+  middlewares.use(welcomePages(path.join(site.outDir, "welcome")));
   let archive: string | null = null;
   try {
     archive = archiveAssets({
