@@ -14,6 +14,8 @@ open "$HOME/Applications/Superbot.app"
 
 The installer builds for the Mac's Rust host architecture and puts both commands in the app bundle, with links in `~/.local/bin`. Add the `export` line to your shell profile to keep `superbot` and `superbot-plugin` on your `PATH`. This is a local source build without a Developer ID signature or notarization. Quit Superbot before reinstalling it.
 
+At launch, Superbot checks the macOS login keychain for its saved server session. If macOS asks to unlock it, enter the keychain password in the system dialog. It usually matches your Mac user password, and can still be the previous one after a password reset. You can cancel and use the web workspace in Safari with your Superbot account. Resetting the default keychain deletes its saved passwords. [Apple's login keychain guide](https://support.apple.com/guide/keychain-access/kyca2429/mac)
+
 On Windows, run the existing launcher from the repository root:
 
 ```powershell
