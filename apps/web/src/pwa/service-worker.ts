@@ -2,7 +2,7 @@ export const SKIP_WAITING = "rakazo:skip-waiting";
 export const CACHE_PREFIX = "rakazo-shell-";
 
 // Live data, auth callbacks and the screen proxy always go straight to the server.
-const BYPASS_PREFIXES = ["/api", "/rpc", "/novnc", "/.well-known", "/health"];
+const BYPASS_PREFIXES = ["/api", "/rpc", "/novnc", "/.well-known", "/health", "/welcome"];
 // A self-hosted instance's theme (stylesheet and fonts): fetched fresh, cached for offline reloads.
 const THEME_PREFIX = "/instance-theme";
 const ACTIVATION_TIMEOUT_MS = 3_000;
