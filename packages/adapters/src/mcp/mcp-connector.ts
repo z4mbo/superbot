@@ -1336,10 +1336,9 @@ export class McpConnector implements ConnectorProvider {
         const localHttp =
           endpoint.protocol === "http:" && isLocalhostOrLoopbackIp(endpoint.hostname);
         const allowPrivateEndpoint = this.options.allowPrivateEndpoint === true;
-        const authProvider =
-          !localHttp && this.oauth
-            ? await this.oauth.providerFor(server, context, loaded, onPersisted)
-            : undefined;
+        const authProvider = this.oauth
+          ? await this.oauth.providerFor(server, context, loaded, onPersisted)
+          : undefined;
         const staticToken = material.secret
           ? material.secret.startsWith("Bearer ")
             ? material.secret
