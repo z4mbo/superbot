@@ -59,14 +59,9 @@ fn save(path: &Path, client: &Client) -> io::Result<()> {
     Ok(())
 }
 
-/// This computer's Superbot settings directory: `SUPERBOT_CONFIG_DIR` when set, which keeps a
-/// fixture profile apart, otherwise the platform's per-user application data.
-pub fn settings_directory() -> Option<PathBuf> {
-    env_directory("SUPERBOT_CONFIG_DIR").or_else(default_directory)
-}
-
 fn server_file() -> Option<PathBuf> {
-    Some(settings_directory()?.join("server.txt"))
+    let directory = env_directory("SUPERBOT_CONFIG_DIR").or_else(default_directory)?;
+    Some(directory.join("server.txt"))
 }
 
 fn env_directory(name: &str) -> Option<PathBuf> {
