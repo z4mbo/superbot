@@ -69,10 +69,40 @@ node server.ts
 The command writes `plugin.json`, `server.ts`, and `README.md`. The generated
 README includes the local request that converts 100 Celsius to 212 Fahrenheit
 and instructions for putting your tool behind a public HTTPS reverse proxy.
-Set the manifest endpoint to your public `/mcp` URL before publishing. The MCP
+Set the manifest endpoint to your public `/mcp` URL before publishing. Despite
+its name, `mcp-app` is an MCP tool server you host, not a record app. The MCP
 part ID is `temperatures` and the optional skill part ID is `conversion-guide`.
 With `--manifest`, the server and README are created next to the specified
 manifest. The destination directory must already exist.
+
+## Create a record app
+
+A record app is a list of fields whose entries the Superbot server stores. It
+needs no server or code of your own. Start from the Calorie diary in an empty
+directory and submit it under your own slug, because `kcal-diary` belongs to
+the bundled diary.
+
+```sh
+mkdir water-log
+cd water-log
+superbot-plugin init water-log --template kcal-diary --name "Water log"
+superbot-plugin validate
+superbot-plugin publish water-log 1
+```
+
+The `kcal-diary` template writes only `plugin.json`. Without `--name`, it
+matches [`examples/plugins/kcal-diary/plugin.json`](../../examples/plugins/kcal-diary/plugin.json):
+one `app` part, `meals`, with required `date`, `meal` and `kcal` fields and
+`kcal` as the total. Edit the fields before validating. Each app part has 1 to
+16 fields with an `id`, `label`, `type` of `text`, `number` or `date`, and an
+explicit `required`. An optional `summaryField` names a number field.
+`validate` applies the registry's limits locally. The
+[registry contract](plugin-contract.md) lists them.
+
+`superbot-plugin` only scaffolds, validates and submits manifests. It has no
+commands to open an app, read, add or remove entries, or show totals. People
+use the app in Superbot, and programs call the `appRecords`, `addAppRecord` and
+`removeAppRecord` procedures.
 
 The desktop plugin form opens and saves the same `plugin.json`, so a manifest can move between the CLI and the desktop: **Open file…** to edit it, **Save file…** to write it back, then `superbot-plugin validate`. See the [registry contract](plugin-contract.md) for manifest fields. Local validation checks the manifest schema without contacting the server. The registry checks MCP endpoint safety during approval.
 

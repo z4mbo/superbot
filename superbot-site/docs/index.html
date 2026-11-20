@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Build a plugin</title>
-  <meta name="description" content="Write a Superbot plugin with superbot-plugin: a manifest with skills and tools, submitted for review and granted to bots per part.">
+  <meta name="description" content="Write a Superbot plugin with superbot-plugin: a manifest with skills, tools or record apps, submitted for review and granted to bots per part.">
   <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,7 +47,7 @@
     <main id="main" class="prose">
       <div class="crumb">Plugins</div>
       <h1>Build a plugin</h1>
-      <p class="lede">A Superbot plugin is one JSON manifest that adds skills, tools or both to the bots people choose. This guide takes you from an empty folder to an approved version with the <code>superbot-plugin</code> command.</p>
+      <p class="lede">A Superbot plugin is one JSON manifest that adds skills, tools or record apps to the bots people choose. This guide takes you from an empty folder to an approved version with the <code>superbot-plugin</code> command.</p>
 
       <div class="note" role="note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
@@ -58,8 +58,23 @@
       <ul>
         <li><b>Skills</b>: Markdown instructions that teach a bot when and how to do something. Up to 16,000 characters each. Bots read them as untrusted input.</li>
         <li><b>Tools</b>: a remote MCP server reached over Streamable HTTP at a public HTTPS address. A person approves every call after seeing its destination and arguments.</li>
+        <li><b>Record apps</b>: a list of entries with fields you declare, such as a date, a meal and its calories. Superbot stores the entries and shows them in its own form and list. You write no code and run no server.</li>
       </ul>
       <p>A plugin has 1 to 16 parts, in any mix. It cannot carry credentials, HTTP headers, commands, packages, hooks or any field the schema doesn't name. The server stores the manifest and never runs code from it.</p>
+
+      <h2 id="apps">Record apps in plain terms</h2>
+      <p>A record app is a small database with a fixed set of fields. The person who installs it adds and removes entries in Superbot. A bot they grant it to can read the same entries and propose new ones. Superbot draws the same form, list and total for every record app. A plugin can't bring its own screens, HTML or JavaScript.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Part</th><th scope="col">What you write</th><th scope="col">Where it runs</th><th scope="col">What a granted bot gets</th></tr></thead>
+          <tbody>
+            <tr><td>Skill</td><td class="muted">Markdown instructions</td><td class="muted">Nothing runs</td><td class="muted">Instructions it can read</td></tr>
+            <tr><td>Tool</td><td class="muted">An MCP server you host</td><td class="muted">Your HTTPS server</td><td class="muted">Your server's tools, each call approved by a person</td></tr>
+            <tr><td>Record app</td><td class="muted">A list of fields</td><td class="muted">Entries are stored by the Superbot server</td><td class="muted">List entries, and add one after a person approves it</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The <code>mcp-app</code> starter of <code>superbot-plugin init</code> is a tool server, not a record app. It writes an MCP server that you host yourself.</p>
 
       <h2 id="install">Install the tools</h2>
       <p>From the root of a Superbot checkout, with Rust installed:</p>
@@ -128,6 +143,74 @@ superbot-plugin list mine</code></pre>
         </li>
       </ol>
 
+      <h2 id="calorie-diary">Walk through the Calorie diary</h2>
+      <p>The Calorie diary is an approved record app with the slug <code>kcal-diary</code>. A new server publishes it in the store unless another publisher already holds that slug. Its whole manifest is three fields and a total. The repository keeps it in <code>examples/plugins/kcal-diary/plugin.json</code>, and <code>superbot-plugin init kcal-diary --template kcal-diary</code> writes the same file.</p>
+      <figure class="code">
+        <div class="code-head"><span>plugin.json</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>,
+  <span class="tok-k">"name"</span>: <span class="tok-s">"Calorie diary"</span>,
+  <span class="tok-k">"description"</span>: <span class="tok-s">"Log meals and see the total calories for a day."</span>,
+  <span class="tok-k">"parts"</span>: [
+    {
+      <span class="tok-k">"kind"</span>: <span class="tok-s">"app"</span>,
+      <span class="tok-k">"id"</span>: <span class="tok-s">"meals"</span>,
+      <span class="tok-k">"fields"</span>: [
+        {
+          <span class="tok-k">"id"</span>: <span class="tok-s">"date"</span>,
+          <span class="tok-k">"label"</span>: <span class="tok-s">"Date"</span>,
+          <span class="tok-k">"type"</span>: <span class="tok-s">"date"</span>,
+          <span class="tok-k">"required"</span>: <span class="tok-n">true</span>
+        },
+        {
+          <span class="tok-k">"id"</span>: <span class="tok-s">"meal"</span>,
+          <span class="tok-k">"label"</span>: <span class="tok-s">"Meal"</span>,
+          <span class="tok-k">"type"</span>: <span class="tok-s">"text"</span>,
+          <span class="tok-k">"required"</span>: <span class="tok-n">true</span>
+        },
+        {
+          <span class="tok-k">"id"</span>: <span class="tok-s">"kcal"</span>,
+          <span class="tok-k">"label"</span>: <span class="tok-s">"Calories (kcal)"</span>,
+          <span class="tok-k">"type"</span>: <span class="tok-s">"number"</span>,
+          <span class="tok-k">"required"</span>: <span class="tok-n">true</span>
+        }
+      ],
+      <span class="tok-k">"summaryField"</span>: <span class="tok-s">"kcal"</span>
+    }
+  ]
+}</code></pre>
+      </figure>
+      <ol class="steps">
+        <li>
+          <b>Install it.</b> Find <b>Calorie diary</b> in the store's <b>Discover</b> list and choose <b>Install</b>. Nothing is installed for you in advance. The diary belongs to your account in the selected Space, and other members of the Space can't see your entries. They install their own diary.
+        </li>
+        <li>
+          <b>Log meals.</b> <b>Open</b> the diary. Add an entry with a date, a meal and its calories. Use the day arrows or <b>Today</b> to see one day's entries and calories, or <b>All dates</b> for everything. The total counts every matching entry, including entries not yet loaded on the page.
+        </li>
+        <li>
+          <b>Fix a mistake.</b> An entry can't be edited. Remove it and add a corrected one. Only people remove entries. A bot can't remove them.
+        </li>
+        <li>
+          <b>Give a bot access.</b> Under <b>Installed</b>, select one of your bots and turn on the <code>meals</code> part. Other bots stay without access until you turn it on for them too.
+        </li>
+        <li>
+          <b>Ask the bot.</b> In a direct chat with that bot, ask “What have I eaten today?”. The bot can list entries and the total without asking you first. Then ask it to add a 220 kcal snack for today. The approval card shows the values it wants to save. Nothing is saved until you choose <b>Allow once</b>. In a Space set to Never ask, the addition is refused.
+        </li>
+      </ol>
+      <p>A bot can use the diary only in a direct chat with you, in a turn your own message started. It has no access in group conversations or in turns started by someone else's message. When the bot answers with a model CLI installed on your computer, Superbot sends that CLI the prompt alone, so the bot can't read or add entries in those turns. Turning off the bot's <code>meals</code> part keeps your entries. Uninstalling the diary permanently deletes them. <a href="publishing.html#apps">Record app data and versions</a> covers the rest.</p>
+
+      <h3 id="your-app">Publish your own record app</h3>
+      <p>Anyone with an account on the server can submit a record app. Start from the diary, change the name, description and fields, then submit it under a slug of your own. <code>kcal-diary</code> already belongs to the bundled diary.</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>mkdir water-log
+cd water-log
+superbot-plugin init water-log --template kcal-diary --name "Water log"
+superbot-plugin validate
+superbot-plugin publish water-log 1</code></pre>
+      </figure>
+      <p><code>validate</code> checks record app fields with the same limits as the server. A deployment admin then reviews the version like any other. Once it is approved, people find it in <b>Discover</b> and install it for themselves. <code>superbot-plugin</code> only writes, checks and submits manifests. It can't open an app or read, add or remove entries.</p>
+
       <h2 id="writing-skills">Writing a good skill</h2>
       <ul>
         <li>Say when to use it in the first sentence, then how.</li>
@@ -156,8 +239,11 @@ superbot-plugin list mine</code></pre>
     <aside class="toc" aria-label="On this page">
       <h4>On this page</h4>
       <a href="#what">What a plugin can add</a>
+      <a href="#apps">Record apps in plain terms</a>
       <a href="#install">Install the tools</a>
       <a href="#steps">From folder to approved version</a>
+      <a href="#calorie-diary">Walk through the Calorie diary</a>
+      <a href="#your-app">Publish your own record app</a>
       <a href="#writing-skills">Writing a good skill</a>
       <a href="#writing-tools">Writing a good tool server</a>
       <a href="#github">Plugins from GitHub</a>

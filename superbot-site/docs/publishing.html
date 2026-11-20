@@ -104,6 +104,18 @@ superbot-plugin set-grants INSTALLATION_ID BOT_ID summary tracker</code></pre>
         <li><b>Skills</b> reach the bot as Markdown it can read, treated as untrusted input.</li>
         <li><b>Tools</b> are listed for the bot, and every call shows an approval card with the tool, its endpoint and the exact arguments. Nothing is sent until a person chooses <b>Allow once</b>. In a Space set to Never ask, calls are refused.</li>
         <li>After approval the server checks the grant again, checks the tool's schema still matches what was approved, and refuses redirects and private addresses. A request already sent may finish after a grant is revoked.</li>
+        <li><b>Record apps</b> give the bot two actions on the installer's entries: list them, with the total, and add one. Listing needs no approval. Every addition shows an approval card with the values to save, and nothing is saved until a person chooses <b>Allow once</b>. In a Space set to Never ask, additions are refused. Bots can't remove entries.</li>
+      </ul>
+
+      <h2 id="apps">Record app data and versions</h2>
+      <ul>
+        <li><b>Whose data it is.</b> Entries belong to one installation: one account in one Space. Other members of the Space don't see them, even when they install the same app.</li>
+        <li><b>When a bot can use it.</b> Only in a direct chat between the installer and one of their bots, in a turn the installer's own message started. Group conversations and turns started by anyone else get no record app actions. A turn answered by a model CLI installed on the person's computer gets only the prompt, so it can't use record apps either.</li>
+        <li><b>Editing.</b> Entries can't be changed in place. Remove one and add a corrected entry. Removing erases the entry's values for good.</li>
+        <li><b>Totals.</b> With a <code>summaryField</code>, the total covers every matching entry for the chosen day, or for all dates, even when the list shows only the first page.</li>
+        <li><b>Grants.</b> Turning off a bot's part stops that bot reading or adding. The entries stay.</li>
+        <li><b>Versions.</b> Each version of an app keeps its own entries. After a switch you see the new version's entries. Switching back shows the earlier ones again.</li>
+        <li><b>Uninstall.</b> Uninstalling permanently deletes the installation's entries for every version.</li>
       </ul>
 
       <h2 id="update">Updating and uninstalling</h2>
@@ -112,7 +124,7 @@ superbot-plugin set-grants INSTALLATION_ID BOT_ID summary tracker</code></pre>
         <li>Open the installation in the store, choose an approved version and confirm the switch. On the command line use <code>superbot-plugin switch-version INSTALLATION_ID CURRENT_VERSION_ID TARGET_VERSION_ID</code>.</li>
         <li>Choose which agents can use the new release. Switching clears the previous grants in the same transaction. If the switch fails, the current release and grants stay in place.</li>
       </ol>
-      <p>To remove the installation and its grants, use <code>superbot-plugin uninstall INSTALLATION_ID</code>.</p>
+      <p>To remove the installation and its grants, use <code>superbot-plugin uninstall INSTALLATION_ID</code>. For a record app, this also deletes its entries.</p>
 
       <nav class="pager" aria-label="Pages">
         <a href="manifest.html"><small>Previous</small><span>Manifest reference</span></a>
@@ -126,6 +138,7 @@ superbot-plugin set-grants INSTALLATION_ID BOT_ID summary tracker</code></pre>
       <a href="#install">Install</a>
       <a href="#grants">Grants</a>
       <a href="#runtime">What a granted bot can do</a>
+      <a href="#apps">Record app data</a>
       <a href="#update">Updating and uninstalling</a>
     </aside>
   </div>
