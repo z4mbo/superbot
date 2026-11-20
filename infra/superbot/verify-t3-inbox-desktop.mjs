@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 
-import { startFakeT3 } from "./fake-t3.mjs";
+import { startFakeT3 } from "./fake-t3.test-support.mjs";
 
 const exec = promisify(execFile);
 const bundled = "superbot-t3-code-inbox-v1";

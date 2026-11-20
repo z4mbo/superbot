@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 
-import { startFakeT3 } from "./fake-t3.mjs";
+import { startFakeT3 } from "./fake-t3.test-support.mjs";
 
 const [probe] = process.argv.slice(2);
 assert(probe, "Usage: node --import tsx infra/superbot/verify-t3-inbox.mjs T3_INBOX_PROBE_EXE");
