@@ -9,6 +9,7 @@ use std::{
 use tokio::process::Command;
 
 const MAX_OUTPUT: u64 = 4 * 1024 * 1024;
+pub(super) const HEADLESS_VERSION: &str = "1.0.89";
 
 pub(super) struct Headless {
     engine: Engine,
@@ -56,7 +57,7 @@ impl Headless {
         let output = run_command(command, REQUEST_TIMEOUT).await?;
         let inspection: Value = serde_json::from_str(&output).map_err(|_| Error::Protocol)?;
         let empty = |value: &Value| value.as_array().is_some_and(Vec::is_empty);
-        if inspection["grokVersion"] != "1.0.89"
+        if inspection["grokVersion"] != HEADLESS_VERSION
             || ![
                 "hooks",
                 "skills",
@@ -122,7 +123,14 @@ impl Headless {
     }
 
     fn command(&self, cwd: &Path) -> Command {
-        scoped_command(&self.engine, cwd)
+        let mut command = scoped_command(&self.engine, cwd);
+        command
+            .env("TEMP", cwd)
+            .env("TMP", cwd)
+            .env("TMPDIR", cwd)
+            .env("XDG_RUNTIME_DIR", cwd)
+            .env_remove("DBUS_SESSION_BUS_ADDRESS");
+        command
     }
 }
 

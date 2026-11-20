@@ -50,11 +50,16 @@ cargo build --locked -p superbot-cli
 node --import tsx infra/superbot/verify-chat.mjs "C:/path/to/postgresql/bin" target/debug/superbot.exe --local-app-records
 ```
 
-The isolated fixture uses a fake local CLI and two accounts in one Space. It
+The isolated fixture uses fake installed CLIs and two accounts in one Space. It
 checks real record context, skipping and approving a draft, revocation while
 approval is pending, stale pins after re-grant or version switch, and identical
 operation replay. It also checks that the other account's records and the chat
 transcript stay separate from the app interaction.
+
+The fixture exercises Grok 1.0.89's scoped headless adapter and its selected
+model. Earlier Grok ACP sessions and Pi's normal profile are excluded from
+private app prompts. In Pi, credentials in the ordinary agent profile can
+run configured shell commands while resolving a model request.
 
 ## Native sidebar notifications
 

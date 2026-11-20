@@ -316,8 +316,9 @@ async function checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedOb
     "Build synthetic local CLI",
   );
   await writeFile(join(profile, "fake-signed-in"), "");
+  const modelFile = join(modelDir, `bot-${botHash}.json`);
   await writeFile(
-    join(modelDir, `bot-${botHash}.json`),
+    modelFile,
     JSON.stringify({
       provider: "claude",
       id: "fixture-chat",
@@ -440,6 +441,8 @@ async function checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedOb
       owner: scopedOwner,
       observer: scopedObserver,
       botId: agent.id,
+      modelFile,
+      fakeBin: bin,
       cli,
       args: ["--server", origin, "--space", spaceName, agent.name],
       env: childEnv,

@@ -3,8 +3,10 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Number};
 
-use crate::local_cli::{InstalledModel, LocalCli, Provider};
-use crate::{Error, SpaceFeatures};
+use crate::local_cli::{
+    run_local_prompt, uses_local_cli_driver, InstalledModel, LocalCli, PromptScope,
+};
+use crate::{local_acp, Error, SpaceFeatures};
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -130,10 +132,9 @@ impl SpaceFeatures<'_> {
     }
 }
 
+/// Checks the selection without launching a process. The adapter verifies its scope before use.
 pub fn supports_app_assistance(model: &InstalledModel) -> bool {
-    Provider::ALL
-        .iter()
-        .any(|provider| provider.id() == model.provider)
+    uses_local_cli_driver(model) || local_acp::supports_private_prompt(&model.provider)
 }
 
 const PROMPT: &str = include_str!("local_app_records.prompt.txt");
@@ -167,7 +168,7 @@ pub async fn suggest_app_record(
     if prompt.len() > MAX_PROMPT_BYTES {
         return Err("The app context is too large for local assistance.".into());
     }
-    let reply = cli.reply(model, &prompt).await.map_err(str::to_owned)?;
+    let reply = run_local_prompt(cli, model, &prompt, PromptScope::AppRecords).await?;
     if reply.len() > MAX_REPLY_BYTES {
         return Err("The local app reply was too large.".into());
     }

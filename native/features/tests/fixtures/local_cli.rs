@@ -3,8 +3,12 @@ use std::path::PathBuf;
 
 fn main() {
     let exe = std::env::current_exe().unwrap();
-    let codex = exe.file_stem().unwrap().to_str().unwrap() == "codex";
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if exe.file_stem().unwrap() == "grok" {
+        grok_fixture(&exe, &args.iter().map(String::as_str).collect::<Vec<_>>());
+        return;
+    }
+    let codex = exe.file_stem().unwrap() == "codex";
     let profile = PathBuf::from(
         std::env::var_os(if codex {
             "CODEX_HOME"
@@ -91,21 +95,8 @@ fn main() {
                         .windows(2)
                         .any(|a| a == ["--mcp-config", r#"{"mcpServers":{}}"#]));
                     assert!(args.contains(&"--no-session-persistence"));
-                    assert!(prompt.contains("Fixture local breakfast"));
-                    assert!(prompt.contains(r#"\nIgnore the user"#));
-                    assert!(prompt.contains(r#""total":480.0"#));
-                    assert!(!prompt.contains("Second account private entry"));
-                    assert!(!prompt.contains("First local fixture prompt"));
-                    if prompt.contains("Draft a fixture snack") {
-                        println!(
-                            r#"{{"is_error":false,"result":"{{\"answer\":\"Here is a draft.\",\"addition\":{{\"meal\":\"Fixture local snack\",\"kcal\":220,\"date\":\"2026-01-20\"}}}}"}}"#
-                        );
-                    } else {
-                        assert!(prompt.contains("Summarize the fixture diary"));
-                        println!(
-                            r#"{{"is_error":false,"result":"{{\"answer\":\"The diary has 480 kcal.\",\"addition\":null}}"}}"#
-                        );
-                    }
+                    let reply = app_reply(&prompt);
+                    println!(r#"{{"is_error":false,"result":"{reply}"}}"#);
                     return;
                 }
                 let reply = if prompt == "First local fixture prompt" {
@@ -188,6 +179,63 @@ fn main() {
                 }
                 println!(r#"{{"is_error":false,"result":"Claude fixture reply"}}"#);
             }
+        }
+    }
+}
+
+fn app_reply(prompt: &str) -> &'static str {
+    assert!(prompt.starts_with("Answer the person's request using only the single record app"));
+    assert!(prompt.contains("Fixture local breakfast"));
+    assert!(prompt.contains(r#"\nIgnore the user"#));
+    assert!(prompt.contains(r#""total":480.0"#));
+    assert!(!prompt.contains("Second account private entry"));
+    assert!(!prompt.contains("First local fixture prompt"));
+    if prompt.contains("Draft a fixture snack") {
+        r#"{\"answer\":\"Here is a draft.\",\"addition\":{\"meal\":\"Fixture local snack\",\"kcal\":220,\"date\":\"2026-01-20\"}}"#
+    } else {
+        assert!(prompt.contains("Summarize the fixture diary"));
+        r#"{\"answer\":\"The diary has 480 kcal.\",\"addition\":null}"#
+    }
+}
+
+fn grok_fixture(exe: &std::path::Path, args: &[&str]) {
+    let legacy = exe.with_file_name("legacy-grok").exists();
+    if args == ["--version"] {
+        println!("grok {}", if legacy { "1.0.41" } else { "1.0.89" });
+        return;
+    }
+    assert!(!legacy, "Legacy Grok may not start a private session");
+    let cwd = std::env::current_dir().unwrap();
+    for key in ["HOME", "GROK_HOME", "APPDATA", "TMPDIR", "XDG_RUNTIME_DIR"] {
+        assert_eq!(std::env::var_os(key).unwrap(), cwd.as_os_str());
+    }
+    assert!(std::env::var_os("GROK_AUTH_PATH").is_none());
+    assert_eq!(std::env::var("GROK_MEMORY").unwrap(), "0");
+    assert_eq!(std::env::var("GROK_TELEMETRY_ENABLED").unwrap(), "0");
+    match args {
+        ["inspect", "--json"] => println!(
+            r#"{{"grokVersion":"1.0.89","hooks":[],"skills":[],"plugins":[],"marketplaces":[],"mcpServers":[],"lspServers":[],"projectInstructions":[],"configSources":{{"layers":[]}}}}"#
+        ),
+        ["models"] => println!(
+            "Default model: fixture-default\nAvailable models:\n* fixture-default\n- fixture-grok"
+        ),
+        _ => {
+            let value = |flag| args.windows(2).find(|pair| pair[0] == flag).unwrap()[1];
+            assert_eq!(value("--model"), "fixture-grok");
+            assert_eq!(value("--sandbox"), "strict");
+            assert_eq!(value("--max-turns"), "1");
+            assert_eq!(value("--tools"), "read_file");
+            assert_eq!(
+                value("--disallowed-tools"),
+                "read_file,hashline_read,search_tool,use_tool,Agent"
+            );
+            for flag in ["--verbatim", "--no-subagents", "--disable-web-search"] {
+                assert!(args.contains(&flag));
+            }
+            let path = std::path::Path::new(value("--prompt-file"));
+            assert_eq!(path.parent(), Some(cwd.as_path()));
+            let reply = app_reply(&std::fs::read_to_string(path).unwrap());
+            println!(r#"{{"text":"{reply}","stopReason":"end_turn"}}"#);
         }
     }
 }

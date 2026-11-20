@@ -107,17 +107,44 @@ pub async fn run_local_model(
     model: &InstalledModel,
     prompt: &str,
 ) -> Result<String, String> {
-    if Provider::ALL
+    run_local_prompt(cli, model, prompt, PromptScope::Chat).await
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum PromptScope {
+    Chat,
+    AppRecords,
+}
+
+pub(crate) fn uses_local_cli_driver(model: &InstalledModel) -> bool {
+    Provider::ALL
         .iter()
         .any(|provider| provider.id() == model.provider)
-    {
+}
+
+pub(crate) async fn run_local_prompt(
+    cli: &LocalCli,
+    model: &InstalledModel,
+    prompt: &str,
+    scope: PromptScope,
+) -> Result<String, String> {
+    if uses_local_cli_driver(model) {
         return cli.reply(model, prompt).await.map_err(str::to_owned);
     }
     use crate::local_acp;
+    if matches!(scope, PromptScope::AppRecords)
+        && !local_acp::supports_private_prompt(&model.provider)
+    {
+        return Err("The selected local engine doesn't support private app prompts.".into());
+    }
     let engine = local_acp::discover(&model.provider)
         .map_err(|error| error.to_string())?
         .ok_or_else(|| "The selected local CLI is missing.".to_owned())?;
-    let mut session = engine.connect().await.map_err(|error| error.to_string())?;
+    let mut session = match scope {
+        PromptScope::Chat => engine.connect().await,
+        PromptScope::AppRecords => engine.connect_private_prompt().await,
+    }
+    .map_err(|error| error.to_string())?;
     let reply = session
         .prompt(Some(&model.id), prompt, |_| {})
         .await
