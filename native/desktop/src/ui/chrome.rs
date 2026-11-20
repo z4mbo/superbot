@@ -17,11 +17,13 @@ impl Render for Desktop {
                     View::Store => self.render_store(window, cx),
                     View::Workspace => self.render_workspace(window, cx),
                 };
+                let side = if self.view == View::Chat { self.render_agent_panel(window, cx) } else { None };
                 div()
                     .size_full()
                     .flex()
                     .child(self.render_sidebar(window, cx))
                     .child(div().flex_1().min_w_0().h_full().child(main))
+                    .children(side)
                     .into_any_element()
             }
         };
@@ -40,6 +42,7 @@ impl Render for Desktop {
         frame
             .children(self.render_menu(cx))
             .children(self.render_dialog(cx))
+            .children(self.render_create_panel(cx))
             .children(self.render_version_switch(cx))
             .children(self.render_notice(cx))
     }

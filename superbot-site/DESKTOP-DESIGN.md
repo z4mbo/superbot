@@ -39,7 +39,7 @@ leaves room for it.
 | Marketplace: discover, install, per-bot grants, uninstall | Live, full lifecycle verified locally           | Live. Review, discovery, installation and independent grants verified on Windows.                          | `pluginRegistry.*`                                                                        |
 | Remote tools from plugins, approved per call              | Live                                            | Generic action cards supported. The specialized presentation in §9.2 is a design target.                   | marketplace runtime and `threads/answer`                                                  |
 | Plugin authoring and submission                           | Live (`superbot-plugin`)                        | Live (§10), store form, plugin.json open and save, review status                                           | `pluginRegistry.submit/mine`; `docs/superbot/plugin-toolkit.md`                           |
-| Review queue (deployment admins)                          | Live (`superbot-plugin review`)                 | Live. A verified deployment reviewer approved a different publisher's version in the native queue.         | `pluginRegistry.submissions/review`, admins via `RAKAZO_ADMIN_EMAILS`                     |
+| Review queue (deployment admins)                          | Live (`superbot-plugin review`)                 | Live. A verified deployment reviewer approved a different publisher's version in the native queue.         | `pluginRegistry.submissions/review`, admins via `SUPERBOT_ADMIN_EMAILS`                     |
 | Presence ("who is here") and typing                       | Planned                                         | Planned                                                                                                    | no contract                                                                               |
 | Bot colour, avatar, preview line in the sidebar           | The navigation response includes bot summaries. | Live. The sidebar shows a face, identity colour, preview line and unread state.                            | `spaces/list`                                                                             |
 | Routines, approval rules, run activity                    | Live (native service)                           | Available in the workspace management panel with Bots, Groups, People and Files.                           | `routines/*`, `approvalRules/*`, `runs/list`                                              |
@@ -676,7 +676,7 @@ text), Rejected (`danger` text) with the reviewer's reason under the row in 12
 
 Today: `superbot-plugin list submissions` and `superbot-plugin review`. In the app: only
 listed in the profile menu when the account is a deployment admin (an account in the
-server's `RAKAZO_ADMIN_EMAILS`). The server enforces it with HTTP 403; the UI hides the
+server's `SUPERBOT_ADMIN_EMAILS`). The server enforces it with HTTP 403; the UI hides the
 entry but never relies on hiding. Show the server's reason inline if a review returns 403. A list of pending
 submissions (`submissions`), 56px rows: name, `slug · v{n}`, publisher, submitted date.
 Selecting one opens it in the side panel with the same Plugin details layout plus the full

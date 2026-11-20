@@ -147,7 +147,7 @@ pub(crate) async fn offer(
         .max_by_key(|message| message.seq)
         .and_then(Approval::from_message);
     let Some(approval) = approval else {
-        eprintln!("The agent is waiting for input. Open Rakazo to answer this card.");
+        eprintln!("The agent is waiting for input. Open Superbot to answer this card.");
         return Ok(Outcome::LeftPending);
     };
     approval.print();

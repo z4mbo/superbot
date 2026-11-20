@@ -1,4 +1,4 @@
-//! The full Rakazo web client in a window this app owns, for the surfaces the native views do not
+//! The full Superbot web client in a window this app owns, for the surfaces the native views do not
 //! draw. It is the server's own web app in Microsoft Edge WebView2, never a native view.
 
 #[cfg(any(target_os = "windows", test))]

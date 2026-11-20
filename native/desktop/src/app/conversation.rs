@@ -6,15 +6,35 @@ use std::sync::{Arc, Mutex};
 
 use gpui_kit::*;
 use serde_json::Value;
-use superbot_client::ThreadEvent;
+mod events;
+use events::apply_event;
+use superbot_features::local_cli::{run_local_model, InstalledModel, LocalCli, PendingHistory};
 
 use super::{Desktop, View};
 use crate::api::{self, GroupMember, Outgoing, Target};
-use crate::clock;
 use crate::files::{self, Picked, Refused};
 use crate::outbox::{self, Draft, MentionQuery, Outbox, Place};
-use crate::runtime::{follow, Live};
-use crate::transcript::{prepend, upsert, Entry, FileRef, Placed, MOST_ENTRIES};
+use crate::runtime::{follow, network, Live};
+use crate::transcript::{prepend, Entry, FileRef, Part, Speaker, MOST_ENTRIES};
+
+#[derive(Clone)]
+pub(crate) struct LocalWrite {
+    payload: PendingHistory,
+    pub(crate) saving: bool,
+    pub(crate) problem: Option<String>,
+}
+
+impl LocalWrite {
+    fn new(text: String, reply: Option<String>) -> Self {
+        Self::from(PendingHistory { id: uuid::Uuid::new_v4().to_string(), text, reply })
+    }
+}
+
+impl From<PendingHistory> for LocalWrite {
+    fn from(payload: PendingHistory) -> Self {
+        Self { payload, saving: false, problem: Some("Local message is waiting to be saved.".into()) }
+    }
+}
 
 pub struct Chat {
     pub target: Target,
@@ -35,6 +55,7 @@ pub struct Chat {
     /// Its question cards: which runs wait for an answer, and what is typed or sent.
     pub cards: crate::cards::Cards,
     _live: Option<Task<()>>,
+    pub(crate) local_turn: Option<Task<()>>,
 }
 
 impl Chat {
@@ -106,6 +127,7 @@ pub struct MentionList {
 
 /// How near the top of what is loaded the view comes before the page before it is read.
 const NEAR_TOP: usize = 3;
+
 /// The most files one visit to the file chooser can add; the message's own limit is lower.
 const MOST_PICKED: usize = 32;
 
@@ -135,8 +157,10 @@ impl Desktop {
             conversation: Conversation::new(),
             cards: crate::cards::Cards::default(),
             _live: None,
+            local_turn: None,
         });
         self.resume_draft(window, cx);
+        self.restore_local_write();
         let read = target.clone();
         let selection = self.space_selection;
         let work = async move {
@@ -213,6 +237,11 @@ impl Desktop {
     }
 
     pub fn stop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(chat) = self.chat.as_mut().filter(|chat| chat.local_turn.is_some()) {
+            chat.local_turn = None;
+            cx.notify();
+            return;
+        }
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         let Some(target) = self.chat.as_ref().map(|chat| chat.target.clone()) else { return };
         let work = async move { api.stop(&space_id, &target).await };
@@ -418,6 +447,24 @@ impl Desktop {
     /// and the files stay in the composer until the server takes the message; if it does not,
     /// they are still there to send again.
     pub fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.place().is_some_and(|place| self.local_writes.contains_key(&place)) {
+            self.retry_local_write(window, cx);
+            return;
+        }
+        match self.local_model_selection() {
+            Ok(Some(model)) => {
+                self.start_local_turn(model, window, cx);
+                return;
+            }
+            Err(problem) => {
+                if let Some(chat) = self.chat.as_mut() {
+                    chat.error = Some(problem.into());
+                    cx.notify();
+                }
+                return;
+            }
+            Ok(None) => {}
+        }
         let (Some(api), Some(place)) = (self.api.clone(), self.place()) else { return };
         let text = self.composer.read(cx).value().to_string();
         let limit = self.max_upload_bytes();
@@ -495,6 +542,179 @@ impl Desktop {
                 Err(error) => outbox.failed(api::explain(&error)),
             }
         });
+        cx.notify();
+    }
+
+    pub(crate) fn local_cli(&self) -> Option<LocalCli> {
+        LocalCli::for_workspace(self.api.as_ref()?.client.server(), &self.me.as_ref()?.user_id, &self.space_id()?)
+    }
+
+    fn local_model_selection(&self) -> Result<Option<InstalledModel>, &'static str> {
+        let (Some(cli), Some(chat)) = (self.local_cli(), self.chat.as_ref()) else { return Ok(None) };
+        let Target::Agent(bot) = &chat.target else { return Ok(None) };
+        cli.selection(bot)
+    }
+
+    pub(crate) fn selected_local_model(&self) -> Option<InstalledModel> {
+        self.local_model_selection().ok().flatten()
+    }
+
+    pub(crate) fn pending_local_write(&self) -> Option<&LocalWrite> {
+        self.local_writes.get(&self.place()?)
+    }
+
+    fn restore_local_write(&mut self) {
+        let (Some(cli), Some(place)) = (self.local_cli(), self.place()) else { return };
+        if self.local_writes.contains_key(&place) {
+            return;
+        }
+        let Target::Agent(bot) = &place.1 else { return };
+        match cli.pending_history(bot) {
+            Ok(Some(pending)) => {
+                self.local_writes.insert(place, pending.into());
+            }
+            Ok(None) => {}
+            Err(problem) => {
+                if let Some(chat) = self.chat.as_mut() {
+                    chat.error = Some(problem.into());
+                }
+            }
+        }
+    }
+
+    pub(crate) fn send_local_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((place, text)) = self.local_input(cx) else { return };
+        self.local_writes.insert(place, LocalWrite::new(text, None));
+        self.retry_local_write(window, cx);
+    }
+
+    fn local_input(&self, cx: &App) -> Option<(Place, String)> {
+        let place = self.place()?;
+        let chat = self.chat.as_ref()?;
+        let outbox = &chat.conversation.outbox;
+        if chat.loading
+            || chat.local_turn.is_some()
+            || self.local_writes.contains_key(&place)
+            || outbox.sending
+            || !outbox.attachments.is_empty()
+        {
+            return None;
+        }
+        let text = self.composer.read(cx).value().trim().to_owned();
+        (!text.is_empty()).then_some((place, text))
+    }
+
+    fn start_local_turn(&mut self, model: InstalledModel, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(cli) = self.local_cli() else { return };
+        let Some((place, text)) = self.local_input(cx) else { return };
+        let Some(chat) = self.chat.as_mut() else { return };
+        let history = chat.entries.iter().rev().take(40).rev().filter_map(|entry| {
+            let Part::Text(body) = entry.parts.first()? else { return None };
+            let role = match entry.speaker {
+                Speaker::Person => "user",
+                Speaker::Agent => "assistant",
+                Speaker::System => return None,
+            };
+            Some(serde_json::json!({ "role": role, "content": body }))
+        });
+        let prompt = if chat.entries.is_empty() {
+            text.clone()
+        } else {
+            let messages: Vec<_> = history.chain([serde_json::json!({ "role": "user", "content": text })]).collect();
+            format!("Continue the conversation. Reply to the final user message.\n{}", Value::Array(messages))
+        };
+        chat.error = None;
+        chat.list.set_follow_mode(FollowMode::Tail);
+        chat.local_turn = Some(cx.spawn_in(window, async move |this, cx| {
+            let result = network(async move { Ok(run_local_model(&cli, &model, &prompt).await) }).await;
+            this.update_in(cx, |this, window, cx| {
+                if this.place().as_ref() != Some(&place) {
+                    return;
+                }
+                let Some(chat) = this.chat.as_mut() else { return };
+                chat.local_turn = None;
+                match result {
+                    Ok(Ok(reply)) => {
+                        this.local_writes.insert(place, LocalWrite::new(text, Some(reply)));
+                        this.retry_local_write(window, cx);
+                    }
+                    Ok(Err(problem)) => chat.error = Some(problem),
+                    Err(_) => chat.error = Some("The local CLI stopped.".into()),
+                }
+                cx.notify();
+            })
+            .ok();
+        }));
+        cx.notify();
+    }
+
+    fn retry_local_write(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (Some(api), Some(place), Some(cli)) = (self.api.clone(), self.place(), self.local_cli()) else { return };
+        let Target::Agent(bot) = &place.1 else { return };
+        let Some(write) = self.local_writes.get_mut(&place).filter(|write| !write.saving) else { return };
+        if let Err(problem) = cli.stage_history(bot, &write.payload) {
+            write.problem = Some(problem.into());
+            cx.notify();
+            return;
+        }
+        write.saving = true;
+        let payload = write.payload.clone();
+        let at = place.clone();
+        let account = self.me.as_ref().map(|me| me.user_id.clone());
+        let work = async move {
+            let (space, target) = &at;
+            match payload.reply.as_deref() {
+                Some(reply) => {
+                    api.client.append_local_turn(space, target.wire(), &payload.id, &payload.text, reply).await
+                }
+                None => api.client.append_local_note(space, target.wire(), &payload.id, &payload.text).await,
+            }
+        };
+        let id = write.payload.id.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let result = network(work).await;
+            this.update_in(cx, |this, window, cx| {
+                if this.me.as_ref().map(|me| &me.user_id) != account.as_ref() {
+                    return;
+                }
+                let visible = this.place().as_ref() == Some(&place);
+                let Some(write) = this.local_writes.get_mut(&place).filter(|write| write.payload.id == id) else {
+                    return;
+                };
+                write.saving = false;
+                if let Err(error) = result {
+                    write.problem = Some(api::explain(&error));
+                } else {
+                    let Target::Agent(bot) = &place.1 else { return };
+                    if let Err(problem) = cli.clear_history(bot, &write.payload) {
+                        write.problem = Some(problem.into());
+                        if visible {
+                            cx.notify();
+                        }
+                        return;
+                    }
+                    let text = write.payload.text.clone();
+                    this.local_writes.remove(&place);
+                    if this.place().as_ref() == Some(&place) {
+                        if this.composer.read(cx).value().trim() == text {
+                            this.composer.update(cx, |composer, cx| composer.set_value("", window, cx));
+                        }
+                        if let Some(chat) = this.chat.as_mut() {
+                            chat.list.set_follow_mode(FollowMode::Tail);
+                        }
+                    } else if let Some(draft) = this.drafts.get_mut(&place) {
+                        if draft.text.trim() == text {
+                            draft.text.clear();
+                        }
+                    }
+                }
+                if visible {
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
         cx.notify();
     }
 
@@ -683,111 +903,6 @@ fn full_message(most: usize) -> String {
     match most {
         1 => "A message carries one file.".into(),
         most => format!("A message carries up to {most} files."),
-    }
-}
-
-/// Applies one live event to the open conversation. True when the sidebar should be read again.
-fn apply_event(chat: &mut Chat, event: &ThreadEvent) -> bool {
-    let text = |key: &str| event.data.get(key).and_then(Value::as_str);
-    let flag = |key: &str| event.data.get(key).and_then(Value::as_bool).unwrap_or(false);
-    let last = Chat::row_of(chat.entries.len());
-    chat.cards.follow(event);
-    match event.kind.as_str() {
-        "thread.message.created" | "thread.message.updated" => {
-            let Some(message) = api::message_from_event(event) else { return false };
-            let seq = message.seq;
-            let id = message.id.clone();
-            let full_update = event.kind == "thread.message.updated" && !message.blocks.is_empty();
-            if let Some(entry) = Entry::read(message) {
-                chat.cards.caught_up(&entry);
-                if entry.speaker == crate::transcript::Speaker::Agent {
-                    chat.draft.clear();
-                }
-                // Only the rows that changed are measured again, so a person reading older
-                // history stays where they are.
-                match upsert(&mut chat.entries, entry, seq, clock::now()) {
-                    Placed::Replaced(index) => {
-                        let row = Chat::row_of(index);
-                        chat.list.remeasure_items(row..row + 1);
-                    }
-                    Placed::Inserted(index) => {
-                        let row = Chat::row_of(index);
-                        chat.list.splice(row..row, 1);
-                        // Its neighbours' joined corners and time stamps can change with it.
-                        chat.list.remeasure_items(row - 1..row);
-                        chat.list.remeasure_items(row + 1..row + 2);
-                    }
-                }
-                let now = Chat::row_of(chat.entries.len());
-                chat.list.remeasure_items(now..now + 1);
-            } else if full_update {
-                chat.cards.forget(&id);
-                if let Some(index) = chat.entries.iter().position(|entry| entry.id == id) {
-                    chat.entries.remove(index);
-                    let row = Chat::row_of(index);
-                    chat.list.splice(row..row + 1, 0);
-                    chat.list.remeasure_items(row.saturating_sub(1)..row + 1);
-                }
-            }
-            false
-        }
-        "thread.cleared" => {
-            chat.entries.clear();
-            chat.cards = crate::cards::Cards::default();
-            chat.draft.clear();
-            chat.conversation.older = None;
-            chat.conversation.capped = false;
-            chat.list.reset(chat.rows());
-            false
-        }
-        "thread.progress" => {
-            if flag("reset") {
-                chat.draft.clear();
-            }
-            if flag("streaming") {
-                match (text("text"), text("delta")) {
-                    (Some(whole), _) => chat.draft = whole.to_owned(),
-                    (None, Some(delta)) => chat.draft.push_str(delta),
-                    _ => {}
-                }
-            } else if let Some(status) = text("text") {
-                chat.activity = Some(status.to_owned());
-            }
-            chat.working = true;
-            chat.list.splice(last..last + 1, 1);
-            false
-        }
-        "thread.meta" => {
-            if let Some(thinking) = event.data.pointer("/activity/thinking").and_then(Value::as_bool) {
-                chat.working = true;
-                chat.activity = thinking.then(|| "Thinking…".to_owned());
-                chat.list.splice(last..last + 1, 1);
-            }
-            false
-        }
-        "run.started" => {
-            chat.working = true;
-            chat.error = None;
-            chat.list.splice(last..last + 1, 1);
-            true
-        }
-        "run.completed" | "run.cancelled" | "run.waiting_input" | "run.failed" => {
-            chat.working = false;
-            chat.activity = None;
-            chat.draft.clear();
-            if event.kind == "run.failed" {
-                let reason = event
-                    .data
-                    .get("error")
-                    .and_then(|error| error.as_str().or_else(|| error.get("message").and_then(Value::as_str)))
-                    .unwrap_or("The agent couldn't finish. Send your message again.");
-                chat.error = Some(reason.to_owned());
-            }
-            chat.list.splice(last..last + 1, 1);
-            true
-        }
-        "bot.updated" | "bot.archived" | "bot.deleted" | "bot.spawned" | "group.updated" | "group.created" => true,
-        _ => false,
     }
 }
 

@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod approval_tests;
 mod approvals;
+mod local_chat;
 mod roster;
 
 use std::{
@@ -13,8 +14,8 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use futures_util::StreamExt;
 use superbot_client::{
-    remember_server, selected_server, Agent, Client, CredentialStore, Error, MessageAuthor, SendReceipt, SignUpResult,
-    Space,
+    remember_server, selected_server, Agent, Client, CredentialStore, Error, MessageAuthor,
+    SendReceipt, SignUpResult, Space,
 };
 use superbot_features::{Features, SpaceFeatures, ThreadSnapshot, ThreadTarget};
 use uuid::Uuid;
@@ -104,7 +105,10 @@ async fn run(args: Args) -> Result<()> {
             return Ok(());
         }
         Some(Command::ImportBots { file, dry_run }) => {
-            let destination = args.space.as_deref().context("Choose the destination with --space NAME or --space ID")?;
+            let destination = args
+                .space
+                .as_deref()
+                .context("Choose the destination with --space NAME or --space ID")?;
             let names = roster::read(&file)?;
             return roster::import(connect(&client).await?, destination, names, dry_run).await;
         }
@@ -113,9 +117,17 @@ async fn run(args: Args) -> Result<()> {
     };
     let client = connect(&client).await?;
     let catalog = discover(&client, args.space.as_deref()).await?;
+    let me: serde_json::Value = client
+        .rpc("me", None, serde_json::json!({}))
+        .await
+        .map_err(auth_hint)?;
+    let account = me
+        .get("userId")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
     if let Some(name) = agent_name {
         let (space, agent) = find_agent(&catalog, &name)?;
-        chat(&client, space, agent).await?;
+        chat(&client, account, space, agent).await?;
     } else {
         loop {
             let options: Vec<_> = catalog
@@ -150,7 +162,7 @@ async fn run(args: Args) -> Result<()> {
                 eprintln!("Choose a number from 1 to {}.", options.len());
                 continue;
             };
-            if !chat(&client, space, agent).await? {
+            if !chat(&client, account, space, agent).await? {
                 break;
             }
         }
@@ -311,7 +323,8 @@ fn auth_hint(error: Error) -> anyhow::Error {
     }
 }
 
-async fn chat(client: &Client, space: &Space, agent: &Agent) -> Result<bool> {
+async fn chat(client: &Client, account: &str, space: &Space, agent: &Agent) -> Result<bool> {
+    let local = local_chat::LocalChat::open(client, account, space, agent);
     let features = Features::new(client.clone());
     let thread = ChatThread {
         space: features.space(&space.id),
@@ -338,7 +351,22 @@ async fn chat(client: &Client, space: &Space, agent: &Agent) -> Result<bool> {
             &approvals::message_text(message),
         );
     }
-    resume_waiting(&thread, &snapshot, &mut cursor, &mut read_approval).await?;
+    let pending = local
+        .as_ref()
+        .map(|chat| chat.has_pending())
+        .transpose()?
+        .unwrap_or(false);
+    if pending {
+        println!("A local message is waiting to be saved. Type /retry to save it.");
+    } else if local
+        .as_ref()
+        .map(|chat| chat.selection())
+        .transpose()?
+        .flatten()
+        .is_none()
+    {
+        resume_waiting(&thread, &snapshot, &mut cursor, &mut read_approval).await?;
+    }
     println!("Type a message and press Enter. /back returns to the picker. /quit exits.");
     loop {
         let Some(input) = prompt("You > ").await? else {
@@ -349,6 +377,17 @@ async fn chat(client: &Client, space: &Space, agent: &Agent) -> Result<bool> {
             "/quit" => return Ok(false),
             "/back" => return Ok(true),
             _ => {}
+        }
+        if let Some(local) = &local {
+            match local.handle(client, &thread, input.trim()).await {
+                Ok(true) => continue,
+                Ok(false) => {}
+                Err(error) if thread.interactive => {
+                    eprintln!("{}", terminal_text(&format!("{error:#}")));
+                    continue;
+                }
+                Err(error) => return Err(error),
+            }
         }
         let nonce = Uuid::new_v4().to_string();
         let send = || client.send_with_nonce(&space.id, &agent.id, &input, &nonce);
@@ -572,7 +611,7 @@ fn print_message(agent: &Agent, role: &str, author: Option<&MessageAuthor>, text
     let name = match role {
         "user" => author.map_or("Member", |author| author.name.as_str()),
         "bot" => &agent.name,
-        _ => "Rakazo",
+        _ => "Superbot",
     };
     println!("{} > {}", terminal_text(name), terminal_text(text));
 }

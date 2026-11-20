@@ -1,6 +1,6 @@
 # Superbot
 
-Superbot brings shared Rakazo workspaces to a native Rust desktop and command line. Teammates connect to the same server with separate accounts. A workspace holds its bots, conversations, files, and memberships. Community publishers can submit versioned plugins and workspace members can grant approved capabilities to individual agents.
+Superbot is a native Rust desktop and command-line client for shared agent workspaces. Teammates connect to the same server with separate accounts. A workspace holds its bots, conversations, files, and memberships. Community publishers can submit versioned plugins and workspace members can grant approved capabilities to individual agents.
 
 ## Run a workspace
 
@@ -55,9 +55,9 @@ The [integration verification](docs/superbot/integration-verification.md) covers
 The [landing page](superbot-site/index.html) and [plugin developer guide](superbot-site/docs/index.html) are static files. From the repository root, preview them locally after installing the web dependencies:
 
 ```sh
-pnpm --filter @rakazo/web exec vite preview --outDir ../../superbot-site --host 127.0.0.1 --port 5363
+pnpm --dir apps/web exec vite preview --outDir ../../superbot-site --host 127.0.0.1 --port 5363
 ```
 
 ## Project structure
 
-The Rust workspace under `native/` contains the GPUI desktop, command line and API clients. The Rakazo API, worker, database, provider adapters, web and mobile applications remain in this repository. The upstream guide documents model configuration, sandboxes and the broader feature set. Use the parity map to see which operations have native coverage. [Feature coverage](docs/superbot/parity.md) · [Upstream Rakazo guide](README.rakazo.md) · [License](LICENSE) · [Notices](NOTICE)
+The Rust workspace under `native/` contains the GPUI desktop, command line and API clients. The server API, worker, database, provider adapters, web client and mobile apps share the same workspace contracts. [Feature coverage](docs/superbot/parity.md) · [License](LICENSE) · [Notices](NOTICE)

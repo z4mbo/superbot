@@ -8,6 +8,7 @@ use superbot_features::{
 
 use crate::icons::{icon, Glyph};
 use crate::panel::{detail_header, WorkspacePanel};
+use crate::sections::local_models::local_sign_in;
 use crate::sections::models::{glyph_plate, Page};
 use crate::theme::Tokens;
 use crate::ui::{self, Action, Row, Toggle, Tone};
@@ -435,7 +436,10 @@ impl WorkspacePanel {
         let shown = |name: &str| query.is_empty() || name.to_lowercase().contains(&query);
         let mut rows: Vec<Row> = Vec::new();
         for provider in &providers {
-            if shown(&provider.name) {
+            if shown(&provider.name)
+                && !(provider.method == ConnectMethod::SignIn
+                    && local_sign_in(&provider.id).is_some())
+            {
                 rows.push(self.provider_row(provider, None, t, cx));
             }
             for preset in &provider.endpoint_presets {
@@ -480,18 +484,13 @@ impl WorkspacePanel {
             ),
             (ConnectMethod::Key, None) if !provider.native() => (
                 provider.name.clone(),
-                "Finished in the browser",
-                Glyph::KeyRound,
-            ),
-            (ConnectMethod::Key, None) if provider.sign_in => (
-                provider.name.clone(),
-                "API key or account sign-in",
+                "Requires unsupported connection fields",
                 Glyph::KeyRound,
             ),
             (ConnectMethod::Key, None) => (provider.name.clone(), "API key", Glyph::KeyRound),
             (ConnectMethod::SignIn, None) => (
                 provider.name.clone(),
-                "Account sign-in, in the browser",
+                "Account sign-in unavailable",
                 Glyph::KeyRound,
             ),
         };
@@ -499,27 +498,15 @@ impl WorkspacePanel {
             Some(preset) => format!("provider-{}-{}", provider.id, preset.name),
             None => format!("provider-{}", provider.id),
         });
-        let native = provider.native() || preset.is_some();
+
         let opened = provider.clone();
         let preset = preset.cloned();
         Row::new(id, name)
             .leading(glyph_plate(glyph, t))
             .detail(detail)
-            .trailing(icon(
-                if native {
-                    Glyph::ChevronRight
-                } else {
-                    Glyph::ExternalLink
-                },
-                16.,
-                t.ink_tertiary,
-            ))
+            .trailing(icon(Glyph::ChevronRight, 16., t.ink_tertiary))
             .on_click(cx.listener(move |panel, _, window, cx| {
-                if opened.method == ConnectMethod::Key && !opened.native() {
-                    panel.open_web_models(cx);
-                } else {
-                    panel.open_provider(&opened, preset.as_ref(), window, cx);
-                }
+                panel.open_provider(&opened, preset.as_ref(), window, cx);
             }))
     }
 
@@ -542,13 +529,20 @@ impl WorkspacePanel {
         };
         let title = preset.map_or_else(|| provider.name.clone(), str::to_owned);
         let header = detail_header(title, back, [], t);
+        if preset.is_none() && provider.method == ConnectMethod::Key && !provider.native() {
+            return div().flex().flex_col().child(header).child(ui::notice(
+                "This provider requires connection fields the desktop does not support.",
+                None,
+                t,
+            ));
+        }
         let body = match provider.method {
             ConnectMethod::SignIn => {
-                return div()
-                    .flex()
-                    .flex_col()
-                    .child(header)
-                    .child(self.render_sign_in(&provider, t, cx))
+                return div().flex().flex_col().child(header).child(ui::notice(
+                    "Account sign-in is unavailable for this connection.",
+                    None,
+                    t,
+                ))
             }
             ConnectMethod::Server => self.render_server_fields(preset.is_some(), t, window, cx),
             ConnectMethod::Key => self.render_key_fields(&provider, t, window, cx),
@@ -600,26 +594,6 @@ impl WorkspacePanel {
             .child(header.pb_0())
             .child(body)
             .child(footer)
-    }
-
-    fn render_sign_in(&self, provider: &ModelProvider, t: &Tokens, cx: &mut Context<Self>) -> Div {
-        let label = provider
-            .sign_in_label
-            .clone()
-            .unwrap_or_else(|| "Continue in the browser".to_owned());
-        ui::card(t)
-            .child(ui::body(
-                format!("{} connects with an account sign-in, which finishes in the browser. This list updates when you come back.", provider.name),
-                t.ink_secondary,
-            ))
-            .child(
-                div().flex().child(
-                    Action::new("continue-in-browser", label)
-                        .tone(Tone::Primary)
-                        .glyph(Glyph::ExternalLink)
-                        .on_click(cx.listener(|panel, _, _, cx| panel.open_web_models(cx))),
-                ),
-            )
     }
 
     fn render_server_fields(
@@ -831,17 +805,6 @@ impl WorkspacePanel {
             .gap_5()
             .child(connection)
             .child(self.model_list(rows, t, cx))
-            .when(provider.sign_in, |this| {
-                this.child(
-                    div().flex().child(
-                        Action::new("sign-in-instead", "Sign in with an account instead")
-                            .tone(Tone::Link)
-                            .small()
-                            .glyph(Glyph::ExternalLink)
-                            .on_click(cx.listener(|panel, _, _, cx| panel.open_web_models(cx))),
-                    ),
-                )
-            })
     }
 
     /// A list of models to choose one from, short until **Show all**.

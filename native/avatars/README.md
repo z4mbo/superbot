@@ -65,27 +65,46 @@ and so is a shape whose frames file cannot be read. The pack is read once at sta
 One JSON file per shape. Each frame is a whole single-colour SVG; the app paints it in the
 bot's colour, so holes (the eyes) show the surface behind.
 
-| Field                        | What it holds                                                                 |
-| ---------------------------- | ----------------------------------------------------------------------------- |
-| `version`, `fps`             | 1, and the frame rate the loops were taken at                                 |
-| `rest`                       | The still pose                                                                |
-| `gazeX`, `gazeY`, `easeMs`   | The pointer grid (−1 to 1, y up) and the times of each turning frame          |
-| `gaze[]`                     | Per grid point, rows of `gazeY` then `gazeX`: `approach[]`, `settled`, `leave[]` |
-| `working`, `workingCompact`  | Seamless loops for a bot at work, normal and compact                          |
+| Field                       | What it holds                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `version`, `fps`            | 2, and the frame rate the loops and bridges were taken at                            |
+| `rest`                      | The still pose                                                                       |
+| `gazeRate`                  | How fast a turn closes its gap, per second: `e^(−gazeRate·t)` of it is left          |
+| `gazeX`, `gazeY`, `holds`   | The pointer grid (−1 to 1, y up) and the hold levels, rising to 1                    |
+| `gaze[]`                    | Per grid point, rows of `gazeY` then `gazeX`: `frames[]`, one per hold               |
+| `working`, `workingCompact` | Seamless loops for a bot at work, normal and compact                                 |
+| `start`, `startJoin`        | The bridge from rest into work, and the `working` frame it hands over to             |
+| `stop[]`                    | Bridges to rest: `at`, the `working` frame each starts from, and its `frames[]`       |
 
 The pointer is measured from the mark's centre in half-squares, as `(pointer − centre) /
-(square / 2)`, clamped. Turning toward a point plays `approach` at the `easeMs` times and
-holds `settled`; leaving or pressing plays `leave` back to `rest`. Each bot starts the shared
-working loop at its own place, so bots at work move out of step.
+(square / 2)`, clamped. A mark has a gaze point and a hold, from 0 at rest to 1 fully turned.
+While the pointer is over its region the point chases the pointer and the hold rises to 1;
+when it leaves or presses, the hold falls to 0. Both close their gap at `gazeRate`, and from
+rest the point starts at the pointer. Each moment shows the grid pose nearest the point at
+the nearest hold, so a turn follows a moving pointer and a brief hover turns only part way.
+
+A bot that starts work while its mark is shown plays `start`, then the loop from `startJoin`;
+one shown already at work starts the shared loop at its own place, so bots at work move out of
+step. When work ends, the loop runs on to the next `stop` bridge and plays it to rest; work
+that ends during `start` plays `start` back to rest. A mark still under the pointer then turns
+again from rest.
+
+Frames files in format 1 still load. Their `gazeX`, `gazeY`, `easeMs` and `gaze[]` hold
+`approach[]`, `settled` and `leave[]` per grid point; a frame taken `t` into a turn counts
+as the hold the turn had reached, `1 − e^(−rate·t)` toward the pointer and `e^(−rate·t)` back,
+at the rate those files were all taken at (9.05 per second). They have no bridges, so their
+marks cut between rest and work.
 
 ## Measured limits
 
 - One loop per shape: two bots of the same shape at work move the same way, offset in time.
-- The pointer snaps between grid points while it moves over a region; only the first turn and
-  the return to rest are eased.
+- The gaze grid is 9 × 5 points; between points the pose steps to the nearest one.
+- Compact marks (smaller than `compactBelow`) have no bridges: they cut between rest and work.
+- A stop waits for the next captured bridge, up to the pack's spacing between them.
 - Only the sidebar's rows and tiles and the chat header pill turn toward the pointer. Group
   avatars, mention lists, the plugin page and the workspace panel keep the still pose (the
   panel's activity rows move while a run is in progress).
-- Loops and turns are GPUI animations, which hold still when GPUI's reduce-motion setting is
-  on; whether that follows the system setting on each platform was not checked.
-- In a debug build, three marks at work cost about a fifth of one core on Windows.
+- With GPUI's reduce-motion setting on, marks are drawn where a turn or bridge ends and loops
+  hold still (not checked in the app, nor whether the setting follows the system).
+- Gradient colours are rasterised by the app for each frame shown and kept, up to 1,500
+  images, then drawn again as needed.

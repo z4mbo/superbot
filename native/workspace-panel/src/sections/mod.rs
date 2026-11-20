@@ -4,6 +4,7 @@ pub(crate) mod board;
 pub(crate) mod bots;
 pub(crate) mod files;
 pub(crate) mod groups;
+pub(crate) mod local_models;
 pub(crate) mod model_connect;
 pub(crate) mod models;
 pub(crate) mod people;

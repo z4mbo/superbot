@@ -32,6 +32,11 @@ impl Desktop {
         let theme = cx.skin().clone();
         let menu = self.menu.as_ref()?;
         let (items, anchor) = match &menu.kind {
+            MenuKind::New => return Some(self.render_new_menu(cx)),
+            MenuKind::Model(bot_id) => {
+                let bot_id = bot_id.clone();
+                return Some(self.render_model_menu(&bot_id, cx));
+            }
             MenuKind::Spaces => {
                 let current = self.space_id();
                 let mut items = vec![Item::Label("Spaces".into())];
@@ -178,7 +183,6 @@ impl Desktop {
         let theme = cx.skin().clone();
         let dialog = self.dialog.as_ref()?;
         let (title, label, action, working) = match dialog.kind {
-            DialogKind::NewAgent => ("New agent", "Name", "Create agent", "Creating…"),
             DialogKind::NewSpace => ("New space", "Name", "Create space", "Creating…"),
             DialogKind::RenameAgent(_) => ("Rename agent", "Name", "Save", "Saving…"),
         };

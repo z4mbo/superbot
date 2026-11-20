@@ -361,7 +361,7 @@ fn select_space<'a>(spaces: &'a [Space], selection: Option<&str>) -> Result<&'a 
     }
     match spaces {
         [space] => Ok(space),
-        [] => bail!("Join or create a Space in Rakazo first"),
+        [] => bail!("Join or create a Space in Superbot first"),
         _ => {
             let names = spaces
                 .iter()

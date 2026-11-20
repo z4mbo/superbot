@@ -8,7 +8,7 @@ under a different account from the bot's owner, shared-channel runs, and creatio
 intros.
 
 The runtime adapter lives in `packages/adapters/src/integrations/marketplace-runtime.ts`.
-It translates granted parts into regular Rakazo connector tools. Calls go through
+It translates granted parts into regular Superbot connector tools. Calls go through
 the existing executor, approval queue, and effect recording. The internal route
 binds an approval to the installation, version, part and tool schema. Arguments are
 restored from the approval record on replay. Execution checks the live grant again

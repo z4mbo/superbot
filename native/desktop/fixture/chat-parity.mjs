@@ -19,7 +19,7 @@ import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { startModelEmulator } from "../../../packages/testkit/src/model-emulator.ts";
+import { startModelEmulator } from "../../../scripts/superbot-test-support.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const exec = promisify(execFile);

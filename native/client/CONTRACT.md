@@ -6,7 +6,7 @@ is the local Superbot hosting origin, `http://127.0.0.1:5173`.
 
 | Method                                                                           | Result                                                                                               |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `client.with_token(token)`                                                       | A client with a signed Rakazo bearer                                                                 |
+| `client.with_token(token)`                                                       | A client with a signed Superbot bearer                                                                 |
 | `client.sign_up(name, email, password).await`                                    | `SignUpResult::SignedIn(Client)` or `SignUpResult::VerifyEmail` according to server admission policy |
 | `client.sign_in(email, password).await`                                          | An authenticated client                                                                              |
 | `client.request_sign_in_code(email).await`                                       | Requests an email code                                                                               |

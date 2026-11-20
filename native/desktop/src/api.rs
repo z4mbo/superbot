@@ -163,6 +163,7 @@ pub struct GroupSummary {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Author {
+    pub id: Option<String>,
     pub name: String,
 }
 
@@ -181,6 +182,8 @@ pub struct WireMessage {
     pub bot_id: Option<String>,
     #[serde(default)]
     pub author: Option<Author>,
+    #[serde(default)]
+    pub origin: Option<String>,
     #[serde(default)]
     pub run_id: Option<String>,
     /// When the server stored the message, as RFC 3339.
@@ -265,11 +268,13 @@ pub fn message_from_event(event: &ThreadEvent) -> Option<WireMessage> {
         bot_id: Option<String>,
         #[serde(default)]
         author: Option<Author>,
+        origin: Option<String>,
     }
     let payload: Payload = serde_json::from_value(event.data.clone()).ok()?;
     let role = payload.role.unwrap_or_else(|| "bot".into());
     // A bot's reply names its bot on the event, not in the message.
-    let speaking_bot = if role == "bot" { event.bot_id.clone() } else { None };
+    let speaking_bot =
+        if role == "bot" && payload.origin.as_deref() != Some("local_cli") { event.bot_id.clone() } else { None };
     Some(WireMessage {
         id: payload.message_id,
         seq: payload.seq,
@@ -277,6 +282,7 @@ pub fn message_from_event(event: &ThreadEvent) -> Option<WireMessage> {
         blocks: payload.blocks,
         bot_id: payload.bot_id.or(speaking_bot),
         author: payload.author,
+        origin: payload.origin,
         run_id: event.run_id.clone(),
         created_at: None,
     })
@@ -339,7 +345,7 @@ struct Page<T> {
     next_after: Option<String>,
 }
 
-/// Every Rakazo call the interface makes, bound to one signed-in session.
+/// Every Superbot call the interface makes, bound to one signed-in session.
 #[derive(Clone)]
 pub struct Api {
     pub client: Client,
