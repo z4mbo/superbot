@@ -13,6 +13,8 @@ pub const MAX_PLUGIN_PARTS: usize = 16;
 pub const MAX_SKILL_INSTRUCTIONS: usize = 16000;
 pub const MAX_ENDPOINT: usize = 2048;
 pub const MAX_SLUG: usize = 64;
+pub const MAX_APP_FIELDS: usize = 16;
+pub const MAX_APP_FIELD_LABEL: usize = 120;
 /// The largest `plugin.json` a client reads; the registry limits keep a real
 /// manifest far below it.
 pub const MAX_MANIFEST_BYTES: usize = 2 * 1024 * 1024;
@@ -42,6 +44,53 @@ pub enum PluginPart {
         transport: McpTransport,
         endpoint: String,
     },
+    /// A form people fill in to keep records, which the registry stores per
+    /// installation. Uninstalling the plugin deletes those records.
+    App {
+        id: String,
+        fields: Vec<AppField>,
+        /// A number field the app totals across the records it shows.
+        #[serde(
+            rename = "summaryField",
+            default,
+            skip_serializing_if = "Option::is_none"
+        )]
+        summary_field: Option<String>,
+    },
+}
+
+/// One input of an app part's form.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AppField {
+    pub id: String,
+    pub label: String,
+    #[serde(rename = "type")]
+    pub kind: AppFieldKind,
+    pub required: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AppFieldKind {
+    Text,
+    Number,
+    Date,
+}
+
+impl AppFieldKind {
+    pub const ALL: [Self; 3] = [Self::Text, Self::Number, Self::Date];
+
+    fn parse(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.as_str() == value)
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Number => "number",
+            Self::Date => "date",
+        }
+    }
 }
 
 /// The only transport a registry MCP part may use.
@@ -55,7 +104,7 @@ pub enum McpTransport {
 impl PluginPart {
     pub fn id(&self) -> &str {
         match self {
-            Self::Skill { id, .. } | Self::Mcp { id, .. } => id,
+            Self::Skill { id, .. } | Self::Mcp { id, .. } | Self::App { id, .. } => id,
         }
     }
 }
@@ -220,7 +269,7 @@ fn read_part(value: &Value, index: usize) -> Result<PluginPart, ManifestError> {
     let kind = value.get("kind").and_then(Value::as_str).ok_or_else(|| {
         unsupported(
             &path,
-            format!("Part {place} needs a “kind” of skill or mcp."),
+            format!("Part {place} needs a “kind” of skill, mcp or app."),
         )
     })?;
     match kind {
@@ -251,11 +300,96 @@ fn read_part(value: &Value, index: usize) -> Result<PluginPart, ManifestError> {
                 endpoint: text(part, &path, "endpoint")?,
             })
         }
+        "app" => {
+            let part = object(
+                value,
+                &path,
+                "A part",
+                &["kind", "id", "fields", "summaryField"],
+            )?;
+            let fields = match part.get("fields") {
+                Some(Value::Array(fields)) => fields,
+                Some(_) => {
+                    return Err(unsupported(
+                        format!("{path}.fields"),
+                        "“fields” must be a list.",
+                    ))
+                }
+                None => {
+                    return Err(unsupported(
+                        format!("{path}.fields"),
+                        "“fields” is missing.",
+                    ))
+                }
+            };
+            if fields.len() > MAX_APP_FIELDS * 4 {
+                return Err(unsupported(
+                    format!("{path}.fields"),
+                    format!("Part {place} has far more fields than an app can have."),
+                ));
+            }
+            let summary_field = match part.get("summaryField") {
+                None => None,
+                Some(Value::String(field)) => Some(field.clone()),
+                Some(_) => {
+                    return Err(unsupported(
+                        format!("{path}.summaryField"),
+                        "“summaryField” must be text.",
+                    ))
+                }
+            };
+            Ok(PluginPart::App {
+                id: text(part, &path, "id")?,
+                fields: fields
+                    .iter()
+                    .enumerate()
+                    .map(|(index, field)| read_field(field, &format!("{path}.fields[{index}]")))
+                    .collect::<Result<_, _>>()?,
+                summary_field,
+            })
+        }
         other => Err(unsupported(
             format!("{path}.kind"),
-            format!("Part {place} is a “{other}”. Plugins have skills and mcp connectors."),
+            format!("Part {place} is a “{other}”. Plugins have skills, mcp connectors and apps."),
         )),
     }
+}
+
+fn read_field(value: &Value, path: &str) -> Result<AppField, ManifestError> {
+    let field = object(
+        value,
+        path,
+        "An app field",
+        &["id", "label", "type", "required"],
+    )?;
+    let kind = text(field, path, "type")?;
+    let kind = AppFieldKind::parse(&kind).ok_or_else(|| {
+        unsupported(
+            format!("{path}.type"),
+            format!("“{kind}” isn't a field type. Use text, number or date."),
+        )
+    })?;
+    let required = match field.get("required") {
+        Some(Value::Bool(required)) => *required,
+        Some(_) => {
+            return Err(unsupported(
+                format!("{path}.required"),
+                "“required” must be true or false.",
+            ))
+        }
+        None => {
+            return Err(unsupported(
+                format!("{path}.required"),
+                "“required” is missing.",
+            ))
+        }
+    };
+    Ok(AppField {
+        id: text(field, path, "id")?,
+        label: text(field, path, "label")?,
+        kind,
+        required,
+    })
 }
 
 impl PluginManifest {
@@ -284,7 +418,10 @@ impl PluginManifest {
             )
         })?;
         if self.parts.is_empty() {
-            return Err(invalid("parts", "Add at least one skill or connector."));
+            return Err(invalid(
+                "parts",
+                "Add at least one skill, connector or app.",
+            ));
         }
         if self.parts.len() > MAX_PLUGIN_PARTS {
             return Err(invalid("parts", "A plugin can have 16 parts."));
@@ -331,6 +468,11 @@ impl PluginManifest {
                         )
                     })?,
                 },
+                PluginPart::App {
+                    fields,
+                    summary_field,
+                    ..
+                } => normalized_app(id, fields, summary_field.as_deref(), &path, place)?,
             });
         }
         Ok(PluginManifest {
@@ -347,6 +489,97 @@ impl PluginManifest {
         bytes.push(b'\n');
         bytes
     }
+}
+
+fn normalized_app(
+    id: &str,
+    fields: &[AppField],
+    summary_field: Option<&str>,
+    path: &str,
+    place: usize,
+) -> Result<PluginPart, ManifestError> {
+    if fields.is_empty() {
+        return Err(invalid(
+            format!("{path}.fields"),
+            format!("Part {place} needs at least one field."),
+        ));
+    }
+    if fields.len() > MAX_APP_FIELDS {
+        return Err(invalid(
+            format!("{path}.fields"),
+            format!("Part {place} can have {MAX_APP_FIELDS} fields."),
+        ));
+    }
+    let mut ids = HashSet::new();
+    let mut normalized = Vec::with_capacity(fields.len());
+    for (index, field) in fields.iter().enumerate() {
+        let at = format!("{path}.fields[{index}]");
+        let number = index + 1;
+        if !is_plugin_slug(&field.id) {
+            return Err(invalid(
+                format!("{at}.id"),
+                format!("Field {number} of part {place} needs an identifier in lowercase letters, digits and single hyphens."),
+            ));
+        }
+        if !ids.insert(field.id.as_str()) {
+            return Err(invalid(
+                format!("{at}.id"),
+                format!(
+                    "Two fields of part {place} are called {}. Give each its own identifier.",
+                    field.id
+                ),
+            ));
+        }
+        normalized.push(AppField {
+            label: app_field_label(&field.label).map_err(|message| {
+                invalid(
+                    format!("{at}.label"),
+                    format!("Field {number} of part {place}: {message}"),
+                )
+            })?,
+            ..field.clone()
+        });
+    }
+    if let Some(summary) = summary_field {
+        if !fields
+            .iter()
+            .any(|field| field.id == summary && field.kind == AppFieldKind::Number)
+        {
+            return Err(invalid(
+                format!("{path}.summaryField"),
+                format!("Part {place} totals “{summary}”, which isn't one of its number fields."),
+            ));
+        }
+    }
+    Ok(PluginPart::App {
+        id: id.to_owned(),
+        fields: normalized,
+        summary_field: summary_field.map(str::to_owned),
+    })
+}
+
+/// The label the registry stores. Unlike names, the registry measures a
+/// label's length before trimming it.
+fn app_field_label(label: &str) -> Result<String, &'static str> {
+    if label.encode_utf16().count() > MAX_APP_FIELD_LABEL {
+        return Err("a label can be at most 120 characters.");
+    }
+    let trimmed = registry_trim(label);
+    if trimmed.is_empty() {
+        return Err("give it a label.");
+    }
+    if trimmed.chars().any(|ch| ch == '\0' || is_bidi_control(ch)) {
+        return Err("remove the hidden control characters from its label.");
+    }
+    Ok(trimmed.to_owned())
+}
+
+/// The Unicode `Bidi_Control` property, which the registry refuses in labels.
+fn is_bidi_control(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'
+    )
 }
 
 /// Lowercase ASCII letters and digits in segments joined by single hyphens,
@@ -415,6 +648,165 @@ mod tests {
 
     fn app() -> Value {
         serde_json::from_str(MCP_APP).unwrap()
+    }
+
+    const KCAL_DIARY: &str = include_str!("../../../examples/plugins/kcal-diary/plugin.json");
+
+    fn diary() -> Value {
+        serde_json::from_str(KCAL_DIARY).unwrap()
+    }
+
+    #[test]
+    fn the_record_app_example_round_trips_byte_for_byte() {
+        let manifest = read_manifest(KCAL_DIARY.as_bytes())
+            .unwrap()
+            .normalized()
+            .unwrap();
+        assert_eq!(manifest.to_file_bytes(), KCAL_DIARY.as_bytes());
+        let PluginPart::App {
+            id,
+            fields,
+            summary_field,
+        } = &manifest.parts[0]
+        else {
+            panic!("the example is an app");
+        };
+        assert_eq!(id, "meals");
+        assert_eq!(summary_field.as_deref(), Some("kcal"));
+        assert_eq!(
+            fields
+                .iter()
+                .map(|field| (
+                    field.id.as_str(),
+                    field.label.as_str(),
+                    field.kind,
+                    field.required
+                ))
+                .collect::<Vec<_>>(),
+            [
+                ("date", "Date", AppFieldKind::Date, true),
+                ("meal", "Meal", AppFieldKind::Text, true),
+                ("kcal", "Calories (kcal)", AppFieldKind::Number, true),
+            ]
+        );
+
+        let mut untotalled = diary();
+        untotalled["parts"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("summaryField");
+        let written = read(&untotalled)
+            .unwrap()
+            .normalized()
+            .unwrap()
+            .to_file_bytes();
+        assert!(!String::from_utf8(written).unwrap().contains("summaryField"));
+    }
+
+    #[test]
+    fn app_shapes_a_plugin_cannot_carry_are_refused() {
+        for (pointer, value) in [
+            ("/parts/0/fields", json!({})),
+            ("/parts/0/fields/0/type", json!("boolean")),
+            ("/parts/0/fields/0/required", json!("yes")),
+            ("/parts/0/fields/0/label", json!(3)),
+            ("/parts/0/summaryField", json!(null)),
+            (
+                "/parts/0/fields",
+                json!(vec![diary()["parts"][0]["fields"][0].clone(); 65]),
+            ),
+        ] {
+            let mut wrong = diary();
+            *wrong.pointer_mut(pointer).unwrap() = value;
+            assert!(read(&wrong).unwrap_err().unsupported, "{pointer}");
+        }
+        let mut extra = diary();
+        extra["parts"][0]["fields"][0]["default"] = json!("today");
+        assert_eq!(read(&extra).unwrap_err().path, "parts[0].fields[0].default");
+        let mut missing = diary();
+        missing["parts"][0]["fields"][1]
+            .as_object_mut()
+            .unwrap()
+            .remove("required");
+        assert!(read(&missing).unwrap_err().unsupported);
+    }
+
+    #[test]
+    fn app_limits_match_the_registry() {
+        let field =
+            |id: String| json!({ "id": id, "label": "Value", "type": "number", "required": false });
+        for (pointer, value, path) in [
+            ("/parts/0/fields", json!([]), "parts[0].fields"),
+            (
+                "/parts/0/fields",
+                json!((0..17).map(|n| field(format!("v{n}"))).collect::<Vec<_>>()),
+                "parts[0].fields",
+            ),
+            (
+                "/parts/0/fields/1/id",
+                json!("date"),
+                "parts[0].fields[1].id",
+            ),
+            (
+                "/parts/0/fields/1/id",
+                json!("Meal"),
+                "parts[0].fields[1].id",
+            ),
+            (
+                "/parts/0/fields/1/label",
+                json!(" \u{3000} "),
+                "parts[0].fields[1].label",
+            ),
+            (
+                "/parts/0/fields/1/label",
+                json!("x".repeat(121)),
+                "parts[0].fields[1].label",
+            ),
+            (
+                "/parts/0/fields/1/label",
+                json!("Meal\u{202e}"),
+                "parts[0].fields[1].label",
+            ),
+            (
+                "/parts/0/fields/1/label",
+                json!("Me\u{0}al"),
+                "parts[0].fields[1].label",
+            ),
+            (
+                "/parts/0/summaryField",
+                json!("meal"),
+                "parts[0].summaryField",
+            ),
+            (
+                "/parts/0/summaryField",
+                json!("calories"),
+                "parts[0].summaryField",
+            ),
+        ] {
+            let mut wrong = diary();
+            *wrong.pointer_mut(pointer).unwrap() = value;
+            let error = read(&wrong).unwrap().normalized().unwrap_err();
+            assert!(!error.unsupported);
+            assert_eq!(error.path, path, "{pointer}");
+        }
+        let mut sixteen = diary();
+        sixteen["parts"][0]["fields"] =
+            json!((0..16).map(|n| field(format!("v{n}"))).collect::<Vec<_>>());
+        sixteen["parts"][0]["summaryField"] = json!("v15");
+        assert!(read(&sixteen).unwrap().normalized().is_ok());
+
+        let mut padded = diary();
+        padded["parts"][0]["fields"][1]["label"] = json!(format!(" {} ", "x".repeat(118)));
+        let normalized = read(&padded).unwrap().normalized().unwrap();
+        let PluginPart::App { fields, .. } = &normalized.parts[0] else {
+            unreachable!()
+        };
+        assert_eq!(fields[1].label, "x".repeat(118));
+        padded["parts"][0]["fields"][1]["label"] = json!(format!(" {} ", "x".repeat(119)));
+        assert!(
+            read(&padded).unwrap().normalized().is_err(),
+            "the registry measures labels before trimming"
+        );
     }
 
     fn read(value: &Value) -> Result<PluginManifest, ManifestError> {

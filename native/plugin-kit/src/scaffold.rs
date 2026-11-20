@@ -13,6 +13,8 @@ use crate::manifest::{check_slug, Manifest};
 pub enum Template {
     Skill,
     McpApp,
+    /// A record app: a calorie diary whose meals the registry keeps per installation.
+    KcalDiary,
 }
 
 pub fn write(
@@ -25,6 +27,7 @@ pub fn write(
     let manifest = match template {
         Template::Skill => Manifest::starter_skill(name.unwrap_or_else(|| slug.replace('-', " "))),
         Template::McpApp => Manifest::starter_mcp_app(name)?,
+        Template::KcalDiary => Manifest::starter_kcal_diary(name)?,
     };
     let manifest_bytes = manifest.to_validated_bytes()?;
     let mut files = vec![(manifest_path.to_owned(), manifest_bytes.as_slice())];

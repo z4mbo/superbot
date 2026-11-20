@@ -609,7 +609,7 @@ answered with `threads/answer`.
 
 ## 10. Plugin creator page
 
-The desktop store opens a native form for skills and connectors. It submits a version
+The desktop store opens a native form for skills, connectors and apps. It submits a version
 and displays the result in Yours. The CLI operates on a local `plugin.json` with the
 same schema, and the form opens and saves that file ("File round trip", Live). The
 preview column, footer bar and slug availability check below are planned.
@@ -633,6 +633,12 @@ Opened from "New plugin…" or "My plugins" → a plugin → "New version…". T
      1–16,000 chars, a 12px tabular count appears from 90%.
    - Tool: Endpoint field (`https://…`), transport fixed to "Streamable HTTP" shown as a
      value, not a control.
+   - App (Live): a form people fill in to keep records. One row per field (1–16) under
+     a single column header "Label · Identifier · Type · Required": label field (≤120
+     chars), identifier field (slug pattern, unique in the app), Text / Number / Date
+     chips, a Required checkbox, and `x` when more than one field remains; "Add field"
+     below. Once a number field exists, a "Total" chip row offers None or each number
+     field by label. Changing that field's type or removing it resets Total to None.
 3. Version: a read-only value "Version {n}" (next integer for this slug).
 
 Inline validation, each message under its field, in `danger` 12px:
@@ -654,7 +660,8 @@ shared `superbot_features::plugin_manifest` module that `superbot-plugin` also u
 limits, trimming and endpoint rules match the registry, and saved bytes match the CLI.
 
 - Open reads the whole file before touching the form. Another schema version, a part
-  kind other than skill or mcp, another transport, or any extra field is refused with
+  kind other than skill, mcp or app, a field type other than text, number or date,
+  another transport, or any extra field is refused with
   one line naming it (secrets and commands use the copy above); the form is unchanged.
   Values over the limits load, with "Fix this before submitting: …" in the error line.
   Name, description and parts are replaced; identifier and version never are, so a new

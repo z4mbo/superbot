@@ -2,19 +2,19 @@ use std::fs::{self, File};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 
-use gpui_kit::component::input::{InputState, Textarea, TextareaState};
+use gpui_kit::component::input::{Input, InputState, Textarea, TextareaState};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use superbot_features::plugin_manifest::{
-    is_plugin_slug, read_manifest, McpTransport, PluginManifest, PluginPart, MANIFEST_SCHEMA_VERSION,
-    MAX_MANIFEST_BYTES, MAX_PLUGIN_PARTS,
+    is_plugin_slug, read_manifest, AppField, AppFieldKind, McpTransport, PluginManifest, PluginPart,
+    MANIFEST_SCHEMA_VERSION, MAX_APP_FIELDS, MAX_MANIFEST_BYTES, MAX_PLUGIN_PARTS,
 };
 
-use crate::api::{self, Manifest, PluginVersion};
+use crate::api::{self, PluginVersion};
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::store::{back_button, Tab};
-use crate::ui::{error_line, field, field_box, icon, pill_button, Tone, Type};
+use crate::ui::{chip, error_line, field, field_box, icon, pill_button, Tone, Type};
 
 /// The name the CLI gives a manifest, offered when saving.
 const MANIFEST_FILE: &str = "plugin.json";
@@ -22,11 +22,29 @@ const MANIFEST_FILE: &str = "plugin.json";
 pub enum PartBody {
     Instructions(Entity<TextareaState>),
     Endpoint(Entity<InputState>),
+    App(AppDraft),
 }
 
 pub struct PartDraft {
     pub id: Entity<InputState>,
     pub body: PartBody,
+}
+
+/// An app part's form as typed. Fields carry a key that survives edits to
+/// their identifier, so the total keeps pointing at the same field.
+pub struct AppDraft {
+    pub fields: Vec<FieldDraft>,
+    /// The key of the number field the app totals.
+    pub total: Option<usize>,
+    next_key: usize,
+}
+
+pub struct FieldDraft {
+    key: usize,
+    pub id: Entity<InputState>,
+    pub label: Entity<InputState>,
+    pub kind: AppFieldKind,
+    pub required: bool,
 }
 
 /// What happened to the draft's file last, shown beside its path.
@@ -62,8 +80,7 @@ impl Draft {
         let line = |placeholder: &'static str, value: String, window: &mut Window, cx: &mut Context<Desktop>| {
             cx.new(|cx| InputState::new(window, cx).placeholder(placeholder).default_value(value))
         };
-        let manifest = revises.map(|version| plugin_manifest(&version.manifest));
-        let start = manifest.clone().unwrap_or_else(|| PluginManifest {
+        let start = revises.map(|version| version.manifest.clone()).unwrap_or_else(|| PluginManifest {
             schema_version: MANIFEST_SCHEMA_VERSION,
             name: String::new(),
             description: String::new(),
@@ -109,6 +126,23 @@ impl Draft {
                         transport: McpTransport::StreamableHttp,
                         endpoint: line(body),
                     },
+                    PartBody::App(app) => PluginPart::App {
+                        id: line(&part.id),
+                        fields: app
+                            .fields
+                            .iter()
+                            .map(|field| AppField {
+                                id: line(&field.id),
+                                label: line(&field.label),
+                                kind: field.kind,
+                                required: field.required,
+                            })
+                            .collect(),
+                        summary_field: app
+                            .total
+                            .and_then(|key| app.fields.iter().find(|field| field.key == key))
+                            .map(|field| line(&field.id)),
+                    },
                 })
                 .collect(),
         }
@@ -119,7 +153,7 @@ impl Draft {
     }
 
     /// The manifest as typed, or what to fix before it can be sent.
-    fn manifest(&self, cx: &App) -> Result<(String, i64, Manifest), String> {
+    fn manifest(&self, cx: &App) -> Result<(String, i64, PluginManifest), String> {
         let line = |input: &Entity<InputState>| input.read(cx).value().trim().to_owned();
         let slug = self.revises.clone().unwrap_or_else(|| line(&self.slug));
         if !is_plugin_slug(&slug) {
@@ -131,7 +165,7 @@ impl Draft {
             .filter(|version| (1..=i64::from(i32::MAX)).contains(version))
             .ok_or("The version is a whole number, 1 or higher.")?;
         let manifest = self.typed(cx).normalized().map_err(|problem| problem.message)?;
-        Ok((slug, version, wire_manifest(&manifest)))
+        Ok((slug, version, manifest))
     }
 
     /// Fills the form from a manifest. The identifier and version stay, since
@@ -147,22 +181,19 @@ impl Draft {
         self.error =
             manifest.normalized().err().map(|problem| format!("Fix this before submitting: {}", problem.message));
     }
+
+    fn app_mut(&mut self, part: usize) -> Option<&mut AppDraft> {
+        match &mut self.parts.get_mut(part)?.body {
+            PartBody::App(app) => Some(app),
+            _ => None,
+        }
+    }
 }
 
 /// How a manifest compares for unsaved edits: as the registry would store
 /// it when it can, else as typed.
 fn fingerprint(manifest: &PluginManifest) -> Vec<u8> {
     manifest.normalized().unwrap_or_else(|_| manifest.clone()).to_file_bytes()
-}
-
-fn plugin_manifest(wire: &Manifest) -> PluginManifest {
-    serde_json::from_value(serde_json::to_value(wire).expect("a manifest serializes"))
-        .expect("the registry returns manifests of the shared shape")
-}
-
-fn wire_manifest(manifest: &PluginManifest) -> Manifest {
-    serde_json::from_value(serde_json::to_value(manifest).expect("a manifest serializes"))
-        .expect("the shared manifest has the registry's shape")
 }
 
 impl PartDraft {
@@ -189,10 +220,71 @@ impl PartDraft {
         }
     }
 
+    fn app(
+        id: &str,
+        fields: &[AppField],
+        summary_field: Option<&str>,
+        window: &mut Window,
+        cx: &mut Context<Desktop>,
+    ) -> Self {
+        let id = id.to_owned();
+        let fields: Vec<_> =
+            fields.iter().enumerate().map(|(key, field)| FieldDraft::new(key, field, window, cx)).collect();
+        let total = summary_field.and_then(|summary| fields.iter().position(|field| field.typed_id(cx) == summary));
+        Self {
+            id: cx.new(|cx| InputState::new(window, cx).placeholder("meals").default_value(id)),
+            body: PartBody::App(AppDraft { next_key: fields.len(), total, fields }),
+        }
+    }
+
     fn from(part: &PluginPart, window: &mut Window, cx: &mut Context<Desktop>) -> Self {
         match part {
             PluginPart::Skill { id, instructions } => Self::skill(id, instructions, window, cx),
             PluginPart::Mcp { id, endpoint, .. } => Self::connector(id, endpoint, window, cx),
+            PluginPart::App { id, fields, summary_field } => {
+                Self::app(id, fields, summary_field.as_deref(), window, cx)
+            }
+        }
+    }
+}
+
+impl FieldDraft {
+    fn new(key: usize, field: &AppField, window: &mut Window, cx: &mut Context<Desktop>) -> Self {
+        let (id, label) = (field.id.clone(), field.label.clone());
+        Self {
+            key,
+            id: cx.new(|cx| InputState::new(window, cx).placeholder("meal").default_value(id)),
+            label: cx.new(|cx| InputState::new(window, cx).placeholder("Meal").default_value(label)),
+            kind: field.kind,
+            required: field.required,
+        }
+    }
+
+    fn blank(key: usize, window: &mut Window, cx: &mut Context<Desktop>) -> Self {
+        let field = AppField { id: String::new(), label: String::new(), kind: AppFieldKind::Text, required: false };
+        Self::new(key, &field, window, cx)
+    }
+
+    fn typed_id(&self, cx: &App) -> String {
+        self.id.read(cx).value().to_string()
+    }
+}
+
+impl AppDraft {
+    fn set_kind(&mut self, field: usize, kind: AppFieldKind) {
+        let Some(changed) = self.fields.get_mut(field) else { return };
+        changed.kind = kind;
+        if kind != AppFieldKind::Number && self.total == Some(changed.key) {
+            self.total = None;
+        }
+    }
+
+    fn remove(&mut self, field: usize) {
+        if field < self.fields.len() {
+            let removed = self.fields.remove(field);
+            if self.total == Some(removed.key) {
+                self.total = None;
+            }
         }
     }
 }
@@ -247,9 +339,33 @@ fn save_folder(file: Option<&Path>) -> PathBuf {
         .unwrap_or_default()
 }
 
+fn kind_label(kind: AppFieldKind) -> &'static str {
+    match kind {
+        AppFieldKind::Text => "Text",
+        AppFieldKind::Number => "Number",
+        AppFieldKind::Date => "Date",
+    }
+}
+
+/// Element ids for controls inside one field of one part.
+fn field_control(part: usize, field: usize) -> usize {
+    part * (MAX_APP_FIELDS * 4) + field
+}
+
+const IDENTIFIER_WIDTH: f32 = 140.;
+const TYPE_WIDTH: f32 = 228.;
+const REQUIRED_WIDTH: f32 = 64.;
+
 impl Desktop {
     fn draft_ready_for_files(&mut self) -> Option<&mut Draft> {
         self.store.draft.as_mut().filter(|draft| !draft.busy && !draft.filing)
+    }
+
+    fn edit_app(&mut self, part: usize, cx: &mut Context<Self>, edit: impl FnOnce(&mut AppDraft)) {
+        if let Some(app) = self.store.draft.as_mut().and_then(|draft| draft.app_mut(part)) {
+            edit(app);
+            cx.notify();
+        }
     }
 
     fn open_plugin_file(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -431,6 +547,127 @@ impl Desktop {
         )
     }
 
+    fn render_app_fields(&self, part: usize, app: &AppDraft, theme: &Theme, cx: &mut Context<Self>) -> Div {
+        let only_field = app.fields.len() == 1;
+        let column = |label: &'static str| {
+            div().meta().font_weight(FontWeight::MEDIUM).text_color(theme.ink_tertiary).child(label)
+        };
+        let header = div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .child(column("Label").flex_1())
+            .child(column("Identifier").w(px(IDENTIFIER_WIDTH)))
+            .child(column("Type").w(px(TYPE_WIDTH)))
+            .child(column("Required").w(px(REQUIRED_WIDTH)))
+            .child(div().size_6().flex_shrink_0());
+
+        let mut rows = Vec::with_capacity(app.fields.len());
+        for (index, field) in app.fields.iter().enumerate() {
+            let control = field_control(part, index);
+            let mut kinds = Vec::with_capacity(AppFieldKind::ALL.len());
+            for kind in AppFieldKind::ALL {
+                kinds.push(
+                    chip(("field-type", control * 3 + kind as usize), kind_label(kind), field.kind == kind, theme)
+                        .on_click(
+                            cx.listener(move |this, _, _, cx| this.edit_app(part, cx, |app| app.set_kind(index, kind))),
+                        ),
+                );
+            }
+            let row = div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .child(
+                    field_box(theme)
+                        .flex_1()
+                        .min_w_0()
+                        .child(Input::new(&field.label).appearance(false).bordered(false)),
+                )
+                .child(
+                    field_box(theme)
+                        .w(px(IDENTIFIER_WIDTH))
+                        .flex_shrink_0()
+                        .child(Input::new(&field.id).appearance(false).bordered(false)),
+                )
+                .child(div().w(px(TYPE_WIDTH)).flex_shrink_0().flex().gap_1().children(kinds))
+                .child(div().w(px(REQUIRED_WIDTH)).flex_shrink_0().flex().child(
+                    checkbox(("field-required", control), field.required, theme).on_click(cx.listener(
+                        move |this, _, _, cx| {
+                            this.edit_app(part, cx, |app| {
+                                if let Some(field) = app.fields.get_mut(index) {
+                                    field.required = !field.required;
+                                }
+                            })
+                        },
+                    )),
+                ));
+            rows.push(if only_field {
+                row.child(div().size_6().flex_shrink_0())
+            } else {
+                row.child(
+                    remove_button(("remove-field", control), theme)
+                        .on_click(cx.listener(move |this, _, _, cx| this.edit_app(part, cx, |app| app.remove(index)))),
+                )
+            });
+        }
+
+        let mut choices = Vec::new();
+        for (index, field) in app.fields.iter().enumerate().filter(|(_, field)| field.kind == AppFieldKind::Number) {
+            let label = field.label.read(cx).value().trim().to_owned();
+            let key = field.key;
+            choices.push(
+                chip(
+                    ("field-total", field_control(part, index)),
+                    if label.is_empty() { format!("Field {}", index + 1) } else { label },
+                    app.total == Some(key),
+                    theme,
+                )
+                .on_click(cx.listener(move |this, _, _, cx| this.edit_app(part, cx, |app| app.total = Some(key)))),
+            );
+        }
+        let total = (!choices.is_empty()).then(|| {
+            div()
+                .flex()
+                .flex_wrap()
+                .items_center()
+                .gap_1()
+                .pt_1()
+                .child(column("Total").mr_2())
+                .child(
+                    chip(("field-total-none", part), "None", app.total.is_none(), theme)
+                        .on_click(cx.listener(move |this, _, _, cx| this.edit_app(part, cx, |app| app.total = None))),
+                )
+                .children(choices)
+        });
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(header)
+            .children(rows)
+            .when(app.fields.len() < MAX_APP_FIELDS, |list| {
+                list.child(div().flex().child(
+                    pill_button(("add-field", part), "Add field", Tone::Quiet, true, theme).on_click(cx.listener(
+                        move |this, _, window, cx| {
+                            let Some(key) =
+                                this.store.draft.as_mut().and_then(|draft| draft.app_mut(part)).map(|app| {
+                                    app.next_key += 1;
+                                    app.next_key - 1
+                                })
+                            else {
+                                return;
+                            };
+                            let field = FieldDraft::blank(key, window, cx);
+                            this.edit_app(part, cx, |app| app.fields.push(field));
+                        },
+                    )),
+                ))
+            })
+            .children(total)
+    }
+
     pub fn render_creator(&mut self, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.skin().clone();
         let Some(draft) = self.store.draft.as_ref() else { return div().into_any_element() };
@@ -440,42 +677,51 @@ impl Desktop {
         let idle = !draft.busy && !draft.filing;
         let file_line = self.render_file_line(draft, &theme, cx);
 
-        let parts = draft.parts.iter().enumerate().map(|(index, part)| {
-            let (kind, glyph, body_label) = match part.body {
-                PartBody::Instructions(_) => ("Skill", "sparkles", "Instructions"),
-                PartBody::Endpoint(_) => ("Connector", "plug", "Server address"),
-            };
-            div()
-                .flex()
-                .flex_col()
-                .gap_3()
-                .p_3()
-                .rounded(radius::CARD)
-                .border_1()
-                .border_color(theme.hairline.opacity(0.5))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .child(icon(glyph, px(14.), theme.ink_secondary))
-                        .child(div().name().flex_1().child(kind))
-                        .when(!only_part, |row| {
-                            row.child(remove_button(index, &theme).on_click(cx.listener(move |this, _, _, cx| {
-                                if let Some(draft) = this.store.draft.as_mut() {
-                                    draft.parts.remove(index);
-                                    cx.notify();
-                                }
-                            })))
-                        }),
-                )
-                .child(field("Identifier", &part.id, &theme))
-                .child(match &part.body {
-                    PartBody::Instructions(body) => labelled(body_label, &theme)
-                        .child(text_box(&theme).child(Textarea::new(body).appearance(false).bordered(false))),
-                    PartBody::Endpoint(body) => field(body_label, body, &theme),
-                })
-        });
+        let parts: Vec<_> = draft
+            .parts
+            .iter()
+            .enumerate()
+            .map(|(index, part)| {
+                let (kind, glyph) = match part.body {
+                    PartBody::Instructions(_) => ("Skill", "sparkles"),
+                    PartBody::Endpoint(_) => ("Connector", "plug"),
+                    PartBody::App(_) => ("App", "apps"),
+                };
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .p_3()
+                    .rounded(radius::CARD)
+                    .border_1()
+                    .border_color(theme.hairline.opacity(0.5))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(icon(glyph, px(14.), theme.ink_secondary))
+                            .child(div().name().flex_1().child(kind))
+                            .when(!only_part, |row| {
+                                row.child(remove_button(("remove-part", index), &theme).on_click(cx.listener(
+                                    move |this, _, _, cx| {
+                                        if let Some(draft) = this.store.draft.as_mut() {
+                                            draft.parts.remove(index);
+                                            cx.notify();
+                                        }
+                                    },
+                                )))
+                            }),
+                    )
+                    .child(field("Identifier", &part.id, &theme))
+                    .child(match &part.body {
+                        PartBody::Instructions(body) => labelled("Instructions", &theme)
+                            .child(text_box(&theme).child(Textarea::new(body).appearance(false).bordered(false))),
+                        PartBody::Endpoint(body) => field("Server address", body, &theme),
+                        PartBody::App(app) => self.render_app_fields(index, app, &theme, cx),
+                    })
+            })
+            .collect();
 
         div()
             .id("creator")
@@ -568,7 +814,22 @@ impl Desktop {
                                         cx.notify();
                                     }
                                 }),
-                            )),
+                            ))
+                            .child(pill_button("add-app", "Add app", Tone::Quiet, true, &theme).on_click(cx.listener(
+                                |this, _, window, cx| {
+                                    let blank = AppField {
+                                        id: String::new(),
+                                        label: String::new(),
+                                        kind: AppFieldKind::Text,
+                                        required: false,
+                                    };
+                                    let part = PartDraft::app("", &[blank], None, window, cx);
+                                    if let Some(draft) = this.store.draft.as_mut() {
+                                        draft.parts.push(part);
+                                        cx.notify();
+                                    }
+                                },
+                            ))),
                     )
                 },
             ))
@@ -588,11 +849,12 @@ fn text_box(theme: &Theme) -> Div {
     field_box(theme).items_start().py_1()
 }
 
-fn remove_button(index: usize, theme: &Theme) -> Stateful<Div> {
+fn remove_button(id: impl Into<ElementId>, theme: &Theme) -> Stateful<Div> {
     let hover = theme.raised;
     div()
-        .id(("remove-part", index))
+        .id(id)
         .size_6()
+        .flex_shrink_0()
         .rounded_full()
         .flex()
         .items_center()
@@ -602,16 +864,38 @@ fn remove_button(index: usize, theme: &Theme) -> Stateful<Div> {
         .child(icon("x", px(14.), theme.ink_tertiary))
 }
 
+fn checkbox(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Stateful<Div> {
+    let hover = theme.raised_hover;
+    div()
+        .id(id)
+        .size_8()
+        .rounded_full()
+        .flex()
+        .items_center()
+        .justify_center()
+        .cursor_pointer()
+        .hover(move |style| style.bg(hover))
+        .child(div().size(px(18.)).rounded(px(5.)).flex().items_center().justify_center().border_1().map(|tick| {
+            if on {
+                tick.bg(theme.ink).border_color(theme.ink).child(icon("check", px(12.), theme.app))
+            } else {
+                tick.border_color(theme.ink_tertiary)
+            }
+        }))
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    use superbot_features::plugin_manifest::{read_manifest, PluginManifest};
+    use superbot_features::plugin_manifest::{read_manifest, PluginManifest, PluginPart};
 
-    use super::{fingerprint, plugin_manifest, read_plugin_file, wire_manifest, write_whole, MANIFEST_FILE};
+    use super::{fingerprint, read_plugin_file, write_whole, MANIFEST_FILE};
+    use crate::api::PluginVersion;
 
     const MCP_APP: &[u8] = include_bytes!("../../../../examples/plugins/marketplace-unit-converter/manifest.json");
+    const KCAL_DIARY: &[u8] = include_bytes!("../../../../examples/plugins/kcal-diary/plugin.json");
 
     fn scratch(name: &str) -> PathBuf {
         let folder = std::env::temp_dir().join(format!("superbot-creator-{name}-{}", std::process::id()));
@@ -632,6 +916,19 @@ mod tests {
     }
 
     #[test]
+    fn an_app_plugin_opens_and_saves_back_to_the_same_bytes() {
+        let folder = scratch("app");
+        let path = folder.join(MANIFEST_FILE);
+        fs::write(&path, KCAL_DIARY).unwrap();
+        let opened = read_plugin_file(&path).unwrap();
+        assert!(matches!(&opened.parts[0], PluginPart::App { fields, summary_field: Some(total), .. }
+            if fields.len() == 3 && total == "kcal"));
+        write_whole(&path, &opened.normalized().unwrap().to_file_bytes()).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), KCAL_DIARY);
+        fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[test]
     fn a_file_the_form_cannot_hold_is_refused_with_its_reason() {
         let folder = scratch("open");
         let path = folder.join(MANIFEST_FILE);
@@ -644,10 +941,15 @@ mod tests {
     }
 
     #[test]
-    fn registry_manifests_cross_into_the_shared_shape_unchanged() {
-        let shared = read_manifest(MCP_APP).unwrap();
-        assert_eq!(plugin_manifest(&wire_manifest(&shared)), shared);
-        let edited = fingerprint(&PluginManifest { name: " Unit converter ".into(), ..shared.clone() });
+    fn registry_versions_carry_app_parts_in_the_shared_shape() {
+        let shared = read_manifest(KCAL_DIARY).unwrap();
+        let version: PluginVersion = serde_json::from_value(serde_json::json!({
+            "id": "superbot-kcal-diary-v1", "slug": "kcal-diary", "version": 1,
+            "manifest": serde_json::to_value(&shared).unwrap(), "status": "approved",
+        }))
+        .unwrap();
+        assert_eq!(version.manifest, shared);
+        let edited = fingerprint(&PluginManifest { name: " Calorie diary ".into(), ..shared.clone() });
         assert_eq!(edited, fingerprint(&shared), "spacing the registry trims is not an edit");
     }
 }

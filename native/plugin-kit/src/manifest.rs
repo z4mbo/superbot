@@ -40,10 +40,21 @@ impl Manifest {
     }
 
     pub fn starter_mcp_app(name: Option<String>) -> Result<Self> {
-        let mut manifest = read_manifest(include_bytes!(
-            "../../../examples/plugins/marketplace-unit-converter/manifest.json"
-        ))
-        .map_err(located)?;
+        Self::example(
+            include_bytes!("../../../examples/plugins/marketplace-unit-converter/manifest.json"),
+            name,
+        )
+    }
+
+    pub fn starter_kcal_diary(name: Option<String>) -> Result<Self> {
+        Self::example(
+            include_bytes!("../../../examples/plugins/kcal-diary/plugin.json"),
+            name,
+        )
+    }
+
+    fn example(bytes: &[u8], name: Option<String>) -> Result<Self> {
+        let mut manifest = read_manifest(bytes).map_err(located)?;
         if let Some(name) = name {
             manifest.name = name;
         }
