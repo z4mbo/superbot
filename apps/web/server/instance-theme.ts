@@ -32,6 +32,7 @@ export type InstanceTheme = {
   /** The base corner size; the `rounded-sm` to `rounded-2xl` scale is derived from it. */
   radius?: string;
   userBubbleTint?: boolean;
+  sidebarRowHover?: "selection";
 };
 
 function readOverlay(value: unknown, where: string): Overlay {
@@ -89,7 +90,10 @@ function inside(dir: string, file: string): boolean {
 export function parseInstanceTheme(source: string, themeDir: string): InstanceTheme {
   const raw: unknown = JSON.parse(source);
   if (!raw || typeof raw !== "object") throw new Error("theme must be an object");
-  const { dark, light, fonts, radius, userBubbleTint, ...rest } = raw as Record<string, unknown>;
+  const { dark, light, fonts, radius, userBubbleTint, sidebarRowHover, ...rest } = raw as Record<
+    string,
+    unknown
+  >;
   const unknownKey = Object.keys(rest)[0];
   if (unknownKey) throw new Error(`${unknownKey} is not a theme field`);
   const fontObject = (fonts ?? {}) as Record<string, unknown>;
@@ -98,6 +102,9 @@ export function parseInstanceTheme(source: string, themeDir: string): InstanceTh
   }
   if (userBubbleTint !== undefined && typeof userBubbleTint !== "boolean") {
     throw new Error("userBubbleTint must be a boolean");
+  }
+  if (sidebarRowHover !== undefined && sidebarRowHover !== "selection") {
+    throw new Error('sidebarRowHover must be "selection"');
   }
   return {
     dark: readOverlay(dark, "dark"),
@@ -109,6 +116,7 @@ export function parseInstanceTheme(source: string, themeDir: string): InstanceTh
     },
     radius,
     userBubbleTint,
+    sidebarRowHover,
   };
 }
 
@@ -139,6 +147,8 @@ export function renderInstanceThemeCss(theme: InstanceTheme): string {
     theme.fonts.sans && `  --font-sans: ${theme.fonts.sans};`,
     theme.fonts.mono && `  --font-mono: ${theme.fonts.mono};`,
     theme.radius && `  --radius: ${theme.radius};`,
+    theme.sidebarRowHover === "selection" &&
+      "  --sidebar-row-hover: color-mix(in oklab, var(--sidebar-accent) 50%, transparent);",
     // Resolve the aliases on html, before the transcript's local bot colors can shadow the tokens.
     ...(theme.userBubbleTint === false
       ? [

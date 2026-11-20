@@ -90,6 +90,14 @@ describe("instance theme", () => {
     );
   });
 
+  it("can use half the selected row's fill for a sidebar hover", () => {
+    const file = themeFolder({ sidebarRowHover: "selection" });
+    const { res } = serve(file, "/instance-theme.css");
+    expect(res.end).toHaveBeenCalledWith(
+      "html:root {\n  --sidebar-row-hover: color-mix(in oklab, var(--sidebar-accent) 50%, transparent);\n}",
+    );
+  });
+
   it.each([
     [{ dark: { notAToken: "#000000" } }, "dark.notAToken is not a token"],
     [
@@ -104,6 +112,7 @@ describe("instance theme", () => {
     [{ spacing: "0" }, "spacing is not a theme field"],
     [{ radius: "4px; } body { display: none" }, "radius must look like"],
     [{ userBubbleTint: "false" }, "userBubbleTint must be a boolean"],
+    [{ sidebarRowHover: true }, 'sidebarRowHover must be "selection"'],
     [
       { fonts: { files: [{ family: "Onest", file: "/etc/Onest.ttf" }] } },
       "inside the theme's folder",

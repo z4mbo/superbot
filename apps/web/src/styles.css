@@ -7,6 +7,10 @@
    which restyles every element on the page mid-resize. */
 @source not inline("container");
 
+@theme inline {
+  --color-sidebar-row-hover: var(--sidebar-row-hover, var(--accent));
+}
+
 html,
 body,
 #root {
