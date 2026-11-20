@@ -5,17 +5,40 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use superbot_features::ThinkingLevel;
 
+use super::marks::Mark;
 use super::{level_label, Act, Gutter, Line, Spot, Trailing};
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::new_menu::menu_shadow;
 use crate::ui::{icon, Type};
 
-fn gutter(gutter: Gutter, theme: &Theme) -> Div {
+/// A maker's mark, quiet until the pointer is over `lift`: a brand colour at 60%, a black
+/// mark in the tertiary ink.
+pub(crate) fn mark_icon(mark: &Mark, size: Pixels, lift: Option<SharedString>, theme: &Theme) -> Svg {
+    let (rest, lifted) = match mark.color() {
+        Some(color) => (color.opacity(0.6), color),
+        None => (theme.ink_tertiary, theme.ink),
+    };
+    let drawn = svg().path(SharedString::from(mark.asset())).size(size).flex_shrink_0().text_color(rest);
+    match lift {
+        Some(group) => drawn.group_hover(group, move |style| style.text_color(lifted)),
+        None => drawn,
+    }
+}
+
+fn gutter(gutter: Gutter, lift: Option<SharedString>, theme: &Theme) -> Div {
     let glyph = match gutter {
+        Gutter::Hosted(Some(mark)) | Gutter::Local(Some(mark)) => {
+            return div().w(px(16.)).flex_shrink_0().flex().justify_center().child(mark_icon(
+                mark,
+                px(14.),
+                lift,
+                theme,
+            ))
+        }
         Gutter::Blank => None,
-        Gutter::Hosted => Some("sparkles"),
-        Gutter::Local => Some("monitor"),
+        Gutter::Hosted(None) => Some("sparkles"),
+        Gutter::Local(None) => Some("monitor"),
         Gutter::Thinking => Some("lightbulb"),
         Gutter::Manage => Some("settings"),
         Gutter::Recheck => Some("refresh-cw"),
@@ -45,7 +68,7 @@ impl Desktop {
                 .meta()
                 .font_weight(FontWeight::MEDIUM)
                 .text_color(theme.ink_tertiary)
-                .child(gutter(mark, theme))
+                .child(gutter(mark, None, theme))
                 .child(div().min_w_0().truncate().child(text))
                 .into_any_element(),
             Line::Status(text) => div()
@@ -138,7 +161,7 @@ impl Desktop {
                             this.model_menu_act(act, window, cx);
                         }
                     }))
-                    .child(gutter(mark, theme))
+                    .child(gutter(mark, Some(group.clone()), theme))
                     .child(
                         div()
                             .flex_1()

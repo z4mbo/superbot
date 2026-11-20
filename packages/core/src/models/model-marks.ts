@@ -75,6 +75,7 @@ const MAKERS: Record<string, string> = {
   claude: "anthropic",
   openai: "openai",
   openaicodex: "openai",
+  codex: "openai",
   chatgpt: "openai",
   google: "google",
   googlevertex: "google",

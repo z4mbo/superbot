@@ -8,6 +8,7 @@ describe("modelMark", () => {
     expect(modelMark({ provider: "router", modelId: "anthropic/claude-x" })).toBe(claude);
     expect(modelMark({ provider: "router", modelLabel: "Anthropic: Claude X" })).toBe(claude);
     expect(modelMark({ provider: "openai-codex" })).toBe(modelMark({ provider: "openai" }));
+    expect(modelMark({ provider: "codex" })).toBe(modelMark({ provider: "openai" }));
     expect(modelMark({ provider: "router", modelId: "meta-llama/llama-x" })).toBe(
       modelMark({ provider: "meta" }),
     );

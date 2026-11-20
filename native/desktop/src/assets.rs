@@ -16,6 +16,9 @@ pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+        if let Some(mark) = crate::ui::model_menu::marks::svg(path) {
+            return Ok(Some(Cow::Owned(mark.into_bytes())));
+        }
         match OWN.iter().find(|(own, _)| *own == path) {
             Some((_, bytes)) => Ok(Some(Cow::Borrowed(*bytes))),
             None => AllAssets.load(path),
