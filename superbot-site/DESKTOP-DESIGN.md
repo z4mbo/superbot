@@ -354,16 +354,19 @@ On launch: `CredentialStore::load`; if a client comes back, skip this screen. An
 ## 6. Sidebar
 
 Top row (60px tall, 12px top padding): traffic-light space, then at the end two 36px round
-icon buttons 8px apart, each a charcoal "elevated control": `composer` fill (`#1f1f1f`
+icon buttons 10px apart, each a charcoal "elevated control": `composer` fill (`#1f1f1f`
 Midnight, `#ffffff` Daylight), a 1px inset ring of `ink` at 6%, icon in `ink` at 90%
-(Lucide `search` at 18px, `plus` at 20px, stroke 1.5), hover fill = `composer` mixed 7%
-toward `ink`. They are **Search** (`search`, `Cmd/Ctrl+K`) and **New** (`plus`,
-click to open the creation menu). Cmd/Ctrl+N creates a bot directly. While a bot is open,
+(`corner-search` 16px: a 5px-radius ring and handle at stroke 1.7; Lucide `plus` at 20px,
+stroke 2; both measured against the installed reference header at 1×), hover fill =
+`composer` mixed 7% toward `ink`. They are **Search** (`search`, `Cmd/Ctrl+K`) and **New**
+(`plus`, click to open the creation menu). Cmd/Ctrl+N creates a bot directly. While a bot is open,
 Cmd/Ctrl+Shift+N starts another conversation with it.
 
-- **Space switcher**: only when `list_spaces` returns more than one. A 32px row
-  under the top row: space name 13/500 + `chevrons-up-down` 14px; opens a menu of spaces
-  (30px rows, check mark on the current one). The selection persists per server.
+- **Space switcher**: only when `list_spaces` returns more than one; with one Space the
+  top row's start stays empty. A 36px pill at the top row's start: space name 14/500 +
+  `chevron-down` 14px; opens a menu of spaces (check mark on the current one) and "New
+  space…". With one Space the account menu carries the same rows under the email. The
+  selection persists per server.
 - **Inbox** opens from the account menu. Each bot has its own Inbox tab in the right panel.
 - **Main bot tile** is centred, 95×92, with a 60px avatar, a gold star badge and its name below.
   Hovering a tile with a preview for 250ms opens a 260px card beside it.

@@ -89,19 +89,19 @@ impl Desktop {
         let creating = self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::New) || self.creating_agent();
         let search = self.corner_control(Corner::Search, self.search_open, theme, window, cx);
         let new = self.corner_control(Corner::New, creating, theme, window, cx);
-        let space = self.space.as_ref().map(|space| space.name.clone()).unwrap_or_default();
+        let space = self.space.as_ref().map(|space| space.name.clone()).filter(|_| self.spaces.len() > 1);
         let hover = theme.ink_at(0.06);
         div()
             .h(px(56.))
             .flex_shrink_0()
             .flex()
             .items_start()
-            .gap_2()
+            .gap_2p5()
             .pl_2()
             .pr_4()
             .pt_3()
             .window_control_area(WindowControlArea::Drag)
-            .child(
+            .children(space.map(|space| {
                 div()
                     .id("space-switcher")
                     .h_9()
@@ -118,8 +118,8 @@ impl Desktop {
                         this.open_menu(MenuKind::Spaces, event.position() + point(px(-8.), px(22.)), cx)
                     }))
                     .child(div().name().truncate().child(space))
-                    .child(icon("chevron-down", px(14.), theme.ink_secondary)),
-            )
+                    .child(icon("chevron-down", px(14.), theme.ink_secondary))
+            }))
             .child(div().flex_1())
             .child(search.on_click(cx.listener(|this, _, window, cx| {
                 this.search_open = !this.search_open;
