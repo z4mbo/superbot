@@ -329,6 +329,7 @@ function reduce(prev: LiveThreadSnapshot, event: ThreadSnapshotEvent): LiveThrea
     const known = prev.messages.find((message) => message.id === id);
     // The message's own seq, which a pending send matches to recognize its echo.
     const seq = typeof payload.seq === "number" ? payload.seq : known?.seq;
+    const origin = payload.origin === "local_cli" ? payload.origin : known?.origin;
     const next: LiveThreadMessage = {
       id,
       // Inline cards act on the message's thread, so live messages carry it too.
@@ -336,7 +337,10 @@ function reduce(prev: LiveThreadSnapshot, event: ThreadSnapshotEvent): LiveThrea
       ...(seq === undefined ? {} : { seq }),
       role: (payload.role as ThreadMessage["role"] | undefined) ?? "bot",
       blocks,
-      botId: event.botId ?? (typeof payload.botId === "string" ? payload.botId : undefined),
+      origin,
+      botId: origin
+        ? undefined
+        : (event.botId ?? (typeof payload.botId === "string" ? payload.botId : undefined)),
       runId: event.runId,
       // An update can leave the call id out — the `end_call` marker does — so keep the one
       // the message already carries instead of dropping it out of its call.

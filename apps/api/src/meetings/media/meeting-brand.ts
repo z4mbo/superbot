@@ -1,28 +1,18 @@
-// Embedded from the public Rakazo brand mark so the camera tile needs only the API host.
+// Embedded from the Superbot app icon so the camera tile needs only the API host.
 export const meetingBrand = Uint8Array.from(
   Buffer.from(
-    "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" +
-      "fOO9U6+36FGmlqlNBH3obgAAAA==",
+    "UklGRkYDAABXRUJQVlA4WAoAAAAQAAAARwAARwAAQUxQSNcAAAABgFvb1rLo1oBDAQ5dWCVakk/0rz/COhl3qeDX9Hu48248KyIm" +
+      "ACdmuvaju1rf7Mp9sDtpXLC8kLVCmZXOiY9lrVSG0ZMqv2vFP+UTGuFadVg7UvTXysPKgfjfWv1PdO9uTXAIoCIMpATM1xSnyAgH" +
+      "SXXXJFs2C+uJxb3HwhUWZv3vc2FhPBbuE4t7m4XVZtHMCAeTwozDBMgbBlIEMGTQA4Doj76vyB4KvrawjMP1UFdQxfHsu6bvEk6N" +
+      "DkWL6UdwZnEqGsykgAumW9a9s7ydpXNvNZM4EQBWUDggSAIAADAPAJ0BKkgASAA+MRaIQqIhIRhZ3FQgAwS0gAtpNjp9hrr/xTni" +
+      "f7VjUGitcdPBV+1X4mv7bym/QH+n9wP9Rv+H11f2A9m79QC2BjGrKHPSysiy0F/wogZ7+qgXPo3rTtQw8lyqYG70w5OOW9beNsz1" +
+      "2uKuvR/q0oFrYtkORMx6AAAA/v5tLb7AJ7F8J8Df9eaWZKLtCsd5V40pDIP6m36tqohxpyoSJsBelcWeJOzP/f/ZpXXOXZDR/vm7" +
+      "nz5btp24PJlb4sFZAsPBPUJIkq6KbvIj9pSHryESof0xyWnR2y9ND5wnHIhG6WpTZvBTsmyw/7Av/heSwy2KV4tZgxzlonQjEiSp" +
+      "z+MytgajqcH/kmjS5RGH9Y6o6+cf+8Rv3L/yi/H/YuDvVe4TCc/IMuGJaD3aeHomPre2xx7tV0h+V10vWZ1uwxN+qIu+w2mHliZU" +
+      "f5GtjMFYqcD/m7LhV+JBJT27W/+RWmFjbKZEa6nGae3beJWGXKU2XKudW63TKoXPbvJMxHj9sib97B4eMDvOmxLZ9JsvWDSic7Vw" +
+      "QkQOFg4sB+f/54NKX498p/QumRGBDiTfXay/8q/138PBTHsktGu1THuyX8E+6/4Mc8n6WQD8+/c1HPzQ+wDGYtTfIgMkn6Bru8DB" +
+      "Vac186xl93l6GX+Nfgymjj+ibo2BdsIUZ+gTcj4seCEygc48CTWCp8vmxXBNIxKBc8IlZ2vX4EhjEVd5dIV0TLsQf+61IJScLts0" +
+      "z8XkkV5DZpMw63YlONrNWnYYAAAA",
     "base64",
   ),
 );

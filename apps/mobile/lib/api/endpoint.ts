@@ -91,7 +91,7 @@ export async function probeApiBase(
     );
     if (!res.ok) {
       cancelResponseBody(res);
-      return { ok: false, error: t`That URL did not look like a Rakazo server` };
+      return { ok: false, error: t`That URL did not look like a Superbot server` };
     }
     let body: HealthResponse;
     try {
@@ -105,7 +105,7 @@ export async function probeApiBase(
       body = {};
     }
     if (body.error || body.json?.ok !== true) {
-      return { ok: false, error: t`That URL did not look like a Rakazo server` };
+      return { ok: false, error: t`That URL did not look like a Superbot server` };
     }
     return parsed;
   } catch {

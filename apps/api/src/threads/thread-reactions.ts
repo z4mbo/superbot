@@ -50,7 +50,7 @@ export async function reactToThreadMessage(
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR UPDATE`;
     const parent = await tx.message.findFirst({
       where: { id: input.messageId, threadId: target.threadId },
-      select: { id: true, seq: true, role: true, botId: true, runId: true },
+      select: { id: true, seq: true, role: true, botId: true, runId: true, localOperationId: true },
     });
     if (!parent) throw new IsolationError();
     const existing = await tx.message.findUnique({
@@ -73,9 +73,10 @@ export async function reactToThreadMessage(
     const currentTarget = members
       ? { ...target, memberBotIds: members.map((member) => member.botId) }
       : target;
-    const replyBotId = input.mayStartTurn
-      ? await reactionReplyBotId(tx, currentTarget, parent)
-      : undefined;
+    const replyBotId =
+      input.mayStartTurn && !parent.localOperationId
+        ? await reactionReplyBotId(tx, currentTarget, parent)
+        : undefined;
     const botId =
       replyBotId ??
       (currentTarget.kind === "bot" ? currentTarget.botId : currentTarget.memberBotIds[0]);

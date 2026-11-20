@@ -279,6 +279,7 @@ type MessageRow = {
   } | null;
   runId: string | null;
   clientNonce?: string | null;
+  localOperationId?: string | null;
   createdAt: Date;
 };
 
@@ -317,6 +318,7 @@ function toThreadMessage(row: MessageRow, authors: Map<string, MessageAuthor>): 
     replyQuote: row.replyQuote ?? undefined,
     replyPreview,
     runId: row.runId ?? undefined,
+    origin: row.localOperationId ? "local_cli" : undefined,
     callId: callIdFromClientNonce(row.clientNonce),
     createdAt: row.createdAt.toISOString(),
   };

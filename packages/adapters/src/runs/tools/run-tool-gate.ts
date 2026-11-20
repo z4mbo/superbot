@@ -64,7 +64,6 @@ import { PURCHASE_CHECKED_TOOLS, purchaseApprovalOf } from "../../payments/purch
 import { asksRoutineEvents } from "../../routines/routine-triggers.js";
 import { resolveCompletedSecretLeftover } from "../../secrets/run-secret.js";
 import { scheduleRunSecretsExpiry } from "../../secrets/run-secrets-expiry.js";
-import { RAKAZO_DOCS_URLS } from "../../tools/builtin-skills.prompt.js";
 import { CATALOG_LOAD, CATALOG_SEARCH } from "../../tools/lazy-tool-catalog.js";
 import { watchFromTool } from "../../tools/schedule-tools.js";
 import type { RunContext, RunTrust } from "../assembly/run-context.js";
@@ -224,7 +223,6 @@ export async function gateToolCall(
           site: fetchSite,
           trusted:
             ctx.trust.searchResultUrls.has(fetchUrl) ||
-            (name === "web_fetch" && RAKAZO_DOCS_URLS.includes(fetchUrl)) ||
             (await ctx.trust.loadTrustedSites()).has(fetchSite),
           rules: await ctx.trust.loadApprovalRules(),
         })

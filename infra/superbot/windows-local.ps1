@@ -308,6 +308,7 @@ try {
     $localEnv = @{
         NODE_ENV = 'development'
         RAKAZO_ENV_FILE = 'none'
+        RAKAZO_THEME = (Join-Path $root 'infra/superbot/theme/theme.json')
         RAKAZO_DB_PACKAGE_DIR = (Join-Path $root 'packages/db')
         TEMP = $tempDir
         TMP = $tempDir

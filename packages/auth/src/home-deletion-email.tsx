@@ -32,7 +32,7 @@ export function homeDeletionEmail(
               date,
             })}
       </Text>
-      <Button href={appUrl}>{say("Open Rakazo")}</Button>
+      <Button href={appUrl}>{say("Open Superbot")}</Button>
     </>,
   );
 }

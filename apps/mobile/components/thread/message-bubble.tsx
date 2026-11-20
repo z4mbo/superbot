@@ -54,6 +54,7 @@ import { AudioAttachment } from "../media/audio-attachment";
 import type { ImageArtifactPreviewTarget } from "../media/image-artifact-viewer";
 import { InlineImageAttachment } from "../media/inline-image-attachment";
 import { MessageMentions } from "../messages/bot-mention";
+import { LocalReplyText } from "../messages/local-reply-text";
 import { MessageCaption } from "../messages/message-caption";
 import { NativeSymbol } from "../native/native-symbol";
 import { AskBlock } from "./ask-block";
@@ -913,25 +914,31 @@ function MessageTextCard({
         borderRadius: 20,
       }}
     >
-      {speaker ? (
-        <Text
-          style={{
-            color: speakerColor ?? tokens.mutedForeground,
-            ...typeScale.footnote,
-            marginBottom: 4,
-          }}
-        >
-          {speaker}
-        </Text>
-      ) : null}
-      <MessageCaption
-        role={message.role}
-        received={!outgoing}
-        text={contentText}
-        tokens={tokens}
-        colorScheme={colorScheme}
-        streaming={message.id.startsWith("progress:")}
-      />
+      {message.origin === "local_cli" && message.role === "bot" ? (
+        <LocalReplyText name={message.author?.name} text={contentText} tokens={tokens} />
+      ) : (
+        <>
+          {speaker ? (
+            <Text
+              style={{
+                color: speakerColor ?? tokens.mutedForeground,
+                ...typeScale.footnote,
+                marginBottom: 4,
+              }}
+            >
+              {speaker}
+            </Text>
+          ) : null}
+          <MessageCaption
+            role={message.role}
+            received={!outgoing}
+            text={contentText}
+            tokens={tokens}
+            colorScheme={colorScheme}
+            streaming={message.id.startsWith("progress:")}
+          />
+        </>
+      )}
     </Surface>
   );
 }

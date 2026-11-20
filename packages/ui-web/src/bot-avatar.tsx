@@ -405,7 +405,7 @@ export function Wordmark({ className }: { className?: string }) {
       </div>
       {/* off-scale: wordmark sized to the 44px logo mark */}
       <span className="font-[Aeonik,ui-sans-serif] text-[28px] tracking-tight text-foreground">
-        Rakazo
+        Superbot
       </span>
     </div>
   );

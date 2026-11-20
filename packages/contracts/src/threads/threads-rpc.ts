@@ -18,6 +18,7 @@ import { MessageReactionSchema } from "./reactions.js";
 import { SearchQueryOutputSchema } from "./search.js";
 import { ChatAlertSchema, ThreadMessagePageSchema, ThreadSnapshotSchema } from "./thread.js";
 import {
+  appendLocalHistoryInput,
   threadSendInput,
   threadSendOutput,
   threadSendWithRoutinesInput,
@@ -52,6 +53,10 @@ export const threadsRpc = {
       .input(threadTarget.safeExtend({ cursor: z.number().int().min(-1) }))
       .output(eventIterator(ProductEventSchema)),
     send: oc.input(threadSendInput).output(threadSendOutput),
+    /** Records a local note or a completed local CLI exchange in the normal thread. */
+    appendLocalHistory: oc
+      .input(appendLocalHistoryInput)
+      .output(z.object({ messageIds: z.array(Id).min(1).max(2) })),
     /**
      * A send that also test-runs the mentioned routines: the message and every run commit
      * together, keyed by the nonce. A separate procedure, because an API without it must

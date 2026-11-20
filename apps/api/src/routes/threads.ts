@@ -36,6 +36,7 @@ import {
   routineTestRunNonce,
   routineTestTarget,
 } from "../routines/routines.js";
+import { appendLocalHistory } from "../threads/local-history.js";
 import { purgeClearedThreadMemory } from "../threads/thread-memory.js";
 import {
   isBackgroundRun,
@@ -219,6 +220,9 @@ export function threadsRoutes(ctx: RouterContext) {
         }
       }),
       send: authed.threads.send.handler(({ context, input }) => send(context.actor, input)),
+      appendLocalHistory: authed.threads.appendLocalHistory.handler(({ context, input }) =>
+        appendLocalHistory(deps, context.actor, input),
+      ),
       sendWithRoutines: authed.threads.sendWithRoutines.handler(async ({ context, input }) => {
         const { actor } = context;
         // The same checks as routines/testRun, all before anything is written.

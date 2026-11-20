@@ -190,7 +190,7 @@ describe.skipIf(process.platform === "win32")("Claude Code CLI provider", () => 
     expect(record.frames).toEqual([
       { type: "user", message: { role: "user", content: [{ type: "text", text: "Hi" }] } },
     ]);
-    // The inventory server lists Rakazo's tools and never runs one.
+    // The inventory server lists Superbot's tools and never runs one.
     expect(record.tools.init?.protocolVersion).toBe("2025-06-18");
     expect(record.tools.tools).toEqual([
       { name: "lookup", description: tools[0]!.description, inputSchema: tools[0]!.parameters },
@@ -570,7 +570,7 @@ describe.skipIf(process.platform === "win32")("Claude Code CLI provider", () => 
     ["crash", /exit code 3/],
     ["old-version", /older than \d+\.\d+\.\d+\. Run `claude update`/],
     ["built-in-tools", /its own tools enabled: Bash, Read/],
-    ["no-tool-server", /could not load Rakazo's tools/],
+    ["no-tool-server", /could not load Superbot's tools/],
     ["incomplete-tool", /incomplete content blocks/],
   ])("fails clearly on %s", async (scenario, error) => {
     fakeClaude(scenario);
@@ -655,7 +655,7 @@ describe.skipIf(process.platform === "win32")("Claude Code CLI provider", () => 
     const cli = fakeClaude("reply");
     configureProvider(undefined);
     expect((await run(hello)).message.errorMessage).toMatch(
-      /only inside the Rakazo API and worker/,
+      /only inside the Superbot API and worker/,
     );
     configureProvider(async () => PERSONAL_CLI_SHARED_REFUSAL);
     expect((await run(hello)).message.errorMessage).toBe(PERSONAL_CLI_SHARED_REFUSAL);

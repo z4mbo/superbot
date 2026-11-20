@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { ConnectionCatalogItem, PluginMarketplaceEntry } from "@rakazo/contracts";
-import { CATALOG_SEARCH_QUERY_MAX_LENGTH, SUBMIT_PLUGIN_URL } from "@rakazo/contracts";
+import { CATALOG_SEARCH_QUERY_MAX_LENGTH } from "@rakazo/contracts";
 import {
   CONNECTION_CATALOG_PAGE_SIZE,
   catalogItemKey,
@@ -9,7 +9,7 @@ import {
   OTHER_PLUGINS,
 } from "@rakazo/core";
 import { Button, SectionHeading, Spinner } from "@rakazo/ui-web";
-import { ArrowUpRight, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import type { PluginSelection } from "../../components/integrations/plugin-marketplace";
 import {
   PluginRow,
@@ -344,19 +344,6 @@ export function PluginBrowse({
             : null}
         </>
       )}
-      {catalogLoaded && !category ? (
-        <div className="mt-10 flex justify-center">
-          <a
-            href={SUBMIT_PLUGIN_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-body-sm text-muted-foreground hover:text-foreground"
-          >
-            <Trans>Submit a plugin</Trans>
-            <ArrowUpRight size={14} />
-          </a>
-        </div>
-      ) : null}
     </>
   );
 }

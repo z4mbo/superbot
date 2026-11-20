@@ -1412,8 +1412,8 @@ msgid "Allow once"
 msgstr "允許一次"
 
 #: apps/web/src/lib/calls/dictation.ts
-msgid "Allow Rakazo to use Speech Recognition and the microphone in System Settings."
-msgstr "請在系統設定中允許 Rakazo 使用語音辨識和麥克風。"
+msgid "Allow Superbot to use Speech Recognition and the microphone in System Settings."
+msgstr "請在系統設定中允許 Superbot 使用語音辨識和麥克風。"
 
 #: apps/mobile/lib/calls/call-session.ts
 #: apps/mobile/lib/composer/composer-dictation.ts
@@ -2543,8 +2543,8 @@ msgstr "選擇資料夾"
 
 #: apps/web/src/components/billing/ModelCredits.tsx
 #: apps/web/src/components/billing/SubscriptionGate.tsx
-msgid "Choose how to use Rakazo"
-msgstr "選擇 Rakazo 的使用方式"
+msgid "Choose how to use Superbot"
+msgstr "選擇 Superbot 的使用方式"
 
 #: apps/web/src/pages/shell/bots/agent-import.tsx
 msgid "Choose your {home} folder, or a backup of it."
@@ -3018,8 +3018,8 @@ msgstr "連接你的 AI"
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts
-msgid "Connect your own API key in Models or choose Rakazo credits in Billing."
-msgstr "請在「模型」中連接你自己的 API 金鑰，或在「帳務」中選擇 Rakazo 點數。"
+msgid "Connect your own API key in Models or choose Superbot credits in Billing."
+msgstr "請在「模型」中連接你自己的 API 金鑰，或在「帳務」中選擇 Superbot 點數。"
 
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/computers.tsx
@@ -5326,8 +5326,8 @@ msgid "Ends {day}"
 msgstr "於 {day} 結束"
 
 #: apps/web/src/pages/shell/composer/github-star-prompt.tsx
-msgid "Enjoying Rakazo?"
-msgstr "喜歡 Rakazo 嗎？"
+msgid "Enjoying Superbot?"
+msgstr "喜歡 Superbot 嗎？"
 
 #: apps/mobile/lib/api/user-error.ts
 #: apps/web/src/lib/query/user-error.ts
@@ -6115,8 +6115,8 @@ msgstr "如何檢查"
 
 #: apps/mobile/app/(settings)/signup-survey.tsx
 #: apps/web/src/components/account/SignupSurvey.tsx
-msgid "How will you use Rakazo?"
-msgstr "你會如何使用 Rakazo？"
+msgid "How will you use Superbot?"
+msgstr "你會如何使用 Superbot？"
 
 #: apps/mobile/components/models/compatible-endpoint-form.tsx
 msgid "http://127.0.0.1:8000/v1"
@@ -7837,8 +7837,8 @@ msgid "Not in {organizationName}. They'll only see this Space."
 msgstr "不在 {organizationName} 中，只能看到此空間。"
 
 #: apps/web/src/pages/shell/bots/import-status.ts
-msgid "Not in Rakazo's catalog"
-msgstr "不在 Rakazo 目錄中"
+msgid "Not in Superbot's catalog"
+msgstr "不在 Superbot 目錄中"
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/pages/plugins/plugin-browse.tsx
@@ -7887,12 +7887,12 @@ msgstr "未傳送。點一下重試"
 
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
 #: apps/web/src/pages/shell/bots/import-status.ts
-msgid "Not supported in Rakazo"
-msgstr "Rakazo 不支援"
+msgid "Not supported in Superbot"
+msgstr "Superbot 不支援"
 
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
-msgid "Not used by Rakazo"
-msgstr "Rakazo 不使用"
+msgid "Not used by Superbot"
+msgstr "Superbot 不使用"
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/components/integrations/McpServerHealthLine.tsx
@@ -8122,8 +8122,8 @@ msgstr "開啟導覽"
 #: apps/web/src/pages/auth/Invite.tsx
 #: apps/web/src/pages/auth/JoinOrganization.tsx
 #: apps/web/src/pages/SharedPage.tsx
-msgid "Open Rakazo"
-msgstr "開啟 Rakazo"
+msgid "Open Superbot"
+msgstr "開啟 Superbot"
 
 #: apps/mobile/lib/composer/composer-dictation.ts
 #: apps/mobile/lib/thread/thread-voice.ts
@@ -8382,8 +8382,8 @@ msgstr "貼上替換金鑰"
 
 #: apps/mobile/components/models/compatible-endpoint-form.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-msgid "Paste the OpenAI-compatible address from your server. Rakazo adds /v1 if needed."
-msgstr "貼上伺服器的 OpenAI 相容地址。需要時 Rakazo 會補上 /v1。"
+msgid "Paste the OpenAI-compatible address from your server. Superbot adds /v1 if needed."
+msgstr "貼上伺服器的 OpenAI 相容地址。需要時 Superbot 會補上 /v1。"
 
 #: apps/web/src/pages/shell/bots/agent-import.tsx
 msgid "Paste the reply"
@@ -8715,19 +8715,19 @@ msgstr "引用所選內容"
 #: apps/mobile/app/bot-settings.tsx
 #: apps/web/src/pages/settings/AccountSettingsOverlay.tsx
 #: apps/web/src/pages/shell/bots/avatar-studio-popover.tsx
-msgid "Rakazo"
-msgstr "Rakazo"
+msgid "Superbot"
+msgstr "Superbot"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/mobile/components/models/model-role-settings.tsx
 #: apps/web/src/pages/model-settings/ModelRoleSettings.tsx
 #: apps/web/src/pages/onboarding/use-onboarding-model.ts
-msgid "Rakazo credits"
-msgstr "Rakazo 額度"
+msgid "Superbot credits"
+msgstr "Superbot 額度"
 
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
-msgid "rakazo-shared and IDs starting with bot- are reserved for Rakazo."
-msgstr "rakazo-shared 與以 bot- 開頭的 ID 保留給 Rakazo 使用。"
+msgid "This peer ID is reserved. Choose a different ID."
+msgstr "這個對等端 ID 已保留。請選擇其他 ID。"
 
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/web/src/pages/shell/chat/message-hover-actions.tsx
@@ -8773,8 +8773,8 @@ msgid "Recall from banks"
 msgstr "從記憶庫回想"
 
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
-msgid "Recall from this peer; save to Rakazo’s own peers."
-msgstr "從此 peer 讀取；儲存至 Rakazo 自己的 peer。"
+msgid "Recall from this peer; save to Superbot’s own peers."
+msgstr "從此 peer 讀取；儲存至 Superbot 自己的 peer。"
 
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Recall only"
@@ -9391,8 +9391,8 @@ msgstr "返回收件匣"
 
 #: apps/web/src/pages/integrations/McpOAuthCallback.tsx
 #: apps/web/src/pages/integrations/SlackInstallCallback.tsx
-msgid "Return to Rakazo"
-msgstr "返回 Rakazo"
+msgid "Return to Superbot"
+msgstr "返回 Superbot"
 
 #: apps/web/src/lib/models/model-connection-preflight.ts
 msgid "Review provider settings and test again."
@@ -10203,8 +10203,8 @@ msgstr "在 <0>{0}</0> 登入，然後將代碼貼到這裡。"
 
 #: apps/mobile/app/sign-in.tsx
 #: apps/web/src/pages/auth/Auth.tsx
-msgid "Sign in to Rakazo"
-msgstr "登入 Rakazo"
+msgid "Sign in to Superbot"
+msgstr "登入 Superbot"
 
 #: apps/mobile/lib/api/user-error.ts
 #: apps/web/src/lib/query/user-error.ts
@@ -10235,8 +10235,8 @@ msgid "Sign up"
 msgstr "註冊"
 
 #: apps/mobile/app/sign-in.tsx
-msgid "Sign up for Rakazo"
-msgstr "註冊 Rakazo"
+msgid "Sign up for Superbot"
+msgstr "註冊 Superbot"
 
 #: apps/web/src/pages/plugins/PluginsOverlay.tsx
 msgid "Sign-in cancelled. Retry in Manage MCP servers."
@@ -10566,8 +10566,8 @@ msgid "Start recording"
 msgstr "開始錄製"
 
 #: apps/mobile/app/paywall.tsx
-msgid "Start using Rakazo"
-msgstr "開始使用 Rakazo"
+msgid "Start using Superbot"
+msgstr "開始使用 Superbot"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/billing/ModelCredits.tsx
@@ -10903,8 +10903,8 @@ msgid "That isn't a Grok Bot export. Paste the Bot's whole reply."
 msgstr "這不是 Grok Bot 的匯出內容。請貼上該 Bot 的完整回覆。"
 
 #: apps/mobile/lib/api/endpoint.ts
-msgid "That URL did not look like a Rakazo server"
-msgstr "該地址看起來不是 Rakazo 伺服器"
+msgid "That URL did not look like a Superbot server"
+msgstr "該地址看起來不是 Superbot 伺服器"
 
 #: apps/mobile/lib/api/endpoint.ts
 msgid "That URL is missing a host"
@@ -11038,8 +11038,8 @@ msgstr "共用連結將失效"
 
 #: apps/mobile/app/meeting-transcript.tsx
 #: apps/web/src/pages/shell/meetings/meeting-transcript.tsx
-msgid "The transcript will be removed from Rakazo."
-msgstr "文字紀錄將從 Rakazo 中移除。"
+msgid "The transcript will be removed from Superbot."
+msgstr "文字紀錄將從 Superbot 中移除。"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/billing/ModelCredits.tsx
@@ -11198,8 +11198,8 @@ msgid "This device"
 msgstr "本裝置"
 
 #: apps/web/src/lib/bots/agent-import-errors.ts
-msgid "This export is newer than Rakazo can read. Update Rakazo and try again."
-msgstr "此匯出內容的版本比 Rakazo 能讀取的更新。請更新 Rakazo 後再試一次。"
+msgid "This export is newer than Superbot can read. Update Superbot and try again."
+msgstr "此匯出內容的版本比 Superbot 能讀取的更新。請更新 Superbot 後再試一次。"
 
 #: apps/web/src/lib/bots/agent-import-errors.ts
 msgid "This export is too large to import."
@@ -11374,8 +11374,8 @@ msgstr "此空間有自己的保管庫。其中的機器人會在那裡儲存和
 
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
-msgid "This subscription sign-in is not available in Rakazo yet. Use a deployment credential or choose another provider."
-msgstr "此訂閱登入在 Rakazo 中尚不可用。請使用部署憑證或選擇其他供應商。"
+msgid "This subscription sign-in is not available in Superbot yet. Use a deployment credential or choose another provider."
+msgstr "此訂閱登入在 Superbot 中尚不可用。請使用部署憑證或選擇其他供應商。"
 
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
@@ -11796,8 +11796,8 @@ msgid "Update progress"
 msgstr "更新進度"
 
 #: apps/web/src/lib/integrations/meeting-calendar-connect.ts
-msgid "Update Rakazo to connect your calendar from the desktop app."
-msgstr "請更新 Rakazo，以便從桌面應用程式連線日曆。"
+msgid "Update Superbot to connect your calendar from the desktop app."
+msgstr "請更新 Superbot，以便從桌面應用程式連線日曆。"
 
 #: apps/mobile/lib/api/client-update.ts
 #: apps/web/src/lib/platform/client-update.ts
@@ -11966,8 +11966,8 @@ msgstr "輸入密碼時，請使用受保護的輸入。"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/billing/ModelCredits.tsx
-msgid "Use Rakazo credits"
-msgstr "使用 Rakazo 額度"
+msgid "Use Superbot credits"
+msgstr "使用 Superbot 額度"
 
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "Use space default"
@@ -12214,8 +12214,8 @@ msgstr "歡迎回來"
 #: apps/mobile/app/(settings)/_layout.tsx
 #: apps/mobile/app/sign-in.tsx
 #: apps/web/src/components/account/SignupSurvey.tsx
-msgid "Welcome to Rakazo"
-msgstr "歡迎使用 Rakazo"
+msgid "Welcome to Superbot"
+msgstr "歡迎使用 Superbot"
 
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
 msgid "What about its memories?"
@@ -12227,8 +12227,8 @@ msgstr "此空間可以使用什麼？"
 
 #: apps/mobile/app/(settings)/signup-survey.tsx
 #: apps/web/src/components/account/SignupSurvey.tsx
-msgid "What do you most want Rakazo to help with?"
-msgstr "你最希望 Rakazo 幫你做什麼？"
+msgid "What do you most want Superbot to help with?"
+msgstr "你最希望 Superbot 幫你做什麼？"
 
 #: apps/web/src/pages/shell/chat/message-cards.tsx
 msgid "What do you want me on first?"

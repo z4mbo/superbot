@@ -222,17 +222,17 @@ test("Honcho memory settings empty and filled", async ({ page }, testInfo) => {
   await userPeer.fill("bot-123");
   await expect(userPeer).toHaveAttribute("aria-invalid", "true");
   await expect(
-    memory.getByText("rakazo-shared and IDs starting with bot- are reserved for Rakazo."),
+    memory.getByText("This peer ID is reserved. Choose a different ID."),
   ).toBeVisible();
   await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeDisabled();
   await captureScreenshot(page, testInfo, "memory-honcho-user-peer-reserved");
   await userPeer.fill("user-alex");
   await expect(
-    memory.getByText("Recall from this peer; save to Rakazo’s own peers."),
+    memory.getByText("Recall from this peer; save to Superbot’s own peers."),
   ).toBeVisible();
   await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeEnabled();
   await memory
-    .getByText("Recall from this peer; save to Rakazo’s own peers.")
+    .getByText("Recall from this peer; save to Superbot’s own peers.")
     .evaluate((element) => element.scrollIntoView({ block: "center" }));
   await captureScreenshot(page, testInfo, "memory-honcho-filled");
   await memory.getByRole("button", { name: "Self-hosted", exact: true }).click();

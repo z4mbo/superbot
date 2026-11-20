@@ -4,7 +4,6 @@ import type {
   PluginSubmissionReview,
   PluginSubmissionStatus,
 } from "@rakazo/contracts";
-import { integrationPageUrl } from "@rakazo/contracts";
 import {
   Button,
   Dialog,
@@ -123,9 +122,6 @@ export function PluginSubmissionsPanel() {
                     {submission.name}
                   </h3>
                   {submission.source ? <ExternalLink href={submission.source} /> : null}
-                  {submission.claim ? (
-                    <ExternalLink href={integrationPageUrl(submission.claim)} />
-                  ) : null}
                   {submission.website ? (
                     <div>
                       <ExternalLink href={submission.website} />

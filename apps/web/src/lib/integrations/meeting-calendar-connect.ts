@@ -18,7 +18,7 @@ export async function connectMeetingCalendar(rpc: RpcClient, botId: string, sign
 
   const oauth = desktop.oauth;
   if (!oauth?.open)
-    throw new Error(t`Update Rakazo to connect your calendar from the desktop app.`);
+    throw new Error(t`Update Superbot to connect your calendar from the desktop app.`);
   const value = crypto.getRandomValues(new Uint16Array(1))[0]!;
   const loopbackPort = 49_152 + (value % 16_384);
   const started = await rpc.meetingCalendar.begin({ botId, client: "desktop", loopbackPort });

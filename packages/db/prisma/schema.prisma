@@ -1205,7 +1205,7 @@ model Message {
   role             String
   blocks           Json
   botId            String?
-  /// The person who wrote a user message. No foreign key, so the history keeps
+  /// The person responsible for the message. No foreign key, so the history keeps
   /// its shape after that person leaves the space or deletes their account.
   authorUserId     String?
   replyToMessageId String?
@@ -1214,6 +1214,7 @@ model Message {
   replies          Message[] @relation("MessageReplies")
   runId            String?
   clientNonce      String?
+  localOperationId String?   @db.Uuid
   /// Blind-index search tokens for the encrypted blocks; NULL until the row is encrypted.
   searchTokens     Int[]
   /// A bot reply's tool calls as sent and returned (JSON, see ToolHistorySchema), encrypted like
@@ -1226,6 +1227,7 @@ model Message {
 
   @@unique([threadId, seq])
   @@unique([threadId, clientNonce])
+  @@unique([threadId, authorUserId, localOperationId, role], map: "messages_local_operation_key")
   @@index([replyToMessageId])
   @@index([runId, seq])
   @@index([searchTokens], type: Gin)

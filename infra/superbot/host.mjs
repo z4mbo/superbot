@@ -8,7 +8,7 @@ import { parseEnv } from "node:util";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const [command, ...args] = process.argv.slice(2);
 const usage =
-  "Usage: node infra/superbot/host.mjs <init|up|status|logs|account|down> [--env FILE] [--project NAME] [--port PORT] [--origin URL]";
+  "Usage: node infra/superbot/host.mjs <init|up|status|logs|account|egress|down> [--env FILE] [--project NAME] [--port PORT] [--origin URL]";
 const options = new Map();
 
 function parseOptions() {
@@ -61,7 +61,6 @@ function initialize(envFile) {
     SANDBOX_SUPERVISOR_TOKEN: secret(),
     WEB_ORIGIN: origin.origin,
     BETTER_AUTH_URL: origin.origin,
-    RAKAZO_HOST: origin.hostname,
     AUTH_PASSWORD_ENABLED: "true",
     SIGNUPS_ENABLED: local ? "true" : "false",
     EMAIL_PROVIDER: "none",
@@ -89,6 +88,7 @@ function main() {
       "node",
       "dist/cli/bootstrap-owner.js",
     ],
+    egress: ["exec", "-T", "supervisor", "pnpm", "run", "egress"],
     down: ["down"],
   };
   if (command !== "init" && !Object.hasOwn(commands, command)) throw new Error(usage);
@@ -101,6 +101,23 @@ function main() {
     return;
   }
   const settings = parseEnv(readFileSync(envFile, "utf8"));
+  const environment = { ...process.env, ...settings };
+  if (settings.WEB_ORIGIN) environment.RAKAZO_HOST = new URL(settings.WEB_ORIGIN).hostname;
+  if (environment.SUPERBOT_ADMIN_EMAILS !== undefined) {
+    environment.RAKAZO_ADMIN_EMAILS = environment.SUPERBOT_ADMIN_EMAILS;
+  }
+  const computerSetting = settings.SUPERBOT_COMPUTERS_ENABLED ?? "false";
+  if (!["true", "false"].includes(computerSetting)) {
+    throw new Error("SUPERBOT_COMPUTERS_ENABLED must be true or false.");
+  }
+  const computersEnabled = computerSetting === "true";
+  if (command === "egress" && !computersEnabled) {
+    throw new Error("Set SUPERBOT_COMPUTERS_ENABLED=true in the stack environment file first.");
+  }
+  if (command === "logs" && computersEnabled) commands.logs.push("supervisor", "computer");
+  const computerOverlay = computersEnabled
+    ? ["-f", resolve(root, "infra/superbot/compose.computers.yml")]
+    : [];
   const result = spawnSync(
     "docker",
     [
@@ -113,9 +130,10 @@ function main() {
       resolve(root, "infra/compose/docker-compose.yml"),
       "-f",
       resolve(root, "infra/superbot/compose.yml"),
+      ...computerOverlay,
       ...commands[command],
     ],
-    { cwd: root, env: { ...process.env, ...settings }, stdio: "inherit" },
+    { cwd: root, env: environment, stdio: "inherit" },
   );
   if (result.error?.code === "ENOENT")
     throw new Error("Docker CLI with the Compose plugin is required.");

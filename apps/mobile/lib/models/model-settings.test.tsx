@@ -946,11 +946,11 @@ it("keeps setup help and API key collapsible for generic compatible servers", as
   const row = (name: string) =>
     [...container.querySelectorAll("button")].find((button) => button.textContent === name)!;
   expect(field("API key")).toBeNull();
-  expect(container.textContent).not.toContain("Rakazo adds /v1");
+  expect(container.textContent).not.toContain("Superbot adds /v1");
   await act(async () => row("Setup help").click());
-  expect(container.textContent).toContain("Rakazo adds /v1");
+  expect(container.textContent).toContain("Superbot adds /v1");
   await act(async () => row("Setup help").click());
-  expect(container.textContent).not.toContain("Rakazo adds /v1");
+  expect(container.textContent).not.toContain("Superbot adds /v1");
   await act(async () => row("API key").click());
   expect(field("API key")).not.toBeNull();
   await act(async () => row("API key").click());
@@ -1168,7 +1168,7 @@ it("keeps native picker credit and personal selections distinct for the same mod
   const request = modelPickerRequest(
     (push.mock.calls.at(-1)![0] as { params: { requestId: string } }).params.requestId,
   )!;
-  const credit = request.choices.find((choice) => choice.providerLabel === "Rakazo credits")!;
+  const credit = request.choices.find((choice) => choice.providerLabel === "Superbot credits")!;
   const personal = request.choices.find((choice) => choice.providerLabel?.includes("Personal"))!;
   expect(credit.key).not.toBe(personal.key);
   await act(async () => {

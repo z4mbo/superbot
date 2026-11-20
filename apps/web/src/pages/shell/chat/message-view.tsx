@@ -148,7 +148,9 @@ export const MessageView = memo(function MessageView({
   onReact: (message: ThreadMessage, reaction: MessageReaction) => Promise<void>;
 }) {
   const { t } = useLingui();
+  const localReply = message.origin === "local_cli" && message.role === "bot";
   const isNarration =
+    !localReply &&
     message.role === "bot" &&
     message.blocks.length > 0 &&
     message.blocks.every(
@@ -206,7 +208,11 @@ export const MessageView = memo(function MessageView({
   );
   const messageContext = (
     <>
-      {speakerName ? (
+      {localReply ? (
+        <div className="mb-1.5 text-body-sm font-semibold text-muted-foreground" dir="auto">
+          {message.author ? t`Local CLI used by ${message.author.name}` : t`Local CLI`}
+        </div>
+      ) : speakerName ? (
         <div
           className="mb-1.5 flex items-center gap-2 text-body-sm font-semibold tracking-tight"
           dir="auto"
@@ -620,9 +626,13 @@ export const MessageView = memo(function MessageView({
                   dir="auto"
                 >
                   <div data-quote-message-id={quoteMessageId}>
-                    <ChatMarkdown renderMention={renderMention} onOpenPage={openPage}>
-                      {block.text}
-                    </ChatMarkdown>
+                    {localReply ? (
+                      <div className="whitespace-pre-wrap wrap-anywhere">{block.text}</div>
+                    ) : (
+                      <ChatMarkdown renderMention={renderMention} onOpenPage={openPage}>
+                        {block.text}
+                      </ChatMarkdown>
+                    )}
                   </div>
                   {voiceReady ? (
                     <Button

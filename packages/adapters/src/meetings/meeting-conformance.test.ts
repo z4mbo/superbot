@@ -18,7 +18,7 @@ const input: MeetingJoinRequest = {
   sessionId: "meeting-session-123",
   platform: "google_meet",
   meetingUrl: "https://meet.google.com/abc-defg-hij",
-  botName: "Atlas · Rakazo",
+  botName: "Atlas · Superbot",
   expiresAt: new Date("2026-11-19T19:30:00.000Z"),
 };
 const signal = new AbortController().signal;
@@ -192,12 +192,12 @@ it("preserves Teams meeting context and rejects look-alike or non-meeting links"
 it.each([
   {
     voice: false,
-    notice: "Rakazo is capturing audio to create a meeting transcript.",
+    notice: "Superbot is capturing audio to create a meeting transcript.",
   },
   {
     voice: true,
     notice:
-      "Rakazo is capturing audio to create a meeting transcript. It also processes speech in real time with AI services and may reply aloud when addressed by name.",
+      "Superbot is capturing audio to create a meeting transcript. It also processes speech in real time with AI services and may reply aloud when addressed by name.",
   },
 ])("discloses whether the branded camera has live voice ($voice)", async ({ voice, notice }) => {
   const emulator = new RecallMeetingEmulator();

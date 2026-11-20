@@ -2,7 +2,7 @@ import * as z from "zod";
 import { Id } from "../ids.js";
 import { MessageBlock, MessageRole } from "./message-blocks.js";
 
-/** The person who wrote a user message, when known. */
+/** The signed-in person responsible for the message, when known. */
 export const MessageAuthorSchema = z.object({ id: Id, name: z.string() });
 export type MessageAuthor = z.infer<typeof MessageAuthorSchema>;
 
@@ -36,6 +36,8 @@ export const ThreadMessageSchema = z.object({
   replyQuote: z.string().optional(),
   replyPreview: ReplyPreviewSchema.nullable().optional(),
   runId: Id.optional(),
+  /** Client-submitted local history attributed to the signed-in member. */
+  origin: z.literal("local_cli").optional(),
   /** Set when the message was sent from a live voice call; groups one call's transcript. */
   callId: z.string().optional(),
   createdAt: z.string(),

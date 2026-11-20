@@ -20,6 +20,23 @@ export const threadTarget = z
     }
   });
 
+const localHistoryText = z
+  .string()
+  .trim()
+  .min(1)
+  .max(THREAD_MESSAGE_TEXT_MAX_LENGTH)
+  .refine((text) => !text.includes("\0") && !/[\uD800-\uDFFF]/u.test(text), "Invalid text");
+
+export const appendLocalHistoryInput = threadTarget
+  .safeExtend({
+    operationId: z.uuid().transform((id) => id.toLowerCase()),
+    text: localHistoryText,
+    reply: localHistoryText.optional(),
+  })
+  .strict();
+
+export type AppendLocalHistoryInput = z.infer<typeof appendLocalHistoryInput>;
+
 const structuredMentionTarget = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("bot"), id: Id }),
   z.object({ kind: z.literal("group"), id: Id }),

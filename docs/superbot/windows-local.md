@@ -66,7 +66,7 @@ connection settings. For a server on this computer, a base URL might be
 `http://127.0.0.1:11434/v1`. Use HTTPS when sending an API key or custom
 headers.
 
-This sets Rakazo's `MCP_ALLOW_PRIVATE_ENDPOINT` policy on the API and worker
+This sets Superbot's `MCP_ALLOW_PRIVATE_ENDPOINT` policy on the API and worker
 for every account on this instance. It also allows private destinations for
 configured remote MCP, API and GraphQL connectors and compatible speech
 servers. Enable it only on an instance whose users you trust with this

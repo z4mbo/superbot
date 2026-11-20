@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { copyFile, mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -9,20 +9,25 @@ import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
-import { startModelEmulator } from "../../packages/testkit/src/model-emulator.ts";
+import { startModelEmulator } from "../../scripts/superbot-test-support.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const exec = promisify(execFile);
 const {
   positionals: [postgresBin, executable, desktopExecutable],
-  values: { "notifications-probe": notificationProbe, marketplace, roster },
+  values: { "notifications-probe": notificationProbe, marketplace, roster, "local-cli": localCli },
 } = parseArgs({
   allowPositionals: true,
-  options: { "notifications-probe": { type: "string" }, marketplace: { type: "boolean" }, roster: { type: "boolean" } },
+  options: {
+    "notifications-probe": { type: "string" },
+    marketplace: { type: "boolean" },
+    roster: { type: "boolean" },
+    "local-cli": { type: "boolean" },
+  },
 });
 assert(
   process.platform === "win32" && postgresBin && executable,
-  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--roster]",
+  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--roster] [--local-cli]",
 );
 const cli = resolve(executable);
 const pg = (file) => resolve(postgresBin, `${file}.exe`);
@@ -211,10 +216,12 @@ async function signup(name, reviewerEmail) {
   return { id: user.id, name, token };
 }
 
-async function checkCliChat({ spaceName, agent, prompt, reply }) {
-  const child = spawn(cli, ["--server", origin, "--space", spaceName, agent.name], {
+async function checkCliChat({ spaceName, agent, prompt, reply, picker, childEnv = env }) {
+  const args = ["--server", origin, "--space", spaceName];
+  if (!picker) args.push(agent.name);
+  const child = spawn(cli, args, {
     cwd: root,
-    env,
+    env: childEnv,
     windowsHide: true,
     timeout: 30_000,
   });
@@ -223,14 +230,107 @@ async function checkCliChat({ spaceName, agent, prompt, reply }) {
   child.stdout.setEncoding("utf8").on("data", (chunk) => chunks.push(chunk));
   child.stderr.setEncoding("utf8").on("data", (chunk) => errors.push(chunk));
   child.stdin.on("error", () => {});
-  child.stdin.end(`${prompt}\n/quit\n`);
+  child.stdin.end(`${picker ? `${picker}\n` : ""}${prompt}\n/quit\n`);
   const exit = await new Promise((done, fail) => child.once("close", done).once("error", fail));
   assert.equal(exit, 0, errors.join("").trim() || "Fixture CLI exited unsuccessfully");
   assert(
     chunks.join("").includes(`${agent.name} > ${reply}`),
-    "CLI did not print the expected agent reply",
+    `CLI did not print the expected agent reply: ${chunks.join("").trim()}`,
   );
   assert.equal(errors.join(""), "");
+}
+
+async function checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedObserver, source }) {
+  const agent = await rpc("bots/duplicate", { botId: source.id }, scopedOwner);
+  const config = join(directory, "local-cli");
+  const bin = join(directory, "fake-bin");
+  const scope = createHash("sha256");
+  for (const value of [new URL(origin).href, owner.id, scopedOwner.space]) {
+    const size = Buffer.alloc(8);
+    size.writeBigUInt64BE(BigInt(Buffer.byteLength(value)));
+    scope.update(size).update(value);
+  }
+  const modelDir = join(config, "local-models", scope.digest("hex"));
+  const botHash = createHash("sha256").update(agent.id).digest("hex");
+  const profile = join(modelDir, "claude");
+  await mkdir(profile, { recursive: true });
+  await mkdir(bin);
+  await command(
+    "rustc.exe",
+    ["native/features/tests/fixtures/local_cli.rs", "-o", join(bin, "claude.exe")],
+    "Build synthetic local CLI",
+  );
+  await writeFile(join(profile, "fake-signed-in"), "");
+  await writeFile(
+    join(modelDir, `bot-${botHash}.json`),
+    JSON.stringify({
+      provider: "claude",
+      id: "fixture-chat",
+      label: "Local fixture model",
+    }),
+  );
+  const { PATH: path, Path: mixedPath, ...childEnv } = env;
+  Object.assign(childEnv, {
+    PATH: `${bin};${path ?? mixedPath ?? ""}`,
+    SUPERBOT_CONFIG_DIR: config,
+  });
+  const { stdout } = await command(
+    cli,
+    ["--server", origin, "--space", spaceName, "list"],
+    "List fixture agents",
+    childEnv,
+  );
+  const picker =
+    stdout
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("  "))
+      .findIndex((line) => line.trim() === agent.name) + 1;
+  assert(picker > 0);
+  const run = (prompt, reply, choice) =>
+    checkCliChat({ spaceName, agent, prompt, reply, picker: choice, childEnv });
+  await run("First local fixture prompt", "First local fixture reply");
+  await run("Follow up locally", "Second local fixture reply", picker);
+
+  const target = { botId: agent.id };
+  const read = () => rpc("threads/get", target, scopedObserver);
+  const first = await read();
+  assert.deepEqual(
+    first.messages.map(({ role, origin, author, blocks }) => [
+      role,
+      origin,
+      author.id,
+      blocks[0].text,
+    ]),
+    [
+      ["user", "First local fixture prompt"],
+      ["bot", "First local fixture reply"],
+      ["user", "Follow up locally"],
+      ["bot", "Second local fixture reply"],
+    ].map(([role, text]) => [role, "local_cli", owner.id, text]),
+  );
+
+  const pending = { id: randomUUID(), text: "Retry fixture prompt", reply: "Retry fixture reply" };
+  const pendingFile = join(modelDir, `pending-${botHash}.json`);
+  await writeFile(pendingFile, JSON.stringify(pending));
+  const committed = await rpc(
+    "threads/appendLocalHistory",
+    {
+      ...target,
+      operationId: pending.id,
+      text: pending.text,
+      reply: pending.reply,
+    },
+    scopedOwner,
+  );
+  await run("/retry", pending.reply);
+  await assert.rejects(readFile(pendingFile), { code: "ENOENT" });
+  assert.deepEqual(
+    (await read()).messages.map(({ id }) => id),
+    [...first.messages.map(({ id }) => id), ...committed.messageIds],
+  );
+  console.log(
+    "PASS named and picker chats ran the selected local CLI and retried shared history without duplication",
+  );
 }
 
 const modelKey = secret();
@@ -520,6 +620,87 @@ try {
       }
     }
     assert(sawUser && sawBot, "Observer saw both attributed messages");
+
+    const append = "threads/appendLocalHistory";
+    const note = { ...target, operationId: randomUUID(), text: "Shared fixture note" };
+    const localTurn = {
+      ...target,
+      operationId: randomUUID(),
+      text: "Local fixture prompt",
+      reply: "Local fixture reply",
+    };
+    await rpc(append, note, { status: 401 });
+    await rpc(append, note, { ...observer, status: 404 });
+    const outsider = await signup("Outsider");
+    await rpc(append, note, { ...outsider, space, status: 401 });
+    await rpc(append, { ...note, runId: sent.runId }, { ...scopedOwner, status: 400 });
+
+    const [firstNote, retriedNote] = await Promise.all([
+      rpc(append, note, scopedOwner),
+      rpc(append, note, scopedOwner),
+    ]);
+    assert.deepEqual(firstNote, retriedNote);
+    assert.equal(firstNote.messageIds.length, 1);
+    await rpc(append, { ...note, reply: localTurn.reply }, { ...scopedOwner, status: 409 });
+
+    const [firstTurn, retriedTurn] = await Promise.all([
+      rpc(append, localTurn, scopedOwner),
+      rpc(append, localTurn, scopedOwner),
+    ]);
+    assert.deepEqual(firstTurn, retriedTurn);
+    assert.equal(firstTurn.messageIds.length, 2);
+    await rpc(
+      append,
+      { ...localTurn, reply: "Different text" },
+      { ...scopedOwner, status: 409 },
+    );
+
+    const ids = [...firstNote.messageIds, ...firstTurn.messageIds];
+    const saved = await rpc("threads/get", target, scopedObserver);
+    const expected = [
+      ["user", note.text],
+      ["user", localTurn.text],
+      ["bot", localTurn.reply],
+    ];
+    const reloaded = saved.messages.filter(({ origin }) => origin === "local_cli");
+    assert.deepEqual(reloaded.map(({ id }) => id), ids);
+    assert.equal(reloaded[2].seq, reloaded[1].seq + 1);
+    const checkLocalMessage = (message, index) => {
+      assert.equal(message.origin, "local_cli");
+      assert.equal(message.author.id, owner.id);
+      assert.equal(message.author.name, owner.name);
+      assert.equal(message.role, expected[index][0]);
+      assert.deepEqual(message.blocks, [{ kind: "text", text: expected[index][1] }]);
+      assert.equal(message.botId, undefined);
+      assert.equal(message.runId, undefined);
+    };
+    reloaded.forEach(checkLocalMessage);
+
+    let received = 0;
+    let lastLocalEventSeq;
+    while (received < ids.length) {
+      const event = await nextEvent();
+      if (!event || event.type === "heartbeat") continue;
+      assert.equal(event.type, "thread.message.created");
+      assert.equal(event.runId, undefined);
+      assert.equal(event.payload.messageId, ids[received]);
+      checkLocalMessage(event.payload, received);
+      lastLocalEventSeq = event.seq;
+      received++;
+    }
+    assert.equal(saved.cursor, lastLocalEventSeq);
+
+    const directNote = { botId: first.id, operationId: note.operationId, text: note.text };
+    const directOwner = await rpc(append, directNote, scopedOwner);
+    const directObserver = await rpc(append, directNote, scopedObserver);
+    assert.notDeepEqual(directOwner, directObserver);
+    const direct = await rpc("threads/get", { botId: first.id }, scopedObserver);
+    assert.deepEqual(
+      direct.messages.filter(({ origin }) => origin === "local_cli")
+        .map(({ id, author }) => [id, author.id]),
+      [[directOwner.messageIds[0], owner.id], [directObserver.messageIds[0], observer.id]],
+    );
+    console.log("PASS local notes and CLI turns retry safely and reload with matching live attribution");
   } finally {
     await reader.cancel();
   }
@@ -530,6 +711,9 @@ try {
       model.assertComplete();
       throw error;
     }
+  }
+  if (localCli) {
+    await checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedObserver, source: first });
   }
   model.assertComplete();
   if (marketplace) {

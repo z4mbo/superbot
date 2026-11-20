@@ -17,7 +17,7 @@ import type {
   AiRecipient,
   SettingsScope,
 } from "@rakazo/contracts";
-import { AI_DISCLOSURE_VERSION, AI_PRIVACY_URL } from "@rakazo/contracts";
+import { AI_DISCLOSURE_VERSION } from "@rakazo/contracts";
 import {
   findDefaultVoiceCredential,
   findModelCredential,
@@ -285,7 +285,7 @@ export async function aiConsentStatus(
       .update(JSON.stringify([actor.userId, actor.spaceId]))
       .digest("hex"),
     version: AI_DISCLOSURE_VERSION,
-    privacyUrl: deps.env.privacyPolicyUrl ?? AI_PRIVACY_URL,
+    privacyUrl: deps.env.privacyPolicyUrl,
     recipients: [...recipients.values()],
   };
 }
