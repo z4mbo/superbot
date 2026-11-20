@@ -5,8 +5,9 @@ use std::time::Duration;
 use tokio::sync::mpsc::unbounded_channel;
 use url::Url;
 
+use super::control::ControlLease;
 use super::*;
-use crate::runtime::{detach, network};
+use crate::runtime::network;
 use crate::web::screen::{parent_window, ScreenDocument, ScreenFailure, ScreenState, ScreenView};
 
 /// How often an open screen checks in: it keeps the computer awake, and control alive while held.
@@ -23,28 +24,6 @@ pub(super) enum ScreenPhase {
     Unavailable(String),
 }
 
-pub(super) struct ControlLease {
-    owner: (Features, String),
-    agent: String,
-    id: Option<String>,
-}
-
-impl ControlLease {
-    pub(super) async fn acquire(owner: (Features, String), agent: String) -> Result<Self, superbot_client::Error> {
-        let control = owner.0.space(&owner.1).take_computer_control(&agent).await?;
-        Ok(Self { owner, agent, id: Some(control.lease_id) })
-    }
-}
-
-impl Drop for ControlLease {
-    fn drop(&mut self) {
-        if let Some(id) = self.id.take() {
-            let ((features, space), agent) = (self.owner.clone(), self.agent.clone());
-            detach(async move { features.space(space).release_computer_control(&agent, &id).await });
-        }
-    }
-}
-
 /// An agent's live screen, open in the side panel. Dropping it closes the view and hands back
 /// control this account still holds.
 pub(super) struct ScreenSession {
@@ -53,6 +32,8 @@ pub(super) struct ScreenSession {
     phase: ScreenPhase,
     state: Option<ScreenState>,
     busy: bool,
+    /// Control is on its way back to the server; the toolbar still says so.
+    handing_back: bool,
     view: Option<Rc<ScreenView>>,
     lease: Option<ControlLease>,
     placed: Option<(Bounds<Pixels>, bool)>,
@@ -128,6 +109,7 @@ impl Desktop {
             state: None,
             lease: None,
             busy: false,
+            handing_back: false,
             view: None,
             placed: None,
             owner,
@@ -254,11 +236,12 @@ impl Desktop {
         let serial = screen.serial;
         let owner = screen.owner.clone();
         let agent = screen.agent_id.clone();
-        let held = screen.lease.as_ref().and_then(|lease| lease.id.clone());
+        let held = if take { None } else { screen.lease.take() };
+        screen.handing_back = !take;
         let work = async move {
             match (take, held) {
                 (true, _) => ControlLease::acquire(owner, agent).await.map(Some),
-                (false, Some(id)) => owner.0.space(owner.1).release_computer_control(&agent, &id).await.map(|()| None),
+                (false, Some(lease)) => lease.release().await.map(|()| None),
                 (false, None) => Ok(None),
             }
         };
@@ -266,16 +249,15 @@ impl Desktop {
             let Some(screen) = this.screen_of(serial) else { return };
             match result {
                 Ok(lease) => {
-                    if !take {
-                        if let Some(previous) = &mut screen.lease {
-                            previous.id = None;
-                        }
+                    screen.handing_back = false;
+                    if take {
+                        screen.lease = lease;
                     }
-                    screen.lease = lease;
                     this.load_screen(serial, window, cx);
                 }
                 Err(error) => {
                     screen.busy = false;
+                    screen.handing_back = false;
                     if let Some(panel) = this.agent_panel.as_mut() {
                         panel.problem = Some(api::explain(&error));
                     }
@@ -313,7 +295,7 @@ impl Desktop {
             self.agent_panel.as_ref().and_then(|panel| panel.computer.as_ref()),
             Some(ComputerView::Ready(status)) if status.controlled_by_other
         );
-        let holding = screen.lease.is_some();
+        let holding = screen.lease.is_some() || screen.handing_back;
         let busy = screen.busy;
         let live = matches!(screen.phase, ScreenPhase::Live);
         let own_window = screen.view.as_ref().is_some_and(|view| view.in_own_window());

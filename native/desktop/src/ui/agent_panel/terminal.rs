@@ -1,9 +1,10 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use superbot_features::ComputerTerminal;
 use url::Url;
 
-use super::screen::ControlLease;
+use super::control::ControlLease;
 use super::*;
 use crate::runtime::network;
 use crate::terminal::{self as wire, Connection, Event};
@@ -17,6 +18,8 @@ const LINE: Pixels = px(18.);
 const PADDING: Pixels = px(12.);
 const SCROLLBACK: usize = 2000;
 
+static TERMINALS: AtomicU64 = AtomicU64::new(0);
+
 enum Phase {
     Opening,
     Live,
@@ -26,7 +29,7 @@ enum Phase {
 /// An agent's terminal, open in the side panel. Opening it takes control of the computer, as
 /// typing into its screen does; dropping it closes the socket and hands control back.
 pub(super) struct TerminalSession {
-    agent_id: String,
+    serial: u64,
     phase: Phase,
     parser: vt100::Parser,
     size: (u16, u16),
@@ -73,6 +76,12 @@ impl Desktop {
         self.agent_panel.as_mut()?.terminal.as_mut()
     }
 
+    /// The terminal session `serial` opened, if it is still the one open: a late answer for a
+    /// terminal that was closed or opened again is dropped, along with any control it carries.
+    fn terminal_of(&mut self, serial: u64) -> Option<&mut TerminalSession> {
+        self.terminal_mut().filter(|terminal| terminal.serial == serial)
+    }
+
     pub(super) fn open_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((features, space)) = self.features() else { return };
         let Some(server) = self.api.as_ref().map(|api| api.client.server().to_owned()) else { return };
@@ -81,13 +90,14 @@ impl Desktop {
             return;
         }
         let agent_id = panel.agent_id.clone();
+        let serial = TERMINALS.fetch_add(1, Ordering::Relaxed);
         let focus = cx.focus_handle();
         let heartbeat = {
             let (features, space, agent) = (features.clone(), space.clone(), agent_id.clone());
             cx.spawn(async move |this, cx| loop {
                 cx.background_executor().timer(CONTROL_HEARTBEAT).await;
-                let open =
-                    this.update(cx, |this, _| this.terminal_mut().is_some_and(|terminal| terminal.lease.is_some()));
+                let open = this
+                    .update(cx, |this, _| this.terminal_of(serial).is_some_and(|terminal| terminal.lease.is_some()));
                 match open {
                     Ok(true) => {
                         let (features, space, agent) = (features.clone(), space.clone(), agent.clone());
@@ -100,7 +110,7 @@ impl Desktop {
         };
         panel.screen = None;
         panel.terminal = Some(TerminalSession {
-            agent_id: agent_id.clone(),
+            serial,
             phase: Phase::Opening,
             parser: vt100::Parser::new(24, 80, SCROLLBACK),
             size: (80, 24),
@@ -119,7 +129,7 @@ impl Desktop {
             Ok((lease, issued))
         };
         self.call(window, cx, work, move |this, result, window, cx| {
-            let Some(terminal) = this.terminal_mut().filter(|terminal| terminal.agent_id == agent_id) else { return };
+            let Some(terminal) = this.terminal_of(serial) else { return };
             let (lease, issued) = match result {
                 Ok(opened) => opened,
                 Err(error) => {
@@ -127,9 +137,11 @@ impl Desktop {
                     return;
                 }
             };
-            terminal.lease = Some(lease);
             match socket_target(&server, &issued) {
-                Ok((socket, origin, proof)) => this.connect_terminal(socket, origin, proof, window, cx),
+                Ok((socket, origin, proof)) => {
+                    terminal.lease = Some(lease);
+                    this.connect_terminal(serial, socket, origin, proof, window, cx);
+                }
                 Err(reason) => terminal.phase = Phase::Ended(reason),
             }
         });
@@ -138,6 +150,7 @@ impl Desktop {
 
     fn connect_terminal(
         &mut self,
+        serial: u64,
         socket: Url,
         origin: String,
         proof: String,
@@ -148,7 +161,7 @@ impl Desktop {
         let listen = cx.spawn_in(window, async move |this, cx| {
             while let Some(event) = events.recv().await {
                 let heard = this.update(cx, |this, cx| {
-                    let Some(terminal) = this.terminal_mut() else { return };
+                    let Some(terminal) = this.terminal_of(serial) else { return };
                     match event {
                         Event::Opened => {
                             terminal.phase = Phase::Live;
@@ -163,6 +176,7 @@ impl Desktop {
                         }
                         Event::Closed(reason) => {
                             terminal.connection = None;
+                            terminal.lease = None;
                             terminal.phase = Phase::Ended(reason.unwrap_or_else(|| "The terminal closed.".to_owned()));
                         }
                     }
@@ -173,7 +187,7 @@ impl Desktop {
                 }
             }
         });
-        if let Some(terminal) = self.terminal_mut() {
+        if let Some(terminal) = self.terminal_of(serial) {
             terminal.connection = Some(connection);
             terminal._tasks.push(listen);
         }
