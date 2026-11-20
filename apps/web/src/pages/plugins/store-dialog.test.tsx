@@ -19,13 +19,17 @@ vi.mock("../../components/integrations/skills-dialog", () => ({
   SkillsPanel: () => <p>skills</p>,
 }));
 vi.mock("./community/community-store", () => ({
-  CommunityStore: ({ initialSlug }: { initialSlug?: string }) => (
-    <p>community {initialSlug ?? "list"}</p>
+  CommunityStore: ({ initialPick }: { initialPick?: { kind: string; slug?: string } }) => (
+    <p>community {initialPick?.slug ?? "list"}</p>
   ),
 }));
 vi.mock("./apps-section", () => ({
-  AppsSection: ({ onOpenCommunity }: { onOpenCommunity: (slug?: string) => void }) => (
-    <button type="button" onClick={() => onOpenCommunity("kcal-diary")}>
+  AppsSection: ({
+    onOpenPlugins,
+  }: {
+    onOpenPlugins: (pick?: { kind: "community"; slug: string }) => void;
+  }) => (
+    <button type="button" onClick={() => onOpenPlugins({ kind: "community", slug: "kcal-diary" })}>
       open diary
     </button>
   ),

@@ -19,6 +19,7 @@ import { SkillsPanel } from "../../components/integrations/skills-dialog";
 import type { StoreSection } from "../shell/shell-overlay-url";
 import { AppsSection } from "./apps-section";
 import { CommunityStore } from "./community/community-store";
+import type { PluginPick } from "./plugin-picks";
 
 /** One Store: agent templates, skills, community plugins and app connections. */
 export function StoreDialog({
@@ -42,10 +43,10 @@ export function StoreDialog({
 }) {
   const { t } = useLingui();
   const [actions, setActions] = useState<HTMLElement | null>(null);
-  const [pluginSlug, setPluginSlug] = useState<string | undefined>();
+  const [pluginPick, setPluginPick] = useState<{ key: number; pick?: PluginPick }>({ key: 0 });
 
-  function open(next: StoreSection) {
-    setPluginSlug(undefined);
+  function open(next: StoreSection, pick?: PluginPick) {
+    setPluginPick((now) => ({ key: now.key + 1, pick }));
     onSectionChange(next);
   }
 
@@ -99,20 +100,20 @@ export function StoreDialog({
             onConnectedAppsChange={onConnectedAppsChange}
             onOpenMcp={onOpenMcp}
             onOpenMessaging={onOpenMessaging}
-            onOpenCommunity={(slug) => {
-              setPluginSlug(slug);
-              onSectionChange("plugins");
-            }}
+            onOpenPlugins={(pick) => open("plugins", pick)}
           />
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-8 pt-5 pb-8">
             {section === "agents" ? <BotTemplatesPanel onOpenBot={onOpenBot} /> : null}
-            {section === "skills" ? <SkillsPanel actions={actions} /> : null}
+            {section === "skills" ? (
+              <SkillsPanel actions={actions} activeBotId={activeBotId} />
+            ) : null}
             {section === "plugins" ? (
               <CommunityStore
-                key={pluginSlug ?? ""}
+                key={pluginPick.key}
                 activeBotId={activeBotId}
-                initialSlug={pluginSlug}
+                initialPick={pluginPick.pick}
+                onOpenApps={() => open("apps")}
               />
             ) : null}
           </div>

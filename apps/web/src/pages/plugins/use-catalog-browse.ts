@@ -7,24 +7,19 @@ import {
   catalogItemKey,
   filterConnectionCatalogItems,
   integrationCatalogsReady,
+  isRecommendedPlugin,
   managedAppFor,
-  matchesPluginQuery,
   matchesWordPrefixes,
-  OTHER_PLUGINS,
-  PLUGIN_CATEGORIES,
 } from "@rakazo/core";
 import { useMemo, useState } from "react";
 import type { PluginConnections } from "./use-plugin-connections";
 
 const NO_PLUGINS: PluginMarketplaceEntry[] = [];
-export const PLUGIN_PAGE_SIZE = 24;
+const RECOMMENDED_APPS = 6;
 
 export type CatalogBrowse = ReturnType<typeof useCatalogBrowse>;
 
-/**
- * The browse page's search, category, and paging, and what they pick from the app catalog and
- * the plugin marketplace.
- */
+/** The Apps page's search and paging, and what they pick from the app catalog. */
 export function useCatalogBrowse({
   catalog,
   catalogLoaded,
@@ -36,17 +31,14 @@ export function useCatalogBrowse({
   loadError: string | null;
   pluginCatalog: PluginConnections["pluginCatalog"];
 }) {
-  const { t } = useLingui();
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(CONNECTION_CATALOG_PAGE_SIZE);
-  const [category, setCategory] = useState<string | null>(null);
-  const [pluginCount, setPluginCount] = useState(PLUGIN_PAGE_SIZE);
 
   const featuredTiles = useMemo(() => buildFeaturedConnectorTiles(catalog), [catalog]);
   const showFeatured = !query.trim();
 
   const visible = useMemo(() => filterConnectionCatalogItems(catalog, query), [catalog, query]);
-  // Apps whose name starts with the query come before plugins; mid-word matches trail them.
+  // Apps whose name starts with the query come first; mid-word matches trail them.
   const strongMatches = showFeatured
     ? []
     : visible.filter((item) => matchesWordPrefixes(item.name, query));
@@ -63,21 +55,45 @@ export function useCatalogBrowse({
     pluginsLoaded: pluginCatalog.isSuccess,
     pluginsUnavailable: !!pluginCatalog.data?.unavailableRegistries.length,
   });
-  // One row per brand: a plugin for a managed app lends that app its skills instead of being
-  // listed again. Skill packs with nothing to connect belong to Skills, not here.
-  const { plugins, pluginForApp } = useMemo(() => {
+  // A plugin for a managed app lends that app its skills instead of being listed as its own app.
+  const { pluginForApp, recommendedApps } = useMemo(() => {
     const forApp = new Map<string, PluginMarketplaceEntry>();
-    const listed: PluginMarketplaceEntry[] = [];
+    const recommended = new Map<string, ConnectionCatalogItem>();
     for (const entry of catalogEntries) {
       const app = managedAppFor(entry, catalog);
-      if (app) {
-        if (entry.skillCount && !forApp.has(catalogItemKey(app)))
-          forApp.set(catalogItemKey(app), entry);
-      } else if (entry.hasConnector) listed.push(entry);
+      if (!app) continue;
+      if (entry.skillCount && !forApp.has(catalogItemKey(app)))
+        forApp.set(catalogItemKey(app), entry);
+      if (isRecommendedPlugin(entry)) recommended.set(catalogItemKey(app), app);
     }
-    return { plugins: listed, pluginForApp: forApp };
+    return {
+      pluginForApp: forApp,
+      recommendedApps: [...recommended.values()].slice(0, RECOMMENDED_APPS),
+    };
   }, [catalog, catalogEntries]);
-  const categoryLabels: Record<PluginCategory, string> = {
+
+  return {
+    query,
+    setQuery,
+    visibleCount,
+    setVisibleCount,
+    featuredTiles,
+    showFeatured,
+    visible,
+    strongMatches,
+    weakMatches,
+    rendered,
+    catalogEntries,
+    catalogsReady,
+    pluginForApp,
+    recommendedApps,
+  };
+}
+
+/** A marketplace category's name in the reader's language. */
+export function usePluginCategoryLabel() {
+  const { t } = useLingui();
+  const labels: Record<PluginCategory, string> = {
     productivity: t`Productivity`,
     communication: t`Communication`,
     sales: t`Sales & CRM`,
@@ -89,55 +105,5 @@ export function useCatalogBrowse({
     data: t`Data`,
     ops: t`Security & Ops`,
   };
-  const categoryLabel = (name: string) => categoryLabels[name as PluginCategory] ?? name;
-  // Managed apps standing in for a plugin keep that plugin's category, so a category lists them too.
-  const mergedBrands = catalog.flatMap((item) => {
-    const entry = pluginForApp.get(catalogItemKey(item));
-    return entry ? [{ item, entry }] : [];
-  });
-  const categories: string[] = PLUGIN_CATEGORIES.filter(
-    (name) =>
-      plugins.some((entry) => entry.category === name) ||
-      mergedBrands.some(({ entry }) => entry.category === name),
-  );
-  const brandMatches = category
-    ? mergedBrands.filter(
-        ({ item, entry }) =>
-          entry.category === (category === OTHER_PLUGINS ? null : category) &&
-          (matchesWordPrefixes(item.name, query) ||
-            matchesPluginQuery(entry, query, categoryLabel(entry.category ?? ""))),
-      )
-    : [];
-  const searching = query.trim().length > 0;
-  const pluginMatches = plugins.filter(
-    (entry) =>
-      (!category || entry.category === (category === OTHER_PLUGINS ? null : category)) &&
-      matchesPluginQuery(entry, query, entry.category ? categoryLabel(entry.category) : ""),
-  );
-
-  return {
-    query,
-    setQuery,
-    visibleCount,
-    setVisibleCount,
-    category,
-    setCategory,
-    pluginCount,
-    setPluginCount,
-    featuredTiles,
-    showFeatured,
-    visible,
-    strongMatches,
-    weakMatches,
-    rendered,
-    catalogEntries,
-    catalogsReady,
-    plugins,
-    pluginForApp,
-    categoryLabel,
-    categories,
-    brandMatches,
-    searching,
-    pluginMatches,
-  };
+  return (name: string) => labels[name as PluginCategory] ?? name;
 }

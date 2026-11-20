@@ -15,16 +15,8 @@ import {
   installedPluginParts,
   managedAppFor,
 } from "@rakazo/core";
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  Input,
-  Spinner,
-} from "@rakazo/ui-web";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Button, Input, Spinner } from "@rakazo/ui-web";
+import { ChevronRight } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { IntegrationSetup } from "../../components/integrations/IntegrationSetup";
@@ -38,7 +30,6 @@ import { connectMcpOauth } from "../../lib/integrations/mcp-connect";
 import { rpc } from "../../lib/query/rpc";
 import { errorCode, errorText } from "../../lib/query/user-error";
 import { AddMenu } from "./add-menu";
-import { CommunityPicks } from "./community/community-picks";
 import { ConnectorDetail } from "./connector-detail";
 import { DomainSearch, useDomainSearch } from "./domain-search";
 import { GithubImport } from "./github-import";
@@ -46,29 +37,29 @@ import { ManageView } from "./manage-view";
 import type { TileContext } from "./parts";
 import { ViewTitle } from "./parts";
 import { PluginBrowse } from "./plugin-browse";
+import type { PluginPick } from "./plugin-picks";
+import { PluginPicks } from "./plugin-picks";
 import type { SourceKind } from "./source-form";
 import { SourceFormView, useSourceForm } from "./source-form";
-import { PLUGIN_PAGE_SIZE, useCatalogBrowse } from "./use-catalog-browse";
+import { useCatalogBrowse } from "./use-catalog-browse";
 import { usePluginConnections } from "./use-plugin-connections";
 
 type OverlayView = "browse" | "manage" | "github" | "source" | "browseMcp" | "domain";
-
-const CHIP_COUNT = 6;
 
 /** The Store's Apps: every connection, the server's presets, and what is already connected. */
 export function AppsSection({
   onConnectedAppsChange,
   onOpenMcp,
   onOpenMessaging,
-  onOpenCommunity,
+  onOpenPlugins,
   activeBotId,
   actions,
 }: {
   onConnectedAppsChange?: (apps: ReturnType<typeof connectedAppMarks>) => void;
   onOpenMcp?: () => void;
   onOpenMessaging?: () => void;
-  /** Opens a community plugin, or all of them, in the Store's Plugins. */
-  onOpenCommunity: (slug?: string) => void;
+  /** Opens one plugin, or all of them, in the Store's Plugins. */
+  onOpenPlugins: (pick?: PluginPick) => void;
   activeBotId?: string;
   /** Where the section's own controls go in the Store's header; inline when absent. */
   actions?: HTMLElement | null;
@@ -122,18 +113,7 @@ export function AppsSection({
     loadError,
     pluginCatalog: state.pluginCatalog,
   });
-  const {
-    query,
-    setQuery,
-    setVisibleCount,
-    category,
-    setCategory,
-    setPluginCount,
-    catalogEntries,
-    pluginForApp,
-    categoryLabel,
-    categories,
-  } = browse;
+  const { query, setQuery, setVisibleCount, catalogEntries, pluginForApp } = browse;
   const sourceForm = useSourceForm();
   const domainSearch = useDomainSearch();
 
@@ -446,62 +426,6 @@ export function AppsSection({
             placeholder={t`Search apps`}
             size="xl"
           />
-          {categories.length >= 2 || category ? (
-            <div className="flex flex-wrap gap-2" data-testid="integration-categories">
-              {[null, ...categories.slice(0, CHIP_COUNT)].map((name) => (
-                <Button
-                  key={name ?? "all"}
-                  type="button"
-                  variant={category === name ? "default" : "secondary"}
-                  aria-pressed={category === name}
-                  className="rounded-full px-3.5 text-body-sm"
-                  onClick={() => {
-                    setCategory(name);
-                    setPluginCount(PLUGIN_PAGE_SIZE);
-                  }}
-                >
-                  {name ? categoryLabel(name) : <Trans>All</Trans>}
-                </Button>
-              ))}
-              {categories.length > CHIP_COUNT ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant={
-                          category && !categories.slice(0, CHIP_COUNT).includes(category)
-                            ? "default"
-                            : "secondary"
-                        }
-                        className="rounded-full px-3.5 text-body-sm"
-                      />
-                    }
-                  >
-                    {category && !categories.slice(0, CHIP_COUNT).includes(category) ? (
-                      categoryLabel(category)
-                    ) : (
-                      <Trans>More</Trans>
-                    )}
-                    <ChevronDown />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-auto">
-                    {categories.slice(CHIP_COUNT).map((name) => (
-                      <DropdownMenuItem
-                        key={name}
-                        onClick={() => {
-                          setCategory(name);
-                          setPluginCount(PLUGIN_PAGE_SIZE);
-                        }}
-                      >
-                        {categoryLabel(name)}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -606,12 +530,17 @@ export function AppsSection({
             onOpenPlugin={openPlugin}
             onConnectPreset={(preset) => beginSource("mcp", preset)}
             onManageConnections={() => openAddView("manage")}
-            community={
+            connectedPlugins={readyInstalls.map(installedSelection)}
+            plugins={
               query.trim() ? (
-                <CommunityPicks
+                <PluginPicks
                   query={query}
-                  onOpen={onOpenCommunity}
-                  onViewAll={() => onOpenCommunity()}
+                  packages={catalogEntries.filter(
+                    (entry) => entry.hasConnector && !managedAppFor(entry, catalog),
+                  )}
+                  installs={pluginInstalls}
+                  onOpen={onOpenPlugins}
+                  onViewAll={() => onOpenPlugins()}
                 />
               ) : null
             }
