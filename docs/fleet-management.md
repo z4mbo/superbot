@@ -1,8 +1,8 @@
 # Bots that manage bots
 
-A bot can manage your other active bots: create groups, organize the sidebar, rewrite
-their instructions, pick their model and schedule them. This works on your active bots in the
-current space, whoever created them. It is controlled per bot and is on for new bots.
+A bot can create new bots or manage existing ones: create groups, organize the sidebar, rewrite
+instructions, pick models and schedule routines. It can manage active bots in the current space,
+whoever created them.
 
 ## Settings
 
@@ -12,24 +12,26 @@ the Electron desktop app (which hosts the web UI) and mobile bot settings.
 - New bots start with it on, including bots created by another bot, duplicates and imported agents.
   Duplicates do not inherit this setting from the source bot. Existing bots keep their setting;
   [**Import data**](./account.md) restores the exported setting.
-- It is checked again each time a tool is called, so turning it off takes effect immediately.
-- Subagents get none of the bot management tools, not even `list_fleet`.
+- The switch is checked on the bot that uses the tool. A bot with it off can still ask a bot with
+  it on to create a bot.
+- Turning it off also blocks creation that is waiting for approval.
+- Subagents cannot create bots or use tools that manage existing bots, including `list_fleet`.
 
 ## Which runs can use the bot management tools
 
-Only runs you started can use them: a message you sent in the app or from a chat app you linked, a
-follow-up to your message, the end of a call, or one of your routines. Runs started by another
-bot's message, someone else in a messaging channel, a spawn, tickets or a webhook cannot use the
-bot management tools, including `list_fleet`. `update_bot` remains available for changes to the
-calling bot, but cannot target another bot.
+Runs you started can manage existing bots. This includes a message you sent in the app or from a
+chat app you linked, a follow-up to your own message, the end of a call, or one of your routines.
+Other runs can still use `update_bot` on the calling bot.
 
-In Ask and Auto, once a run receives a messaging channel or webhook message while working, every
-change to the bots it manages goes through approval for the rest of that run, and an **Always
-allow** choice doesn't skip it. Never ask runs them.
-A follow-up counts as yours only when its source message was written by you.
+A bot can also create bots in runs started by another bot, a messaging channel or a webhook.
+Creation follows the space's approval mode. In Ask and Auto, a messaging channel or webhook message
+that starts or enters a run means **Always allow** cannot skip approval for bot creation. The same
+rule applies to changes to existing bots once such a message enters a run you started. Never ask
+allows these changes.
 
 ## Tools
 
+- `spawn_bot`: creates a bot and can give it a first task.
 - `list_fleet`: lists active bots, groups and sections, and marks the bots the caller created. With
   `bot_id`, it instead returns only that bot's full instructions and current version.
 - `create_group`: creates a group from existing bots.

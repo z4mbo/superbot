@@ -48,6 +48,16 @@ export function builtinOffered(disabled: ReadonlySet<string> | undefined, name: 
   return !disabled?.has(name);
 }
 
+/** Bot creation guidance follows the selected tools as well as the bot's per-tool settings. */
+export function disabledBuiltinsForTurnInstructions(
+  disabled: ReadonlySet<string>,
+  offered: readonly { name: string }[],
+): ReadonlySet<string> {
+  return offered.some(({ name }) => name === "spawn_bot")
+    ? disabled
+    : new Set([...disabled, "spawn_bot"]);
+}
+
 function englishList(items: readonly string[]): string {
   if (items.length <= 1) return items[0] ?? "";
   if (items.length === 2) return `${items[0]} and ${items[1]}`;

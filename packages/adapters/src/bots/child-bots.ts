@@ -14,7 +14,7 @@ import {
   BOT_INSTRUCTIONS_MAX_LENGTH,
   GROUP_MEMBER_MIN,
 } from "@rakazo/contracts";
-import { ACTIVE_RUN_STATUSES, retry } from "@rakazo/core";
+import { ACTIVE_RUN_STATUSES, ClientError, retry } from "@rakazo/core";
 import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   cancelRunsInTransaction,
@@ -46,6 +46,7 @@ import { toComputerRef } from "../computers/screens/computer-support.js";
 import type { MeetingService } from "../meetings/meeting-service.js";
 import { purgeClearedConversationMemory } from "../memory/conversation-memory-cleanup.js";
 import type { MemoryProviderResolver } from "../memory/memory-provider-factory.js";
+import { disabledBuiltinToolUnavailableReason } from "../runs/tools/run-tool-selection.prompt.js";
 import { wakeRun } from "../runs/wakeups/wake-run.js";
 import { removePiBotSessions } from "../runtime/pi/pi-session.js";
 import { forgetPageShareSecrets } from "../secrets/vault/page-share-secrets.js";
@@ -59,6 +60,12 @@ export function confirmSpawnedBotName(confirmName: string, botName: string) {
     };
   }
   return { ok: true as const };
+}
+
+class BotCreationPermissionError extends ClientError {
+  constructor() {
+    super("FORBIDDEN", disabledBuiltinToolUnavailableReason("spawn_bot"));
+  }
 }
 
 export async function spawnBot(
@@ -103,6 +110,16 @@ export async function spawnBot(
       parentBotId: input.spawnedBy.id,
       spawnKey: input.spawnKey,
       computerMode: input.computerMode,
+      seed: async (tx) => {
+        // This runs before the child is committed. Lock the caller's row so a setting
+        // update either wins before this check or waits until the creation commits.
+        const [caller] = await tx.$queryRaw<{ fleetManagement: boolean }[]>`
+          SELECT "fleetManagement" FROM bots
+          WHERE id = ${input.spawnedBy.id} AND "spaceId" = ${input.spawnedBy.spaceId}
+            AND "archivedAt" IS NULL
+          FOR SHARE`;
+        if (!caller?.fleetManagement) throw new BotCreationPermissionError();
+      },
       initialMessage: {
         role: "system",
         blocks: [{ kind: "meta", text: `Created by ${input.spawnedBy.name}` }],
@@ -110,6 +127,7 @@ export async function spawnBot(
       },
     });
   } catch (error) {
+    if (error instanceof BotCreationPermissionError) return { error: error.message };
     const existing = await deps.prisma.bot.findUnique({
       where: {
         spaceId_spawnKey: {

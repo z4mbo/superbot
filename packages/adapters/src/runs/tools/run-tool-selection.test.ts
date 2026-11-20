@@ -1,7 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { BUILTIN_AGENT_TOOL_NAMES, unavailableBuiltinToolReasons } from "./run-tool-selection.js";
+import {
+  BUILTIN_AGENT_TOOL_NAMES,
+  selectBuiltinToolsForRun,
+  unavailableBuiltinToolReasons,
+} from "./run-tool-selection.js";
 
 const none: { name: string }[] = [];
+
+describe("spawn_bot selection", () => {
+  it.each(["user", "bot_message", "webhook"])("checks fleet management for a %s run", (trigger) => {
+    const names = (fleetManagement: boolean) =>
+      selectBuiltinToolsForRun({
+        graphicalToolsAllowed: false,
+        groupId: null,
+        trigger,
+        semanticMemoryEnabled: false,
+        messagingChannelRun: false,
+        fleetManagement,
+      }).map((tool) => tool.name);
+
+    expect(names(true)).toContain("spawn_bot");
+    expect(names(false)).not.toContain("spawn_bot");
+  });
+});
 
 describe("unavailableBuiltinToolReasons", () => {
   it("explains a group thread's missing message_bot and points to handoff_to_bot", () => {

@@ -17,6 +17,7 @@ import { buildTurnPrompt, createRunContext } from "./run-assembly-context.js";
 import { loadTurnContext, readThreadHistory } from "./run-assembly-history.js";
 import type { ConnectedRun } from "./run-assembly-records.js";
 import { connectRun, loadRunRecords, loadSavedTurn } from "./run-assembly-records.js";
+import { disabledBuiltinsForTurnInstructions } from "./run-instructions.prompt.js";
 
 /** Undefined when setup ended the run or handed it back, so there is no turn to run. */
 export async function assembleRunTurn(services: RunExecutorServices, hold: RunHold) {
@@ -96,7 +97,13 @@ export async function assembleRunTurn(services: RunExecutorServices, hold: RunHo
     turnContext,
     model,
     computer,
-    capabilities,
+    capabilities: {
+      ...capabilities,
+      disabledBuiltinTools: disabledBuiltinsForTurnInstructions(
+        capabilities.disabledBuiltinTools,
+        tools.strategicBuiltins,
+      ),
+    },
     tools,
     computerInstructions,
     ctx,

@@ -1,11 +1,18 @@
 import { CATALOG_APPROVAL_TOOL } from "@rakazo/contracts";
+import { isBackgroundRunTrigger } from "@rakazo/core";
 import {
   isToolEffectIdempotencyKey,
   legacyScopedToolEffectIdempotencyKey,
   stableJsonValue,
 } from "@rakazo/core/node/approval-effect-key";
 import type { Prisma } from "@rakazo/db";
-import { assertRunCanWriteHistory, RUN_TURN_CHECKPOINT_KIND } from "@rakazo/db";
+import {
+  assertRunCanWriteHistory,
+  RUN_TURN_CHECKPOINT_KIND,
+  THREAD_LOCK_TRANSACTION_OPTIONS,
+  withTransactionRetry,
+} from "@rakazo/db";
+import { bestEffort } from "@rakazo/logging";
 import {
   boundDirectApprovalDetails,
   catalogApprovalConnectorId,
@@ -21,8 +28,9 @@ import {
 import { USE_TOOL } from "../../tools/builtin.tool-definition.js";
 import { uniquifyInstalledToolName } from "../../tools/lazy-tool-catalog.js";
 import { APPROVAL_CONTINUATION_LEAD } from "../assembly/approval-continuation.prompt.js";
-import { runLeaseFor } from "../assembly/run-messages.js";
+import { persistMessageInTransaction, runLeaseFor } from "../assembly/run-messages.js";
 import type { ExecutorDeps } from "../executor/executor-deps.js";
+import { disabledBuiltinToolUnavailableReason } from "../tools/run-tool-selection.prompt.js";
 
 /** Effects that got past the approval gate: approved, allowed by a rule or review, or run. */
 export const PASSED_EFFECT_STATUSES = ["approved", "executing", "uncertain", "completed"];
@@ -30,6 +38,42 @@ export const PASSED_EFFECT_STATUSES = ["approved", "executing", "uncertain", "co
 export const APPROVED_EFFECT_REPLAY_ORDER = [{ createdAt: "asc" as const }, { id: "asc" as const }];
 
 export { CATALOG_APPROVAL_TOOL } from "@rakazo/contracts";
+
+/** Settle approved creation requests whose executing bot can no longer create bots. */
+export async function refuseRevokedSpawnApprovals(
+  deps: ExecutorDeps,
+  run: { id: string; spaceId: string; threadId: string; botId: string; trigger: string },
+) {
+  const result = { error: disabledBuiltinToolUnavailableReason("spawn_bot") };
+  const lease = runLeaseFor(deps, run.id);
+  // Keep the refusal and its visible outcome together so a restarted attempt cannot lose either.
+  const committed = await withTransactionRetry(() =>
+    deps.prisma.$transaction(async (tx) => {
+      await assertRunCanWriteHistory(tx, run.id, { lease });
+      const refused = await tx.externalEffect.updateMany({
+        where: { runId: run.id, spaceId: run.spaceId, kind: "spawn_bot", status: "approved" },
+        data: { status: "completed", result },
+      });
+      if (refused.count === 0 || isBackgroundRunTrigger(run.trigger)) return;
+      return persistMessageInTransaction(
+        tx,
+        run,
+        "bot",
+        [{ kind: "text", text: result.error }],
+        run.trigger === "bot_message" ? false : undefined,
+        undefined,
+        false,
+        lease,
+      );
+    }, THREAD_LOCK_TRANSACTION_OPTIONS),
+  );
+  if (committed) {
+    await bestEffort(
+      "announce revoked bot creation approval",
+      deps.events.notify(run.threadId, committed.eventSeq, committed.firstResponseRunId),
+    );
+  }
+}
 
 export function approvalReplayEffectToolName(
   liveName: string,
