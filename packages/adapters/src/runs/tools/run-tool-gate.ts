@@ -55,7 +55,7 @@ import type { AutoReviewCandidate } from "../../approvals/auto-review-backups.js
 import { reviewWithBackups } from "../../approvals/auto-review-backups.js";
 import { reviewOwnerMessages } from "../../approvals/review-owner-messages.js";
 import { pagePaymentPrecheck, paysWithWallet } from "../../billing/spending-gate.js";
-import { marketplaceRoute } from "../../integrations/marketplace-runtime.js";
+import { marketplaceAppRoute, marketplaceRoute } from "../../integrations/marketplace-runtime.js";
 import { reportBotMessageWait } from "../../messaging/bot-messages.js";
 import { findConnectedModelCredential } from "../../models/model-selection.js";
 import { paidRequestEffect } from "../../payments/paid-request.js";
@@ -167,8 +167,9 @@ export async function gateToolCall(
   const connectorTool = viaConnector ? (resolvedTool ?? ctx.tools.connector.get(name)) : undefined;
   const declaredReadOnly = connectorTool?.readOnly;
   const marketplace = marketplaceRoute(connectorCall.route);
-  const marketplaceMcp = marketplace && declaredReadOnly !== true;
-  const marketplaceSkill = marketplace && declaredReadOnly === true;
+  const marketplaceApp = marketplaceAppRoute(connectorCall.route);
+  const marketplaceWrite = marketplace && declaredReadOnly !== true;
+  const marketplaceSkill = marketplace && declaredReadOnly === true && !marketplaceApp;
   // A batch tool names the actions it runs in its arguments, so rules and the read/write
   // check look at each action, never the batch tool. An entry naming no action asks.
   const batch = connectorTool?.batch ? batchActions(connectorTool.batch, args) : undefined;
@@ -308,14 +309,14 @@ export async function gateToolCall(
   const gated = requiresApprovalByDefault || reviewOnly;
   // In Ask and Auto these ask a person every time, whatever started the run.
   const mandatoryInAnyRun =
-    paying || unattendedWatch || marketplaceMcp || toolRequiresExplicitApproval(name);
+    paying || unattendedWatch || marketplaceWrite || toolRequiresExplicitApproval(name);
   // Outside text may have asked for these, so an Always allow rule saved for calls the owner asked
   // for does not skip them; they still go through the approval mode.
   const ignoresAllowRules = routineWrittenAfterOutside || request.ignoresAllowRules;
   // No allow rule skips these, and without them the tool needs no approval, so "Always allow"
   // on their card would save a rule that never takes effect.
   const asksEveryTime =
-    marketplaceMcp ||
+    marketplaceWrite ||
     ((unattendedWatch || scheduleNamesNewSite || routineAddsEvents || ignoresAllowRules) &&
       !toolRequiresApproval(name, viaConnector));
   // Never ask runs everything else: only another owner's connection could have been steered into it.
@@ -381,7 +382,7 @@ export async function gateToolCall(
         mode,
         mandatory: mandatoryInAnyRun,
         steerable:
-          marketplaceMcp ||
+          marketplaceWrite ||
           (guardedInNeverAsk &&
             mode === "never" &&
             (!ctx.source.ownerStartedRun || (await isRunTainted(ctx)))),
@@ -400,8 +401,8 @@ export async function gateToolCall(
         "approval_denied",
         approvalResolved.decision === "deny"
           ? `${name} is blocked in this space${blockingRuleSuffix(approvalResolved)}. Don't try it another way; tell the user it's blocked.`
-          : marketplaceMcp
-            ? "Marketplace MCP calls require approval. This space is set to Never ask."
+          : marketplaceWrite
+            ? `Marketplace ${marketplaceApp ? "app writes" : "MCP calls"} require approval. This space is set to Never ask.`
             : `${name} needs the owner's approval because it could have been asked for by someone else, and this space never asks. Don't retry; tell the user.`,
       ),
     };

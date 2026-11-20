@@ -1,20 +1,27 @@
 import { createHash } from "node:crypto";
 import type { ConnectorRoute, ConnectorTool } from "@rakazo/adapter-kit";
-import { deadlineSignal } from "@rakazo/core";
+import { AddRegistryAppRecordInputSchema, RegistryAppRecordsInputSchema } from "@rakazo/contracts";
+import { ClientError, deadlineSignal } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
-import { resolvePluginGrants } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { addRegistryAppRecord, listRegistryAppRecords, resolvePluginGrants } from "@rakazo/db";
+import { bestEffort, getLogger } from "@rakazo/logging";
 import { callRemoteMcpTool, listRemoteMcpTools } from "../mcp/remote-mcp.js";
 import { DIRECT_TOOL_LIMIT, SELECTED_SCHEMA_MAX_BYTES } from "../tools/lazy-tool-catalog.js";
 import { sanitizeConnectorError } from "./connector-safety.js";
+import {
+  ADD_APP_RECORD,
+  LIST_APP_RECORDS,
+  marketplaceAppTools,
+} from "./marketplace-app.tool-definition.js";
 
 const MARKETPLACE_CONNECTOR = "marketplace";
+const MARKETPLACE_APP_CONNECTOR = "marketplace-app";
 const MARKETPLACE_TOOL_PREFIX = "marketplace__";
 export const MARKETPLACE_UNAVAILABLE = "This marketplace plugin tool is unavailable.";
 
 type Scope = Parameters<typeof resolvePluginGrants>[1];
 type Grant = Awaited<ReturnType<typeof resolvePluginGrants>>[number];
-type Runtime = { prisma: PrismaClient; scope: Scope; signal: AbortSignal };
+type Runtime = { prisma: PrismaClient; scope: Scope; signal: AbortSignal; appAllowed: boolean };
 type MarketplaceRoute = ConnectorRoute & { resourceId: string; resourceRevision: string };
 
 export function marketplaceScope(
@@ -38,10 +45,15 @@ export function marketplaceToolName(name: string): boolean {
 
 export function marketplaceRoute(route: ConnectorRoute | undefined): route is MarketplaceRoute {
   return (
-    route?.connectorId === MARKETPLACE_CONNECTOR &&
+    route !== undefined &&
+    (route.connectorId === MARKETPLACE_CONNECTOR || marketplaceAppRoute(route)) &&
     typeof route.resourceId === "string" &&
     typeof route.resourceRevision === "string"
   );
+}
+
+export function marketplaceAppRoute(route: ConnectorRoute | undefined): boolean {
+  return route?.connectorId === MARKETPLACE_APP_CONNECTOR;
 }
 
 function digest(value: unknown): string {
@@ -52,14 +64,22 @@ function resourceId(grant: Grant): string {
   return digest([grant.installationId, grant.part.id]);
 }
 
-function revision(grant: Grant, tool: Pick<ConnectorTool, "inputSchema">): string {
-  return digest([grant.versionId, grant.grantId, grant.part, tool.inputSchema]);
+function revision(
+  grant: Grant,
+  toolName: string,
+  inputSchema: ConnectorTool["inputSchema"],
+): string {
+  const pin = [grant.versionId, grant.grantId, grant.part, inputSchema];
+  return digest(grant.part.kind === "app" ? [...pin, toolName] : pin);
 }
 
 function marketplaceTool(grant: Grant, tool: ConnectorTool): ConnectorTool {
   const resource = resourceId(grant);
   const nameHash = digest([resource, tool.name]).slice(0, 24);
-  const label = tool.name.replace(/[^a-zA-Z0-9_]/g, "_").slice(0, 24);
+  const app = grant.part.kind === "app";
+  const label = (app ? `${tool.name}_${grant.part.id}` : tool.name)
+    .replace(/[^a-zA-Z0-9_]/g, "_")
+    .slice(0, 24);
   return {
     name: `${MARKETPLACE_TOOL_PREFIX}${label}_${nameHash}`,
     label:
@@ -68,12 +88,12 @@ function marketplaceTool(grant: Grant, tool: ConnectorTool): ConnectorTool {
         : tool.description,
     description: tool.description.slice(0, 500),
     inputSchema: tool.inputSchema,
-    readOnly: grant.part.kind === "skill",
+    readOnly: app ? tool.readOnly : grant.part.kind === "skill",
     route: {
-      connectorId: MARKETPLACE_CONNECTOR,
+      connectorId: app ? MARKETPLACE_APP_CONNECTOR : MARKETPLACE_CONNECTOR,
       toolName: tool.name,
       resourceId: resource,
-      resourceRevision: revision(grant, tool),
+      resourceRevision: revision(grant, tool.name, tool.inputSchema),
     },
   };
 }
@@ -83,6 +103,13 @@ export async function discoverMarketplaceTools(runtime: Runtime): Promise<Connec
   const grants = await resolvePluginGrants(runtime.prisma, runtime.scope);
   const groups = await Promise.all(
     grants.map(async (grant) => {
+      if (grant.part.kind === "app") {
+        return runtime.appAllowed
+          ? marketplaceAppTools(grant.part, grant.pluginSlug).map((tool) =>
+              marketplaceTool(grant, tool),
+            )
+          : [];
+      }
       if (grant.part.kind === "skill") {
         return [
           marketplaceTool(grant, {
@@ -119,12 +146,16 @@ export async function discoverMarketplaceTools(runtime: Runtime): Promise<Connec
 export async function findLiveMarketplaceGrant(runtime: Runtime, tool: ConnectorTool) {
   const { route } = tool;
   if (!marketplaceRoute(route)) return undefined;
+  const app = marketplaceAppRoute(route);
+  if (app && !runtime.appAllowed) return undefined;
   runtime.signal.throwIfAborted();
   const grants = await resolvePluginGrants(runtime.prisma, runtime.scope);
   runtime.signal.throwIfAborted();
   return grants.find(
     (grant) =>
-      resourceId(grant) === route.resourceId && revision(grant, tool) === route.resourceRevision,
+      (grant.part.kind === "app") === app &&
+      resourceId(grant) === route.resourceId &&
+      revision(grant, route.toolName, tool.inputSchema) === route.resourceRevision,
   );
 }
 
@@ -132,6 +163,8 @@ export async function executeMarketplaceTool(
   runtime: Runtime,
   tool: ConnectorTool,
   args: Record<string, unknown>,
+  effectKey: string,
+  publishAppChange?: () => Promise<void> | undefined,
 ): Promise<unknown> {
   const route = tool.route;
   if (!marketplaceRoute(route)) return { error: MARKETPLACE_UNAVAILABLE };
@@ -139,6 +172,28 @@ export async function executeMarketplaceTool(
     const grant = await findLiveMarketplaceGrant(runtime, tool);
     if (!grant) return { error: MARKETPLACE_UNAVAILABLE };
     if (grant.part.kind === "skill") return { instructions: grant.part.instructions };
+    if (grant.part.kind === "app") {
+      const scope = { ...runtime.scope, grantId: grant.grantId, versionId: grant.versionId };
+      const target = { installationId: grant.installationId, partId: grant.part.id };
+      if (route.toolName === LIST_APP_RECORDS) {
+        return await listRegistryAppRecords(
+          runtime.prisma,
+          scope,
+          RegistryAppRecordsInputSchema.parse({ ...args, ...target }),
+        );
+      }
+      if (route.toolName === ADD_APP_RECORD) {
+        const input = AddRegistryAppRecordInputSchema.parse({
+          values: args.values,
+          ...target,
+          operationId: appRecordOperationId(effectKey),
+        });
+        const record = await addRegistryAppRecord(runtime.prisma, scope, input);
+        await bestEffort("notify marketplace app record changes", publishAppChange?.());
+        return record;
+      }
+      return { error: MARKETPLACE_UNAVAILABLE };
+    }
     return await callRemoteMcpTool(
       {
         endpoint: grant.part.endpoint,
@@ -157,9 +212,20 @@ export async function executeMarketplaceTool(
     );
   } catch (error) {
     runtime.signal.throwIfAborted();
+    if (
+      marketplaceAppRoute(route) &&
+      error instanceof ClientError &&
+      (error.kind === "BAD_REQUEST" || error.kind === "CONFLICT")
+    )
+      return { error: error.message };
     getLogger().warn("marketplace plugin execution failed", {
       error: sanitizeConnectorError(error),
     });
     return { error: MARKETPLACE_UNAVAILABLE };
   }
+}
+
+function appRecordOperationId(effectKey: string): string {
+  const hex = digest(["marketplace app record", effectKey]);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }

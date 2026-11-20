@@ -13,24 +13,32 @@ import { startModelEmulator } from "../../scripts/superbot-test-support.mjs";
 
 import { checkBotConversations, conversationSteps } from "./verify-bot-conversations.mjs";
 import { checkConversationContent } from "./verify-conversation-content.mjs";
+import { prepareMarketplaceApp } from "./verify-marketplace-app.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const exec = promisify(execFile);
 const {
   positionals: [postgresBin, executable, desktopExecutable],
-  values: { "notifications-probe": notificationProbe, marketplace, roster, "local-cli": localCli },
+  values: {
+    "notifications-probe": notificationProbe,
+    marketplace,
+    "marketplace-app": marketplaceApp,
+    roster,
+    "local-cli": localCli,
+  },
 } = parseArgs({
   allowPositionals: true,
   options: {
     "notifications-probe": { type: "string" },
     marketplace: { type: "boolean" },
+    "marketplace-app": { type: "boolean" },
     roster: { type: "boolean" },
     "local-cli": { type: "boolean" },
   },
 });
 assert(
   process.platform === "win32" && postgresBin && executable,
-  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--roster] [--local-cli]",
+  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--marketplace-app] [--roster] [--local-cli]",
 );
 const cli = resolve(executable);
 const pg = (file) => resolve(postgresBin, `${file}.exe`);
@@ -55,7 +63,9 @@ async function loopbackPort() {
 const [apiPort, dbPort] = await Promise.all([loopbackPort(), loopbackPort()]);
 const origin = `http://127.0.0.1:${apiPort}`;
 const reviewerEmail =
-  desktopExecutable || marketplace ? `reviewer-${randomUUID()}@example.test` : undefined;
+  desktopExecutable || marketplace || marketplaceApp
+    ? `reviewer-${randomUUID()}@example.test`
+    : undefined;
 const credentialTarget = `${origin}/.com.superbot.rakazo.session`;
 const directory = await mkdtemp(join(tmpdir(), "superbot-chat-"));
 const db = join(directory, "pg");
@@ -189,6 +199,31 @@ async function post(path, value, { token, space, status = 200 } = {}) {
 
 async function rpc(path, input, options) {
   return (await (await post(`/rpc/${path}`, { json: input }, options)).json()).json;
+}
+
+async function followThread(target, session, cursor) {
+  const stream = await post("/rpc/threads/subscribe", { json: { ...target, cursor } }, session);
+  assert.match(stream.headers.get("content-type"), /^text\/event-stream/);
+  const reader = stream.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  return {
+    close: () => reader.cancel(),
+    async nextEvent() {
+      for (;;) {
+        const end = buffer.indexOf("\n\n");
+        if (end >= 0) {
+          const frame = buffer.slice(0, end);
+          buffer = buffer.slice(end + 2);
+          const data = frame.split("\n").find((line) => line.startsWith("data: "));
+          if (data) return JSON.parse(data.slice(6)).json;
+        } else {
+          const { done, value } = await reader.read();
+          assert(!done, "Conversation stream ended");
+          buffer += value.replaceAll("\r\n", "\n");
+        }
+      }
+    },
+  };
 }
 
 async function signup(name, reviewerEmail) {
@@ -578,7 +613,17 @@ try {
       },
     );
   }
-  steps.push(...conversationSteps);
+  const app = marketplaceApp
+    ? await prepareMarketplaceApp({
+        rpc,
+        followThread,
+        owner: scopedOwner,
+        publisher: scopedObserver,
+        grantedBot: first,
+        otherBot: second,
+      })
+    : undefined;
+  steps.push(...(app?.steps ?? []), ...conversationSteps);
   model = await startModelEmulator({ apiKey: modelKey, steps });
   await rpc(
     "models/connect",
@@ -597,6 +642,13 @@ try {
     { botId: first.id, modelProvider: model.model.provider, modelId: model.model.id },
     scopedOwner,
   );
+  if (app) {
+    await rpc(
+      "bots/update",
+      { botId: second.id, modelProvider: model.model.provider, modelId: model.model.id },
+      scopedOwner,
+    );
+  }
 
   const credential = spawn(
     "powershell.exe",
@@ -634,30 +686,8 @@ try {
     await notifications.expect("GROUP_RENAMED");
   }
   const snapshot = await rpc("threads/get", target, scopedObserver);
-  const stream = await post(
-    "/rpc/threads/subscribe",
-    { json: { ...target, cursor: snapshot.cursor } },
-    scopedObserver,
-  );
-  assert.match(stream.headers.get("content-type"), /^text\/event-stream/);
-  const reader = stream.body.pipeThrough(new TextDecoderStream()).getReader();
+  const { nextEvent, close } = await followThread(target, scopedObserver, snapshot.cursor);
   try {
-    let buffer = "";
-    async function nextEvent() {
-      for (;;) {
-        const end = buffer.indexOf("\n\n");
-        if (end >= 0) {
-          const frame = buffer.slice(0, end);
-          buffer = buffer.slice(end + 2);
-          const data = frame.split("\n").find((line) => line.startsWith("data: "));
-          if (data) return JSON.parse(data.slice(6)).json;
-        } else {
-          const { done, value } = await reader.read();
-          assert(!done, "Shared conversation stream ended");
-          buffer += value.replaceAll("\r\n", "\n");
-        }
-      }
-    }
     const sent = await rpc(
       "threads/send",
       { ...target, text: groupPrompt, mentions: [{ kind: "bot", id: first.id }] },
@@ -772,13 +802,25 @@ try {
       "PASS local notes and CLI turns retry safely and reload with matching live attribution",
     );
   } finally {
-    await reader.cancel();
+    await close();
   }
   if (marketplace) {
     try {
       await checkCliChat({ spaceName, agent: first, prompt: skillPrompt, reply: skillReply });
     } catch (error) {
       model.assertComplete();
+      throw error;
+    }
+  }
+  if (app) {
+    try {
+      await app.verify((input) => checkCliChat({ spaceName, ...input }));
+    } catch (error) {
+      try {
+        model.assertComplete();
+      } catch (modelError) {
+        throw new AggregateError([error, modelError], "Marketplace app fixture failed");
+      }
       throw error;
     }
   }
