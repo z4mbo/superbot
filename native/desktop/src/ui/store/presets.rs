@@ -5,7 +5,7 @@ use gpui_kit::*;
 use crate::api::{self, McpServer, ServerState, SourceInstall, SourcePreset};
 use crate::app::Desktop;
 use crate::theme::{radius, Theme};
-use crate::ui::{error_line, field_box, icon, pill_button, Tone, Type};
+use crate::ui::{error_line, field_box, icon, pill_button, service_logo, Tone, Type};
 
 use super::confirm::Confirm;
 use super::server_sign_in::{Subject, Waiting};
@@ -431,7 +431,7 @@ impl Desktop {
                         let fill = theme.raised.opacity(0.4);
                         move |style| style.bg(fill)
                     })
-                    .child(service_mark(&preset.name, &key, theme))
+                    .child(service_logo::tile(&preset.id, px(40.)).unwrap_or_else(|| service_mark(&preset.name, &key, theme)))
                     .child(
                         div()
                             .flex_1()

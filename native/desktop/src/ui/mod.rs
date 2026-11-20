@@ -11,6 +11,7 @@ pub mod model_menu;
 pub mod new_menu;
 pub mod overlays;
 pub mod releases;
+pub mod service_logo;
 pub mod sidebar;
 pub mod sign_in;
 pub mod store;
