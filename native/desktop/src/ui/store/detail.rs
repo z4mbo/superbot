@@ -7,20 +7,27 @@ use crate::theme::Theme;
 use crate::ui::releases::VersionSwitch;
 use crate::ui::{bot_avatar, chip, empty_line, icon, pill_button, Tone, Type};
 
+use super::app_view::{app_parts, humanize};
+use super::confirm::Confirm;
 use super::{back_button, count, part_card, plugin_mark};
 
 impl Desktop {
-    fn uninstall(&mut self, installation_id: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn uninstall(&mut self, installation_id: String, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else {
+            self.store.settle_confirm();
             return;
         };
-        self.store.busy = Some(installation_id.clone());
         let removed = installation_id.clone();
         let work = async move { api.uninstall_plugin(&space_id, &installation_id).await };
         self.call(window, cx, work, move |this, result, _, cx| {
-            this.store.busy = None;
+            this.store.settle_confirm();
             match result {
-                Ok(()) => this.store.installations.retain(|known| known.id != removed),
+                Ok(()) => {
+                    this.store.installations.retain(|known| known.id != removed);
+                    if this.store.app.as_ref().is_some_and(|app| app.installation_id == removed) {
+                        this.store.app = None;
+                    }
+                }
                 Err(error) => this.notify(api::explain(&error), true, None, cx),
             }
         });
@@ -89,12 +96,35 @@ impl Desktop {
                 .into_any_element();
         };
         let busy = self.store.busy.clone();
+        let mut opens: Vec<AnyElement> = Vec::new();
+        if let Some(installation) = &installation {
+            let parts: Vec<String> =
+                app_parts(&installation.plugin.manifest.parts).map(|part| part.id().to_owned()).collect();
+            let several = parts.len() > 1;
+            for part_id in parts {
+                let label = if several { format!("Open {}", humanize(&part_id)) } else { "Open".to_owned() };
+                let installation = installation.clone();
+                let id = SharedString::from(format!("open-app-{part_id}"));
+                opens.push(
+                    pill_button(id, label, Tone::Primary, true, theme)
+                        .on_click(
+                            cx.listener(move |this, _, window, cx| this.open_app(&installation, &part_id, window, cx)),
+                        )
+                        .into_any_element(),
+                );
+            }
+        }
         let action = match &installation {
             Some(installation) => {
-                let waiting = busy.as_deref() == Some(installation.id.as_str());
-                let id = installation.id.clone();
-                pill_button("uninstall", if waiting { "Removing…" } else { "Uninstall" }, Tone::Danger, !waiting, theme)
-                    .on_click(cx.listener(move |this, _, window, cx| this.uninstall(id.clone(), window, cx)))
+                let (id, name) = (installation.id.clone(), installation.plugin.manifest.name.clone());
+                let has_records = app_parts(&installation.plugin.manifest.parts).next().is_some();
+                pill_button("uninstall", "Uninstall", Tone::Danger, true, theme).on_click(cx.listener(
+                    move |this, _, _, cx| {
+                        this.store.confirm =
+                            Some(Confirm::Uninstall { installation_id: id.clone(), name: name.clone(), has_records });
+                        cx.notify();
+                    },
+                ))
             }
             None => {
                 let waiting = busy.as_deref() == Some(version.id.as_str());
@@ -213,7 +243,8 @@ impl Desktop {
                                 count(version.manifest.parts.len(), "part")
                             ))),
                     )
-                    .child(action),
+                    .child(action)
+                    .children(opens),
             )
             .child(div().item().text_color(theme.ink_secondary).child(version.manifest.description.clone()))
             .children(pin)

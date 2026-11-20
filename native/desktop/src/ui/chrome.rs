@@ -49,6 +49,7 @@ impl Render for Desktop {
             .children(self.render_dialog(cx))
             .children(self.render_create_panel(cx))
             .children(self.render_version_switch(cx))
+            .children(self.render_store_confirm(cx))
             .children(self.render_notice(cx))
     }
 }

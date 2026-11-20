@@ -38,6 +38,7 @@ pub enum SpaceNotification {
     Roster,
     Runs,
     Organizations,
+    PluginRegistry,
     #[serde(other)]
     Other,
 }

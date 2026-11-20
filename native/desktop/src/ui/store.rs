@@ -1,20 +1,27 @@
+mod app_view;
+mod confirm;
 mod detail;
+mod services;
 
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use crate::api::{self, Installation, ManifestPart, PluginVersion};
-use crate::app::Desktop;
+use crate::app::{Desktop, View};
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::creator::Draft;
 use crate::ui::releases::VersionSwitch;
 use crate::ui::{chip, empty_line, error_line, field_box, icon, page, pill_button, Tone, Type};
+use app_view::{app_parts, OpenApp};
+use confirm::Confirm;
+use services::{Services, SignIn};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Tab {
     Discover,
     Installed,
+    Connections,
     Yours,
     Review,
 }
@@ -49,12 +56,20 @@ pub struct Store {
     pub draft: Option<Draft>,
     pub rejection: Option<Rejection>,
     pub version_switch: Option<VersionSwitch>,
+    pub app: Option<OpenApp>,
+    pub confirm: Option<Confirm>,
+    /// The confirmed change is on its way to the server.
+    pub confirming: bool,
+    pub services: Option<Result<Services, String>>,
+    pub services_loading: bool,
+    pub sign_in: Option<SignIn>,
+    sign_ins: u64,
     _query_changed: Subscription,
 }
 
 impl Store {
     pub fn new(window: &mut Window, cx: &mut Context<Desktop>) -> Self {
-        let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search plugins"));
+        let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
         let changed = cx.subscribe(&query, |this, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
                 this.search_plugins(cx);
@@ -77,6 +92,13 @@ impl Store {
             draft: None,
             rejection: None,
             version_switch: None,
+            app: None,
+            confirm: None,
+            confirming: false,
+            services: None,
+            services_loading: false,
+            sign_in: None,
+            sign_ins: 0,
             _query_changed: changed,
         }
     }
@@ -95,6 +117,16 @@ impl Store {
         self.draft = None;
         self.rejection = None;
         self.version_switch = None;
+        self.app = None;
+        self.confirm = None;
+        self.confirming = false;
+        self.services = None;
+        self.sign_in = None;
+    }
+
+    pub fn settle_confirm(&mut self) {
+        self.confirm = None;
+        self.confirming = false;
     }
 
     /// Leaves the installation on the version it is pinned to. False when no switch was open
@@ -210,7 +242,28 @@ impl Desktop {
                 Err(error) => this.store.error = Some(api::explain(&error)),
             }
         });
+        if self.store.tab == Tab::Connections {
+            self.load_services(window, cx);
+        }
         cx.notify();
+    }
+
+    /// Reads installations and the open app's records again after the server says they changed,
+    /// so a record an agent adds shows up while the app is open.
+    pub fn plugins_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
+        if self.view != View::Store || !self.store.loaded {
+            return;
+        }
+        let work = async move { api.installations(&space_id).await };
+        self.call(window, cx, work, |this, result, _, _| {
+            if let Ok(installations) = result {
+                this.store.installations = installations;
+            }
+        });
+        if self.store.app.is_some() {
+            self.load_records(false, window, cx);
+        }
     }
 
     fn install(&mut self, version: &PluginVersion, window: &mut Window, cx: &mut Context<Self>) {
@@ -265,6 +318,8 @@ impl Desktop {
         let theme = cx.skin().clone();
         let body = if self.store.draft.is_some() {
             self.render_creator(window, cx)
+        } else if self.store.app.is_some() {
+            self.render_app(&theme, cx)
         } else if let Some(slug) = self.store.detail.clone() {
             self.render_plugin_page(&slug, &theme, cx)
         } else {
@@ -279,6 +334,7 @@ impl Desktop {
         let tabs = [
             (Tab::Discover, "Discover", true),
             (Tab::Installed, "Installed", true),
+            (Tab::Connections, "Connections", true),
             (Tab::Yours, "Yours", true),
             (Tab::Review, "Review", admin),
         ];
@@ -322,9 +378,12 @@ impl Desktop {
             )
             .child(div().flex().items_center().gap_2().children(tabs.into_iter().filter(|(_, _, shown)| *shown).map(
                 |(value, label, _)| {
-                    chip(label, label, tab == value, theme).on_click(cx.listener(move |this, _, _, cx| {
+                    chip(label, label, tab == value, theme).on_click(cx.listener(move |this, _, window, cx| {
                         this.store.tab = value;
                         this.store.rejection = None;
+                        if value == Tab::Connections && this.store.services.is_none() {
+                            this.load_services(window, cx);
+                        }
                         cx.notify();
                     }))
                 },
@@ -348,6 +407,7 @@ impl Desktop {
             match tab {
                 Tab::Discover => self.render_catalog(false, theme, window, cx),
                 Tab::Installed => self.render_catalog(true, theme, window, cx),
+                Tab::Connections => self.render_services(theme, cx),
                 Tab::Yours => self.render_yours(theme, cx),
                 Tab::Review => self.render_review(theme, cx),
             }
@@ -412,7 +472,19 @@ impl Desktop {
         let busy = self.store.busy.as_deref() == Some(version.id.as_str());
         let slug = version.slug.clone();
         let hover = theme.raised.opacity(0.4);
-        let action = if installed {
+        let openable = installation.and_then(|installation| {
+            app_parts(&installation.plugin.manifest.parts)
+                .next()
+                .map(|part| (installation.clone(), part.id().to_owned()))
+        });
+        let action = if let Some((installation, part_id)) = openable {
+            pill_button(SharedString::from(format!("open-{}", version.id)), "Open", Tone::Quiet, true, theme).on_click(
+                cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.open_app(&installation, &part_id, window, cx);
+                }),
+            )
+        } else if installed {
             pill_button(SharedString::from(format!("manage-{}", version.id)), "Manage", Tone::Quiet, true, theme)
                 .on_click(cx.listener({
                     let slug = slug.clone();
@@ -698,6 +770,10 @@ fn part_card(part: &ManifestPart, theme: &Theme) -> Div {
     let (kind, glyph, body, mono) = match part {
         ManifestPart::Skill { instructions, .. } => ("Skill", "sparkles", instructions.clone(), false),
         ManifestPart::Mcp { endpoint, .. } => ("Connector", "plug", endpoint.clone(), true),
+        ManifestPart::App { fields, .. } => {
+            let labels: Vec<&str> = fields.iter().map(|field| field.label.as_str()).collect();
+            ("App", "table", labels.join(" · "), false)
+        }
     };
     div()
         .flex()

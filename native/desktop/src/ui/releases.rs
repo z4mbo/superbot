@@ -1,7 +1,7 @@
 use gpui_kit::*;
 use superbot_client::Error;
 
-use crate::api::{self, PluginVersion};
+use crate::api::{self, ManifestPart, PluginVersion};
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme};
 use crate::ui::{pill_button, Tone, Type};
@@ -36,6 +36,9 @@ impl Desktop {
             this.store.version_switch = None;
             match result {
                 Ok(Ok(installation)) => {
+                    if this.store.app.as_ref().is_some_and(|app| app.installation_id == installation.id) {
+                        this.store.app = None;
+                    }
                     match this.store.installations.iter_mut().find(|known| known.id == installation.id) {
                         Some(known) => *known = installation,
                         None => this.store.installations.push(installation),
@@ -72,6 +75,15 @@ impl Desktop {
         } else {
             "No agent uses this plugin yet, so nothing else changes."
         };
+        let keeps_records = switch.from.manifest.parts.iter().any(|part| matches!(part, ManifestPart::App { .. }));
+        let records = if keeps_records {
+            format!(
+                " What you saved in version {} stays with it and comes back if you switch back.",
+                switch.from.version
+            )
+        } else {
+            String::new()
+        };
         Some(
             div()
                 .id("version-switch-scrim")
@@ -102,7 +114,7 @@ impl Desktop {
                         .on_click(|_, _, cx| cx.stop_propagation())
                         .child(div().title().child(format!("Switch to version {}?", switch.to.version)))
                         .child(div().item().text_color(theme.ink_secondary).child(format!(
-                            "{} moves from version {} to version {}. {consequence}",
+                            "{} moves from version {} to version {}. {consequence}{records}",
                             switch.from.manifest.name, switch.from.version, switch.to.version
                         )))
                         .child(
