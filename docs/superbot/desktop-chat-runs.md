@@ -1,13 +1,14 @@
 # Hosted and local runs in the desktop chat
 
-The desktop chat sends a turn one of two ways. The model chosen for the bot decides which.
-The header shows the model's name after its maker's mark. The model picker opens from the
-header or from **Details → Model**.
+The model chosen for the bot determines where a turn runs. The server worker can use a
+model connection or a model CLI installed on the server. The desktop can also run a model
+CLI on this device. The header shows the model's name after its maker's mark. The model
+picker opens from the header or from **Details → Model**.
 
 | | Hosted model | Model CLI on this computer |
 | --- | --- | --- |
-| Where it runs | The server's run worker, through the Space's model connection | The desktop starts the CLI on this device (`superbot_features::local_cli`, or an ACP engine through `local_acp`) |
-| Who can choose it | Any member who can change the bot | The member on this device. The choice is stored per device, server, account and Space |
+| Where it runs | The server's run worker, using a model connection or the deployment model | The desktop starts the CLI on this device (`superbot_features::local_cli`, or an ACP engine through `local_acp`) |
+| Who can choose it | Any member who can change the bot. The server operator configures the deployment model | The member on this device. The choice is stored per device, server, account and Space |
 | Sending | `threads/send`. The composer keeps the text until the server confirms it | The message appears at once, faded, and the composer clears. A failed or stopped run puts it back in the composer |
 | Reply | Streams into a draft bubble over `threads/subscribe` | Arrives whole. It shows faded until `append_local_turn` saves it to the shared thread, and stays visible with **Retry saving** if the save fails |
 | Working row | From the run's events, with its activity text | "Working…" while the CLI runs |
@@ -15,6 +16,12 @@ header or from **Details → Model**.
 | Tools and approvals | Server tools, the agent's computer and granted plugins. Question and approval cards are answered with `threads/answer` | None. Claude Code runs with `--tools ""` and an empty MCP config, Codex with a read-only sandbox and its shell, browser and computer tools off, and ACP engines get no file system, terminal or MCP, with every permission request refused |
 | Context | The bot's saved instructions, server thread, memory, skills and granted plugins | The bot's current saved instructions and the last 40 text messages from this conversation. Local chat accepts text |
 | App records | Through granted plugins, approved per call | **Apps** in the composer or `/apps` sends one app's recent records to the model. A suggested record is added only after **Add** |
+
+When the operator configures a CLI installed and signed in on the server as the deployment
+model, an MCP server lists the worker's tools without executing them. The CLI returns tool
+calls to Superbot and the worker handles them with its usual authorization and approvals.
+This option is for a self-hosted server with one active account and no model usage billing.
+[Deployment requirements](../self-host-models.md#claude-code-cli)
 
 ## The agent's computer
 
@@ -28,11 +35,9 @@ where the computer lives. Every provider a production server uses is isolated fr
 server. The one kind that runs on the host machine itself is refused unless the server
 runs inside the desktop app or in development.
 
-A turn from a model CLI on this computer gets none of these tools. It runs as a single
-prompt and its reply is saved to the thread. No server run starts, so it never reaches the
-computer. There is no path that lets a local CLI drive the agent's computer, and the
-desktop does not offer one. For work that needs the computer, choose a hosted model for
-the bot.
+A model CLI on the server can request these tools through the worker. A turn from a model
+CLI on this device runs as a single prompt and saves its reply to the thread. It starts
+no server run, so it has no access to the agent's computer.
 
 The person can use the computer from the **Computer** tab of the bot's side panel, whichever
 model the bot uses. They can start and stop it, watch its screen, take and hand back
@@ -78,5 +83,5 @@ called, and no real account or conversation was opened.
   desktop does not show it, which matches the reference's whole replies.
 - Local turns have no tools or approvals by design. Use a hosted model for work that needs
   them.
-- A bot message's **Retry** action is not built yet for either kind of run.
+- A bot message's **Retry** action is not built yet for hosted or desktop CLI runs.
 - **Details → Model** in the side panel shows no mark yet.

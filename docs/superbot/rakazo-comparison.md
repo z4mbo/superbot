@@ -1,6 +1,6 @@
 # Rakazo and Superbot on November 20, 2026
 
-Superbot integrated the 200 commits between its earlier Rakazo base and upstream `9c773a5aa` in merge `79b3f0aa6`. The comparison below uses those two immutable trees. [Rakazo source](https://github.com/elie222/rakazo/tree/9c773a5aa3e2c17fbb072ffe16bb0eabf0a070e5)
+Superbot integrated the 200 commits between its earlier Rakazo base and upstream `9c773a5aa` in merge `0ef7e8bc3`. The comparison below uses those two immutable trees. [Rakazo source](https://github.com/elie222/rakazo/tree/9c773a5aa3e2c17fbb072ffe16bb0eabf0a070e5)
 
 | Comparison | Result |
 | --- | --- |
