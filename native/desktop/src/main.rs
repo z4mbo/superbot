@@ -42,6 +42,11 @@ fn main() {
         let fonts = fonts::Fonts::load(cx);
         let skin = chosen_skin.unwrap_or_else(|| Skin::for_appearance(cx.window_appearance()));
         Theme::of(skin, &fonts).install(cx);
+        #[cfg(target_os = "macos")]
+        cx.set_window_appearance(chosen_skin.map(|skin| match skin {
+            Skin::Midnight => WindowAppearance::Dark,
+            Skin::Daylight => WindowAppearance::Light,
+        }));
         superbot_avatars::Avatars::install(appearance::folder().as_deref(), cx);
 
         let options = WindowOptions {
@@ -49,9 +54,14 @@ fn main() {
             window_min_size: Some(size(px(760.), px(520.))),
             titlebar: Some(TitlebarOptions {
                 title: Some(APP_NAME.into()),
-                appears_transparent: !cfg!(target_os = "macos"),
+                appears_transparent: true,
+                #[cfg(target_os = "macos")]
+                traffic_light_position: Some(theme::TRAFFIC_LIGHTS),
+                #[cfg(not(target_os = "macos"))]
                 traffic_light_position: None,
             }),
+            #[cfg(target_os = "macos")]
+            app_owns_titlebar_drag: true,
             ..Default::default()
         };
         let (window, desktop) =

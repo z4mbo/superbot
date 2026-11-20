@@ -3,6 +3,8 @@ use std::time::Duration;
 
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::prelude::*;
+#[cfg(target_os = "macos")]
+use gpui_kit::AnyElement;
 use gpui_kit::{
     canvas, div, px, App, Div, Entity, EventEmitter, FocusHandle, Focusable, FontWeight,
     KeyDownEvent, Pixels, ScrollHandle, SharedString, Window,
@@ -187,6 +189,8 @@ pub struct WorkspacePanel {
     nav_scroll: ScrollHandle,
     pub(crate) visible: bool,
     caption_width: Pixels,
+    #[cfg(target_os = "macos")]
+    window_drag_strip: Option<fn(&mut Window, &mut App) -> AnyElement>,
     toast: Option<Toast>,
     toasts_shown: u64,
     pub(crate) access: Access,
@@ -238,6 +242,8 @@ impl WorkspacePanel {
                 nav_scroll: ScrollHandle::new(),
                 visible: true,
                 caption_width: px(0.),
+                #[cfg(target_os = "macos")]
+                window_drag_strip: None,
                 toast: None,
                 toasts_shown: 0,
                 access: Access::Open,
@@ -278,6 +284,12 @@ impl WorkspacePanel {
     /// Width covered by the host's window buttons at the top right of this panel.
     pub fn set_caption_width(&mut self, width: Pixels) {
         self.caption_width = width;
+    }
+
+    /// Gives the host the empty space above the section as a window drag region.
+    #[cfg(target_os = "macos")]
+    pub fn set_window_drag_strip(&mut self, strip: fn(&mut Window, &mut App) -> AnyElement) {
+        self.window_drag_strip = Some(strip);
     }
 
     /// Suspends the board subscription while the host shows another page and catches
@@ -719,6 +731,8 @@ impl Render for WorkspacePanel {
             Access::SignedOut => ui::notice("Your session ended. Sign in again.", None, &t),
         };
         let pad = if compact { px(16.) } else { px(32.) };
+        #[cfg(target_os = "macos")]
+        let drag_strip = self.window_drag_strip.filter(|_| !compact).map(|strip| strip(window, cx));
 
         div()
             .id("workspace-panel")
@@ -756,7 +770,12 @@ impl Render for WorkspacePanel {
                                     .child(content),
                             ),
                     )
-                    .children(self.render_toast(&t, cx)),
+                    .children(self.render_toast(&t, cx))
+                    .map(|section| {
+                        #[cfg(target_os = "macos")]
+                        let section = section.children(drag_strip);
+                        section
+                    }),
             )
     }
 }

@@ -10,7 +10,7 @@ use superbot_features::local_app_records::{AppField, AppValue, AppValues, Grante
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::agent_panel::round_button;
-use crate::ui::{chip, empty_line, error_line, field_box, icon, pill_button, Tone, Type};
+use crate::ui::{chip, drag_region, empty_line, error_line, field_box, icon, pill_button, Tone, Type};
 
 use super::{has_dates, today, Addition, Chosen, Save};
 
@@ -140,7 +140,7 @@ impl Desktop {
         let width = panel_width(window.viewport_size().width);
         let model = self.selected_local_model().map(|model| model.label).unwrap_or_default();
 
-        let header = div()
+        let header = drag_region(div(), "app-assist-drag", window, cx)
             .h(px(56.))
             .flex_shrink_0()
             .flex()
@@ -148,12 +148,13 @@ impl Desktop {
             .gap(px(10.))
             .pl_4()
             .pr(px(13.))
-            .window_control_area(WindowControlArea::Drag)
             .child(div().flex_1().min_w_0().section().child("Apps"))
             .child(
                 round_button("app-assist-close", "x", false, &theme, |button| {
-                    button.tooltip(|window, cx| Tooltip::new("Close").build(window, cx))
-                    .on_click(cx.listener(|this, _, _, cx| this.close_app_assist(cx)))
+                    button
+                        .when(cfg!(target_os = "macos"), |button| button.occlude())
+                        .tooltip(|window, cx| Tooltip::new("Close").build(window, cx))
+                        .on_click(cx.listener(|this, _, _, cx| this.close_app_assist(cx)))
                 }),
             )
             .when(cfg!(not(target_os = "macos")), |header| header.mr(crate::theme::CAPTION_WIDTH));
