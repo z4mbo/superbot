@@ -31,7 +31,13 @@ postgres("history retrieval (PostgreSQL)", () => {
     )
       .replace(/^--.*$/gm, "")
       .replace("CONCURRENTLY ", "");
-    pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 1,
+      idleTimeoutMillis: 0,
+      // If the temp tables are lost, fail instead of falling back to public tables.
+      options: "-c search_path=pg_temp",
+    });
     prisma = new PrismaClient({ adapter: new PrismaPg(pool, { schema: "pg_temp" }) });
     await pool.query(`
       CREATE TEMP TABLE bots (id text PRIMARY KEY, "spaceId" text, "userId" text, "archivedAt" timestamptz);
@@ -39,11 +45,12 @@ postgres("history retrieval (PostgreSQL)", () => {
       CREATE TEMP TABLE chat_groups (id text PRIMARY KEY, "spaceId" text, "userId" text, "archivedAt" timestamptz);
       CREATE TEMP TABLE chat_group_members ("groupId" text, "botId" text);
       CREATE TEMP TABLE messages (id text PRIMARY KEY, "threadId" text, seq integer, role text, "runId" text,
-        "replyToMessageId" text, "createdAt" timestamptz, blocks jsonb);
+        "replyToMessageId" text, "createdAt" timestamptz, blocks jsonb, "localOperationId" uuid,
+        "authorUserId" text, "botId" text);
       CREATE TEMP TABLE steering_messages ("messageId" text, "botId" text, "runId" text,
         UNIQUE ("messageId", "botId"));
       CREATE TEMP TABLE runs (id text PRIMARY KEY, "spaceId" text, "userId" text, "threadId" text, "botId" text,
-        "sourceMessageId" text, status text, "createdAt" timestamptz, "completedAt" timestamptz);
+        "sourceMessageId" text, status text, "createdAt" timestamptz, "completedAt" timestamptz, trigger text);
       CREATE TEMP TABLE artifacts (id text PRIMARY KEY, "spaceId" text, "userId" text, "botId" text, "groupId" text,
         "runId" text, name text, "mimeType" text, size integer, "createdAt" timestamptz);
       INSERT INTO bots VALUES ('synthetic-bot','synthetic-space','synthetic-user',NULL);
@@ -176,12 +183,9 @@ postgres("history retrieval (PostgreSQL)", () => {
       })}\n`,
     );
   });
-  it("gives a routine only its owner's messages and its bot's replies to them", async () => {
+  it("gives a routine only its owner's hosted messages and its bot's replies to them", async () => {
     await pool.query(
-      `ALTER TABLE messages ADD COLUMN IF NOT EXISTS "authorUserId" text,
-        ADD COLUMN IF NOT EXISTS "botId" text;
-      ALTER TABLE runs ADD COLUMN IF NOT EXISTS trigger text;
-      INSERT INTO runs (id, "spaceId", "userId", "threadId", "botId", status, trigger) VALUES
+      `INSERT INTO runs (id, "spaceId", "userId", "threadId", "botId", status, trigger) VALUES
         ('owner-turn', 'synthetic-space', 'synthetic-user', 'synthetic-thread', 'synthetic-bot', 'completed', 'user'),
         ('channel-turn', 'synthetic-space', 'synthetic-user', 'synthetic-thread', 'synthetic-bot', 'completed', 'messaging'),
         ('member-turn', 'synthetic-space', 'synthetic-member', 'synthetic-thread', 'synthetic-bot', 'completed', 'user')`,
@@ -204,6 +208,10 @@ postgres("history retrieval (PostgreSQL)", () => {
     };
     const text = (body: string) => [{ kind: "text", text: body }];
     await add("owner-ask", "user", text("ownerprobe from the owner"), "synthetic-user", null);
+    await add("local-ask", "user", text("ownerprobe from a local turn"), "synthetic-user", null);
+    await pool.query(
+      `UPDATE messages SET "localOperationId" = gen_random_uuid() WHERE id = 'local-ask'`,
+    );
     await add("member-ask", "user", text("ownerprobe from a member"), "synthetic-member", null);
     await add(
       "channel-in",
@@ -249,7 +257,7 @@ postgres("history retrieval (PostgreSQL)", () => {
       ]);
     } finally {
       await pool.query(
-        `DELETE FROM messages WHERE id IN ('owner-ask','member-ask','channel-in','own-reply','channel-reply','member-reply','peer-reply');
+        `DELETE FROM messages WHERE id IN ('owner-ask','local-ask','member-ask','channel-in','own-reply','channel-reply','member-reply','peer-reply');
         DELETE FROM runs WHERE id IN ('owner-turn','channel-turn','member-turn')`,
       );
     }
