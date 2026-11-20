@@ -74,6 +74,22 @@ describe("instance theme", () => {
     );
   });
 
+  it.each([{}, { userBubbleTint: true }])("leaves bot tint enabled for %j", (theme) => {
+    const { res } = serve(themeFolder(theme), "/instance-theme.css");
+    expect(res.end).toHaveBeenCalledWith("");
+  });
+
+  it("aliases both transcript colors to the theme tokens when bot tint is disabled", () => {
+    const file = themeFolder({
+      dark: { chatUser: "#555555", chatUserForeground: "#FFFFFF" },
+      userBubbleTint: false,
+    });
+    const { res } = serve(file, "/instance-theme.css");
+    expect(res.end).toHaveBeenCalledWith(
+      'html:root {\n  --chat-user-theme-background: var(--chat-user);\n  --chat-user-theme-foreground: var(--chat-user-foreground);\n}\n\nhtml[data-theme="dark"] {\n  --chat-user: #555555;\n  --chat-user-foreground: #FFFFFF;\n}',
+    );
+  });
+
   it.each([
     [{ dark: { notAToken: "#000000" } }, "dark.notAToken is not a token"],
     [
@@ -87,6 +103,7 @@ describe("instance theme", () => {
     [{ fonts: { files: [{ family: "Onest", file: "Onest.svg" }] } }, "fonts.files[0].file must be"],
     [{ spacing: "0" }, "spacing is not a theme field"],
     [{ radius: "4px; } body { display: none" }, "radius must look like"],
+    [{ userBubbleTint: "false" }, "userBubbleTint must be a boolean"],
     [
       { fonts: { files: [{ family: "Onest", file: "/etc/Onest.ttf" }] } },
       "inside the theme's folder",

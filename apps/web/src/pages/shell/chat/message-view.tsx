@@ -287,7 +287,7 @@ export const MessageView = memo(function MessageView({
           <div className="flex w-fit max-w-full justify-start [@media(hover:none)]:w-full">
             <div
               data-testid="message-bot-bubble"
-              className="max-w-full space-y-2.5 rounded-2xl bg-muted px-4 py-2.5 text-body-lg text-foreground"
+              className="max-w-full space-y-2.5 rounded-[18px] bg-card px-3 py-[7px] text-body-lg text-foreground"
               dir="auto"
             >
               {visibleNarrationBlocks.map((block, i) => {
@@ -448,7 +448,7 @@ export const MessageView = memo(function MessageView({
               >
                 <div
                   data-testid="message-bot-bubble"
-                  className="max-w-full rounded-2xl bg-muted px-4 py-2.5 text-body-lg text-foreground"
+                  className="max-w-full rounded-[18px] bg-card px-3 py-[7px] text-body-lg text-foreground"
                   dir="auto"
                 >
                   <ChatMarkdown streaming renderMention={renderMention} onOpenPage={openPage}>
@@ -608,7 +608,7 @@ export const MessageView = memo(function MessageView({
                   data-testid="message-user-bubble"
                   data-quote-message-id={quoteMessageId}
                   className={cn(
-                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-2xl px-4 py-2.5 text-body-lg",
+                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-[18px] px-3 py-[7px] text-body-lg",
                     author
                       ? "bg-muted text-foreground/90"
                       : "bg-chat-user text-chat-user-foreground",
@@ -629,7 +629,7 @@ export const MessageView = memo(function MessageView({
               >
                 <div
                   data-testid="message-bot-bubble"
-                  className="max-w-full rounded-2xl bg-muted px-4 py-2.5 text-body-lg text-foreground"
+                  className="max-w-full rounded-[18px] bg-card px-3 py-[7px] text-body-lg text-foreground"
                   dir="auto"
                 >
                   <div data-quote-message-id={quoteMessageId}>

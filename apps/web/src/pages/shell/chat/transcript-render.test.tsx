@@ -69,7 +69,13 @@ function message(id: string, text: string): ThreadMessage {
   };
 }
 
-function Host({ messages }: { messages: ThreadMessage[] }) {
+function Host({
+  messages,
+  userBubble,
+}: {
+  messages: ThreadMessage[];
+  userBubble?: { background: string; foreground: string };
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const artifactTarget = useMemo(() => ({ botId: "bot" }), []);
   const none = useMemo(() => new Set<string>(), []);
@@ -94,6 +100,7 @@ function Host({ messages }: { messages: ThreadMessage[] }) {
         markerOf: new Map(),
         mergedInto: new Map(),
       }}
+      userBubble={userBubble}
       showToolActivity={false}
       olderCursor={null}
       unreadAfterSeq={null}
@@ -124,6 +131,18 @@ function Host({ messages }: { messages: ThreadMessage[] }) {
     />
   );
 }
+
+it("uses the bot tint as the fallback for each transcript color", () => {
+  const userBubble = { background: "#9C47E9", foreground: "#FFFFFF" };
+  act(() => root.render(<Host messages={[message("bot", "Hello")]} userBubble={userBubble} />));
+  const scroll = container.querySelector<HTMLElement>(".rk-scroll");
+  expect(scroll?.style.getPropertyValue("--chat-user")).toBe(
+    "var(--chat-user-theme-background, #9C47E9)",
+  );
+  expect(scroll?.style.getPropertyValue("--chat-user-foreground")).toBe(
+    "var(--chat-user-theme-foreground, #FFFFFF)",
+  );
+});
 
 it.each([false, true])(
   "leaves an unchanged message unrendered when a later one updates (mentions: %s)",

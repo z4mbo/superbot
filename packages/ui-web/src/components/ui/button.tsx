@@ -22,7 +22,7 @@ const buttonVariants = cva(
         text: "text-muted-foreground hover:text-foreground aria-expanded:text-foreground",
         // Floats over scrolling content, so it carries its own frosted surface.
         floating:
-          "border-border bg-muted/90 text-foreground/75 backdrop-blur hover:bg-accent data-active:bg-accent aria-pressed:bg-accent",
+          "border-foreground/6 bg-popover/90 text-foreground/90 backdrop-blur hover:bg-accent data-active:bg-accent aria-pressed:bg-accent",
       },
       size: {
         default: `${controlHeight.default} gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2`,

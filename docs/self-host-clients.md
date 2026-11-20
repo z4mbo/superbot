@@ -165,6 +165,9 @@ your own domain. The web service re-reads the file on each page load, so a reloa
 Font files must sit inside the theme's folder. A file it can't use is skipped with a
 `web.instance_theme_ignored` warning naming the problem.
 
+Set `userBubbleTint` to `false` to use the theme's `chatUser` and `chatUserForeground` colors for
+your message bubbles. It defaults to `true`. Send keeps the bot's color either way.
+
 With Docker Compose, mount the folder into the web service:
 
 ```yaml
