@@ -242,6 +242,10 @@ impl Desktop {
     fn render_row(&mut self, row: usize, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.skin().clone();
         let Some(chat) = self.chat.as_ref() else { return div().into_any_element() };
+        let marked = row
+            .checked_sub(1)
+            .and_then(|index| chat.entries.get(index))
+            .is_some_and(|entry| chat.reveal.marked.as_deref() == Some(entry.id.as_str()));
         let content = match row.checked_sub(1) {
             None => self.render_head(&theme, cx),
             Some(index) => match chat.entries.get(index) {
@@ -259,7 +263,14 @@ impl Desktop {
             .justify_center()
             .pl_5()
             .pr(px(28.))
-            .child(div().w_full().max_w(CHAT_COLUMN).child(content))
+            .child(
+                div()
+                    .w_full()
+                    .max_w(CHAT_COLUMN)
+                    .rounded(radius::CARD)
+                    .when(marked, |column| column.bg(theme.accent.opacity(0.12)))
+                    .child(content),
+            )
             .into_any_element()
     }
 

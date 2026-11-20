@@ -2,6 +2,7 @@ pub mod conversation;
 pub mod conversations;
 pub mod create;
 pub mod new_agent;
+pub mod reveal;
 
 use std::future::Future;
 use std::time::Duration;

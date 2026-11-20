@@ -139,10 +139,7 @@ impl Desktop {
         if item.state == InboxState::Unread {
             self.set_inbox_state(vec![item.id.clone()], InboxState::Read, window, cx);
         }
-        match conversation(&item.target) {
-            Target::Agent(agent) => self.open_conversation(&agent, None, window, cx),
-            target => self.open(target, window, cx),
-        }
+        self.open_at(conversation(&item.target), item.message_id.clone(), window, cx);
     }
 
     /// Changes lines on the server; the list shows the change at once and takes it back if the
