@@ -3085,6 +3085,7 @@ model RegistryPluginVersion {
   reviewerId String?
   reviewer   User? @relation("RegistryReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
   installs   RegistryPluginInstall[]
+  appRecords RegistryAppRecord[]
 
   @@unique([slug, version])
   @@unique([id, slug])
@@ -3102,6 +3103,7 @@ model RegistryPluginInstall {
   versionId String
   release   RegistryPluginVersion @relation(fields: [versionId, slug], references: [id, slug], onDelete: Restrict)
   grants    RegistryPluginGrant[]
+  appRecords RegistryAppRecord[]
   createdAt DateTime @default(now())
 
   @@unique([spaceId, userId, slug])
@@ -3121,4 +3123,24 @@ model RegistryPluginGrant {
   @@unique([installationId, botId, partId])
   @@index([botId])
   @@map("registry_plugin_grants")
+}
+
+model RegistryAppRecord {
+  id              String @id @default(uuid()) @db.Uuid
+  installationId String
+  installation   RegistryPluginInstall @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  versionId       String
+  release         RegistryPluginVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  partId          String
+  operationId     String @db.Uuid
+  values          Json?
+  recordDate      String?
+  createdAt       DateTime @default(now())
+  removedAt       DateTime?
+
+  @@unique([installationId, partId, operationId], map: "registry_app_records_operation_key")
+  @@index([installationId, versionId, partId, removedAt, createdAt, id], map: "registry_app_records_page_idx")
+  @@index([installationId, versionId, partId, recordDate, removedAt, createdAt, id], map: "registry_app_records_date_page_idx")
+  @@index([versionId])
+  @@map("registry_app_records")
 }

@@ -1,10 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { createRouterClient, onError } from "@orpc/server";
 import type { Actor, RpcInput } from "@rakazo/contracts";
+import { deferred } from "@rakazo/core/test-async";
 import {
+  addRegistryAppRecord,
   asSystem,
   createDb,
   JsonColumnMismatchError,
+  listRegistryAppRecords,
+  lockRegistryPluginInstallation,
+  removeRegistryAppRecord,
   resolvePluginGrants,
   runAsTenant,
 } from "@rakazo/db";
@@ -29,6 +34,31 @@ const manifest = {
   ],
 } satisfies RpcInput<"pluginRegistry/submit">["manifest"];
 
+const appManifest = {
+  schemaVersion: 1,
+  name: "Meal log",
+  description: "Track daily meals.",
+  parts: [
+    {
+      id: "meals",
+      kind: "app",
+      fields: [
+        { id: "meal-date", label: "Date", type: "date", required: true },
+        { id: "review-date", label: "Review date", type: "date", required: false },
+        { id: "calories", label: "Calories", type: "number", required: true },
+        { id: "meal-name", label: "Meal", type: "text", required: false },
+      ],
+      summaryField: "calories",
+    },
+    {
+      id: "reflection",
+      kind: "app",
+      fields: [{ id: "note", label: "Note", type: "text", required: true }],
+    },
+    manifest.parts[0]!,
+  ],
+} satisfies RpcInput<"pluginRegistry/submit">["manifest"];
+
 describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
   const tag = randomUUID();
   const org = `org-${tag}`;
@@ -47,6 +77,7 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
   const unverified = account("unverified");
   const installer = account("installer");
   const otherSpace = { ...installer, spaceId: otherSpaceId };
+  const appOtherSpace = { ...installer, spaceId: `app-${spaceId}` };
   const botId = (actor: Actor) => `${actor.userId}:${actor.spaceId}`;
   const resolveHostname = vi.fn(async () => [{ address: "93.184.215.14", family: 4 }]);
   let db: ReturnType<typeof createDb>;
@@ -58,6 +89,15 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
       context: { actor },
       interceptors: [onError((error, { path }) => handleRpcError(error, path))],
     }).pluginRegistry;
+
+  const publishApp = async (suffix: string, version = 1, releaseManifest = appManifest) => {
+    const release = await client(publisher).submit({
+      slug: `${slug}-${suffix}`,
+      version,
+      manifest: releaseManifest,
+    });
+    return client(admin).review({ versionId: release.id, decision: "approved" });
+  };
 
   beforeAll(async () => {
     db = createDb(process.env.DATABASE_URL!);
@@ -90,7 +130,7 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
         },
       });
     }
-    for (const id of [spaceId, otherSpaceId]) {
+    for (const id of [spaceId, otherSpaceId, appOtherSpace.spaceId]) {
       await system.space.create({
         data: {
           id,
@@ -100,7 +140,7 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
         },
       });
     }
-    for (const actor of [publisher, admin, unverified, installer, otherSpace]) {
+    for (const actor of [publisher, admin, unverified, installer, otherSpace, appOtherSpace]) {
       await system.spaceMember.create({
         data: {
           id: botId(actor),
@@ -220,6 +260,7 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
     expect(resolved).toEqual({
       grantId: expect.any(String),
       installationId: installed.id,
+      pluginSlug: slug,
       versionId: first.id,
       part: manifest.parts[0],
     });
@@ -426,6 +467,7 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
             transport: "streamable_http",
             endpoint: "https://127.0.0.1/mcp",
           },
+          appManifest.parts[0]!,
         ],
       },
     });
@@ -434,5 +476,299 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect((await client(admin).submissions({})).items).toContainEqual(release);
     expect((await client(installer).discover({ slug: privateSlug })).items).toEqual([]);
+  });
+
+  it("validates app values and pages live records with an account- and Space-scoped aggregate", async () => {
+    const release = await publishApp("data");
+    const registry = client(installer);
+    const { id: installationId } = await registry.install({ versionId: release.id });
+    const target = { installationId, partId: "meals" };
+    const date = "2024-02-29";
+    const tomorrow = "2024-03-01";
+    const original = {
+      ...target,
+      operationId: randomUUID(),
+      values: { "meal-date": date, "meal-name": "  Soup 🥣\u2068  ", calories: 100.1 },
+    };
+    const remove = { ...target, recordId: randomUUID() };
+    await expect(client(null).appRecords(target)).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(client(null).addAppRecord(original)).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(client(null).removeAppRecord(remove)).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    for (const other of [appOtherSpace, publisher, admin]) {
+      await expect(client(other).appRecords(target)).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(client(other).addAppRecord(original)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
+      await expect(client(other).removeAppRecord(remove)).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      });
+    }
+    await expect(registry.appRecords({ ...target, partId: "notes" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(registry.appRecords({ ...target, partId: "invalid" })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(registry.appRecords({ ...target, date: "2023-02-29" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(
+      registry.appRecords({ ...target, partId: "reflection", date }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    const invalidValues: Array<Record<string, string | number>> = [
+      { "meal-date": date },
+      { "meal-date": date, calories: "1" },
+      { "meal-date": "2023-02-29", calories: 1 },
+      { "meal-date": date, calories: 1, undeclared: "Unknown" },
+      { "meal-date": date, calories: 1, "meal-name": "\0" },
+      { "meal-date": date, calories: 1, "meal-name": "x".repeat(2001) },
+      { "meal-date": date, calories: 1e13 },
+    ];
+    for (const values of invalidValues) {
+      await expect(registry.addAppRecord({ ...original, values })).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+      });
+    }
+    expect(await registry.appRecords({ ...target, date })).toEqual({
+      items: [],
+      nextAfter: null,
+      total: 0,
+    });
+    const [first, retry] = await Promise.all([
+      registry.addAppRecord(original),
+      registry.addAppRecord({
+        ...original,
+        operationId: original.operationId.toUpperCase(),
+        values: { calories: 100.1, "meal-name": "Soup 🥣\u2068", "meal-date": date },
+      }),
+    ]);
+    expect(first).toEqual(retry);
+    expect(first.values).toEqual({
+      "meal-date": date,
+      "meal-name": "Soup 🥣\u2068",
+      calories: 100.1,
+    });
+    await expect(
+      registry.addAppRecord({ ...original, values: { ...original.values, calories: 100.2 } }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    const second = await registry.addAppRecord({
+      ...target,
+      operationId: randomUUID(),
+      values: { "meal-date": date, calories: 200.2 },
+    });
+    const third = await registry.addAppRecord({
+      ...target,
+      operationId: randomUUID(),
+      values: { "meal-date": tomorrow, "review-date": date, calories: 300 },
+    });
+    const reflection = { ...target, partId: "reflection" };
+    const note = await registry.addAppRecord({
+      ...reflection,
+      operationId: original.operationId,
+      values: { note: "Enjoyed the soup." },
+    });
+    const otherInstall = await client(publisher).install({ versionId: release.id });
+    await client(publisher).addAppRecord({ ...original, installationId: otherInstall.id });
+    const spaceRegistry = client(appOtherSpace);
+    const spaceInstall = await spaceRegistry.install({ versionId: release.id });
+    await spaceRegistry.addAppRecord({ ...original, installationId: spaceInstall.id });
+    expect(await registry.appRecords(reflection)).toEqual({
+      items: [note],
+      nextAfter: null,
+      total: null,
+    });
+    expect(await registry.appRecords(target)).toMatchObject({ total: 600.3, nextAfter: null });
+
+    const firstPage = await registry.appRecords({ ...target, date, limit: 1 });
+    expect(firstPage.total).toBe(300.3);
+    expect(firstPage.nextAfter).toBe(firstPage.items[0]?.id);
+    const nextPage = await registry.appRecords({ ...target, date, after: firstPage.nextAfter! });
+    expect(nextPage.total).toBe(300.3);
+    expect(nextPage.nextAfter).toBeNull();
+    expect([...firstPage.items, ...nextPage.items]).toEqual(
+      expect.arrayContaining([first, second]),
+    );
+    expect(await registry.appRecords({ ...target, date: tomorrow })).toMatchObject({
+      items: [third],
+    });
+    await expect(registry.appRecords({ ...target, after: note.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await registry.removeAppRecord({ ...target, recordId: note.id });
+    expect((await registry.appRecords(reflection)).items).toEqual([note]);
+
+    const lastRecord = nextPage.items[0]!;
+    const removed = { ...target, recordId: firstPage.nextAfter! };
+    await expect(registry.removeAppRecord(removed)).resolves.toEqual({ ok: true });
+    await expect(registry.removeAppRecord(removed)).resolves.toEqual({ ok: true });
+    expect(await registry.appRecords({ ...target, date, after: removed.recordId })).toEqual({
+      items: [lastRecord],
+      total: lastRecord.values.calories,
+      nextAfter: null,
+    });
+    const tombstone = await system.registryAppRecord.findFirst({ where: { id: removed.recordId } });
+    expect(tombstone).toMatchObject({
+      values: null,
+      recordDate: null,
+      removedAt: expect.any(Date),
+    });
+    await expect(
+      registry.addAppRecord({
+        ...target,
+        operationId: tombstone!.operationId,
+        values: firstPage.items[0]!.values,
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+
+    if (process.env.DATABASE_URL !== process.env.DATABASE_MIGRATION_URL) {
+      const foreign = runAsTenant(publisher, () =>
+        db.prisma.registryAppRecord.findMany({ where: { installationId } }),
+      );
+      await expect(foreign).resolves.toEqual([]);
+      await expect(
+        runAsTenant(publisher, () =>
+          db.prisma.registryAppRecord.create({
+            data: { ...target, versionId: release.id, operationId: randomUUID(), values: {} },
+          }),
+        ),
+      ).rejects.toThrow(/row-level security/i);
+    }
+    await system.spaceMember.delete({ where: { id: botId(appOtherSpace) } });
+    expect(
+      await system.registryAppRecord.count({ where: { installationId: spaceInstall.id } }),
+    ).toBe(0);
+    expect(await registry.appRecords(target)).toMatchObject({
+      items: expect.arrayContaining([third]),
+    });
+  });
+
+  it("preserves each pinned app schema and deletes all version data on uninstall", async () => {
+    const first = await publishApp("pinned");
+    const second = await publishApp("pinned", 2, {
+      ...appManifest,
+      parts: [
+        {
+          id: "meals",
+          kind: "app",
+          fields: [{ id: "calories", label: "Notes", type: "text", required: true }],
+        },
+      ],
+    });
+    const registry = client(installer);
+    const install = await registry.install({ versionId: first.id });
+    const target = { installationId: install.id, partId: "meals" };
+    const add = {
+      ...target,
+      operationId: randomUUID(),
+      values: { "meal-date": "2026-11-20", calories: 100 },
+    };
+    const older = await registry.addAppRecord(add);
+    const switchVersion = (expectedVersionId: string, versionId: string) =>
+      registry.switchVersion({ installationId: install.id, expectedVersionId, versionId });
+    await switchVersion(first.id, second.id);
+    expect(await registry.appRecords(target)).toEqual({ items: [], nextAfter: null, total: null });
+    await expect(registry.appRecords({ ...target, after: older.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(
+      registry.addAppRecord({ ...add, values: { calories: "Reused operation" } }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    const newer = await registry.addAppRecord({
+      ...add,
+      operationId: randomUUID(),
+      values: { calories: "New schema" },
+    });
+    await switchVersion(second.id, first.id);
+    expect(await registry.appRecords(target)).toEqual({
+      items: [older],
+      total: 100,
+      nextAfter: null,
+    });
+    expect(await registry.addAppRecord(add)).toEqual(older);
+    await switchVersion(first.id, second.id);
+    expect((await registry.appRecords(target)).items).toEqual([newer]);
+    await registry.uninstall({ installationId: install.id });
+    await expect(registry.appRecords(target)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await system.registryAppRecord.count({ where: { installationId: install.id } })).toBe(0);
+    const replacement = await registry.install({ versionId: first.id });
+    expect(replacement.id).not.toBe(install.id);
+    expect(
+      (await registry.appRecords({ ...target, installationId: replacement.id })).items,
+    ).toEqual([]);
+  });
+
+  it("checks the exact bot grant inside the same transaction as a record write", async () => {
+    const release = await publishApp("bot");
+    const registry = client(installer);
+    const { id: installationId } = await registry.install({ versionId: release.id });
+    const bot = botId(installer);
+    const target = { installationId, partId: "meals" };
+    const setGrant = () =>
+      registry.setGrants({ installationId, botId: bot, partIds: [target.partId] });
+    await setGrant();
+    const base = { spaceId, userId: installer.userId, botId: bot };
+    const [grant] = await resolvePluginGrants(db.prisma, base);
+    expect(grant).toMatchObject({ installationId, part: { kind: "app" } });
+    const scope = { ...base, grantId: grant!.grantId, versionId: grant!.versionId };
+    const add = {
+      ...target,
+      operationId: randomUUID(),
+      values: { "meal-date": "2026-11-20", calories: 120 },
+    };
+    await expect(
+      listRegistryAppRecords(db.prisma, { ...scope, botId: botId(publisher) }, target),
+    ).rejects.toMatchObject({ kind: "FORBIDDEN" });
+    const saved = await addRegistryAppRecord(db.prisma, scope, add);
+    expect((await registry.appRecords(target)).items).toEqual([saved]);
+    await expect(
+      removeRegistryAppRecord(db.prisma, scope, { ...target, recordId: saved.id }),
+    ).resolves.toEqual({ ok: true });
+
+    const lockTaken = deferred<number>();
+    const releaseLock = deferred();
+    const revoking = runAsTenant(installer, () =>
+      db.prisma.$transaction(async (tx) => {
+        await lockRegistryPluginInstallation(tx, installer, installationId);
+        const [connection] = await tx.$queryRaw<[{ pid: number }]>`SELECT pg_backend_pid() AS pid`;
+        lockTaken.resolve(connection.pid);
+        await releaseLock.promise;
+        await tx.registryPluginGrant.deleteMany({ where: { installationId, botId: bot } });
+      }),
+    );
+    const pid = await lockTaken.promise;
+    const outcome = addRegistryAppRecord(db.prisma, scope, {
+      ...add,
+      operationId: randomUUID(),
+    }).then(
+      (value) => ({ value }),
+      (error: unknown) => ({ error }),
+    );
+    try {
+      await vi.waitFor(async () => {
+        const [row] = await system.$queryRaw<[{ waiting: boolean }]>`
+          SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE ${pid}::int = ANY(pg_blocking_pids(pid)))
+          AS waiting`;
+        expect(row.waiting).toBe(true);
+      });
+    } finally {
+      releaseLock.resolve();
+      await revoking;
+    }
+    expect(await outcome).toMatchObject({ error: { kind: "FORBIDDEN" } });
+    await setGrant();
+    await expect(listRegistryAppRecords(db.prisma, scope, target)).rejects.toMatchObject({
+      kind: "FORBIDDEN",
+    });
+    const [regranted] = await resolvePluginGrants(db.prisma, base);
+    expect(
+      (await listRegistryAppRecords(db.prisma, { ...scope, grantId: regranted!.grantId }, target))
+        .items,
+    ).toEqual([]);
   });
 });
