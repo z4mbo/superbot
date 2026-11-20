@@ -19,6 +19,9 @@ impl AssetSource for Assets {
         if let Some(mark) = crate::ui::model_menu::marks::svg(path) {
             return Ok(Some(Cow::Owned(mark.into_bytes())));
         }
+        if let Some(bytes) = crate::ui::service_logo::asset(path) {
+            return Ok(Some(Cow::Borrowed(bytes)));
+        }
         match OWN.iter().find(|(own, _)| *own == path) {
             Some((_, bytes)) => Ok(Some(Cow::Borrowed(*bytes))),
             None => AllAssets.load(path),
