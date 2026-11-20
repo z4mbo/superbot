@@ -9,6 +9,7 @@
   <link rel="preload" href="assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="assets/base.css">
   <link rel="stylesheet" href="assets/site.css">
+  <link rel="stylesheet" href="assets/landing.css">
   <script src="assets/site.js"></script>
 </head>
 <body>
@@ -104,8 +105,10 @@
         </article>
         <article class="platform">
           <h3>Linux</h3>
-          <span class="status live">Web and terminal</span>
-          <p>Use the web app and both command-line tools. The native desktop app hasn't been verified on Linux.</p>
+          <span class="status building">Development build</span>
+          <p>The same native app and both tools, built from source with an entry in your applications menu. Sign-in uses your desktop's Secret Service.</p>
+          <code>bash scripts/install-native-linux.sh</code>
+          <p>On a machine without a desktop, add <b>--cli-only</b> to install just the two commands.</p>
         </article>
         <article class="platform">
           <h3>Terminal</h3>
@@ -262,7 +265,7 @@
             <tr><td>Bots using plugins</td><td><span class="status live">Works today</span></td><td class="muted">Granted skills reach the bot as instructions. Each remote tool call needs a person's approval; Spaces set to Never ask refuse them. Tool views show in web chat.</td></tr>
             <tr><td>Record apps</td><td><span class="status live">Works today</span></td><td class="muted">Install an app such as the <a href="docs/example-calorie-diary.html">Calorie diary</a> for your account in a Space, add and remove entries, and see totals by day or for all dates. In your direct chats, a granted bot reads the entries and adds one after you approve it. Local models get entries only when you share them.</td></tr>
             <tr><td>Command-line tools</td><td><span class="status live">Works today</span></td><td class="muted"><code>superbot</code> to sign in and chat, <code>superbot-plugin</code> to write, publish, review and install plugins. Built from source with Cargo on Windows, macOS and Linux.</td></tr>
-            <tr><td>Desktop app</td><td><span class="status building">Development build</span></td><td class="muted">Open a shared Space, connect a model, chat with agents, use record apps and manage plugins in the native Rust GPUI client. Source builds for Windows and macOS.</td></tr>
+            <tr><td>Desktop app</td><td><span class="status building">Development build</span></td><td class="muted">Open a shared Space, connect a model, chat with agents, use record apps and manage plugins in the native Rust GPUI client. Source builds for Windows, macOS and Linux.</td></tr>
             <tr><td>Plugin creator in the app</td><td><span class="status live">Works today</span></td><td class="muted">Choose Create plugin, add record apps, skills or connectors and submit the version for review, on desktop or the web. Track its status under Yours.</td></tr>
             <tr><td>Presence and typing</td><td><span class="status planned">Planned</span></td><td class="muted">Seeing who else is in a conversation right now.</td></tr>
           </tbody>
