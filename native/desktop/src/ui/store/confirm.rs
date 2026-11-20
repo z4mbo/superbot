@@ -10,6 +10,7 @@ pub enum Confirm {
     Uninstall { installation_id: String, name: String, has_records: bool },
     RemoveRecord { record_id: String, label: String },
     Disconnect { name: String, connection_ids: Vec<String> },
+    DisconnectSource { name: String, source: super::presets::Source },
 }
 
 impl Desktop {
@@ -30,6 +31,7 @@ impl Desktop {
             Confirm::Uninstall { installation_id, .. } => self.uninstall(installation_id, window, cx),
             Confirm::RemoveRecord { record_id, .. } => self.remove_record(record_id, window, cx),
             Confirm::Disconnect { connection_ids, .. } => self.disconnect(connection_ids, window, cx),
+            Confirm::DisconnectSource { source, .. } => self.disconnect_source(source, window, cx),
         }
         cx.notify();
     }
@@ -67,6 +69,12 @@ impl Desktop {
                 } else {
                     "The account is signed out, and agents can no longer use it.".to_owned()
                 },
+                "Disconnect",
+                "Disconnecting…",
+            ),
+            Confirm::DisconnectSource { name, .. } => (
+                format!("Disconnect {name}?"),
+                "Agents can no longer use it.".to_owned(),
                 "Disconnect",
                 "Disconnecting…",
             ),
