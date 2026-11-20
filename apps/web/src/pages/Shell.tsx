@@ -37,7 +37,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { CallCard, CallReturnBar } from "../components/call/CallCard";
 import { IncomingCall } from "../components/call/IncomingCall";
 import { ComputerUpdateProgress } from "../components/computers/ComputerUpdateProgress";
@@ -133,10 +133,18 @@ const NO_PROVIDERS: string[] = [];
 export function ShellPage() {
   // A new key per space switch, so nothing from the previous space survives it.
   const spaceEpoch = useSpaceEpoch();
-  return <SpaceShell key={spaceEpoch} />;
+  const { botId } = useParams();
+  const [search] = useSearchParams();
+  const threadId = botId ? (search.get("threadId") ?? undefined) : undefined;
+  return (
+    <SpaceShell
+      key={JSON.stringify([spaceEpoch, threadId === undefined ? null : botId, threadId])}
+      threadId={threadId}
+    />
+  );
 }
 
-function SpaceShell() {
+function SpaceShell({ threadId }: { threadId?: string }) {
   const { t } = useLingui();
   const { botId, groupId } = useParams();
   const [shellSpaceId] = useState(selectedSpaceId);
@@ -167,7 +175,13 @@ function SpaceShell() {
     setOverlay,
   } = useShellNavigation();
   const queries = spaceQueries(userId ?? null, shellSpaceId);
-  const roster = useSpaceRoster({ rpc, seed, navigate, redirectKeepingOverlay });
+  const roster = useSpaceRoster({
+    rpc,
+    seed,
+    navigate,
+    redirectKeepingOverlay,
+    preserveChatLink: threadId !== undefined,
+  });
   const {
     groups,
     setGroups,
@@ -283,13 +297,30 @@ function SpaceShell() {
     : panel === "routines" || panel === "pages" || panel === "settings" || panel === "routine";
   // Until the route names the chat reopened from cache, that chat stands in for it.
   const routeChat = botId || groupId ? undefined : startChat;
+  const linkedBot = threadId === undefined ? undefined : bots.find((bot) => bot.id === botId);
+  const linkedThread = useQuery({
+    ...queries.threads.head.queryOptions({ input: { botId: botId ?? "", threadId } }),
+    queryFn: ({ signal }) => rpc.threads.head({ botId: botId ?? "", threadId }, { signal }),
+    enabled: Boolean(linkedBot && threadId),
+    retry: false,
+  });
+  const linkedChatUnavailable =
+    threadId !== undefined &&
+    (!threadId ||
+      linkedThread.isError ||
+      (linkedThread.data && linkedThread.data.threadId !== threadId) ||
+      (initialBotsLoaded && !linkedBot));
   const active =
     inGroup || routeChat?.groupId
       ? undefined
-      : (bots.find((b) => b.id === (botId ?? routeChat?.botId)) ??
-        // With no chat named, open one that's in the list, not a snoozed one.
-        bots.find((b) => !chatSnoozed(b, snoozeNow)) ??
-        bots[0]);
+      : threadId !== undefined
+        ? linkedThread.data?.threadId === threadId && !linkedThread.isError
+          ? linkedBot
+          : undefined
+        : (bots.find((b) => b.id === (botId ?? routeChat?.botId)) ??
+          // With no chat named, open one that's in the list, not a snoozed one.
+          bots.find((b) => !chatSnoozed(b, snoozeNow)) ??
+          bots[0]);
   const selectBot = useCallback(
     (id: string) => {
       setMobileSidebarOpen(false);
@@ -439,6 +470,7 @@ function SpaceShell() {
   }
   const openSpaceChatRef = useRef<(spaceId: string, path: string) => void>(() => {});
   const rosterSignals = useSpaceBootstrap({
+    preserveChatLink: threadId !== undefined,
     roster,
     thread,
     commitComputer,
@@ -475,7 +507,7 @@ function SpaceShell() {
     callBotId: call?.botId,
     activeBotId,
   });
-  const read = useChatRead({ rpc, active, groupId, activeGroup, setBots, setGroups });
+  const read = useChatRead({ rpc, active, groupId, activeGroup, setBots, setGroups, threadId });
   // A chat that wakes while it is open is already seen: read it, which ends the snooze.
   const openChatWoke = active
     ? chatWoke(active, snoozeNow)
@@ -498,6 +530,7 @@ function SpaceShell() {
     terminalRunReceipts,
   } = useThreadSync({
     rpc,
+    threadId,
     queries,
     thread,
     computerState,
@@ -616,7 +649,7 @@ function SpaceShell() {
     ? snapshot?.groupId === groupId
       ? snapshot
       : null
-    : snapshot?.botId === active?.id
+    : snapshot?.botId === active?.id && (threadId === undefined || snapshot?.threadId === threadId)
       ? snapshot
       : null;
   const currentRuns = activeThreadRuns(activeSnapshot);
@@ -636,8 +669,11 @@ function SpaceShell() {
     [activeSnapshot?.messages],
   );
   const transcriptArtifactTarget = useMemo<ArtifactTarget>(
-    () => (inGroup ? { groupId: groupId ?? "" } : { botId: active?.id ?? "" }),
-    [active?.id, groupId, inGroup],
+    () =>
+      inGroup
+        ? { groupId: groupId ?? "" }
+        : { botId: active?.id ?? "", ...(threadId === undefined ? {} : { threadId }) },
+    [active?.id, groupId, inGroup, threadId],
   );
   const transcriptMembers = activeSnapshot?.members ?? activeGroup?.members;
   const resolveTranscriptBot = useCallback(
@@ -681,6 +717,7 @@ function SpaceShell() {
   // Not while the shell is leaving: a roster with nothing anywhere is on its way to onboarding,
   // and a reopened group chat is on its way to that group.
   const showNewBotPrompt =
+    threadId === undefined &&
     initialBotsLoaded &&
     bots.length === 0 &&
     !activeGroup &&
@@ -693,9 +730,10 @@ function SpaceShell() {
       !firstBotDue);
   const shellReady =
     initialBotsLoaded &&
-    (inGroup
-      ? Boolean(activeGroup && activeSnapshot)
-      : bots.length === 0 || Boolean(active && activeSnapshot));
+    (linkedChatUnavailable ||
+      (inGroup
+        ? Boolean(activeGroup && activeSnapshot)
+        : (threadId === undefined && bots.length === 0) || Boolean(active && activeSnapshot)));
 
   useLayoutEffect(() => {
     if (initialBotsLoaded) {
@@ -715,6 +753,7 @@ function SpaceShell() {
 
   const { scrollRequest, clearScrollRequest, jumpToReplyMessage } = useMessageJump({
     rpc,
+    threadId,
     queries,
     thread,
     commitComputer,
@@ -740,7 +779,7 @@ function SpaceShell() {
     botsRef,
     activeBotId,
     activeGroupId,
-    runStatus: snapshot?.run?.status,
+    runStatus: activeSnapshot?.run?.status,
     sandboxProvider: bootstrapMe?.sandboxProvider,
     refreshThread,
     refreshGroupThread: (id) => refreshGroupThreadRef.current(id),
@@ -749,6 +788,7 @@ function SpaceShell() {
   const { computerBot, openComputer } = computerControls;
   const composer = useComposerActions({
     rpc,
+    threadId,
     pageSession: pages.session,
     activeId: active?.id,
     inGroup,
@@ -856,9 +896,10 @@ function SpaceShell() {
   const markMessageUnread = useCallback(
     (message: ThreadMessage) => {
       if (groupId) read.markGroupUnreadFrom(groupId, message.id);
-      else if (active?.id) void read.markBotUnread(active.id, message.id).catch(() => undefined);
+      else if (active?.id)
+        void read.markBotUnread(active.id, message.id, threadId).catch(() => undefined);
     },
-    [active?.id, groupId, read.markBotUnread, read.markGroupUnreadFrom],
+    [active?.id, groupId, read.markBotUnread, read.markGroupUnreadFrom, threadId],
   );
   const openPeerMessages = useCallback(
     (peer: { peerBotId: string; peerBotName: string }) => {
@@ -1146,7 +1187,7 @@ function SpaceShell() {
             active={active}
             activeGroup={activeGroup}
             activeSnapshot={activeSnapshot}
-            phoneCallsEnabled={Boolean(bootstrapMe?.phoneCallsEnabled)}
+            phoneCallsEnabled={threadId === undefined && Boolean(bootstrapMe?.phoneCallsEnabled)}
             meetingsEnabled={Boolean(bootstrapMe?.meetingsEnabled)}
             voiceReady={Boolean(voiceStatus?.ready)}
             inCall={Boolean(active) && call?.botId === active?.id}
@@ -1161,7 +1202,11 @@ function SpaceShell() {
               callBot(bot);
             }}
           />
-          {showNewBotPrompt ? (
+          {linkedChatUnavailable ? (
+            <div className="grid flex-1 place-items-center" role="status">
+              <Trans>Conversation unavailable</Trans>
+            </div>
+          ) : showNewBotPrompt ? (
             <div className="grid flex-1 place-items-center">
               <Button onClick={() => dialogs.setCreateBotOpen(true)}>
                 <Plus size={16} aria-hidden="true" />
@@ -1190,7 +1235,7 @@ function SpaceShell() {
               workingRoutine={workingRoutineName(workingRuns)}
               userBubble={userBubble}
               onCallBack={
-                bootstrapMe?.phoneCallsEnabled && !inGroup && active
+                threadId === undefined && bootstrapMe?.phoneCallsEnabled && !inGroup && active
                   ? () => callBot(active)
                   : undefined
               }
@@ -1230,7 +1275,13 @@ function SpaceShell() {
             ) : null}
             <Composer
               key={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
-              draftKey={inGroup ? `group:${groupId}` : `bot:${active?.id}`}
+              draftKey={
+                threadId !== undefined
+                  ? `thread:${threadId}`
+                  : inGroup
+                    ? `group:${groupId}`
+                    : `bot:${active?.id}`
+              }
               enterToSend={enterToSend}
               sendColors={userBubble}
               modelPicker={
@@ -1383,8 +1434,8 @@ function SpaceShell() {
           routines: activeRoutines,
           loaded: routinesLoaded,
           runningRoutineId:
-            snapshot?.run && isActive(snapshot.run.status)
-              ? (snapshot.run.routineId ?? undefined)
+            activeSnapshot?.run && isActive(activeSnapshot.run.status)
+              ? (activeSnapshot.run.routineId ?? undefined)
               : undefined,
           onCreate: () => startRoutine(),
           onEdit: startRoutine,
@@ -1423,7 +1474,7 @@ function SpaceShell() {
         routineEditorProps={routineEditorProps}
         openBot={openBot}
         modelFocusRequest={modelFocusRequest}
-        onClearBot={(bot) => dialogs.setClearTarget({ kind: "bot", chat: bot })}
+        onClearBot={(bot) => dialogs.setClearTarget({ kind: "bot", chat: bot, threadId })}
       />
 
       <Suspense fallback={null}>

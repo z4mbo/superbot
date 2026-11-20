@@ -48,7 +48,7 @@ export function useShellDialogs() {
     spaceMenuAnchor.current = null;
   }, [spaceMenu]);
   const closeSpaceMenu = useCallback(() => setSpaceMenu(null), []);
-  const [clearTarget, setClearTarget] = useState<ChatTarget | null>(null);
+  const [clearTarget, setClearTarget] = useState<(ChatTarget & { threadId?: string }) | null>(null);
   const [newSectionTarget, setNewSectionTarget] = useState<ChatTarget | null>(null);
   const [renameSectionTarget, setRenameSectionTarget] = useState<SectionTarget | null>(null);
   const [deleteSectionTarget, setDeleteSectionTarget] = useState<SectionTarget | null>(null);
@@ -373,7 +373,10 @@ export function ShellDialogs({
           onConfirm={async () => {
             await rpc.threads.clear(
               clearTarget.kind === "bot"
-                ? { botId: clearTarget.chat.id }
+                ? {
+                    botId: clearTarget.chat.id,
+                    ...(clearTarget.threadId ? { threadId: clearTarget.threadId } : {}),
+                  }
                 : { groupId: clearTarget.chat.id },
             );
             if (

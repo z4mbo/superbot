@@ -97,6 +97,13 @@ pub enum ThreadTarget<'a> {
     Bot(&'a str),
     #[serde(rename = "groupId")]
     Group(&'a str),
+    #[serde(untagged)]
+    BotConversation {
+        #[serde(rename = "botId")]
+        bot_id: &'a str,
+        #[serde(rename = "threadId")]
+        thread_id: &'a str,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]

@@ -463,7 +463,14 @@ export const MessageView = memo(function MessageView({
             // A saved running card is a background helper's; a live one belongs to this turn.
             const onStop =
               botId && !message.id.startsWith("subagent:")
-                ? () => rpc.threads.stopHelper({ botId, messageId: message.id })
+                ? () =>
+                    rpc.threads.stopHelper({
+                      botId,
+                      ...("botId" in artifactTarget && artifactTarget.threadId
+                        ? { threadId: artifactTarget.threadId }
+                        : {}),
+                      messageId: message.id,
+                    })
                 : undefined;
             return <SubagentCard key={i} block={block} onStop={onStop} />;
           }

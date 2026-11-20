@@ -45,7 +45,15 @@ export async function appendLocalHistory(
             id: target.threadId,
             ...(target.kind === "group"
               ? { group: { archivedAt: null } }
-              : { bot: { archivedAt: null } }),
+              : {
+                  OR: [
+                    { bot: { id: target.botId, archivedAt: null } },
+                    {
+                      conversationBot: { id: target.botId, archivedAt: null },
+                      conversationArchivedAt: null,
+                    },
+                  ],
+                }),
           },
           select: { id: true },
         }),
@@ -86,7 +94,7 @@ export async function appendLocalHistory(
         const event = await appendEventInTransaction(tx, {
           spaceId: actor.spaceId,
           threadId: target.threadId,
-          botId: target.threadId,
+          botId: target.kind === "bot" ? target.botId : target.threadId,
           type: "thread.message.created",
           payload: {
             messageId: message.id,

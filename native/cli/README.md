@@ -45,6 +45,19 @@ The picker lists each agent with its space. Direct chat matches an exact name
 first and accepts a case-insensitive match when unique. Use `superbot chat NAME`
 to reach an agent whose name matches a command.
 
+Start a separate conversation with the same agent using `--new-conversation`.
+To reopen a particular conversation, use its thread ID from the web link's
+`threadId` parameter.
+
+```shell
+superbot chat "Research agent" --new-conversation
+superbot chat "Research agent" --conversation THREAD_ID
+```
+
+Members of the same Space can follow its replies on other devices. Each
+conversation has its own history. The agent uses its selected model across
+conversations.
+
 In chat, press Enter to send a line. Superbot prints message text and agent run
 errors. `/back` returns to the picker, or exits a directly opened chat. `/quit`
 exits from either mode.

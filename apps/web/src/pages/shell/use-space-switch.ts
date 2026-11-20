@@ -67,10 +67,12 @@ export function useOpenSpaceChat({
         window.location.assign(destination());
         return true;
       };
-      const destination = () =>
-        overlayRevision.current === startedOverlay
-          ? path
-          : `${path}${searchString(withShellOverlay(new URLSearchParams(), readShellOverlay(new URLSearchParams(window.location.search))))}`;
+      const destination = () => {
+        if (overlayRevision.current === startedOverlay) return path;
+        const [pathname, search] = path.split("?", 2);
+        const overlay = readShellOverlay(new URLSearchParams(window.location.search));
+        return `${pathname}${searchString(withShellOverlay(new URLSearchParams(search), overlay))}`;
+      };
       // Another space is an auth boundary: its bootstrap is loaded first, under that
       // space's header, then the shell remounts so none of this space's state survives.
       // A call in progress, or a page outside the shell, still reloads.

@@ -17,6 +17,8 @@ export const ChatAlertSchema = z.object({
 });
 export type ChatAlert = z.infer<typeof ChatAlertSchema>;
 
+export const BOT_CONVERSATION_PREVIEW_LIMIT = 160;
+
 /** Selected-text excerpt carried by a reply; capped so a quote stays a quote. */
 export const REPLY_QUOTE_MAX_LENGTH = 2_000;
 

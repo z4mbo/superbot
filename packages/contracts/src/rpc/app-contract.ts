@@ -18,6 +18,7 @@ import { routinesRpc } from "../routines/routines-rpc.js";
 import { runsRpc } from "../runs/runs-rpc.js";
 import { skillsRpc } from "../skills/skills-rpc.js";
 import { spacesRpc } from "../spaces/spaces-rpc.js";
+import { conversationContentRpc } from "../threads/conversation-content.js";
 import { threadsRpc } from "../threads/threads-rpc.js";
 
 export const appContract = {
@@ -29,6 +30,7 @@ export const appContract = {
   ...modelsRpc,
   ...botsRpc,
   ...threadsRpc,
+  ...conversationContentRpc,
   ...meetingsRpc,
   ...meetingCalendarRpc,
   ...routinesRpc,

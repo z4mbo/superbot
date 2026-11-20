@@ -202,6 +202,7 @@ export async function loadTurnContext(
   const recallsEachRun = capabilities?.recallEachRun === true;
   const compacted = thread.historyCompactedUpToSeq != null;
   const recallPromise =
+    !thread.conversationBotId &&
     threadContext.includeSemanticRecall &&
     semanticMemory &&
     memoryScope &&
@@ -238,7 +239,8 @@ export async function loadTurnContext(
           }),
       recallPromise,
     ]);
-  const semanticMemoryEnabled = Boolean(semanticMemory) && !nonOwnerChatRun;
+  const semanticMemoryEnabled =
+    Boolean(semanticMemory) && !nonOwnerChatRun && !thread.conversationBotId;
   let recalledMemory = "";
   let recallSucceeded = false;
   if (recalled) {

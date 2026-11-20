@@ -16,12 +16,15 @@ import {
   AnswerTooLongError,
   answerToolQuestion,
   appendEventInTransaction,
+  assertOpenBotConversation,
   createExternalConversationRepos,
   createThreadMessageInTransaction,
   IsolationError,
   isUniqueViolation,
   loadMessageAuthor,
   lockSpaceGroup,
+  SpaceDeletionInProgressError,
+  spaceTakesWork,
   THREAD_LOCK_TRANSACTION_OPTIONS,
   touchGroupUpdatedAt,
   withTransactionRetry,
@@ -36,6 +39,11 @@ import {
   routineTestRunNonce,
   routineTestTarget,
 } from "../routines/routines.js";
+import {
+  createBotConversation,
+  listBotConversations,
+  updateBotConversation,
+} from "../threads/bot-conversations.js";
 import { appendLocalHistory } from "../threads/local-history.js";
 import { purgeClearedThreadMemory } from "../threads/thread-memory.js";
 import {
@@ -165,8 +173,19 @@ export function threadsRoutes(ctx: RouterContext) {
   };
   return {
     threads: {
+      createBotConversation: authed.threads.createBotConversation.handler(({ context, input }) =>
+        createBotConversation(deps.prisma, context.actor, input.botId),
+      ),
+      listBotConversations: authed.threads.listBotConversations.handler(({ context, input }) =>
+        listBotConversations(deps.prisma, context.actor, input.botId),
+      ),
+      updateBotConversation: authed.threads.updateBotConversation.handler(({ context, input }) =>
+        updateBotConversation(deps.prisma, context.actor, input),
+      ),
       head: authed.threads.head.handler(async ({ context, input }) => {
-        const target = await resolveThreadTarget(deps.prisma, context.actor, input);
+        const target = await resolveThreadTarget(deps.prisma, context.actor, input, {
+          includeArchivedConversation: true,
+        });
         return threadHead(deps.prisma, target);
       }),
       get: authed.threads.get.handler(async ({ context, input }) => {
@@ -190,7 +209,9 @@ export function threadsRoutes(ctx: RouterContext) {
         );
       }),
       subscribe: authed.threads.subscribe.handler(async function* ({ context, input }) {
-        const target = await resolveThreadTarget(deps.prisma, context.actor, input);
+        const target = await resolveThreadTarget(deps.prisma, context.actor, input, {
+          includeArchivedConversation: true,
+        });
         const peerRunCache = new Map<string, Promise<boolean>>();
         const backgroundRunCache = new Map<string, Promise<boolean>>();
         const events = withHeartbeats(context, (signal) =>
@@ -225,6 +246,7 @@ export function threadsRoutes(ctx: RouterContext) {
       ),
       sendWithRoutines: authed.threads.sendWithRoutines.handler(async ({ context, input }) => {
         const { actor } = context;
+        if (input.threadId) await resolveThreadTarget(deps.prisma, actor, input);
         // The same checks as routines/testRun, all before anything is written.
         const targets = await Promise.all(
           [...new Set(input.routineIds)].map((routineId) =>
@@ -267,7 +289,18 @@ export function threadsRoutes(ctx: RouterContext) {
           } else {
             // Only the routines: they all commit or none does.
             const started = await withTransactionRetry(() =>
-              deps.prisma.$transaction(startRoutines),
+              deps.prisma.$transaction(async (tx) => {
+                if (input.botId && input.threadId) {
+                  if (!(await spaceTakesWork(tx, actor.spaceId)))
+                    throw new SpaceDeletionInProgressError();
+                  await assertOpenBotConversation(tx, {
+                    spaceId: actor.spaceId,
+                    botId: input.botId,
+                    threadId: input.threadId,
+                  });
+                }
+                return startRoutines(tx);
+              }),
             );
             for (const run of started) {
               await wakeRun(deps.jobs, run.id);
@@ -329,6 +362,7 @@ export function threadsRoutes(ctx: RouterContext) {
             threadId: target.threadId,
             botId: contextBotId,
             ...(target.kind === "group" ? { groupId: target.groupId } : {}),
+            ...(input.threadId ? { explicitBotConversation: true as const } : {}),
           });
         await Promise.all(
           cancelledRunIds.map((runId) => deps.jobs.cancel(runJobKey(runId)).catch(() => undefined)),
@@ -343,7 +377,9 @@ export function threadsRoutes(ctx: RouterContext) {
             deps.artifacts.remove(storageKey, removal).catch(() => undefined),
           ),
         );
-        await purgeClearedThreadMemory(deps, context.actor, target, historyCompactionGeneration);
+        if (!input.threadId) {
+          await purgeClearedThreadMemory(deps, context.actor, target, historyCompactionGeneration);
+        }
         return { ok: true as const };
       }),
       followUp: authed.threads.followUp.handler(async ({ context, input }) => {
@@ -360,6 +396,7 @@ export function threadsRoutes(ctx: RouterContext) {
             prompt: input.text,
             trigger: "follow_up",
             clientNonce: input.clientNonce,
+            explicitBotConversation: target.explicitConversation,
           });
           if (sent.taskId && sent.runId) {
             await wakeRun(deps.jobs, sent.runId);
