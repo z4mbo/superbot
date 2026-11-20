@@ -14,6 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import type { MobileBot, MobileSnapshot } from "../../lib/api/mobile-types";
 import { mobileTokens } from "../../lib/appearance/appearance";
+import type { SpecialMessageBlock } from "../../lib/messages/message-presentation";
 import type { UserBubble } from "../../lib/messages/user-bubble";
 import { withUserBubble } from "../../lib/messages/user-bubble";
 import { useResolvedAppearance } from "../../lib/native/native";
@@ -28,15 +29,6 @@ import type { MessageRowActions } from "./message-row";
 // A running helper's live card and the saved message that replaces it have different ids, so
 // its row mounts again when the helper finishes. Remember open cards by agent id across that.
 const openHelpers = new Set<string>();
-
-export type SpecialMessageBlock = Extract<
-  MessageBlock,
-  { kind: "subagent" | "child_bot" | "cloud_agent" }
->;
-
-export function isSpecialMessageBlock(block: MessageBlock): block is SpecialMessageBlock {
-  return block.kind === "subagent" || block.kind === "child_bot" || block.kind === "cloud_agent";
-}
 
 type SpecialMessageCardProps = {
   special: SpecialMessageBlock;
