@@ -1,0 +1,67 @@
+# Where agent computers run
+
+An agent's computer runs in one of three places. The server decides which, from its own
+configuration and, where it allows a choice, from Settings. No client can make a computer run
+somewhere the server does not offer.
+
+| Path                    | Where it runs                                                              | Who sets it up                                                                                                                     | What the person sees                                                                                    |
+| ----------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Server-hosted Docker    | A Linux container on the server's own Docker host, through its supervisor | The server's operator: `SANDBOX_PROVIDER=docker` with a supervisor token ([hosting](hosting.md#enable-isolated-agent-computers)) | Start, stop, **Watch**, files                                                                           |
+| On the person's machine | The computer the Electron desktop app is installed on                      | The person, in the Electron app, after its native consent prompt                                                                   | "Works on your computer". There is no remote screen                                                     |
+| Cloud                   | A managed remote desktop from a provider such as Boat or Boxd              | An administrator in Settings, or the environment ([sandbox providers](../self-host-sandbox-providers.md#remote-providers))          | The same as Docker: start, stop, **Watch**, files. Screens reach the app only through the server's proxy |
+
+Hosting the server on a remote machine, such as a NixOS host running Docker computers, is the
+server-hosted path. It does not give agents the machine the app runs on.
+
+## Choosing where computers run
+
+Choosing is open when the server sets `COMPUTER_SETTINGS_ENABLED=true` and its own provider can
+route by Settings. Docker can; the person's-machine and test providers cannot.
+
+In the desktop app, open an agent, select **Computer**, then **Computers run on**. An
+administrator chooses for the whole deployment. Anyone else sees **Your computers run on** when
+the server lets accounts choose, and chooses for their own computers. **Default** keeps the
+server's own provider. Choosing a cloud provider shows the settings that provider asks for. A
+saved key is never shown again, and leaving it blank keeps it. The server checks the settings
+before it keeps them and answers "Could not verify computer settings" when they do not pass.
+Going back to **Default** removes the saved keys. Running computers move the next time they
+start.
+
+The row does not appear when the server offers no choice, when it runs no computers, or when the
+computer is the person's own machine.
+
+## The person's own machine
+
+Only the Electron desktop app can lend its computer. On sign-in it pairs with the server through
+`/api/devices/pair` and keeps the device token in app-private storage. Every request from the
+server then waits for that computer's consent, which only the app's native prompt gives.
+
+- **Pair with a remote server:** sign in to it in the Electron app. The app pairs on its own, and
+  nothing runs until the person answers the app's native prompt for that server.
+- **Pair with an app-managed local instance:** choose **Use this computer** (**Use this Mac** on
+  macOS) when the app asks. **Computer Access…** in the app menu changes the choice.
+- **Revoke:** for a local instance, **Revoke Local Computer Access** in the app menu disconnects
+  active operations and forgets the permission. For a remote server, signing out of the app ends
+  the pairing. The server's `DELETE /api/devices/:deviceId` revokes a device for its owner's
+  session, but no client lists devices yet.
+
+The native desktop app (`native/desktop`) does not pair and has no command bridge. It shows a
+computer on the person's own machine as "Works on your computer".
+
+## Terminal
+
+Providers report a terminal (`terminalAvailable`), and `computer.terminalUrl` opens one for the
+person holding control. No client shows it at present. The web app removed its terminal view, and
+the native app has none. The address carries a framed websocket protocol
+(`packages/contracts/src/computers/terminal.ts`), not a page, so showing it needs a terminal
+client rather than the screen view.
+
+## Checking it without keys or credits
+
+`native/desktop/fixture/chat-parity.mjs` runs on `SANDBOX_PROVIDER=fake`, which keeps the choice
+closed. To see the choice, run a copy of it with `SANDBOX_PROVIDER=docker`,
+`COMPUTER_SETTINGS_ENABLED=true`, `RAKAZO_ADMIN_EMAILS` naming the owner, and
+`SANDBOX_SUPERVISOR_URL` pointing at an unused loopback port. Mark the owner's email verified in
+the fixture database, since administrators must have one. Choose a cloud provider with a
+placeholder key, save, and go back to **Default**. Saving a provider without its own connection
+check, as Boat and Boxd are, contacts nobody, and nothing provisions until a computer starts.
