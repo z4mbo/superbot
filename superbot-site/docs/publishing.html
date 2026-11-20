@@ -110,7 +110,7 @@ superbot-plugin set-grants INSTALLATION_ID BOT_ID summary tracker</code></pre>
       <h2 id="apps">Record app data and versions</h2>
       <ul>
         <li><b>Whose data it is.</b> Entries belong to one installation: one account in one Space. Other members of the Space don't see them, even when they install the same app.</li>
-        <li><b>When a bot can use it.</b> Only in a direct chat between the installer and one of their bots, in a turn the installer's own message started. Group conversations and turns started by anyone else get no record app actions. A turn answered by a model CLI installed on the person's computer gets only the prompt, so it can't use record apps either.</li>
+        <li><b>When a bot can use it.</b> The installer's own direct chats can use the part while its grant is active. With a supported local model, <code>/apps</code> in the Superbot CLI lets the person choose which app to share with the model. The recent records and its answer stay outside the shared conversation.</li>
         <li><b>Editing.</b> Entries can't be changed in place. Remove one and add a corrected entry. Removing erases the entry's values for good.</li>
         <li><b>Totals.</b> With a <code>summaryField</code>, the total covers every matching entry for the chosen day, or for all dates, even when the list shows only the first page.</li>
         <li><b>Grants.</b> Turning off a bot's part stops that bot reading or adding. The entries stay.</li>
