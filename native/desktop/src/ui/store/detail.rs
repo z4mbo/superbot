@@ -4,8 +4,9 @@ use gpui_kit::*;
 use crate::api;
 use crate::app::Desktop;
 use crate::theme::Theme;
+use crate::ui::chrome::labelled_switch;
 use crate::ui::releases::VersionSwitch;
-use crate::ui::{chip, empty_line, icon, pill_button, Tone, Type};
+use crate::ui::{chip, empty_line, pill_button, Tone, Type};
 
 use super::app_view::{app_parts, humanize};
 use super::confirm::Confirm;
@@ -191,8 +192,10 @@ impl Desktop {
                                     .iter()
                                     .any(|grant| grant.bot_id == agent.id && grant.part_id == part_id);
                                 let (installation_id, agent_id) = (installation.id.clone(), agent.id.clone());
-                                grant_toggle(&agent.id, &part_id, granted, theme).on_click(cx.listener(
-                                    move |this, _, window, cx| {
+                                let label = humanize(&part_id);
+                                let button = div().id(SharedString::from(format!("grant-{agent_id}-{part_id}")));
+                                let button = button.when(!waiting, |button| {
+                                    button.on_click(cx.listener(move |this, _, window, cx| {
                                         this.toggle_grant(
                                             installation_id.clone(),
                                             agent_id.clone(),
@@ -200,8 +203,9 @@ impl Desktop {
                                             window,
                                             cx,
                                         )
-                                    },
-                                ))
+                                    }))
+                                });
+                                labelled_switch(button, label, granted, !waiting, theme)
                             }),
                         ))
                         .into_any_element()
@@ -252,33 +256,4 @@ impl Desktop {
             .child(div().flex().flex_col().gap_2().child(div().section().child("What it adds")).child(parts))
             .into_any_element()
     }
-}
-
-fn grant_toggle(agent_id: &str, part_id: &str, granted: bool, theme: &Theme) -> Stateful<Div> {
-    let hover = theme.raised_hover;
-    div()
-        .id(SharedString::from(format!("grant-{agent_id}-{part_id}")))
-        .h_7()
-        .px_2p5()
-        .flex()
-        .items_center()
-        .gap_1p5()
-        .rounded_full()
-        .body()
-        .cursor_pointer()
-        .map(|toggle| {
-            if granted {
-                toggle.bg(theme.ink).text_color(theme.app).font_weight(FontWeight::MEDIUM).child(icon(
-                    "check",
-                    px(13.),
-                    theme.app,
-                ))
-            } else {
-                toggle
-                    .bg(theme.control.opacity(0.7))
-                    .text_color(theme.ink_secondary)
-                    .hover(move |style| style.bg(hover))
-            }
-        })
-        .child(part_id.to_owned())
 }

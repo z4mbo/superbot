@@ -9,9 +9,11 @@ use super::marks::Mark;
 use super::{level_label, Act, Gutter, Line, Spot, Trailing};
 use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
+use crate::ui::chat::tooltip;
 use crate::ui::focus::{self, Ring};
 use crate::ui::motion::{Colors, Pointer};
 use crate::ui::new_menu::menu_shadow;
+use crate::ui::overlays::menu_enter;
 use crate::ui::{icon, Type};
 
 /// A maker's mark, quiet until the pointer is over `lift`: a brand colour at 60%, a black
@@ -192,29 +194,39 @@ impl Desktop {
                     } else {
                         format!("Add {label} to favorites")
                     };
-                    div()
-                        .id(("model-star", nav))
-                        .absolute()
-                        .right(px(6.))
-                        .top_0()
-                        .bottom_0()
-                        .my_auto()
-                        .size_6()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .rounded(px(6.))
-                        .cursor_pointer()
-                        .occlude()
-                        .when(!shown, |star| star.opacity(0.))
-                        .group_hover(group.clone(), |style| style.opacity(1.))
-                        .when(star_lit, |star| star.bg(hover))
-                        .hover(move |style| style.bg(hover))
-                        .tooltip(move |window, cx| {
-                            gpui_kit::component::tooltip::Tooltip::new(name.clone()).build(window, cx)
-                        })
-                        .on_click(cx.listener(move |this, _, _, cx| this.toggle_favorite(&key, cx)))
-                        .child(icon("star", px(13.), if starred { theme.warning } else { theme.ink_tertiary }))
+                    tooltip::on(
+                        div()
+                            .id(("model-star", nav))
+                            .absolute()
+                            .right(px(6.))
+                            .top_0()
+                            .bottom_0()
+                            .my_auto()
+                            .size_6()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(6.))
+                            .cursor_pointer()
+                            .occlude()
+                            .when(!shown, |star| star.opacity(0.))
+                            .group_hover(group.clone(), |style| style.opacity(1.))
+                            .when(star_lit, |star| star.bg(hover))
+                            .hover(move |style| style.bg(hover))
+                            .on_click(
+                                cx.listener(move |this, _, _, cx| this.toggle_favorite(&key, cx)),
+                            )
+                            .child(icon(
+                                "star",
+                                px(13.),
+                                if starred {
+                                    theme.warning
+                                } else {
+                                    theme.ink_tertiary
+                                },
+                            )),
+                        name,
+                    )
                 });
                 let row = if enabled {
                     focus::decorate(row)
@@ -309,7 +321,6 @@ impl Desktop {
                     cx.stop_propagation();
                 }
             }))
-            .when(self.model_menu.saving, |sheet| sheet.opacity(0.7))
             .children(search)
             .child(
                 div()
@@ -340,6 +351,13 @@ impl Desktop {
             sheet = sheet.track_focus(focus);
         }
 
+        let saving = self.model_menu.saving;
+        let sheet = menu_enter("model-menu-enter", sheet, move |sheet, remaining| {
+            sheet
+                .relative()
+                .top(px(-4. * remaining))
+                .when(saving, |sheet| sheet.opacity(0.7 * (1. - remaining)))
+        });
         div()
             .id("menu-backdrop")
             .absolute()

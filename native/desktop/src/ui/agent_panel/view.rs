@@ -1,13 +1,18 @@
 use super::*;
 use crate::ui::focus::{self, Ring};
-use crate::ui::motion::{Colors, Pointer};
+use crate::ui::model_menu::{self, ModelTrigger};
+use crate::ui::motion::{self, Colors, Pointer};
 use crate::ui::{drag_region, MANUAL_WINDOW_DRAG};
 
 impl Desktop {
-    pub fn render_agent_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(in crate::ui) fn render_agent_panel(
+        &mut self,
+        layout: PanelLayout,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let panel = self.agent_panel.as_ref()?;
         let theme = cx.skin().clone();
-        let width = panel_width(window.viewport_size().width);
         let id = panel.agent_id.clone();
         let summary = self.agent(&id).cloned();
         let bot = self.agent_info.bot(&id).cloned();
@@ -61,11 +66,11 @@ impl Desktop {
                     .flex()
                     .flex_col()
                     .child(self.render_hero(bot, working, &theme, cx))
-                    .child(tabs(tab, &theme, cx))
+                    .child(tabs(tab, &theme, window, cx))
                     .child(match tab {
-                        PanelTab::Details => self.render_details(bot, &theme, cx),
+                        PanelTab::Details => self.render_details(bot, &theme, window, cx),
                         PanelTab::Library => self.render_library(&theme, cx),
-                        PanelTab::Computer => self.render_computer(bot, avatar, &theme, cx),
+                        PanelTab::Computer => self.render_computer(bot, avatar, &theme, window, cx),
                         PanelTab::Inbox => self.render_agent_inbox(bot, &theme, cx),
                     })
                     .into_any_element()
@@ -86,44 +91,56 @@ impl Desktop {
             _ => None,
         };
 
+        let panel = div()
+            .id("agent-panel")
+            .w(PANEL_WIDTH)
+            .h_full()
+            .flex_shrink_0()
+            .flex()
+            .flex_col()
+            .bg(theme.app)
+            .border_l_1()
+            .border_color(theme.ink_at(0.06))
+            .occlude()
+            .child(header)
+            .children(screen)
+            .when(!showing_screen, |panel| {
+                panel.child(
+                    div()
+                        .id("agent-panel-body")
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_y_scroll()
+                        .px_4()
+                        .pb(px(28.))
+                        .children(problem.map(|problem| div().pt_3().child(error_line(problem, &theme))))
+                        .child(body),
+                )
+            });
+        if layout.visible == PANEL_WIDTH && layout.occupied == PANEL_WIDTH {
+            return Some(panel.into_any_element());
+        }
         Some(
             div()
-                .id("agent-panel")
-                .w(width)
+                .relative()
+                .w(layout.occupied)
                 .h_full()
                 .flex_shrink_0()
-                .flex()
-                .flex_col()
-                .bg(theme.app)
-                .border_l_1()
-                .border_color(theme.ink_at(0.06))
-                .occlude()
-                .child(header)
-                .children(screen)
-                .when(!showing_screen, |panel| {
-                    panel.child(
-                        div()
-                            .id("agent-panel-body")
-                            .flex_1()
-                            .min_h_0()
-                            .overflow_y_scroll()
-                            .px_4()
-                            .pb(px(28.))
-                            .children(problem.map(|problem| div().pt_3().child(error_line(problem, &theme))))
-                            .child(body),
-                    )
-                })
+                .child(
+                    div()
+                        .absolute()
+                        .right_0()
+                        .top_0()
+                        .w(layout.visible)
+                        .h_full()
+                        .overflow_hidden()
+                        .child(panel.absolute().left_0().top_0()),
+                )
                 .into_any_element(),
         )
     }
 
-    fn render_hero(
-        &self,
-        bot: &Bot,
-        working: bool,
-        theme: &Theme,
-        cx: &mut Context<Self>,
-    ) -> Div {
+    fn render_hero(&self, bot: &Bot, working: bool, theme: &Theme, cx: &mut Context<Self>) -> Div {
         let editing = self.agent_panel.as_ref().and_then(|panel| panel.editing.as_ref());
         let line_editor = |field: Field| match editing {
             Some((editing, Editor::Line(state))) if *editing == field => Some(state.clone()),
@@ -179,29 +196,52 @@ impl Desktop {
             .children(job)
     }
 
-    fn render_details(&self, bot: &Bot, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
-        let model = self.chat_model_label(&bot.id);
-        let hover = theme.ink_at(0.04);
-        let model_row = self
-            .model_menu_button(crate::ui::model_menu::ModelTrigger::Details, cx)
+    fn render_details(&self, bot: &Bot, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let model = self.chat_model_label(&bot.id).unwrap_or_else(|| "Choose a model".to_owned());
+        let chosen = self.selected_local_model().is_some()
+            || bot.model_provider.as_ref().zip(bot.model_id.as_ref()).is_some()
+            || self.agent_info.main_choice().is_some();
+        let open = self.model_menu_is_open(ModelTrigger::Details);
+        let turn = motion::value("details-model-chevron", f32::from(open), motion::SLIDE, motion::EMPHASIS, window, cx);
+        let pill = self
+            .model_menu_button(ModelTrigger::Details, cx)
+            .role(Role::Button)
+            .aria_label("Model")
+            .h_7()
+            .min_w_0()
+            .pl(px(10.))
+            .pr(px(8.))
+            .flex()
+            .items_center()
+            .gap_1()
+            .rounded_full()
+            .cursor_pointer()
+            .children(self.chat_model_mark(&bot.id).map(|mark| model_menu::mark_icon(mark, px(14.), None, theme)))
+            .child(
+                div()
+                    .min_w_0()
+                    .body()
+                    .text_color(if chosen { theme.ink } else { theme.ink_secondary })
+                    .truncate()
+                    .child(model),
+            )
+            .child(
+                icon("chevron-down", px(14.), theme.ink_tertiary)
+                    .with_transformation(Transformation::rotate(radians(std::f32::consts::PI * turn))),
+            );
+        let model_row = div()
             .flex()
             .items_center()
             .gap(px(10.))
             .min_h(px(46.))
             .px(px(14.))
-            .rounded(radius::FIELD)
-            .cursor_pointer()
             .child(icon("sparkles", px(16.), theme.ink_secondary))
             .child(div().flex_1().name().text_color(theme.ink).child("Model"))
-            .children(model.map(|model| {
-                div()
-                    .min_w_0()
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .child(div().body().text_color(theme.ink_secondary).truncate().child(model))
-                    .child(icon("chevron-down", px(14.), theme.ink_tertiary))
-            }));
+            .child(
+                focus::control(pill, Ring::InnerPill, theme)
+                    .fill(Pointer::BUTTON.held(open), Colors::ink(theme, 0., 0.06, 0.08)),
+            );
+        let hover = theme.ink_at(0.04);
         let link =
             |id: &'static str, glyph: &'static str, label: &'static str, section: Section, cx: &mut Context<Self>| {
                 div()
@@ -223,10 +263,7 @@ impl Desktop {
             .pt_2()
             .flex()
             .flex_col()
-            .child(focus::control(model_row, Ring::Inner(radius::FIELD), theme).fill(
-                Pointer::BUTTON.held(self.model_menu_is_open(crate::ui::model_menu::ModelTrigger::Details)),
-                Colors::ink(theme, 0., 0.06, 0.10),
-            ))
+            .child(model_row)
             .child(self.render_conversations(&bot.id, theme, cx))
             .child(card_label("In this space", theme))
             .child(link("agent-routines", "calendar-clock", "Routines", Section::Routines, cx))

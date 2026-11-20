@@ -5,6 +5,7 @@ use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme, SIDEBAR_WIDTH};
 use crate::ui::focus;
 use crate::ui::motion::{Colors, Pointer};
+use crate::ui::overlays::menu_enter;
 use crate::ui::{icon, Type};
 
 /// Where the sheet hangs: right-aligned with the sidebar's plus button, 6px under it.
@@ -79,6 +80,9 @@ impl Desktop {
         if let Some(focus) = self.create.menu_focus.as_ref() {
             sheet = sheet.track_focus(focus);
         }
+        let sheet = menu_enter("new-menu-enter", sheet, |sheet, remaining| {
+            sheet.relative().top(px(-4. * remaining))
+        });
         div()
             .id("menu-backdrop")
             .absolute()

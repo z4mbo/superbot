@@ -4,6 +4,7 @@ use gpui_kit::*;
 use crate::api::{self, MarketplaceCatalog, MarketplaceEntry, McpServer, PluginInstall, PluginPart, PluginPreview, ServerState};
 use crate::app::Desktop;
 use crate::theme::{radius, Theme};
+use crate::ui::chrome::labelled_switch;
 use crate::ui::{empty_line, error_line, icon, pill_button, Tone, Type};
 
 use super::confirm::Confirm;
@@ -453,17 +454,20 @@ impl Desktop {
         let toggles = available.iter().map(|part| {
             let on = chosen.contains(part);
             let part = *part;
-            part_toggle(part, preview, on, theme).on_click(cx.listener(move |this, _, _, cx| {
-                if let Some(open) = this.store.marketplace.open.as_mut() {
-                    match open.chosen.iter().position(|chosen| *chosen == part) {
-                        Some(index) => {
-                            open.chosen.remove(index);
+            let button = div().id(SharedString::from(format!("choose-{part:?}"))).on_click(cx.listener(
+                move |this, _, _, cx| {
+                    if let Some(open) = this.store.marketplace.open.as_mut() {
+                        match open.chosen.iter().position(|chosen| *chosen == part) {
+                            Some(index) => {
+                                open.chosen.remove(index);
+                            }
+                            None => open.chosen.push(part),
                         }
-                        None => open.chosen.push(part),
                     }
-                }
-                cx.notify();
-            }))
+                    cx.notify();
+                },
+            ));
+            labelled_switch(button, part_label(part, preview.skills.len()), on, true, theme)
         });
         div()
             .flex()
@@ -592,21 +596,23 @@ impl Desktop {
             .map(|part| {
                 let on = parts.contains(&part);
                 let (kept, install_id, name) = (parts.clone(), install.id.clone(), install.name.clone());
-                installed_toggle(part, on, !busy, theme)
-                    .on_click(cx.listener(move |this, _, window, cx| {
+                let button = div().id(SharedString::from(format!("keep-{part:?}"))).when(!busy, |button| {
+                    button.on_click(cx.listener(move |this, _, window, cx| {
                         let next: Vec<PluginPart> = if on {
                             kept.iter().copied().filter(|kept| *kept != part).collect()
                         } else {
                             kept.iter().copied().chain([part]).collect()
                         };
                         if next.is_empty() {
-                            this.store.confirm = Some(Confirm::RemovePlugin { install_id: install_id.clone(), name: name.clone() });
+                            this.store.confirm =
+                                Some(Confirm::RemovePlugin { install_id: install_id.clone(), name: name.clone() });
                             cx.notify();
                         } else {
                             this.set_parts(next, window, cx);
                         }
                     }))
-                    .into_any_element()
+                });
+                labelled_switch(button, part_label(part, 0), on, !busy, theme)
             })
             .collect();
         div()
@@ -636,39 +642,6 @@ fn part_label(part: PluginPart, skills: usize) -> String {
         PluginPart::Skills if skills > 0 => count(skills, "skill"),
         PluginPart::Skills => "Skills".into(),
     }
-}
-
-fn toggle(id: SharedString, label: String, on: bool, enabled: bool, theme: &Theme) -> Stateful<Div> {
-    let hover = theme.raised_hover;
-    div()
-        .id(id)
-        .h_8()
-        .px_3()
-        .flex()
-        .items_center()
-        .gap_1p5()
-        .rounded_full()
-        .body()
-        .when(enabled, |toggle| toggle.cursor_pointer())
-        .when(!enabled, |toggle| toggle.opacity(0.5))
-        .map(|toggle| {
-            if on {
-                toggle.bg(theme.ink).text_color(theme.app).font_weight(FontWeight::MEDIUM).child(icon("check", px(13.), theme.app))
-            } else {
-                toggle.bg(theme.control.opacity(0.7)).text_color(theme.ink_secondary).hover(move |style| style.bg(hover))
-            }
-        })
-        .child(label)
-}
-
-fn part_toggle(part: PluginPart, preview: &PluginPreview, on: bool, theme: &Theme) -> Stateful<Div> {
-    let id = SharedString::from(format!("choose-{part:?}"));
-    toggle(id, part_label(part, preview.skills.len()), on, true, theme)
-}
-
-fn installed_toggle(part: PluginPart, on: bool, enabled: bool, theme: &Theme) -> Stateful<Div> {
-    let id = SharedString::from(format!("keep-{part:?}"));
-    toggle(id, part_label(part, 0), on, enabled, theme)
 }
 
 #[cfg(test)]

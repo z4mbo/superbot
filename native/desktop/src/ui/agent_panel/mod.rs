@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 
 use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
 use gpui_kit::component::spinner::Spinner;
@@ -13,9 +14,10 @@ use superbot_features::{
 use superbot_workspace_panel::Section;
 
 use crate::api::{self, Target};
-use crate::app::Desktop;
+use crate::app::{Desktop, View};
 use crate::theme::{radius, ActiveTheme, Theme};
-use crate::ui::{bot_avatar, bot_ink, error_line, icon, Type};
+use crate::ui::motion::Tween;
+use crate::ui::{bot_avatar, error_line, icon, Type};
 
 mod computer;
 mod conversations;
@@ -30,9 +32,11 @@ mod screen;
 mod settings;
 mod terminal;
 mod skills;
+mod transition;
 mod view;
 
 use parts::*;
+use transition::PanelLayout;
 pub(crate) use parts::round_button;
 
 const PANEL_WIDTH: Pixels = px(400.);
@@ -173,6 +177,7 @@ enum ComputerView {
 /// The agent's side panel: who it is, its model and its computer, and its settings page.
 pub struct AgentPanel {
     agent_id: String,
+    width: Tween<Pixels>,
     tab: PanelTab,
     settings: bool,
     computer: Option<ComputerView>,
@@ -193,9 +198,10 @@ pub struct AgentPanel {
 }
 
 impl AgentPanel {
-    fn new(agent_id: String, tab: PanelTab) -> Self {
+    fn new(agent_id: String, tab: PanelTab, width: Tween<Pixels>) -> Self {
         Self {
             agent_id,
+            width,
             tab,
             settings: false,
             computer: None,
@@ -258,20 +264,58 @@ impl Desktop {
     }
 
     pub fn toggle_agent_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.agent_panel.take().is_none() {
-            if let Some(id) = chat_agent(self) {
-                self.agent_panel = Some(AgentPanel::new(id, PanelTab::Details));
-                self.inbox.open = false;
-                self.agent_info.stale();
-                self.sync_agent_info(window, cx);
-            }
+        if self.agent_panel.as_ref().is_some_and(|panel| panel.width.target() == PANEL_WIDTH) {
+            self.close_agent_panel(cx);
+            return;
         }
+        let Some(id) = chat_agent(self) else { return };
+        let now = Instant::now();
+        let panel = self.agent_panel.get_or_insert_with(|| {
+            AgentPanel::new(id, PanelTab::Details, Tween::at_rest(px(0.), now))
+        });
+        transition::aim(&mut panel.width, true, now, cx.reduce_motion());
+        self.inbox.open = false;
+        self.agent_info.stale();
+        self.sync_agent_info(window, cx);
         cx.notify();
     }
 
     pub fn close_agent_panel(&mut self, cx: &mut Context<Self>) {
-        self.agent_panel = None;
+        if cx.reduce_motion() {
+            self.agent_panel = None;
+        } else if let Some(panel) = self.agent_panel.as_mut() {
+            transition::aim(&mut panel.width, false, Instant::now(), false);
+        }
         cx.notify();
+    }
+
+    pub(in crate::ui) fn agent_panel_layout(&mut self, window: &Window, cx: &App) -> Option<PanelLayout> {
+        let panel = self.agent_panel.as_mut()?;
+        let target = panel.width.target();
+        if self.view != View::Chat || self.inbox.open {
+            if target == px(0.) {
+                self.agent_panel = None;
+            }
+            return None;
+        }
+        let now = Instant::now();
+        if cx.reduce_motion() {
+            transition::aim(&mut panel.width, target == PANEL_WIDTH, now, true);
+        }
+        let visible = transition::sample(&panel.width, now);
+        if panel.width.moving(now) {
+            window.request_animation_frame();
+        } else if target == px(0.) {
+            self.agent_panel = None;
+            return None;
+        }
+        Some(PanelLayout::new(visible, target, transition::use_fixed_chat_width()))
+    }
+
+    pub(in crate::ui) fn agent_panel_reserves_sidebar(&self) -> bool {
+        self.agent_panel.as_ref().is_some_and(|panel| {
+            panel.width.target() == PANEL_WIDTH || !transition::use_fixed_chat_width()
+        })
     }
 
     /// Escape inside the panel: leaves an editor, then the settings page.
@@ -306,7 +350,7 @@ impl Desktop {
                 None => self.agent_panel = None,
                 Some(id) if *id != panel.agent_id => {
                     let tab = panel.tab;
-                    self.agent_panel = Some(AgentPanel::new(id.clone(), tab));
+                    self.agent_panel = Some(AgentPanel::new(id.clone(), tab, panel.width));
                 }
                 Some(_) => {}
             }

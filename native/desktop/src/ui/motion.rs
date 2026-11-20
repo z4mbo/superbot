@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::time::{Duration, Instant};
 
-use gpui_kit::{quadratic, Animation, Hsla};
+use gpui_kit::{quadratic, Animation, App, ElementId, Hsla, Window};
 
 use crate::theme::{mix, Theme};
 
@@ -55,6 +55,8 @@ pub const MSG: Duration = Duration::from_millis(180);
 pub const PANEL_OPEN: Duration = Duration::from_millis(200);
 pub const PANEL_CLOSE: Duration = Duration::from_millis(180);
 pub const STATE: Duration = Duration::from_millis(240);
+pub const TOOLTIP_DELAY: Duration = Duration::from_millis(500);
+pub const TOOLTIP_GRACE: Duration = Duration::from_millis(600);
 
 /// Use the app's reduced-motion setting for tweens driven outside GPUI's animation wrapper.
 pub fn duration(span: Duration, reduce_motion: bool) -> Duration {
@@ -69,6 +71,74 @@ pub fn duration(span: Duration, reduce_motion: bool) -> Duration {
 /// For a zero-length transition, apply the final state directly instead of wrapping the element.
 pub fn animation(span: Duration, curve: Bezier) -> Option<Animation> {
     (!span.is_zero()).then(|| Animation::new(span).with_easing(move |progress| curve.sample(progress)))
+}
+
+/// A value that can change targets while it moves, without jumping from its current position.
+#[derive(Clone, Copy, Debug)]
+pub struct Tween<T> {
+    from: T,
+    target: T,
+    began: Instant,
+    span: Duration,
+}
+
+impl<T: Copy + PartialEq> Tween<T> {
+    pub fn at_rest(value: T, now: Instant) -> Self {
+        Self { from: value, target: value, began: now, span: INSTANT }
+    }
+
+    pub fn target(&self) -> T {
+        self.target
+    }
+
+    pub fn moving(&self, now: Instant) -> bool {
+        now.saturating_duration_since(self.began) < self.span
+    }
+
+    pub fn sample(&self, now: Instant, curve: Bezier, interpolate: impl Fn(T, T, f32) -> T) -> T {
+        if !self.moving(now) {
+            return self.target;
+        }
+        let progress = now.saturating_duration_since(self.began).as_secs_f32() / self.span.as_secs_f32();
+        interpolate(self.from, self.target, curve.sample(progress))
+    }
+
+    pub fn aim(
+        &mut self,
+        target: T,
+        now: Instant,
+        span: Duration,
+        curve: Bezier,
+        interpolate: impl Fn(T, T, f32) -> T,
+    ) {
+        if span.is_zero() {
+            *self = Self::at_rest(target, now);
+        } else if target != self.target {
+            *self = Self { from: self.sample(now, curve, interpolate), target, began: now, span };
+        }
+    }
+}
+
+/// An element's scalar motion, sampled with the app's current reduced-motion setting.
+pub fn value(
+    key: impl Into<ElementId>,
+    target: f32,
+    span: Duration,
+    curve: Bezier,
+    window: &mut Window,
+    cx: &mut App,
+) -> f32 {
+    let now = Instant::now();
+    let tween = window.use_keyed_state(key, cx, |_, _| Tween::at_rest(target, now));
+    let span = duration(span, cx.reduce_motion());
+    tween.update(cx, |tween, _| {
+        let lerp = |from, to, progress| from + (to - from) * progress;
+        tween.aim(target, now, span, curve, lerp);
+        if tween.moving(now) {
+            window.request_animation_frame();
+        }
+        tween.sample(now, curve, lerp)
+    })
 }
 
 /// One control's hover tint, moving the way a CSS transition does: 0 at rest, 1 fully tinted.

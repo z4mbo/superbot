@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use gpui_kit::*;
 use serde_json::Value;
@@ -16,6 +17,7 @@ use crate::files::{self, Picked, Refused};
 use crate::outbox::{self, Draft, MentionQuery, Outbox, Place};
 use crate::runtime::{follow, network, Live};
 use crate::transcript::{prepend, Entry, FileRef, Part, Speaker, MOST_ENTRIES};
+use crate::ui::chat::ChatMotion;
 
 #[derive(Clone)]
 pub(crate) struct LocalWrite {
@@ -55,6 +57,7 @@ pub struct Chat {
     pub unread: bool,
     pub reconnecting: bool,
     pub list: ListState,
+    pub(crate) motion: ChatMotion,
     /// Older history, what is being sent, mentions and fetched files.
     pub conversation: Conversation,
     /// Its question cards: which runs wait for an answer, and what is typed or sent.
@@ -154,6 +157,7 @@ impl Desktop {
             cx.notify();
             return;
         }
+        let switching = self.chat.is_some();
         self.keep_draft(window, cx);
         self.composer.update(cx, |composer, cx| composer.focus(window, cx));
         self.chat = Some(Chat {
@@ -167,6 +171,7 @@ impl Desktop {
             unread: false,
             reconnecting: false,
             list: transcript_list(),
+            motion: ChatMotion::new(switching),
             conversation: Conversation::new(),
             cards: crate::cards::Cards::default(),
             _live: None,
@@ -199,6 +204,7 @@ impl Desktop {
                     chat.conversation.members = snapshot.members.unwrap_or_default();
                     chat.entries = snapshot.messages.into_iter().filter_map(Entry::read).collect();
                     chat.list.reset(chat.rows());
+                    chat.motion.snapshot(Instant::now());
                     this.follow(target, cursor, cx);
                     this.reload_space(cx);
                 }
@@ -237,7 +243,10 @@ impl Desktop {
     }
 
     fn apply_live(&mut self, update: Live, cx: &mut Context<Self>) {
-        let Some(chat) = self.chat.as_mut() else { return };
+        let own_local_write = self.pending_local_write().is_some();
+        let Some(chat) = self.chat.as_mut() else {
+            return;
+        };
         match update {
             Live::Connected => chat.reconnecting = false,
             Live::Reconnecting => chat.reconnecting = true,
@@ -245,7 +254,7 @@ impl Desktop {
                 chat.error = Some("Your session ended. Sign in again.".into());
             }
             Live::Event(event) => {
-                if apply_event(chat, &event) {
+                if apply_event(chat, &event, own_local_write) {
                     self.read_open_conversation(cx);
                 }
             }
@@ -611,6 +620,10 @@ impl Desktop {
     pub(crate) fn send_local_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((place, text)) = self.local_input(cx) else { return };
         self.local_writes.insert(place, LocalWrite::new(text, None));
+        if let Some(chat) = self.chat.as_mut() {
+            chat.list.set_follow_mode(FollowMode::Tail);
+            chat.motion.optimistic(Instant::now());
+        }
         self.retry_local_write(window, cx);
     }
 
@@ -657,6 +670,7 @@ impl Desktop {
         chat.error = None;
         chat.list.set_follow_mode(FollowMode::Tail);
         chat.local_prompt = Some(text.clone());
+        chat.motion.optimistic(Instant::now());
         chat.local_turn = Some(cx.spawn_in(window, async move |this, cx| {
             let result = network(async move {
                 let prompt = features.space(space).local_chat_prompt(&agent, prompt).await?;

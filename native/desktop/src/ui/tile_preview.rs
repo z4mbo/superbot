@@ -8,11 +8,10 @@ use gpui_kit::*;
 use crate::api::{AgentSummary, Target};
 use crate::app::{Desktop, MenuKind};
 use crate::theme::{radius, Theme};
-use crate::ui::{bot_avatar_with, AvatarSlot, Type};
+use crate::ui::{bot_avatar_with, motion, AvatarSlot, Type};
 use superbot_avatars::face::FaceState;
 
 const OPEN_DELAY: Duration = Duration::from_millis(250);
-const POP: Duration = Duration::from_millis(200);
 const WIDTH: Pixels = px(260.);
 
 /// The pinned tile whose latest line shows beside it, the rest of the pointer that will open one,
@@ -137,16 +136,14 @@ pub fn tile_preview(
                 .child(div().min_w_0().name().font_weight(FontWeight::SEMIBOLD).truncate().child(agent.name.clone())),
         )
         .child(div().mt_1().body().text_color(theme.ink_secondary).line_clamp(2).child(text));
-    let card = if cx.reduce_motion() {
-        card.into_any_element()
-    } else {
-        // easeOutQuint is the reference curve, cubic-bezier(0.22, 1, 0.36, 1).
-        card.with_animation(
-            SharedString::from(format!("tile-preview-{}", agent.id)),
-            Animation::new(POP).with_easing(ease_out_quint()),
-            |card, delta| card.opacity(delta).mt(px(6.) * (1. - delta)),
-        )
+    let span = motion::duration(motion::POP, cx.reduce_motion());
+    let card = if let Some(animation) = motion::animation(span, motion::EMPHASIS) {
+        card.with_animation(SharedString::from(format!("tile-preview-{}", agent.id)), animation, |card, delta| {
+            card.opacity(delta).mt(px(-4.) * (1. - delta))
+        })
         .into_any_element()
+    } else {
+        card.into_any_element()
     };
     deferred(
         anchored()
