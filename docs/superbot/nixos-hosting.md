@@ -83,10 +83,17 @@ EMAIL_FROM=superbot@example.com
 
 To let a verified account review community plugins, add its email to `SUPERBOT_ADMIN_EMAILS` in the same private environment file and restart the service. This gives that account deployment-wide admin access. [Registry roles and permissions](plugin-contract.md)
 
-The database migration publishes **Calorie diary** in the Store on hosts where the
-`kcal-diary` slug is available. Existing publishers retain their slugs and releases.
-Each member chooses whether to install the diary and which bots may use it. Diary
-records are stored in PostgreSQL, including in the deployment's database backups.
+The database migrations publish **Calorie diary** (`kcal-diary`) and **T3 Code inbox**
+(`t3-code-inbox`) in the Store when their respective identifiers are available.
+Existing publishers retain their identifiers and releases. Each member chooses
+which apps to install in each Space and which parts to grant to individual bots.
+Diary entries, coding requests and dispatch receipts are stored in PostgreSQL and
+included in the database backup. The coding inbox can collect requests before a
+member connects a T3 Code instance and chooses a project for the work.
+
+The Store also offers direct service connections on a fresh host. Each member can
+open the connection form before the operator configures a managed catalog.
+[External app setup and provider requirements](hosting.md#connect-external-apps)
 
 ## Connect Mac and Windows
 
