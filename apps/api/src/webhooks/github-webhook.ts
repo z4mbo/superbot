@@ -111,7 +111,12 @@ function githubDeliveryMetadata(
     ["senderId", sender?.id],
     ["installationId", installation?.id],
     ["organizationId", organization?.id],
-    ["number", payload.number],
+    [
+      "number",
+      event === "issues" || event === "issue_comment"
+        ? (safeInteger(issue?.number) ?? payload.number)
+        : payload.number,
+    ],
     ["pullRequestId", pullRequest?.id],
     ["issueId", issue?.id],
     ["commentId", comment?.id],
@@ -160,7 +165,8 @@ export function mountGithubWebhookRoute(
   deps: WebhookDeps,
   secretCache: WebhookSecretCache,
 ) {
-  app.post("/api/v1/bots/:botId/github", async (c) => {
+  const path = "/api/v1/bots/:botId/github";
+  app.on("POST", [path, `${path}/issues/opened`], async (c) => {
     const unauthorized = () => c.json({ error: "Unauthorized" }, 401);
 
     // Reject oversized bodies before target lookup so size limits do not reveal active bots.
@@ -222,6 +228,14 @@ export function mountGithubWebhookRoute(
         : text;
     const payload = parseWebhookPayload(body, contentType);
     const githubEvent = githubEventName(c.req.header("x-github-event"));
+    if (
+      c.req.path.endsWith("/github/issues/opened") &&
+      (githubEvent !== "issues" ||
+        payload.action !== "opened" ||
+        safeInteger(record(payload.issue)?.number) === undefined)
+    ) {
+      return c.json({ ok: true, ignored: true });
+    }
     const eventPrompt = formatGithubEventPrompt(githubEvent, payload);
 
     return webhookDeliveryResponse(

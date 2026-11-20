@@ -1,12 +1,31 @@
+import { readFileSync } from "node:fs";
 import { BotTemplateSchema } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
-import { looksLikeCredential } from "../agent-import/index.js";
+import { looksLikeCredential, parseAgentImport } from "../agent-import/index.js";
 import { matchFeaturedConnectorId } from "../integrations/featured-connectors.js";
 import { presetFromCron } from "../routines/schedule.js";
 import { extractRoutineSkillMentions } from "../skills/agent-skill.js";
 import { BOT_TEMPLATES, findBotTemplate } from "./bot-templates.js";
 
 describe("bot templates", () => {
+  it("imports the shareable GitHub watcher with the same instructions and no grants", () => {
+    const template = findBotTemplate("github-issue-watch")!;
+    const path = "github-issue-watch.md";
+    const content = readFileSync(
+      new URL(`../../../../examples/agents/${path}`, import.meta.url),
+      "utf8",
+    );
+    const plan = parseAgentImport([{ path, content }]);
+    expect(plan).toMatchObject({
+      source: "document",
+      suggestedName: template.name,
+      instructions: [{ content: `${template.instructions}\n`, role: "working" }],
+      mcpServers: [],
+      apiKeys: [],
+      routines: [],
+    });
+  });
+
   it("each validates strictly and has a unique id", () => {
     for (const template of BOT_TEMPLATES) {
       expect(BotTemplateSchema.parse(template)).toEqual(template);

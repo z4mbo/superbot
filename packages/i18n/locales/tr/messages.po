@@ -12614,6 +12614,21 @@ msgstr "Ses sağlayıcınız anahtarı reddetti."
 msgid "Zero data retention"
 msgstr "Sıfır veri saklama"
 
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "GitHub issue watcher"
+msgstr "GitHub sorun takipçisi"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "Reports new issues and lets you choose who handles them"
+msgstr "Yeni sorunları bildirir ve kimin ilgileneceğini seçmenizi sağlar"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "New issue in example/project: #42, Export skips empty rows. Who should take it?"
+msgstr "example/project içinde yeni sorun: #42, Dışa aktarma boş satırları atlıyor. Kim ilgilensin?"
+
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"

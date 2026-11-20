@@ -12608,6 +12608,21 @@ msgstr "key ของผู้ให้บริการเสียงถู�
 msgid "Zero data retention"
 msgstr "ไม่เก็บข้อมูล"
 
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "GitHub issue watcher"
+msgstr "ตัวติดตามปัญหาใน GitHub"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "Reports new issues and lets you choose who handles them"
+msgstr "แจ้งปัญหาใหม่และให้คุณเลือกผู้รับผิดชอบ"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "New issue in example/project: #42, Export skips empty rows. Who should take it?"
+msgstr "พบปัญหาใหม่ใน example/project: #42 การส่งออกข้ามแถวว่าง ให้ใครรับผิดชอบดี?"
+
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"

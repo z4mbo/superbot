@@ -12614,6 +12614,21 @@ msgstr "ספק הקול שלך דחה את המפתח."
 msgid "Zero data retention"
 msgstr "ללא שמירת נתונים"
 
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "GitHub issue watcher"
+msgstr "מעקב אחר סוגיות ב־GitHub"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "Reports new issues and lets you choose who handles them"
+msgstr "מדווח על סוגיות חדשות ומאפשר לבחור מי יטפל בהן"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "New issue in example/project: #42, Export skips empty rows. Who should take it?"
+msgstr "סוגיה חדשה ב־example/project: מספר 42, הייצוא מדלג על שורות ריקות. מי יטפל בה?"
+
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"

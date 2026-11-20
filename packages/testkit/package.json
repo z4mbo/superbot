@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./model-emulator": "./src/model-emulator.ts",
+    "./mcp-host": "./src/apps/mcp-host.ts",
     "./t3-mcp-emulator": "./src/t3-mcp-emulator.ts"
   },
   "scripts": {

@@ -12614,6 +12614,21 @@ msgstr "Tu proveedor de voz rechazó la clave."
 msgid "Zero data retention"
 msgstr "Sin retención de datos"
 
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "GitHub issue watcher"
+msgstr "Monitor de incidencias de GitHub"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "Reports new issues and lets you choose who handles them"
+msgstr "Avisa de las nuevas incidencias y tú eliges quién se encarga"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "New issue in example/project: #42, Export skips empty rows. Who should take it?"
+msgstr "Nueva incidencia en example/project: #42, La exportación omite las filas vacías. ¿Quién se encarga?"
+
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "ZIP or postal code"

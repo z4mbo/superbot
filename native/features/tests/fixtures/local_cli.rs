@@ -99,7 +99,17 @@ fn main() {
                     println!(r#"{{"is_error":false,"result":"{reply}"}}"#);
                     return;
                 }
-                let reply = if prompt == "First local fixture prompt" {
+                let (instructions, prompt) = prompt
+                    .strip_prefix("Saved working instructions for this agent (JSON string): ")
+                    .and_then(|rest| rest.split_once("\n\n"))
+                    .unwrap_or(("", &prompt));
+                let reply = if prompt.contains("Check the current issue watcher instructions") {
+                    assert_eq!(
+                        instructions,
+                        r#""Report new issues and wait for my assignment.""#
+                    );
+                    "Issue watcher instructions received"
+                } else if prompt == "First local fixture prompt" {
                     "First local fixture reply"
                 } else {
                     let (_, messages) = prompt.split_once('\n').expect("conversation JSON");
