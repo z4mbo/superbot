@@ -114,6 +114,8 @@ pub struct Fallback {
 pub struct Choice {
     pub shape: Option<String>,
     pub color: Option<String>,
+    #[cfg(feature = "local-engine")]
+    pub engine_name: Option<String>,
     #[serde(default)]
     pub primary_tile: bool,
 }
@@ -271,6 +273,14 @@ impl Pack {
         self.bots.get(&fold(name))
     }
 
+    #[cfg(feature = "local-engine")]
+    pub fn engine_name<'a>(&'a self, name: &'a str) -> &'a str {
+        self.choice(name)
+            .and_then(|choice| choice.engine_name.as_deref())
+            .filter(|name| !name.is_empty())
+            .unwrap_or(name)
+    }
+
     /// How the pack paints a colour name, and the chat hue that colour uses.
     pub fn paint(&self, color: &str) -> Option<(Paint, String)> {
         let hue = self.file.hues.get(color).cloned().unwrap_or_else(|| color.to_owned());
@@ -421,6 +431,15 @@ mod tests {
         assert!(pack.primary_tile(" guide "));
         assert!(!pack.primary_tile("Peer"));
         assert!(!pack.primary_tile("Unknown"));
+    }
+
+    #[test]
+    #[cfg(feature = "local-engine")]
+    fn a_renamed_bot_can_keep_its_original_engine_identity() {
+        let pack = pack(json!({ "bots": { "Scout": { "engineName": "First Mate", "primaryTile": true } } })).unwrap();
+        assert_eq!(pack.engine_name(" SCOUT "), "First Mate");
+        assert_eq!(pack.engine_name("Other"), "Other");
+        assert!(pack.primary_tile("Scout"));
     }
 
     #[test]

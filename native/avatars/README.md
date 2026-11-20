@@ -50,6 +50,9 @@ and so is a shape whose frames file cannot be read. The pack is read once at sta
   colour. Otherwise its server colour is used when the palette has it (directly or through
   `aliases`), a server colour sent as `#rrggbb` takes the nearest `fallback` colour, and
   anything left is picked from `fallback` by the bot's id, so it never changes.
+  A renamed bot can retain its original motion by setting `engineName` to its name in the
+  local engine's roster. For example, `"Scout": { "engineName": "First Mate", "primaryTile": true }`
+  displays Scout on the primary tile and uses First Mate's motion seed.
 - **Colours.** `palette` colours draw as they are, `inkColors` in the skin's text colour (or in
   `ink.light` / `ink.dark` when the pack sets `"ink": { "light": "#000", "dark": "#fff" }`),
   `gradients` top to bottom.
