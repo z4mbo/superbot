@@ -6,7 +6,12 @@ import type {
   ModelCatalogEntry,
   ThinkingLevel,
 } from "@rakazo/contracts";
-import { BOT_NAME_MAX_LENGTH, isBuiltinToolName, resolveBotAvatarSet } from "@rakazo/contracts";
+import {
+  BOT_LABEL_MAX_LENGTH,
+  BOT_NAME_MAX_LENGTH,
+  isBuiltinToolName,
+  resolveBotAvatarSet,
+} from "@rakazo/contracts";
 import { botModelState, modelOptionKey } from "@rakazo/core";
 import {
   Button,
@@ -89,6 +94,7 @@ export function BotSettings({
   focusModel?: number;
   onSave: (patch: {
     name?: string;
+    label?: string;
     description?: string;
     instructions?: string;
     color?: string;
@@ -122,6 +128,8 @@ export function BotSettings({
   }, [view, focusModel]);
   const [name, setName] = useState(bot.name);
   const savedNameRef = useRef(bot.name);
+  const [label, setLabel] = useState(bot.label ?? "");
+  const savedLabelRef = useRef(bot.label ?? "");
   const [description, setDescription] = useState(bot.description);
   // A roster refresh can skip replacing bots while a reorder is in flight, so
   // this prop keeps the description from when the panel opened. Later saves
@@ -231,6 +239,7 @@ export function BotSettings({
     (
       patchOverrides?: {
         name?: string;
+        label?: string;
         description?: string;
         color?: string;
         avatarSet?: BotAvatarSet;
@@ -253,6 +262,8 @@ export function BotSettings({
     shownBotRef.current = bot;
     if (name.trim() === savedNameRef.current.trim()) setName(bot.name);
     savedNameRef.current = bot.name;
+    if (label === savedLabelRef.current) setLabel(bot.label ?? "");
+    savedLabelRef.current = bot.label ?? "";
     if (description.trim() === savedDescriptionRef.current) setDescription(bot.description);
     savedDescriptionRef.current = bot.description ?? "";
     const accepted = acceptedAutomatic.current;
@@ -287,6 +298,7 @@ export function BotSettings({
   async function executeSave(
     patchOverrides?: {
       name?: string;
+      label?: string;
       description?: string;
       color?: string;
       avatarSet?: BotAvatarSet;
@@ -312,6 +324,11 @@ export function BotSettings({
       }
       if (patchOverrides?.fleetManagement !== undefined) {
         await onSave({ fleetManagement: patchOverrides.fleetManagement });
+        return;
+      }
+      if (patchOverrides?.label !== undefined) {
+        await onSave({ label: patchOverrides.label });
+        savedLabelRef.current = patchOverrides.label;
         return;
       }
       const selected = selectedModel;
@@ -450,6 +467,7 @@ export function BotSettings({
 
   function enqueueSave(patchOverrides?: {
     name?: string;
+    label?: string;
     description?: string;
     color?: string;
     avatarSet?: BotAvatarSet;
@@ -588,6 +606,18 @@ export function BotSettings({
               if (!value.trim()) return;
               setName(value.trim());
               void enqueueSave({ name: value });
+            }}
+          />
+          <InlineProfileField
+            label={t`Label`}
+            editLabel={t`Edit label`}
+            placeholder={t`Add label`}
+            value={label}
+            maxLength={BOT_LABEL_MAX_LENGTH}
+            className="text-body-sm text-muted-foreground"
+            onCommit={(value) => {
+              setLabel(value.trim());
+              void enqueueSave({ label: value.trim() });
             }}
           />
           {email && (email.address || claimingEmail) ? (
@@ -790,6 +820,7 @@ function sameStringList(left: readonly string[], right: readonly string[]) {
 function InlineProfileField({
   label,
   editLabel,
+  placeholder,
   value,
   maxLength,
   className,
@@ -797,6 +828,8 @@ function InlineProfileField({
 }: {
   label: string;
   editLabel: string;
+  /** Shown while the value is empty. */
+  placeholder?: string;
   value: string;
   maxLength: number;
   className: string;
@@ -814,6 +847,7 @@ function InlineProfileField({
     <Input
       autoFocus
       aria-label={label}
+      placeholder={placeholder}
       value={draft}
       maxLength={maxLength}
       className={`h-auto border-transparent bg-transparent p-0 text-center shadow-none ${className}`}
@@ -845,7 +879,7 @@ function InlineProfileField({
         setEditing(true);
       }}
     >
-      {value}
+      {value || placeholder}
     </button>
   );
 }
