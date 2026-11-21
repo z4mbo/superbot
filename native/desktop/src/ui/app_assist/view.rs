@@ -10,7 +10,9 @@ use crate::app::Desktop;
 use crate::theme::{radius, ActiveTheme, Theme};
 use crate::ui::agent_panel::round_button;
 use crate::ui::tooltip;
-use crate::ui::{chip, drag_region, empty_line, error_line, field_box, icon, pill_button, Tone, Type, MANUAL_WINDOW_DRAG};
+use crate::ui::{
+    chip, drag_region, empty_line, error_line, field_box, icon, pill_button, Tone, Type, MANUAL_WINDOW_DRAG,
+};
 
 use super::{has_dates, today, Addition, Chosen, Save};
 
@@ -155,9 +157,7 @@ impl Desktop {
                     .map(|button| tooltip::on(button, "Close"))
                     .on_click(cx.listener(|this, _, _, cx| this.close_app_assist(cx)))
             }))
-            .when(cfg!(not(target_os = "macos")), |header| {
-                header.mr(crate::theme::CAPTION_WIDTH)
-            });
+            .when(cfg!(not(target_os = "macos")), |header| header.mr(crate::theme::CAPTION_WIDTH));
 
         let problem = panel.problem.clone();
         let body = match &panel.chosen {
@@ -256,8 +256,14 @@ impl Desktop {
             .child(div().flex().flex_col().children(rows))
             .when(more, |list| {
                 list.child(
-                    pill_button("assist-more-apps", if loading { "Loading…" } else { "Show more" }, Tone::Quiet, !loading, theme)
-                        .on_click(cx.listener(|this, _, window, cx| this.read_granted_apps(true, window, cx))),
+                    pill_button(
+                        "assist-more-apps",
+                        if loading { "Loading…" } else { "Show more" },
+                        Tone::Quiet,
+                        !loading,
+                        theme,
+                    )
+                    .on_click(cx.listener(|this, _, window, cx| this.read_granted_apps(true, window, cx))),
                 )
             })
             .into_any_element()
@@ -280,8 +286,7 @@ impl Desktop {
                 button
                     .map(|button| tooltip::on(button, "All apps"))
                     .on_click(cx.listener(|this, _, _, cx| this.leave_app(cx)))
-                }),
-            )
+            }))
             .child(
                 div()
                     .flex_1()
@@ -297,21 +302,24 @@ impl Desktop {
                 .flex()
                 .items_center()
                 .gap_2()
-                .child(day_step("assist-previous-day", "chevron-left", theme).on_click(
-                    cx.listener(move |this, _, window, cx| this.show_app_day(Some(shown - Duration::days(1)), window, cx)),
-                ))
-                .child(chip("assist-day", day_name(shown), day.is_some(), theme).on_click(
-                    cx.listener(move |this, _, window, cx| this.show_app_day(Some(shown), window, cx)),
-                ))
-                .child(day_step("assist-next-day", "chevron-right", theme).on_click(
-                    cx.listener(move |this, _, window, cx| this.show_app_day(Some(shown + Duration::days(1)), window, cx)),
-                ))
-                .child(chip("assist-all-days", "All days", day.is_none(), theme).on_click(
-                    cx.listener(|this, _, window, cx| this.show_app_day(None, window, cx)),
-                ))
+                .child(day_step("assist-previous-day", "chevron-left", theme).on_click(cx.listener(
+                    move |this, _, window, cx| this.show_app_day(Some(shown - Duration::days(1)), window, cx),
+                )))
+                .child(
+                    chip("assist-day", day_name(shown), day.is_some(), theme)
+                        .on_click(cx.listener(move |this, _, window, cx| this.show_app_day(Some(shown), window, cx))),
+                )
+                .child(day_step("assist-next-day", "chevron-right", theme).on_click(cx.listener(
+                    move |this, _, window, cx| this.show_app_day(Some(shown + Duration::days(1)), window, cx),
+                )))
+                .child(
+                    chip("assist-all-days", "All days", day.is_none(), theme)
+                        .on_click(cx.listener(|this, _, window, cx| this.show_app_day(None, window, cx))),
+                )
         });
 
-        let request = self.chat.as_ref().and_then(|chat| chat.app_assist.panel.as_ref()).map(|panel| panel.request.clone());
+        let request =
+            self.chat.as_ref().and_then(|chat| chat.app_assist.panel.as_ref()).map(|panel| panel.request.clone());
         let ask = div()
             .flex()
             .items_center()
@@ -344,7 +352,9 @@ impl Desktop {
                         .child(caption(asked.model.clone(), theme))
                         .child(div().body().child(asked.answer.clone())),
                 )
-                .children(asked.addition.as_ref().map(|addition| self.render_addition(addition, fields, &name, theme, cx)))
+                .children(
+                    asked.addition.as_ref().map(|addition| self.render_addition(addition, fields, &name, theme, cx)),
+                )
         });
 
         div()
@@ -361,7 +371,14 @@ impl Desktop {
     }
 
     /// The record the model suggested, with every value it would save, waiting for the person.
-    fn render_addition(&self, addition: &Addition, fields: &[AppField], app: &str, theme: &Theme, cx: &mut Context<Self>) -> Div {
+    fn render_addition(
+        &self,
+        addition: &Addition,
+        fields: &[AppField],
+        app: &str,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> Div {
         let rows = fields.iter().filter_map(|field| {
             let value = addition.values.get(&field.id)?;
             Some(
@@ -369,7 +386,15 @@ impl Desktop {
                     .flex()
                     .items_baseline()
                     .gap_3()
-                    .child(div().w(px(112.)).flex_shrink_0().body().text_color(theme.ink_secondary).truncate().child(field.label.clone()))
+                    .child(
+                        div()
+                            .w(px(112.))
+                            .flex_shrink_0()
+                            .body()
+                            .text_color(theme.ink_secondary)
+                            .truncate()
+                            .child(field.label.clone()),
+                    )
                     .child(div().flex_1().min_w_0().item().child(value_text(value))),
             )
         });
@@ -434,21 +459,32 @@ impl Desktop {
                 )
                 .into_any_element(),
             Some(Ok(context)) => {
-                let summary = context.app.part.summary_field.as_ref().and_then(|id| fields.iter().find(|field| &field.id == id));
+                let summary =
+                    context.app.part.summary_field.as_ref().and_then(|id| fields.iter().find(|field| &field.id == id));
                 let empty = context.items.is_empty();
                 let total = context.total.zip(summary).filter(|_| !empty).map(|(total, field)| {
-                    div().body().text_color(theme.ink_secondary).child(format!("{} total {}", field.label, number_text(total)))
+                    div().body().text_color(theme.ink_secondary).child(format!(
+                        "{} total {}",
+                        field.label,
+                        number_text(total)
+                    ))
                 });
                 div()
                     .flex()
                     .flex_col()
                     .gap_1p5()
                     .when(empty, |list| {
-                        list.child(empty_line(if chosen.day.is_some() { "Nothing added on this day." } else { "Nothing added yet." }, theme))
+                        list.child(empty_line(
+                            if chosen.day.is_some() { "Nothing added on this day." } else { "Nothing added yet." },
+                            theme,
+                        ))
                     })
-                    .children(context.items.iter().map(|record| {
-                        div().body().truncate().child(value_line(fields, &record.values))
-                    }))
+                    .children(
+                        context
+                            .items
+                            .iter()
+                            .map(|record| div().body().truncate().child(value_line(fields, &record.values))),
+                    )
                     .children(total)
                     .when(context.has_more, |list| list.child(empty_line("Older records aren't sent.", theme)))
                     .into_any_element()
@@ -487,7 +523,11 @@ mod tests {
 
     #[test]
     fn a_record_reads_in_the_apps_field_order() {
-        let fields = [field("food", "Food", FieldType::Text), field("kcal", "Kcal", FieldType::Number), field("day", "Day", FieldType::Date)];
+        let fields = [
+            field("food", "Food", FieldType::Text),
+            field("kcal", "Kcal", FieldType::Number),
+            field("day", "Day", FieldType::Date),
+        ];
         let values = BTreeMap::from([
             ("kcal".to_owned(), AppValue::Number(320.into())),
             ("food".to_owned(), AppValue::Text("Oatmeal".into())),

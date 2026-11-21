@@ -93,14 +93,9 @@ impl Desktop {
                 cx.notify();
             },
         ));
-        let submit = pill_button(
-            "store-confirm-action",
-            if busy { acting } else { action },
-            Tone::Danger,
-            !busy,
-            &theme,
-        )
-        .on_click(cx.listener(|this, _, window, cx| this.confirmed(window, cx)));
+        let submit =
+            pill_button("store-confirm-action", if busy { acting } else { action }, Tone::Danger, !busy, &theme)
+                .on_click(cx.listener(|this, _, window, cx| this.confirmed(window, cx)));
         Some(
             div()
                 .id("store-confirm-scrim")

@@ -250,23 +250,25 @@ impl Desktop {
                     }),
             )
             .when(unread, |header| {
-                header.child(
-                    crate::ui::agent_panel::round_button("inbox-mark-all", "check-check", false, &theme, |button| {
+                header.child(crate::ui::agent_panel::round_button(
+                    "inbox-mark-all",
+                    "check-check",
+                    false,
+                    &theme,
+                    |button| {
                         button
                             .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
                             .map(|button| tooltip::on(button, "Mark all as read"))
                             .on_click(cx.listener(|this, _, window, cx| this.mark_inbox_read(window, cx)))
-                    }),
-                )
+                    },
+                ))
             })
-            .child(
-                crate::ui::agent_panel::round_button("inbox-close", "x", false, &theme, |button| {
-                    button
-                        .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
-                        .map(|button| tooltip::on(button, "Close inbox"))
-                        .on_click(cx.listener(|this, _, _, cx| this.toggle_inbox(cx)))
-                }),
-            )
+            .child(crate::ui::agent_panel::round_button("inbox-close", "x", false, &theme, |button| {
+                button
+                    .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
+                    .map(|button| tooltip::on(button, "Close inbox"))
+                    .on_click(cx.listener(|this, _, _, cx| this.toggle_inbox(cx)))
+            }))
             .when(cfg!(not(target_os = "macos")), |header| header.mr(crate::theme::CAPTION_WIDTH));
 
         let now = clock::now();

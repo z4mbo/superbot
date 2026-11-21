@@ -1,7 +1,9 @@
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::api::{self, MarketplaceCatalog, MarketplaceEntry, McpServer, PluginInstall, PluginPart, PluginPreview, ServerState};
+use crate::api::{
+    self, MarketplaceCatalog, MarketplaceEntry, McpServer, PluginInstall, PluginPart, PluginPreview, ServerState,
+};
 use crate::app::Desktop;
 use crate::theme::{radius, Theme};
 use crate::ui::chrome::labelled_switch;
@@ -10,8 +12,8 @@ use crate::ui::{empty_line, error_line, icon, pill_button, Tone, Type};
 use super::confirm::Confirm;
 use super::server_sign_in::Subject;
 use super::services::service_mark;
-use crate::ui::service_logo;
 use super::{back_button, count};
+use crate::ui::service_logo;
 
 /// How many plugins the list shows at first, and adds each time more are asked for.
 const PAGE: usize = 30;
@@ -142,7 +144,8 @@ impl Desktop {
     }
 
     fn open_plugin(&mut self, entry: MarketplaceEntry, window: &mut Window, cx: &mut Context<Self>) {
-        let installed = matches!(&self.store.marketplace.listing, Some(Ok(listing)) if listing.install(&entry).is_some());
+        let installed =
+            matches!(&self.store.marketplace.listing, Some(Ok(listing)) if listing.install(&entry).is_some());
         self.store.marketplace.problem = None;
         self.store.marketplace.open = Some(OpenPlugin { entry: entry.clone(), preview: None, chosen: Vec::new() });
         if !installed {
@@ -156,7 +159,9 @@ impl Desktop {
         let source = entry.source.clone();
         let work = async move { api.preview_plugin(&space_id, &source).await };
         self.call(window, cx, work, move |this, result, _, _| {
-            let Some(open) = this.store.marketplace.open.as_mut().filter(|open| open.entry.id == entry.id) else { return };
+            let Some(open) = this.store.marketplace.open.as_mut().filter(|open| open.entry.id == entry.id) else {
+                return;
+            };
             if let Ok(preview) = &result {
                 open.chosen = preview.parts();
             }
@@ -181,7 +186,9 @@ impl Desktop {
         let work = async move {
             match (installed, preview) {
                 (Some(id), _) => api.set_plugin_parts(&space_id, &id, &parts).await,
-                (None, Some(preview)) => api.install_plugin_parts(&space_id, &preview, &source, &parts).await.map(|_| ()),
+                (None, Some(preview)) => {
+                    api.install_plugin_parts(&space_id, &preview, &source, &parts).await.map(|_| ())
+                }
                 (None, None) => Ok(()),
             }
         };
@@ -225,7 +232,12 @@ impl Desktop {
     }
 
     /// The registries' plugins under the Connections tab's own services.
-    pub(super) fn render_marketplace_section(&mut self, shelf: Shelf, theme: &Theme, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_marketplace_section(
+        &mut self,
+        shelf: Shelf,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let query = self.store.query.read(cx).value().trim().to_lowercase();
         let heading = div().section().pb_1().child(match shelf {
             Shelf::Apps => "More apps",
@@ -233,7 +245,17 @@ impl Desktop {
             Shelf::Packages | Shelf::Installed => "From plugin marketplaces",
         });
         let listing = match &self.store.marketplace.listing {
-            None => return Some(div().flex().flex_col().gap_1().child(heading).child(empty_line("Loading…", theme)).into_any_element()),
+            None => {
+                return Some(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_1()
+                        .child(heading)
+                        .child(empty_line("Loading…", theme))
+                        .into_any_element(),
+                )
+            }
             Some(Err(problem)) => {
                 return Some(
                     div()
@@ -259,11 +281,8 @@ impl Desktop {
         let shown = self.store.marketplace.shown[shelf as usize];
         let more = offered.len() > shown;
         let short = !listing.catalog.unavailable_registries.is_empty();
-        let rows: Vec<(MarketplaceEntry, bool)> = offered
-            .into_iter()
-            .take(shown)
-            .map(|entry| (entry.clone(), listing.install(entry).is_some()))
-            .collect();
+        let rows: Vec<(MarketplaceEntry, bool)> =
+            offered.into_iter().take(shown).map(|entry| (entry.clone(), listing.install(entry).is_some())).collect();
         let rows: Vec<AnyElement> =
             rows.into_iter().map(|(entry, installed)| self.marketplace_row(entry, installed, theme, cx)).collect();
         Some(
@@ -273,33 +292,48 @@ impl Desktop {
                 .gap_1()
                 .child(heading)
                 .when(short, |section| {
-                    section.child(empty_line("Some lists couldn't be read just now, so a few apps may be missing.", theme).pb_1())
+                    section.child(
+                        empty_line("Some lists couldn't be read just now, so a few apps may be missing.", theme).pb_1(),
+                    )
                 })
                 .children(rows)
                 .when(more, |section| {
                     section.child(
                         div().pt_2().flex().child(
-                            pill_button(("marketplace-more", shelf as usize), "Show more", Tone::Quiet, true, theme).on_click(cx.listener(
-                                move |this, _, _, cx| {
+                            pill_button(("marketplace-more", shelf as usize), "Show more", Tone::Quiet, true, theme)
+                                .on_click(cx.listener(move |this, _, _, cx| {
                                     this.store.marketplace.shown[shelf as usize] += PAGE;
                                     cx.notify();
-                                },
-                            )),
+                                })),
                         ),
                     )
                 })
-                .when(shelf == Shelf::Apps, |section| section.child(
-                    div().pt_3().flex().child(
-                        pill_button("marketplace-web", "Add an API or a repository on the web", Tone::Quiet, true, theme)
+                .when(shelf == Shelf::Apps, |section| {
+                    section.child(
+                        div().pt_3().flex().child(
+                            pill_button(
+                                "marketplace-web",
+                                "Add an API or a repository on the web",
+                                Tone::Quiet,
+                                true,
+                                theme,
+                            )
                             .child(icon("external-link", px(13.), theme.ink_secondary))
                             .on_click(cx.listener(|this, _, _, cx| this.open_web_page("/app?integrations", cx))),
-                    ),
-                ))
+                        ),
+                    )
+                })
                 .into_any_element(),
         )
     }
 
-    fn marketplace_row(&mut self, entry: MarketplaceEntry, installed: bool, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+    fn marketplace_row(
+        &mut self,
+        entry: MarketplaceEntry,
+        installed: bool,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let id = SharedString::from(format!("market-{}", entry.id));
         let action = pill_button(
             SharedString::from(format!("market-open-{}", entry.id)),
@@ -333,7 +367,13 @@ impl Desktop {
                             .flex()
                             .items_center()
                             .gap_1p5()
-                            .child(div().item().font_weight(FontWeight::SEMIBOLD).truncate().child(entry.display_name.clone()))
+                            .child(
+                                div()
+                                    .item()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .truncate()
+                                    .child(entry.display_name.clone()),
+                            )
                             .when(installed, |row| row.child(icon("check", px(13.), theme.success))),
                     )
                     .child(div().body().text_color(theme.ink_secondary).truncate().child(entry.description.clone())),
@@ -373,21 +413,25 @@ impl Desktop {
         let action = match &install {
             Some(install) => {
                 let (install_id, name) = (install.id.clone(), entry.display_name.clone());
-                pill_button("remove-plugin", "Remove", Tone::Danger, !busy, theme).on_click(cx.listener(move |this, _, _, cx| {
-                    this.store.confirm = Some(Confirm::RemovePlugin { install_id: install_id.clone(), name: name.clone() });
-                    cx.notify();
-                }))
+                pill_button("remove-plugin", "Remove", Tone::Danger, !busy, theme).on_click(cx.listener(
+                    move |this, _, _, cx| {
+                        this.store.confirm =
+                            Some(Confirm::RemovePlugin { install_id: install_id.clone(), name: name.clone() });
+                        cx.notify();
+                    },
+                ))
             }
             None => {
                 let ready = matches!(&preview, Some(Ok(_))) && !chosen.is_empty();
                 let label = if busy { "Adding…" } else { "Add" };
                 let parts = chosen.clone();
-                pill_button("add-plugin", label, Tone::Primary, ready && !busy, theme)
-                    .on_click(cx.listener(move |this, _, window, cx| {
+                pill_button("add-plugin", label, Tone::Primary, ready && !busy, theme).on_click(cx.listener(
+                    move |this, _, window, cx| {
                         if !parts.is_empty() {
                             this.set_parts(parts.clone(), window, cx)
                         }
-                    }))
+                    },
+                ))
             }
         };
 
@@ -448,9 +492,16 @@ impl Desktop {
             .into_any_element()
     }
 
-    fn render_preview(&mut self, preview: &PluginPreview, chosen: &[PluginPart], theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+    fn render_preview(
+        &mut self,
+        preview: &PluginPreview,
+        chosen: &[PluginPart],
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let available = preview.parts();
-        let elsewhere: Vec<String> = preview.elsewhere().map(|skipped| format!("{}: {}", skipped.name, skipped.reason)).collect();
+        let elsewhere: Vec<String> =
+            preview.elsewhere().map(|skipped| format!("{}: {}", skipped.name, skipped.reason)).collect();
         let toggles = available.iter().map(|part| {
             let on = chosen.contains(part);
             let part = *part;
@@ -488,7 +539,13 @@ impl Desktop {
                     .gap_2()
                     .child(icon("plug", px(14.), theme.ink_secondary))
                     .child(div().name().child(server.name.clone()))
-                    .child(div().meta().font_family(theme.mono.clone()).text_color(theme.ink_tertiary).child(host(&server.endpoint)))
+                    .child(
+                        div()
+                            .meta()
+                            .font_family(theme.mono.clone())
+                            .text_color(theme.ink_tertiary)
+                            .child(host(&server.endpoint)),
+                    )
             }))
             .when(!preview.skills.is_empty(), |section| {
                 let names: Vec<&str> = preview.skills.iter().take(8).map(|skill| skill.name.as_str()).collect();
@@ -505,13 +562,9 @@ impl Desktop {
             })
             .when(!elsewhere.is_empty(), |section| {
                 section.child(
-                    div()
-                        .pt_2()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(div().name().child("Not added here"))
-                        .children(elsewhere.into_iter().map(|line| div().body().text_color(theme.ink_tertiary).child(line))),
+                    div().pt_2().flex().flex_col().gap_1().child(div().name().child("Not added here")).children(
+                        elsewhere.into_iter().map(|line| div().body().text_color(theme.ink_tertiary).child(line)),
+                    ),
                 )
             })
             .into_any_element()
@@ -538,7 +591,8 @@ impl Desktop {
                 let blocked = self.store.presets.busy.is_some() || self.store.presets.sign_in.is_some();
                 let problem = self.connection_problem(&key).map(str::to_owned);
                 let form = self.render_connection_form(&key, theme, cx);
-                let agents = (state == ServerState::Connected).then(|| self.render_server_agents(&key, server, theme, cx));
+                let agents =
+                    (state == ServerState::Connected).then(|| self.render_server_agents(&key, server, theme, cx));
                 let (name, server_id) = (server.name.clone(), server.id.clone());
                 let label = match (signing, state) {
                     (true, _) => "Signing in…",
@@ -560,9 +614,13 @@ impl Desktop {
                             .items_center()
                             .gap_2()
                             .child(icon("plug", px(14.), theme.ink_secondary))
-                            .child(div().flex_1().min_w_0().child(div().name().truncate().child(server.name.clone())).child(
-                                div().meta().text_color(tone).child(line),
-                            ))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .child(div().name().truncate().child(server.name.clone()))
+                                    .child(div().meta().text_color(tone).child(line)),
+                            )
                             .when(needs_sign_in, |row| {
                                 row.child(
                                     pill_button(
@@ -572,14 +630,23 @@ impl Desktop {
                                         !blocked,
                                         theme,
                                     )
-                                    .on_click(cx.listener(move |this, _, window, cx| {
-                                        if state == ServerState::NeedsClient {
-                                            let subject = Subject::server(key.clone(), name.clone(), server_id.clone());
-                                            this.open_client_form(subject, server_id.clone(), window, cx)
-                                        } else {
-                                            this.sign_in_server(key.clone(), name.clone(), server_id.clone(), window, cx)
-                                        }
-                                    })),
+                                    .on_click(cx.listener(
+                                        move |this, _, window, cx| {
+                                            if state == ServerState::NeedsClient {
+                                                let subject =
+                                                    Subject::server(key.clone(), name.clone(), server_id.clone());
+                                                this.open_client_form(subject, server_id.clone(), window, cx)
+                                            } else {
+                                                this.sign_in_server(
+                                                    key.clone(),
+                                                    name.clone(),
+                                                    server_id.clone(),
+                                                    window,
+                                                    cx,
+                                                )
+                                            }
+                                        },
+                                    )),
                                 )
                             }),
                     )
@@ -589,9 +656,9 @@ impl Desktop {
                     .into_any_element()
             })
             .collect();
-        let toggles = [PluginPart::Connector, PluginPart::Skills].into_iter().filter(|part| {
-            parts.contains(part) || matches!(part, PluginPart::Connector if !servers.is_empty())
-        });
+        let toggles = [PluginPart::Connector, PluginPart::Skills]
+            .into_iter()
+            .filter(|part| parts.contains(part) || matches!(part, PluginPart::Connector if !servers.is_empty()));
         let toggles: Vec<AnyElement> = toggles
             .map(|part| {
                 let on = parts.contains(&part);
@@ -628,7 +695,9 @@ impl Desktop {
                         .items_start()
                         .gap_2()
                         .child(icon("sparkles", px(14.), theme.ink_secondary).mt(px(3.)))
-                        .child(div().flex_1().min_w_0().body().text_color(theme.ink_secondary).child(skills.join(", "))),
+                        .child(
+                            div().flex_1().min_w_0().body().text_color(theme.ink_secondary).child(skills.join(", ")),
+                        ),
                 )
             })
             .children(rows)

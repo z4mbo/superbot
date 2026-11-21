@@ -10,7 +10,10 @@ mod sources;
 pub use apps::{AppRecord, RecordQuery};
 pub use connections::{next_account_label, CatalogApp, Connection, ConnectionStatus};
 pub use marketplace::{MarketplaceCatalog, MarketplaceEntry, PluginInstall, PluginPart, PluginPreview};
-pub use sources::{same_endpoint, Assignment, McpServer, OAuthStatus, ServerState, SignInStart, SourceInstall, SourcePreset, OAUTH_CLIENT_REQUIRED};
+pub use sources::{
+    same_endpoint, Assignment, McpServer, OAuthStatus, ServerState, SignInStart, SourceInstall, SourcePreset,
+    OAUTH_CLIENT_REQUIRED,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Target {
@@ -18,7 +21,10 @@ pub enum Target {
     Agent(String),
     Group(String),
     /// Another conversation with an agent, started with New conversation.
-    Conversation { agent: String, thread: String },
+    Conversation {
+        agent: String,
+        thread: String,
+    },
 }
 
 impl Target {
@@ -703,7 +709,10 @@ mod send_tests {
 pub fn explain(error: &Error) -> String {
     match error {
         #[cfg(target_os = "macos")]
-        Error::CredentialStore(_) => "Superbot couldn't access its saved session. Unlock the login keychain in Keychain Access, then try again.".into(),
+        Error::CredentialStore(_) => {
+            "Superbot couldn't access its saved session. Unlock the login keychain in Keychain Access, then try again."
+                .into()
+        }
         Error::Transport(_) | Error::Unavailable { .. } => SERVER_UNREACHABLE.into(),
         Error::Server { status: 401, .. } | Error::MissingSession | Error::InvalidSession => {
             "Your session ended. Sign in again.".into()

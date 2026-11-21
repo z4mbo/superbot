@@ -126,7 +126,9 @@ impl Desktop {
                     let fill = Colors::ink(theme, 0., if pressed { 0. } else { 0.04 }, 0.08);
                     let text = Colors::new(if pressed { theme.ink } else { theme.ink_secondary }, theme.ink, theme.ink);
                     focus::decorate(track.button(button, pressed))
-                        .tint(Pointer::BUTTON, move |button, levels| button.bg(fill.sample(levels)).text_color(text.sample(levels)))
+                        .tint(Pointer::BUTTON, move |button, levels| {
+                            button.bg(fill.sample(levels)).text_color(text.sample(levels))
+                        })
                         .into_any_element()
                 };
                 let pills: Vec<_> =
@@ -217,18 +219,8 @@ impl Desktop {
                             .group_hover(group.clone(), |style| style.opacity(1.))
                             .when(star_lit, |star| star.bg(hover))
                             .hover(move |style| style.bg(hover))
-                            .on_click(
-                                cx.listener(move |this, _, _, cx| this.toggle_favorite(&key, cx)),
-                            )
-                            .child(icon(
-                                "star",
-                                px(13.),
-                                if starred {
-                                    theme.warning
-                                } else {
-                                    theme.ink_tertiary
-                                },
-                            )),
+                            .on_click(cx.listener(move |this, _, _, cx| this.toggle_favorite(&key, cx)))
+                            .child(icon("star", px(13.), if starred { theme.warning } else { theme.ink_tertiary })),
                         name,
                     )
                 });
@@ -306,16 +298,10 @@ impl Desktop {
                 .child(div().flex_1().min_w_0().body().child(Input::new(&input).appearance(false).bordered(false)))
                 .children(clear)
         });
-        let lines: Vec<AnyElement> = sheet
-            .lines
-            .into_iter()
-            .map(|line| self.model_line(line, &theme, window, cx))
-            .collect();
-        let footer: Vec<AnyElement> = sheet
-            .footer
-            .into_iter()
-            .map(|line| self.model_line(line, &theme, window, cx))
-            .collect();
+        let lines: Vec<AnyElement> =
+            sheet.lines.into_iter().map(|line| self.model_line(line, &theme, window, cx)).collect();
+        let footer: Vec<AnyElement> =
+            sheet.footer.into_iter().map(|line| self.model_line(line, &theme, window, cx)).collect();
 
         let mut sheet = div()
             .id("model-menu")
@@ -366,10 +352,7 @@ impl Desktop {
 
         let saving = self.model_menu.saving;
         let sheet = menu_enter("model-menu-enter", sheet, cx, move |sheet, remaining| {
-            sheet
-                .relative()
-                .top(px(-4. * remaining))
-                .when(saving, |sheet| sheet.opacity(0.7 * (1. - remaining)))
+            sheet.relative().top(px(-4. * remaining)).when(saving, |sheet| sheet.opacity(0.7 * (1. - remaining)))
         });
         div()
             .id("menu-backdrop")

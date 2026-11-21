@@ -16,11 +16,11 @@ use crate::theme::{radius, ActiveTheme, Theme, BUBBLE_MAX, CAPTION_WIDTH, CHAT_C
 use crate::transcript::{place, Entry, Join, Part, Place, Speaker};
 use superbot_avatars::{Bot, ChatTone, Mark};
 
-#[cfg(target_os = "macos")]
-use crate::ui::traffic_lights_reserve;
 use crate::ui::focus::{self, Ring};
 use crate::ui::motion::{self, Colors, Pointer};
 use crate::ui::tooltip;
+#[cfg(target_os = "macos")]
+use crate::ui::traffic_lights_reserve;
 use crate::ui::{
     bot_avatar_with, bot_ink, chat_tone, drag_region, error_line, face_state, icon, pill_button, AvatarSlot, Tone, Type,
 };
@@ -33,23 +33,16 @@ pub(crate) use transitions::ChatMotion;
 const HEADER_HEIGHT: Pixels = px(61.);
 
 fn transcript_fade(color: Hsla, height: Pixels, top_alpha: f32, bottom_alpha: f32) -> Div {
-    div()
-        .absolute()
-        .left_0()
-        .right_0()
-        .h(height)
-        .bg(linear_gradient(
-            180.,
-            linear_color_stop(color.opacity(top_alpha), 0.),
-            linear_color_stop(color.opacity(bottom_alpha), 1.),
-        ))
+    div().absolute().left_0().right_0().h(height).bg(linear_gradient(
+        180.,
+        linear_color_stop(color.opacity(top_alpha), 0.),
+        linear_color_stop(color.opacity(bottom_alpha), 1.),
+    ))
 }
 
 fn model_label_opacity(key: (Target, String), window: &mut Window, cx: &mut App) -> f32 {
     let now = Instant::now();
-    let state = window.use_keyed_state("header-model-label", cx, |_, _| {
-        (key.clone(), motion::Tween::at_rest(1., now))
-    });
+    let state = window.use_keyed_state("header-model-label", cx, |_, _| (key.clone(), motion::Tween::at_rest(1., now)));
     let reduced_motion = cx.reduce_motion();
     state.update(cx, |state, _| {
         let (opacity, moving) = model_label_frame(state, key, now, reduced_motion);
@@ -89,10 +82,7 @@ mod header_motion_tests {
         let mut state = ((agent.clone(), "Before".into()), motion::Tween::at_rest(1., now));
         let next = (agent, "After".into());
         assert_eq!(model_label_frame(&mut state, next.clone(), now, false), (0.4, true));
-        assert_eq!(
-            model_label_frame(&mut state, next, now + motion::FADE / 2, true),
-            (1., false)
-        );
+        assert_eq!(model_label_frame(&mut state, next, now + motion::FADE / 2, true), (1., false));
     }
 }
 
@@ -143,8 +133,7 @@ impl Desktop {
             let name = self.target_name(&target);
             let avatar = if let Some((key, agent)) = &empty_watch {
                 let composer = self.composer.read(cx);
-                let looking_down =
-                    composer.focus_handle(cx).is_focused(window) && !composer.value().trim().is_empty();
+                let looking_down = composer.focus_handle(cx).is_focused(window) && !composer.value().trim().is_empty();
                 let slot = AvatarSlot {
                     watch: Some(key.clone()),
                     empty_chat: true,
@@ -174,15 +163,8 @@ impl Desktop {
                 )
                 .into_any_element()
         } else {
-            let list = list(
-                list_state,
-                cx.processor(|this, index: usize, _, cx| this.render_row(index, cx)),
-            );
-            div()
-                .size_full()
-                .opacity(alpha)
-                .child(list.size_full())
-                .into_any_element()
+            let list = list(list_state, cx.processor(|this, index: usize, _, cx| this.render_row(index, cx)));
+            div().size_full().opacity(alpha).child(list.size_full()).into_any_element()
         };
 
         let gaze = empty_watch.map(|(key, _)| key);
@@ -225,15 +207,15 @@ impl Desktop {
         if superbot_avatars::look(agent.avatar(), cx).is_some() {
             return;
         }
-        let model = self
-            .local_model_for(id)
-            .map(|model| format!("local:{}:{}", model.provider, model.id))
-            .or_else(|| {
+        let model =
+            self.local_model_for(id).map(|model| format!("local:{}:{}", model.provider, model.id)).or_else(|| {
                 let bot = self.agent_info.bot(id)?;
                 let own = bot.model_provider.as_deref().zip(bot.model_id.as_deref());
                 match own {
                     Some((provider, model)) => Some(format!("hosted:{provider}:{model}")),
-                    None => self.agent_info.main_choice().map(|(provider, model, _)| format!("hosted:{provider}:{model}")),
+                    None => {
+                        self.agent_info.main_choice().map(|(provider, model, _)| format!("hosted:{provider}:{model}"))
+                    }
                 }
             });
         superbot_avatars::conversation_blink(scope, id, model.map(Into::into), agent.waiting_on_you(), window, cx);
@@ -295,28 +277,18 @@ impl Desktop {
             .pr(px(11.))
             .rounded_full()
             .cursor_pointer()
-            .when(!docked && target.agent().is_some(), |button| {
-                tooltip::on(button, "Open details")
-            })
-            .on_click(cx.listener(
-                |this, _, window, cx| match this.chat.as_ref().map(|chat| &chat.target) {
-                    Some(Target::Agent(_) | Target::Conversation { .. }) => this.toggle_agent_panel(window, cx),
-                    _ => this.show(View::Workspace, window, cx),
-                },
-            ))
+            .when(!docked && target.agent().is_some(), |button| tooltip::on(button, "Open details"))
+            .on_click(cx.listener(|this, _, window, cx| match this.chat.as_ref().map(|chat| &chat.target) {
+                Some(Target::Agent(_) | Target::Conversation { .. }) => this.toggle_agent_panel(window, cx),
+                _ => this.show(View::Workspace, window, cx),
+            }))
             .child(self.target_face(target, px(22.), Some(watch), theme, cx))
             .child(div().name().truncate().child(name));
         let identity = focus::control(identity, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(docked), elevated);
         let mark = target.agent().and_then(|id| self.chat_model_mark(id));
         let model = model.map(|label| {
-            let rotation = motion::value(
-                "header-model-chevron",
-                f32::from(choosing),
-                motion::SLIDE,
-                motion::EMPHASIS,
-                window,
-                cx,
-            );
+            let rotation =
+                motion::value("header-model-chevron", f32::from(choosing), motion::SLIDE, motion::EMPHASIS, window, cx);
             let label_key = (target.clone(), label.clone());
             let label_opacity = model_label_opacity(label_key, window, cx);
             let button = self
@@ -337,21 +309,12 @@ impl Desktop {
                 .rounded_full()
                 .cursor_pointer()
                 .when(!choosing, |model| tooltip::on(model, "Change model"))
+                .child(div().body().text_color(theme.ink_secondary).truncate().opacity(label_opacity).child(label))
                 .child(
-                    div()
-                        .body()
-                        .text_color(theme.ink_secondary)
-                        .truncate()
-                        .opacity(label_opacity)
-                        .child(label),
-                )
-                .child(
-                    icon("chevron-down", px(14.), theme.ink_tertiary).with_transformation(
-                        Transformation::rotate(Radians(rotation * std::f32::consts::PI)),
-                    ),
+                    icon("chevron-down", px(14.), theme.ink_tertiary)
+                        .with_transformation(Transformation::rotate(Radians(rotation * std::f32::consts::PI))),
                 );
-            focus::control(button, Ring::InnerPill, theme)
-                .fill(Pointer::BUTTON.held(choosing), elevated)
+            focus::control(button, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(choosing), elevated)
         });
         let pill = div()
             .max_w_full()
@@ -370,11 +333,7 @@ impl Desktop {
         let left = px(20.);
         #[cfg(target_os = "macos")]
         let left = if self.sidebar_hidden(window) { left.max(traffic_lights_reserve(window)) } else { left };
-        let caption_space = if cfg!(target_os = "macos") {
-            px(0.)
-        } else {
-            (CAPTION_WIDTH - panel_width).max(px(0.))
-        };
+        let caption_space = if cfg!(target_os = "macos") { px(0.) } else { (CAPTION_WIDTH - panel_width).max(px(0.)) };
         drag_region(div(), "chat-header-drag", window, cx)
             .flex()
             .items_center()
@@ -389,7 +348,9 @@ impl Desktop {
 
     fn chat_tone(&self, theme: &Theme, cx: &App) -> Option<ChatTone> {
         match &self.chat.as_ref()?.target {
-            Target::Agent(id) | Target::Conversation { agent: id, .. } => chat_tone(self.agent(id)?.avatar(), theme, cx),
+            Target::Agent(id) | Target::Conversation { agent: id, .. } => {
+                chat_tone(self.agent(id)?.avatar(), theme, cx)
+            }
             Target::Group(_) => None,
         }
     }
@@ -402,7 +363,14 @@ impl Desktop {
             return Some(Mark::new("presence", look, px(28.), theme.ink).working(true).into_any_element());
         }
         let presence = face_state(Some(agent), self.avatar_asleep(&agent.id), true);
-        Some(bot_avatar_with(agent.avatar(), px(28.), true, AvatarSlot { presence, ..AvatarSlot::default() }, theme, cx))
+        Some(bot_avatar_with(
+            agent.avatar(),
+            px(28.),
+            true,
+            AvatarSlot { presence, ..AvatarSlot::default() },
+            theme,
+            cx,
+        ))
     }
 
     /// The person's own bubbles: the bot's colour when the avatar pack recolours its chat.
@@ -434,8 +402,12 @@ impl Desktop {
                 );
                 let blink = if watch.is_some() { Self::face_blink_scope(target) } else { None };
                 let slot = AvatarSlot { watch, presence, blink, ..AvatarSlot::default() };
-                let bot = agent.map(AgentSummary::avatar)
-                    .unwrap_or(Bot { id, name: "", color: "", picked: Default::default() });
+                let bot = agent.map(AgentSummary::avatar).unwrap_or(Bot {
+                    id,
+                    name: "",
+                    color: "",
+                    picked: Default::default(),
+                });
                 let avatar = bot_avatar_with(bot, size, working, slot, theme, cx);
                 div().flex_shrink_0().child(avatar)
             }
@@ -463,13 +435,16 @@ impl Desktop {
                         let bot = member.avatar();
                         let ring = front && superbot_avatars::look(bot, cx).is_none();
                         let agent = self.agent(&member.bot_id);
-                        let group_working = agent.is_some_and(|agent| matches!(agent.status.as_str(), "queued" | "leased" | "running"));
+                        let group_working =
+                            agent.is_some_and(|agent| matches!(agent.status.as_str(), "queued" | "leased" | "running"));
                         let presence = face_state(agent, self.avatar_asleep(&member.bot_id), group_working);
                         let slot = AvatarSlot { back_of_stack: !front, presence, ..AvatarSlot::default() };
-                        div().absolute().left(offset).top(offset).size(face)
-                            .when(ring, |face| {
-                                face.child(div().absolute().inset(px(-2.)).rounded_full().bg(surface))
-                            })
+                        div()
+                            .absolute()
+                            .left(offset)
+                            .top(offset)
+                            .size(face)
+                            .when(ring, |face| face.child(div().absolute().inset(px(-2.)).rounded_full().bg(surface)))
                             .child(bot_avatar_with(bot, face, false, slot, theme, cx))
                     },
                 ))
@@ -493,10 +468,7 @@ impl Desktop {
                     let phase = chat.motion.arrival(&entry.id, Instant::now());
                     self.render_entry(entry, place, index, &theme, cx)
                         .when_some(phase, |message, progress| {
-                            message
-                                .relative()
-                                .top(px(6. * (1. - progress)))
-                                .opacity(progress)
+                            message.relative().top(px(6. * (1. - progress))).opacity(progress)
                         })
                         .into_any_element()
                 }
@@ -560,14 +532,7 @@ impl Desktop {
         }
     }
 
-    fn render_entry(
-        &self,
-        entry: &Entry,
-        place: Place,
-        index: usize,
-        theme: &Theme,
-        cx: &mut Context<Self>,
-    ) -> Div {
+    fn render_entry(&self, entry: &Entry, place: Place, index: usize, theme: &Theme, cx: &mut Context<Self>) -> Div {
         let chat = self.chat.as_ref();
         let in_group = chat.is_some_and(|chat| matches!(chat.target, Target::Group(_)));
         let markdown = entry.speaker == Speaker::Agent && !entry.local_cli;
@@ -627,11 +592,10 @@ impl Desktop {
                 let key = (index, part_index);
                 let bubble = bubble(text, mine, markdown, join, key, &named, own, theme);
                 match said.clone() {
-                    Some(said) => tooltip::on(
-                        div().id(("said", index * 64 + part_index)).max_w_full().child(bubble),
-                        said,
-                    )
-                    .into_any_element(),
+                    Some(said) => {
+                        tooltip::on(div().id(("said", index * 64 + part_index)).max_w_full().child(bubble), said)
+                            .into_any_element()
+                    }
                     None => bubble,
                 }
             }
@@ -708,23 +672,19 @@ impl Desktop {
                 .into_any_element(),
         });
 
-        div()
-            .flex()
-            .flex_col()
-            .children(stamp)
-            .child(
-                div()
-                    .pt(gap)
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .when(mine, |row| row.items_end())
-                    .when(!mine, |row| row.items_start())
-                    .children(voice.map(|(name, color)| {
-                        div().px_3().body().font_weight(FontWeight::SEMIBOLD).text_color(color).child(name)
-                    }))
-                    .children(parts),
-            )
+        div().flex().flex_col().children(stamp).child(
+            div()
+                .pt(gap)
+                .flex()
+                .flex_col()
+                .gap_1()
+                .when(mine, |row| row.items_end())
+                .when(!mine, |row| row.items_start())
+                .children(voice.map(|(name, color)| {
+                    div().px_3().body().font_weight(FontWeight::SEMIBOLD).text_color(color).child(name)
+                }))
+                .children(parts),
+        )
     }
 
     /// A card this app does not draw yet opens where it can be used: the server's own web app.
@@ -756,16 +716,7 @@ impl Desktop {
             .flex_col()
             .items_start()
             .when_some(unsaved, |row, (text, reply)| {
-                let mine = bubble(
-                    &text,
-                    true,
-                    false,
-                    Join::default(),
-                    (last, 1),
-                    &[],
-                    own,
-                    theme,
-                );
+                let mine = bubble(&text, true, false, Join::default(), (last, 1), &[], own, theme);
                 let phase = chat.motion.optimistic_arrival(now).unwrap_or(1.);
                 row.child(
                     div()
@@ -779,16 +730,7 @@ impl Desktop {
                         .child(mine),
                 )
                 .children(reply.map(|reply| {
-                    let theirs = bubble(
-                        &reply,
-                        false,
-                        true,
-                        Join::default(),
-                        (last, 2),
-                        &[],
-                        own,
-                        theme,
-                    );
+                    let theirs = bubble(&reply, false, true, Join::default(), (last, 2), &[], own, theme);
                     div().pt_4().w_full().flex().opacity(0.6).child(theirs)
                 }))
             })
@@ -805,7 +747,10 @@ impl Desktop {
                         .flex()
                         .items_center()
                         .gap_2()
-                        .child(presence.unwrap_or_else(|| div().size_2().rounded_full().bg(theme.success).into_any_element()))
+                        .child(
+                            presence
+                                .unwrap_or_else(|| div().size_2().rounded_full().bg(theme.success).into_any_element()),
+                        )
                         .child(div().body().text_color(theme.ink_tertiary).truncate().child(activity.to_owned())),
                 )
             })
@@ -850,10 +795,7 @@ impl Desktop {
             .occlude()
             .children(list.choices.iter().enumerate().map(|(index, member)| {
                 let presence = face_state(self.agent(&member.bot_id), self.avatar_asleep(&member.bot_id), false);
-                let slot = AvatarSlot {
-                    presence,
-                    ..AvatarSlot::default()
-                };
+                let slot = AvatarSlot { presence, ..AvatarSlot::default() };
                 div()
                     .id(("mention", index))
                     .h(px(30.))

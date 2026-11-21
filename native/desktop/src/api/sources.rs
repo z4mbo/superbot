@@ -329,7 +329,10 @@ mod tests {
             "status": "authorization_required", "sessionId": "s", "authorizationUrl": "https://id.example.test/a",
         }))
         .unwrap();
-        assert_eq!(open, SignInStart::Open { session_id: "s".into(), authorization_url: "https://id.example.test/a".into() });
+        assert_eq!(
+            open,
+            SignInStart::Open { session_id: "s".into(), authorization_url: "https://id.example.test/a".into() }
+        );
         let done: SignInStart = serde_json::from_value(json!({ "status": "already_connected" })).unwrap();
         assert_eq!(done, SignInStart::Connected);
     }

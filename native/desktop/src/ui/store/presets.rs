@@ -282,9 +282,13 @@ impl Desktop {
         let mut shown: Vec<(SourcePreset, bool)> = sources
             .presets
             .iter()
-            .filter(|preset| query.is_empty() || preset.name.to_lowercase().contains(&query) || preset.id.contains(&query))
+            .filter(|preset| {
+                query.is_empty() || preset.name.to_lowercase().contains(&query) || preset.id.contains(&query)
+            })
             .map(|preset| (preset.clone(), !matches!(link(preset, sources), Link::None)))
-            .filter(|(preset, linked)| *linked || !managed.iter().any(|name| *name == plain(&preset.name) || *name == plain(&preset.id)))
+            .filter(|(preset, linked)| {
+                *linked || !managed.iter().any(|name| *name == plain(&preset.name) || *name == plain(&preset.id))
+            })
             .collect();
         if shown.is_empty() {
             return None;
@@ -324,7 +328,11 @@ impl Desktop {
         });
 
         let status = if let Some(in_browser) = waiting {
-            let line = if in_browser { "Finish signing in in your browser" } else { "Finish signing in in the sign-in window" };
+            let line = if in_browser {
+                "Finish signing in in your browser"
+            } else {
+                "Finish signing in in the sign-in window"
+            };
             Some((line, theme.ink_secondary))
         } else if busy {
             Some(("Connecting…", theme.ink_secondary))
@@ -359,13 +367,19 @@ impl Desktop {
             if server.is_some() {
                 let preset_id = id.clone();
                 actions.push(
-                    pill_button(SharedString::from(format!("preset-agents-{id}")), "Agents", Tone::Quiet, !blocked, theme)
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            let open = this.store.presets.choosing_agents.as_deref() == Some(preset_id.as_str());
-                            this.store.presets.choosing_agents = (!open).then(|| preset_id.clone());
-                            cx.notify();
-                        }))
-                        .into_any_element(),
+                    pill_button(
+                        SharedString::from(format!("preset-agents-{id}")),
+                        "Agents",
+                        Tone::Quiet,
+                        !blocked,
+                        theme,
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        let open = this.store.presets.choosing_agents.as_deref() == Some(preset_id.as_str());
+                        this.store.presets.choosing_agents = (!open).then(|| preset_id.clone());
+                        cx.notify();
+                    }))
+                    .into_any_element(),
                 );
             }
             let source = match (&install, &server) {
@@ -401,13 +415,19 @@ impl Desktop {
         } else if !form_open {
             let target = preset.clone();
             actions.push(
-                pill_button(SharedString::from(format!("preset-connect-{id}")), "Connect", Tone::Primary, !blocked, theme)
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        if this.store.presets.busy.is_none() && this.store.presets.sign_in.is_none() {
-                            this.connect_preset(target.clone(), window, cx);
-                        }
-                    }))
-                    .into_any_element(),
+                pill_button(
+                    SharedString::from(format!("preset-connect-{id}")),
+                    "Connect",
+                    Tone::Primary,
+                    !blocked,
+                    theme,
+                )
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    if this.store.presets.busy.is_none() && this.store.presets.sign_in.is_none() {
+                        this.connect_preset(target.clone(), window, cx);
+                    }
+                }))
+                .into_any_element(),
             );
         }
 
@@ -431,7 +451,10 @@ impl Desktop {
                         let fill = theme.raised.opacity(0.4);
                         move |style| style.bg(fill)
                     })
-                    .child(service_logo::tile(&preset.id, px(40.)).unwrap_or_else(|| service_mark(&preset.name, &key, theme)))
+                    .child(
+                        service_logo::tile(&preset.id, px(40.))
+                            .unwrap_or_else(|| service_mark(&preset.name, &key, theme)),
+                    )
                     .child(
                         div()
                             .flex_1()
@@ -444,7 +467,9 @@ impl Desktop {
                                     .gap_1()
                                     .body()
                                     .text_color(tone)
-                                    .when(connected && tone == theme.success, |row| row.child(icon("check", px(13.), tone)))
+                                    .when(connected && tone == theme.success, |row| {
+                                        row.child(icon("check", px(13.), tone))
+                                    })
                                     .child(line)
                             })),
                     )
@@ -465,18 +490,29 @@ impl Desktop {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let name = preset.name.clone();
-        pill_button(SharedString::from(format!("preset-disconnect-{}", preset.id)), "Disconnect", Tone::Quiet, enabled, theme)
-            .on_click(cx.listener(move |this, _, _, cx| {
-                if this.store.presets.busy.is_none() && this.store.presets.sign_in.is_none() {
-                    this.store.confirm = Some(Confirm::DisconnectSource { name: name.clone(), source: source.clone() });
-                    cx.notify();
-                }
-            }))
-            .into_any_element()
+        pill_button(
+            SharedString::from(format!("preset-disconnect-{}", preset.id)),
+            "Disconnect",
+            Tone::Quiet,
+            enabled,
+            theme,
+        )
+        .on_click(cx.listener(move |this, _, _, cx| {
+            if this.store.presets.busy.is_none() && this.store.presets.sign_in.is_none() {
+                this.store.confirm = Some(Confirm::DisconnectSource { name: name.clone(), source: source.clone() });
+                cx.notify();
+            }
+        }))
+        .into_any_element()
     }
 
     /// The form open under the row kept under `key`, if one is.
-    pub(super) fn render_connection_form(&mut self, key: &str, theme: &Theme, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_connection_form(
+        &mut self,
+        key: &str,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let form = self.store.presets.form.as_ref().filter(|form| form.key() == key)?;
         let field = |input: &Entity<InputState>| {
             field_box(theme).flex_1().child(Input::new(input).appearance(false).bordered(false)).into_any_element()
@@ -535,21 +571,32 @@ impl Desktop {
                         .justify_end()
                         .gap_2()
                         .child(
-                            pill_button(SharedString::from(format!("preset-form-cancel-{id}")), "Cancel", Tone::Quiet, true, theme)
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.store.presets.form = None;
-                                    cx.notify();
-                                })),
+                            pill_button(
+                                SharedString::from(format!("preset-form-cancel-{id}")),
+                                "Cancel",
+                                Tone::Quiet,
+                                true,
+                                theme,
+                            )
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.store.presets.form = None;
+                                cx.notify();
+                            })),
                         )
                         .child(
-                            pill_button(SharedString::from(format!("preset-form-submit-{id}")), submit, Tone::Primary, true, theme)
-                                .on_click(cx.listener(|this, _, window, cx| this.submit_form(window, cx))),
+                            pill_button(
+                                SharedString::from(format!("preset-form-submit-{id}")),
+                                submit,
+                                Tone::Primary,
+                                true,
+                                theme,
+                            )
+                            .on_click(cx.listener(|this, _, window, cx| this.submit_form(window, cx))),
                         ),
                 )
                 .into_any_element(),
         )
     }
-
 }
 
 #[cfg(test)]

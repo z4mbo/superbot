@@ -26,26 +26,20 @@ impl Desktop {
             .pl(px(11.))
             .pr(px(13.))
             .pt_3()
-            .child(round_button(
-                "agent-settings",
-                "settings",
-                panel.settings,
-                &theme,
-                |button| {
-                    button
-                        .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
-                        .map(|button| tooltip::on(button, "Agent settings"))
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            if let Some(panel) = this.agent_panel.as_mut() {
-                                panel.settings = !panel.settings;
-                                panel.screen = None;
-                                panel.terminal = None;
-                                panel.editing = None;
-                            }
-                            cx.notify();
-                        }))
-                },
-            ))
+            .child(round_button("agent-settings", "settings", panel.settings, &theme, |button| {
+                button
+                    .when(MANUAL_WINDOW_DRAG, |button| button.occlude())
+                    .map(|button| tooltip::on(button, "Agent settings"))
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        if let Some(panel) = this.agent_panel.as_mut() {
+                            panel.settings = !panel.settings;
+                            panel.screen = None;
+                            panel.terminal = None;
+                            panel.editing = None;
+                        }
+                        cx.notify();
+                    }))
+            }))
             .child(div().flex_1())
             .child(round_button("agent-panel-close", "x", false, &theme, |button| {
                 button

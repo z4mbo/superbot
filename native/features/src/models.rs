@@ -489,11 +489,19 @@ mod tests {
         let levels = json!({ "thinkingLevels": ["low", "high", "xhigh"] });
         assert_eq!(
             entry("alpha", "a-1", levels.clone()).thinking_levels,
-            [crate::ThinkingLevel::Low, crate::ThinkingLevel::High, crate::ThinkingLevel::Xhigh]
+            [
+                crate::ThinkingLevel::Low,
+                crate::ThinkingLevel::High,
+                crate::ThinkingLevel::Xhigh
+            ]
         );
         assert_eq!(
             connection("alpha", levels).thinking_levels,
-            [crate::ThinkingLevel::Low, crate::ThinkingLevel::High, crate::ThinkingLevel::Xhigh]
+            [
+                crate::ThinkingLevel::Low,
+                crate::ThinkingLevel::High,
+                crate::ThinkingLevel::Xhigh
+            ]
         );
         assert!(entry("alpha", "a-1", json!({})).thinking_levels.is_empty());
         assert!(connection("alpha", json!({})).thinking_levels.is_empty());

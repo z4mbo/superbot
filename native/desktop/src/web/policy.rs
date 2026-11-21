@@ -231,7 +231,8 @@ mod tests {
     fn a_sign_in_return_is_read_from_the_authorization_request() {
         assert_eq!(sign_in().redirect().as_str(), "https://app.example.test/mcp/oauth/callback");
         assert!(Return::from_authorization("https://id.example.test/authorize?state=s1").is_none());
-        assert!(Return::from_authorization("https://id.example.test/authorize?redirect_uri=https%3A%2F%2Fa.test%2Fcb").is_none());
+        assert!(Return::from_authorization("https://id.example.test/authorize?redirect_uri=https%3A%2F%2Fa.test%2Fcb")
+            .is_none());
         assert!(Return::from_authorization("https://id.example.test/a?redirect_uri=rakazo%3A%2F%2Fx&state=s").is_none());
     }
 

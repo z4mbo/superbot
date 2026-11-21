@@ -34,7 +34,12 @@ impl Desktop {
         let theme = cx.skin().clone();
         let fills = Colors::ink(&theme, 0., 0.06, 0.08);
         let highlight = self.create.highlight;
-        let agent = self.chat.as_ref().and_then(|chat| chat.target.agent()).and_then(|id| self.agent(id)).map(|agent| agent.name.clone());
+        let agent = self
+            .chat
+            .as_ref()
+            .and_then(|chat| chat.target.agent())
+            .and_then(|id| self.agent(id))
+            .map(|agent| agent.name.clone());
         let rows = self.create_rows().into_iter().enumerate().flat_map(|(index, row)| {
             let label = match (row, &agent) {
                 (CreateRow::NewConversation, Some(name)) => format!("New conversation with {name}"),
@@ -55,7 +60,8 @@ impl Desktop {
                 .on_click(cx.listener(move |this, _, window, cx| this.choose_create_row(row, window, cx)))
                 .child(icon(row.glyph(), px(16.), theme.ink_secondary))
                 .child(div().flex_1().min_w_0().truncate().child(label));
-            let item = focus::decorate(item).fill(Pointer::MENU.held(highlight == Some(index)), fills).into_any_element();
+            let item =
+                focus::decorate(item).fill(Pointer::MENU.held(highlight == Some(index)), fills).into_any_element();
             let separator = (row == CreateRow::NewConversation)
                 .then(|| div().my_0p5().mx_1().h(px(1.)).bg(theme.hairline.opacity(0.5)).into_any_element());
             std::iter::once(item).chain(separator)
@@ -80,9 +86,8 @@ impl Desktop {
         if let Some(focus) = self.create.menu_focus.as_ref() {
             sheet = sheet.track_focus(focus);
         }
-        let sheet = menu_enter("new-menu-enter", sheet, cx, |sheet, remaining| {
-            sheet.relative().top(px(-4. * remaining))
-        });
+        let sheet =
+            menu_enter("new-menu-enter", sheet, cx, |sheet, remaining| sheet.relative().top(px(-4. * remaining)));
         div()
             .id("menu-backdrop")
             .absolute()

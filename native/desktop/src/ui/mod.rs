@@ -22,9 +22,9 @@ pub mod tile_preview;
 mod tooltip;
 pub mod workspace;
 
+use gpui_kit::component::input::{Input, InputState};
 #[cfg(target_os = "macos")]
 use gpui_kit::component::InteractiveElementExt as _;
-use gpui_kit::component::input::{Input, InputState};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
@@ -99,10 +99,7 @@ pub fn drag_region(strip: Div, id: &'static str, window: &mut Window, cx: &mut A
                 }
             }),
         )
-        .on_mouse_up(
-            MouseButton::Left,
-            window.listener_for(&state, |should_move, _, _, _| *should_move = false),
-        )
+        .on_mouse_up(MouseButton::Left, window.listener_for(&state, |should_move, _, _, _| *should_move = false))
         .on_mouse_move(window.listener_for(&state, |should_move, event: &MouseMoveEvent, window, cx| {
             if event.pressed_button != Some(MouseButton::Left) {
                 *should_move = false;
@@ -230,17 +227,7 @@ impl Desktop {
 
     pub(crate) fn roster_avatar(&self, agent: &AgentSummary, size: Pixels, theme: &Theme, cx: &App) -> AnyElement {
         let presence = face_state(Some(agent), self.avatar_asleep(&agent.id), false);
-        bot_avatar_with(
-            agent.avatar(),
-            size,
-            false,
-            AvatarSlot {
-                presence,
-                ..AvatarSlot::default()
-            },
-            theme,
-            cx,
-        )
+        bot_avatar_with(agent.avatar(), size, false, AvatarSlot { presence, ..AvatarSlot::default() }, theme, cx)
     }
 }
 
@@ -274,7 +261,8 @@ mod avatar_tests {
                 "name": "Fixture",
                 "status": status,
                 "threadStatus": thread_status,
-            })).unwrap();
+            }))
+            .unwrap();
             assert_eq!(face_state(Some(&agent), false, working), expected);
         }
     }

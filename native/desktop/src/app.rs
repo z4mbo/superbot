@@ -19,9 +19,9 @@ use crate::api::{self, AgentSummary, Api, CurrentSpace, GroupSummary, Me, Naviga
 use crate::outbox::Drafts;
 use crate::runtime::{follow_space, network, Live};
 use crate::ui::agent_panel::{AgentInfo, AgentPanel, PanelPerformance};
+use crate::ui::corner::Corner;
 use crate::ui::inbox::Inbox;
 use crate::ui::message_search::MessageSearch;
-use crate::ui::corner::Corner;
 use crate::ui::motion::Tints;
 use crate::ui::store::Store;
 use crate::ui::workspace::Workspace;
@@ -217,7 +217,8 @@ impl Desktop {
             }),
         ];
         subscriptions.extend(keyboard::shortcuts(window, cx));
-        for input in [&sign_in.email, &sign_in.password, &sign_in.code, &sign_in.name, &sign_in.server, &sign_in.invite] {
+        for input in [&sign_in.email, &sign_in.password, &sign_in.code, &sign_in.name, &sign_in.server, &sign_in.invite]
+        {
             subscriptions.push(cx.subscribe_in(input, window, |this, _, event: &InputEvent, window, cx| {
                 if let InputEvent::PressEnter { .. } = event {
                     this.submit_sign_in(window, cx);
@@ -347,7 +348,9 @@ impl Desktop {
     /// The name on the open conversation, whichever kind it is.
     pub fn target_name(&self, target: &Target) -> String {
         match target {
-            Target::Agent(id) | Target::Conversation { agent: id, .. } => self.agent(id).map(|agent| agent.name.clone()),
+            Target::Agent(id) | Target::Conversation { agent: id, .. } => {
+                self.agent(id).map(|agent| agent.name.clone())
+            }
             Target::Group(id) => self.groups().iter().find(|group| &group.id == id).map(|group| group.name.clone()),
         }
         .unwrap_or_default()
@@ -950,9 +953,7 @@ fn web_app_url(server: &str, open: Option<&Target>) -> String {
     let conversation = match open {
         Some(Target::Agent(id)) => format!("/{id}"),
         Some(Target::Conversation { agent, thread }) => {
-            let query = url::form_urlencoded::Serializer::new(String::new())
-                .append_pair("threadId", thread)
-                .finish();
+            let query = url::form_urlencoded::Serializer::new(String::new()).append_pair("threadId", thread).finish();
             format!("/{agent}?{query}")
         }
         Some(Target::Group(id)) => format!("/g/{id}"),

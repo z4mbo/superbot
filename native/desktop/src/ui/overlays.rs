@@ -39,9 +39,7 @@ pub(super) fn menu_enter(
 ) -> AnyElement {
     match menu_animation(cx.reduce_motion()) {
         Some(animation) => sheet
-            .with_animation(id, animation, move |sheet, progress| {
-                translate(sheet.opacity(progress), 1. - progress)
-            })
+            .with_animation(id, animation, move |sheet, progress| translate(sheet.opacity(progress), 1. - progress))
             .into_any_element(),
         None => translate(sheet, 0.).into_any_element(),
     }
@@ -127,15 +125,10 @@ impl Desktop {
                     item("rename", "pencil", "Rename…", move |this, window, cx| {
                         this.open_dialog(DialogKind::RenameAgent(rename.clone()), window, cx)
                     }),
-                    item(
-                        "new-conversation",
-                        "plus",
-                        "New conversation",
-                        move |this, window, cx| {
-                            this.open_agent_chat(&conversation, window, cx);
-                            this.new_conversation(window, cx);
-                        },
-                    ),
+                    item("new-conversation", "plus", "New conversation", move |this, window, cx| {
+                        this.open_agent_chat(&conversation, window, cx);
+                        this.new_conversation(window, cx);
+                    }),
                     item("open-details", "settings", "Open details", move |this, window, cx| {
                         this.open_agent_chat(&details, window, cx);
                         this.open_agent_details(window, cx);
@@ -209,15 +202,14 @@ impl Desktop {
                             .child(icon(glyph, px(16.), if danger { theme.danger } else { theme.ink_secondary }))
                             .child(div().flex_1().min_w_0().when(!wrap_name, |name| name.truncate()).child(label))
                             .when(chosen, |row| row.child(icon("check", px(14.), theme.ink_secondary)));
-                        focus::decorate(button).fill(Pointer::MENU, Colors::ink(&theme, 0., 0.06, 0.08))
+                        focus::decorate(button)
+                            .fill(Pointer::MENU, Colors::ink(&theme, 0., 0.06, 0.08))
                             .into_any_element()
                     }
                 }
             }));
 
-        let sheet = menu_enter(entry, sheet, cx, move |sheet, remaining| {
-            sheet.relative().top(px(dy * remaining))
-        });
+        let sheet = menu_enter(entry, sheet, cx, move |sheet, remaining| sheet.relative().top(px(dy * remaining)));
         Some(
             div()
                 .id("menu-backdrop")
@@ -266,14 +258,9 @@ impl Desktop {
                 this.dismiss(window, cx);
             },
         ));
-        let submit = pill_button(
-            "dialog-submit",
-            if dialog.busy { working } else { action },
-            Tone::Primary,
-            enabled,
-            &theme,
-        )
-        .on_click(cx.listener(|this, _, window, cx| this.submit_dialog(window, cx)));
+        let submit =
+            pill_button("dialog-submit", if dialog.busy { working } else { action }, Tone::Primary, enabled, &theme)
+                .on_click(cx.listener(|this, _, window, cx| this.submit_dialog(window, cx)));
         Some(
             div()
                 .id("dialog-scrim")
@@ -407,7 +394,10 @@ pub fn caption_buttons(window: &Window, theme: &Theme) -> Div {
             });
         focus::control(button, Ring::Inner(px(0.)), theme).tint(Pointer::BUTTON, move |button, levels| {
             button.bg(fills.sample(levels)).child(
-                svg().path(SharedString::from(format!("icons/{glyph}.svg"))).size(px(16.)).text_color(glyphs.sample(levels)),
+                svg()
+                    .path(SharedString::from(format!("icons/{glyph}.svg")))
+                    .size(px(16.))
+                    .text_color(glyphs.sample(levels)),
             )
         })
     };

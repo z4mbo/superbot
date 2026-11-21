@@ -57,10 +57,7 @@ impl Desktop {
             Some(ComputerView::Ready(status)) => {
                 let face = |opacity: f32| {
                     let presence = crate::ui::face_state(self.agent(avatar.id), self.avatar_asleep(avatar.id), false);
-                    let slot = crate::ui::AvatarSlot {
-                        presence,
-                        ..Default::default()
-                    };
+                    let slot = crate::ui::AvatarSlot { presence, ..Default::default() };
                     div()
                         .opacity(opacity)
                         .child(crate::ui::bot_avatar_with(avatar, px(44.), false, slot, theme, cx))

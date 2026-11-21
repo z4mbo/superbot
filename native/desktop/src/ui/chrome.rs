@@ -36,10 +36,7 @@ fn indicator_frame(
     let mut position = previous.unwrap_or_else(|| motion::Tween::at_rest(key, now));
     let span = motion::duration(motion::SLIDE, reduced_motion);
     let interpolate = |(left, width), (next_left, next_width), progress| {
-        (
-            left + (next_left - left) * progress,
-            width + (next_width - width) * progress,
-        )
+        (left + (next_left - left) * progress, width + (next_width - width) * progress)
     };
     position.aim(key, now, span, motion::EMPHASIS, interpolate);
     let drawn = position.sample(now, motion::EMPHASIS, interpolate);
@@ -193,11 +190,9 @@ impl Render for Desktop {
                 let agent_layout = self.agent_panel_layout(window, cx);
                 panel_draw_started = agent_layout.as_ref().and_then(|layout| layout.measure_from);
                 let main = match self.view {
-                    View::Chat => self.render_chat(
-                        agent_layout.as_ref().map_or(px(0.), |layout| layout.occupied),
-                        window,
-                        cx,
-                    ),
+                    View::Chat => {
+                        self.render_chat(agent_layout.as_ref().map_or(px(0.), |layout| layout.occupied), window, cx)
+                    }
                     View::Store => self.render_store(window, cx),
                     View::Workspace => self.render_workspace(window, cx),
                 };

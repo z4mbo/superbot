@@ -544,7 +544,13 @@ impl Desktop {
             return empty_line(line, theme).pt_2().into_any_element();
         }
         let registry = registry.map(|list| {
-            div().flex().flex_col().gap_1().child(div().section().pb_1().child("Community")).child(list).into_any_element()
+            div()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .child(div().section().pb_1().child("Community"))
+                .child(list)
+                .into_any_element()
         });
         div().flex().flex_col().gap_6().children(registry).children(packages).into_any_element()
     }
@@ -580,12 +586,12 @@ impl Desktop {
         let columns = if window.viewport_size().width > px(1180.) { 2 } else { 1 };
         Some(
             div()
-            .grid()
-            .grid_cols(columns)
-            .gap_x_4()
-            .gap_y_1()
-            .children(shown.into_iter().map(|version| self.render_card(version, theme, cx)))
-            .into_any_element(),
+                .grid()
+                .grid_cols(columns)
+                .gap_x_4()
+                .gap_y_1()
+                .children(shown.into_iter().map(|version| self.render_card(version, theme, cx)))
+                .into_any_element(),
         )
     }
 

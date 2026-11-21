@@ -1,4 +1,4 @@
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use superbot_client::Client;
 use superbot_features::{
     ApprovalEffect, ApprovalMatch, BotSettings, Features, MessageAnchor, MessagePageOptions,
@@ -331,15 +331,13 @@ async fn invite_creation_uses_named_space_and_omits_email_for_shareable_links() 
         json!({"url": "https://example.test/invite/token", "expiresAt": "2026-01-02T00:00:00Z"}),
     )
     .await;
-    assert!(
-        features
-            .space("team")
-            .create_invite(None)
-            .await
-            .unwrap()
-            .emailed
-            .is_none()
-    );
+    assert!(features
+        .space("team")
+        .create_invite(None)
+        .await
+        .unwrap()
+        .emailed
+        .is_none());
     server.await.unwrap();
 }
 
@@ -353,14 +351,12 @@ async fn runs_filter_decodes_activity_envelope() {
         json!({"runs": []}),
     )
     .await;
-    assert!(
-        features
-            .space("team")
-            .list_runs(superbot_features::RunFilter::Active)
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    assert!(features
+        .space("team")
+        .list_runs(superbot_features::RunFilter::Active)
+        .await
+        .unwrap()
+        .is_empty());
     server.await.unwrap();
 }
 
@@ -415,14 +411,12 @@ async fn rejected_session_keeps_client_error_classification() {
         json!({"code": "UNAUTHORIZED", "status": 401, "message": "Session expired"}),
     )
     .await;
-    assert!(
-        features
-            .space("team")
-            .list_groups()
-            .await
-            .unwrap_err()
-            .is_unauthorized()
-    );
+    assert!(features
+        .space("team")
+        .list_groups()
+        .await
+        .unwrap_err()
+        .is_unauthorized());
     server.await.unwrap();
 }
 
@@ -669,7 +663,14 @@ async fn taught_and_space_skills_round_trip_their_contracts() {
         json!({"runId": "run"}),
     )
     .await;
-    assert_eq!(features.space("team").try_taught_skill("taught").await.unwrap(), "run");
+    assert_eq!(
+        features
+            .space("team")
+            .try_taught_skill("taught")
+            .await
+            .unwrap(),
+        "run"
+    );
     server.await.unwrap();
 
     let (features, server) = fixture(
@@ -684,7 +685,10 @@ async fn taught_and_space_skills_round_trip_their_contracts() {
     )
     .await;
     let shared = features.space("team").agent_skills().await.unwrap();
-    assert_eq!(shared[0].source, superbot_features::AgentSkillSource::Builtin);
+    assert_eq!(
+        shared[0].source,
+        superbot_features::AgentSkillSource::Builtin
+    );
     assert!(shared[0].read_only);
     server.await.unwrap();
 
@@ -736,13 +740,19 @@ async fn search_hits_name_the_conversation_each_one_is_in() {
     assert_eq!(
         targets,
         [
-            Some(ConversationTarget::Bot { bot_id: "bot".into() }),
+            Some(ConversationTarget::Bot {
+                bot_id: "bot".into()
+            }),
             Some(ConversationTarget::BotConversation {
                 bot_id: "bot".into(),
                 thread_id: "thread".into()
             }),
-            Some(ConversationTarget::Group { group_id: "group".into() }),
-            Some(ConversationTarget::Bot { bot_id: "bot".into() }),
+            Some(ConversationTarget::Group {
+                group_id: "group".into()
+            }),
+            Some(ConversationTarget::Bot {
+                bot_id: "bot".into()
+            }),
         ]
     );
     assert_eq!(hits[2].kind, SearchHitKind::Link);

@@ -30,15 +30,15 @@ mod parts;
 mod provider;
 mod screen;
 mod settings;
-mod terminal;
 mod skills;
+mod terminal;
 mod transition;
 mod view;
 
+pub(crate) use parts::round_button;
 use parts::*;
 use transition::PanelLayout;
 pub(crate) use transition::PanelPerformance;
-pub(crate) use parts::round_button;
 
 const PANEL_WIDTH: Pixels = px(400.);
 
@@ -103,7 +103,12 @@ impl AgentInfo {
 
     /// The levels `provider`/`model_id` can think at: its connection's when it runs on one, else
     /// the catalog's. Empty when the model takes no setting or the models are not read yet.
-    pub(crate) fn thinking_levels(&self, provider: &str, model_id: &str, credential: Option<&str>) -> Vec<ThinkingLevel> {
+    pub(crate) fn thinking_levels(
+        &self,
+        provider: &str,
+        model_id: &str,
+        credential: Option<&str>,
+    ) -> Vec<ThinkingLevel> {
         let Some(models) = self.models.as_ref() else { return Vec::new() };
         credential
             .and_then(|id| models.connections.iter().find(|connection| connection.id == id))
@@ -265,9 +270,7 @@ fn chat_agent(desktop: &Desktop) -> Option<String> {
 
 impl Desktop {
     pub(crate) fn chat_model_label(&self, id: &str) -> Option<String> {
-        self.local_model_for(id)
-            .map(|model| model.label.clone())
-            .or_else(|| self.agent_info.model_label(id))
+        self.local_model_for(id).map(|model| model.label.clone()).or_else(|| self.agent_info.model_label(id))
     }
 
     fn features(&self) -> Option<(Features, String)> {

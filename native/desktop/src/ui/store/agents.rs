@@ -29,7 +29,12 @@ impl Desktop {
         self.pick_template(template, window, cx);
     }
 
-    pub(super) fn render_store_agents(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_store_agents(
+        &mut self,
+        theme: &Theme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let templates = match &self.store.templates {
             None => return empty_line("Loading agents…", theme).pt_2().into_any_element(),
             Some(Err(problem)) => {
@@ -50,11 +55,16 @@ impl Desktop {
         let query = self.store.query.read(cx).value().to_string();
         let shown: Vec<Template> = templates.into_iter().filter(|template| template.matches(&query)).collect();
         if shown.is_empty() {
-            let line = if query.trim().is_empty() { "This server offers no ready-made agents yet." } else { "No agent matches that search." };
+            let line = if query.trim().is_empty() {
+                "This server offers no ready-made agents yet."
+            } else {
+                "No agent matches that search."
+            };
             return empty_line(line, theme).pt_2().into_any_element();
         }
         let columns = if window.viewport_size().width > px(1180.) { 2 } else { 1 };
-        let cards: Vec<AnyElement> = shown.into_iter().map(|template| self.template_card(template, theme, cx)).collect();
+        let cards: Vec<AnyElement> =
+            shown.into_iter().map(|template| self.template_card(template, theme, cx)).collect();
         div().grid().grid_cols(columns).gap_x_4().gap_y_1().children(cards).into_any_element()
     }
 

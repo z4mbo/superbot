@@ -95,10 +95,7 @@ impl Desktop {
     }
 
     pub fn tile_preview_shown(&self, agent: &str) -> bool {
-        self.tile_preview
-            .shown
-            .as_ref()
-            .is_some_and(|(shown, _)| shown == agent)
+        self.tile_preview.shown.as_ref().is_some_and(|(shown, _)| shown == agent)
     }
 }
 

@@ -31,17 +31,10 @@ pub(super) fn floating_shadow(theme: &Theme) -> Vec<BoxShadow> {
     let mut shadows = vec![
         shadow(0.05, 2., 8., -1.),
         shadow(0.03, 1., 2., 0.),
-        BoxShadow {
-            color: rgba(0xe4e4e40a).into(),
-            ..shadow(0., 0., 0., 1.)
-        },
+        BoxShadow { color: rgba(0xe4e4e40a).into(), ..shadow(0., 0., 0., 1.) },
     ];
     if theme.is_dark() {
-        shadows.push(BoxShadow {
-            color: hsla(0., 0., 1., 0.04),
-            inset: true,
-            ..shadow(0., 1., 0., 0.)
-        });
+        shadows.push(BoxShadow { color: hsla(0., 0., 1., 0.04), inset: true, ..shadow(0., 1., 0., 0.) });
     }
     shadows
 }
@@ -121,10 +114,7 @@ fn send_paint(empty: Hsla, full: (Hsla, Hsla), ready: f32) -> (Hsla, Hsla) {
     if ready == 1. {
         return full;
     }
-    let levels = Levels {
-        hover: ready,
-        press: 0.,
-    };
+    let levels = Levels { hover: ready, press: 0. };
     let between = |rest, active| Colors::new(rest, active, active).sample(levels);
     (between(quiet.0, full.0), between(quiet.1, full.1))
 }
@@ -163,11 +153,7 @@ impl Desktop {
         let input_width = editor.input_bounds().size.width;
         let map = editor.display_map();
         // Enter can add a buffer row before the kit lays out that row in its wrapped projection.
-        let rows = map.wrap_row_count()
-            + editor
-                .text()
-                .lines_len()
-                .saturating_sub(map.buffer_line_count());
+        let rows = map.wrap_row_count() + editor.text().lines_len().saturating_sub(map.buffer_line_count());
         let wanted_height = editor_height(rows, line, viewport.height);
         let needs_model = local.is_none() && self.me.as_ref().is_some_and(|me| me.needs_model);
         let tone = self.chat_tone(theme, cx);
@@ -219,8 +205,7 @@ impl Desktop {
         });
         if first_layout {
             // Keep the kit's wrapping and internal scroll, and let this view own its visible height.
-            self.composer
-                .update(cx, |editor, cx| editor.set_rows(1, cx));
+            self.composer.update(cx, |editor, cx| editor.set_rows(1, cx));
         }
         let (fill, ink) = if stopping {
             tone.map_or((theme.ink, theme.app), |tone| (tone.fill, tone.fill_ink))
@@ -368,11 +353,7 @@ impl Desktop {
             .px(px(8.))
             .pt(px(6.))
             .pb(px(8.))
-            .rounded(if height > line || tray.is_some() {
-                radius::BUBBLE
-            } else {
-                radius::COMPOSER
-            })
+            .rounded(if height > line || tray.is_some() { radius::BUBBLE } else { radius::COMPOSER })
             .bg(theme.composer)
             .border_1()
             .shadow(floating_shadow(theme))
@@ -526,14 +507,8 @@ mod tests {
             height: Tween::at_rest(px(20.), now),
             ready: Tint::default(),
         };
-        assert_eq!(
-            composer.update_visuals(px(40.), true, false, false, now),
-            (px(20.), 0., true)
-        );
-        assert_eq!(
-            composer.update_visuals(px(40.), true, false, true, now + motion::GROW / 2),
-            (px(40.), 1., false),
-        );
+        assert_eq!(composer.update_visuals(px(40.), true, false, false, now), (px(20.), 0., true));
+        assert_eq!(composer.update_visuals(px(40.), true, false, true, now + motion::GROW / 2), (px(40.), 1., false),);
     }
 
     #[test]

@@ -16,10 +16,7 @@ pub(super) struct History {
 impl History {
     pub(super) fn delay(&self, now: Instant) -> Duration {
         if self.visible.get() > 0
-            || self
-                .closed
-                .get()
-                .is_some_and(|at| now.saturating_duration_since(at) < TOOLTIP_GRACE)
+            || self.closed.get().is_some_and(|at| now.saturating_duration_since(at) < TOOLTIP_GRACE)
         {
             INSTANT
         } else {
@@ -73,13 +70,7 @@ pub(super) fn when(trigger: Stateful<Div>, title: SharedString, show: impl Fn() 
                     this.update(cx, |_, cx| cx.notify()).ok();
                 })
             });
-            DelayedTooltip {
-                history,
-                show_at: now + delay,
-                visible: None,
-                body,
-                _wake: wake,
-            }
+            DelayedTooltip { history, show_at: now + delay, visible: None, body, _wake: wake }
         })
         .into()
     })
@@ -107,18 +98,14 @@ impl Render for DelayedTooltip {
             return div().into_any_element();
         }
         self.visible.get_or_insert_with(|| self.history.show());
-        div()
-            .child(enter("tooltip-enter", div().child(self.body.clone()), cx))
-            .into_any_element()
+        div().child(enter("tooltip-enter", div().child(self.body.clone()), cx)).into_any_element()
     }
 }
 
 pub(super) fn enter(id: impl Into<ElementId>, tip: Div, cx: &App) -> AnyElement {
     if let Some(fade) = entry_animation(cx.reduce_motion()) {
-        tip.with_animation(id, fade, |tip, progress| {
-            tip.relative().top(px(2. * (1. - progress))).opacity(progress)
-        })
-        .into_any_element()
+        tip.with_animation(id, fade, |tip, progress| tip.relative().top(px(2. * (1. - progress))).opacity(progress))
+            .into_any_element()
     } else {
         tip.into_any_element()
     }

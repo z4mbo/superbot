@@ -233,8 +233,11 @@ impl SpaceFeatures<'_> {
 
     /// The screen to show: interactive while this account holds control, view only otherwise.
     pub async fn computer_screen(&self, bot_id: &str) -> Result<ComputerScreen, Error> {
-        self.call("computer/screenUrl", json!({ "botId": bot_id, "nativeSession": true }))
-            .await
+        self.call(
+            "computer/screenUrl",
+            json!({ "botId": bot_id, "nativeSession": true }),
+        )
+        .await
     }
 
     /// The terminal of a running computer, for the account holding control; `url` is None when
