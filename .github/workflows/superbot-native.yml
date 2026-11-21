@@ -42,7 +42,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Rust
-        run: rustup toolchain install ${{ env.RUSTUP_TOOLCHAIN }} --profile minimal
+        run: rustup toolchain install ${{ env.RUSTUP_TOOLCHAIN }} --profile minimal --component rustfmt
       - name: Install Linux desktop dependencies
         if: runner.os == 'Linux'
         run: |
@@ -61,7 +61,8 @@ jobs:
             ~/.cargo/registry
             target
           key: superbot-cargo-v1-${{ matrix.os }}-${{ runner.arch }}-${{ env.RUSTUP_TOOLCHAIN }}-${{ hashFiles('Cargo.lock') }}
-      # Enable cargo fmt --check once the existing formatting differences in native/desktop are fixed.
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
       - name: Build the workspace
         if: runner.os == 'Linux'
         run: cargo build --locked --workspace
