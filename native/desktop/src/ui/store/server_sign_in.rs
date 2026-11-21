@@ -92,7 +92,13 @@ impl Desktop {
         cx.notify();
     }
 
-    pub(super) fn sign_in_again(&mut self, subject: Subject, server_id: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn sign_in_again(
+        &mut self,
+        subject: Subject,
+        server_id: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         self.store.presets.problem = None;
         self.store.presets.busy = Some(subject.key.clone());
@@ -106,7 +112,13 @@ impl Desktop {
         });
     }
 
-    pub(super) fn sign_in_refused(&mut self, subject: &Subject, error: Error, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn sign_in_refused(
+        &mut self,
+        subject: &Subject,
+        error: Error,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let needs_client = matches!(&error, Error::Server { code: Some(code), .. } if code == OAUTH_CLIENT_REQUIRED);
         if !needs_client {
             self.fail_connection(&subject.key, api::explain(&error), cx);
@@ -116,7 +128,13 @@ impl Desktop {
         self.load_presets(window, cx);
     }
 
-    pub(super) fn signed_in_or_open(&mut self, subject: Subject, start: SignInStart, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn signed_in_or_open(
+        &mut self,
+        subject: Subject,
+        start: SignInStart,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         match start {
             SignInStart::Open { session_id, authorization_url } => {
                 self.open_sign_in(subject, session_id, authorization_url, window, cx)
@@ -208,7 +226,9 @@ impl Desktop {
                 let (api, space_id) = (api.clone(), space_id.clone());
                 let servers = crate::runtime::network(async move { api.mcp_servers(&space_id).await }).await;
                 let signed_in = servers.is_ok_and(|servers| {
-                    servers.iter().any(|server| server.oauth_status == OAuthStatus::Connected && subject.matches(server))
+                    servers
+                        .iter()
+                        .any(|server| server.oauth_status == OAuthStatus::Connected && subject.matches(server))
                 });
                 if signed_in {
                     this.update_in(cx, |this, window, cx| {
@@ -224,7 +244,8 @@ impl Desktop {
             this.update_in(cx, |this, window, cx| {
                 if this.store.presets.signing_in(attempt) {
                     this.store.presets.sign_in = None;
-                    let line = format!("Still waiting for {}. Finish signing in, then open Connections again.", subject.name);
+                    let line =
+                        format!("Still waiting for {}. Finish signing in, then open Connections again.", subject.name);
                     this.fail_connection(&subject.key, line, cx);
                     this.load_presets(window, cx);
                 }
@@ -244,7 +265,8 @@ impl Desktop {
     fn recheck(&mut self, subject: Subject, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         let Some(Ok(sources)) = &self.store.presets.sources else { return };
-        let Some(server_id) = sources.servers.iter().find(|server| subject.matches(server)).map(|server| server.id.clone())
+        let Some(server_id) =
+            sources.servers.iter().find(|server| subject.matches(server)).map(|server| server.id.clone())
         else {
             self.load_presets(window, cx);
             return;
@@ -256,7 +278,8 @@ impl Desktop {
             match result {
                 Ok(server) if server.state() == ServerState::Connected => this.connected_now(&subject, window, cx),
                 Ok(server) => {
-                    let problem = server.health.message.unwrap_or_else(|| format!("{} isn't answering yet.", subject.name));
+                    let problem =
+                        server.health.message.unwrap_or_else(|| format!("{} isn't answering yet.", subject.name));
                     this.fail_connection(&subject.key, problem, cx);
                     this.load_presets(window, cx);
                 }
@@ -268,7 +291,14 @@ impl Desktop {
         });
     }
 
-    fn finish_sign_in(&mut self, subject: Subject, session_id: String, code: String, window: &mut Window, cx: &mut Context<Self>) {
+    fn finish_sign_in(
+        &mut self,
+        subject: Subject,
+        session_id: String,
+        code: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         self.store.presets.busy = Some(subject.key.clone());
         let work = async move { api.complete_mcp_sign_in(&space_id, &session_id, &code).await };
@@ -285,7 +315,13 @@ impl Desktop {
     }
 
     /// Asks for the client the person registered with the server's authorization server.
-    pub(super) fn open_client_form(&mut self, subject: Subject, server_id: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_client_form(
+        &mut self,
+        subject: Subject,
+        server_id: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let client_id = cx.new(|cx| InputState::new(window, cx).placeholder("Client ID"));
         let secret = cx.new(|cx| InputState::new(window, cx).masked(true).placeholder("Client secret (optional)"));
         self.store.presets.problem = None;
@@ -320,7 +356,15 @@ impl Desktop {
         });
     }
 
-    fn set_agents(&mut self, key: String, server_id: String, all: bool, bot_ids: Vec<String>, window: &mut Window, cx: &mut Context<Self>) {
+    fn set_agents(
+        &mut self,
+        key: String,
+        server_id: String,
+        all: bool,
+        bot_ids: Vec<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
         self.store.presets.busy = Some(key.clone());
         let work = async move { api.set_mcp_agents(&space_id, &server_id, all, &bot_ids).await };
@@ -334,12 +378,21 @@ impl Desktop {
     }
 
     /// Which agents may use `server`: every one, or those chosen. Changes are kept under `key`.
-    pub(super) fn render_server_agents(&mut self, key: &str, server: &McpServer, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_server_agents(
+        &mut self,
+        key: &str,
+        server: &McpServer,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let everyone = server.all_bots == Some(true);
         let assigned: Vec<String> = match &self.store.presets.sources {
-            Some(Ok(sources)) => {
-                sources.assignments.iter().filter(|row| row.server_id == server.id).map(|row| row.bot_id.clone()).collect()
-            }
+            Some(Ok(sources)) => sources
+                .assignments
+                .iter()
+                .filter(|row| row.server_id == server.id)
+                .map(|row| row.bot_id.clone())
+                .collect(),
             _ => Vec::new(),
         };
         let agents = self.agents().to_vec();

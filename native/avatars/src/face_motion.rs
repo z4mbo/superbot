@@ -267,14 +267,12 @@ impl RenderOnce for Face {
                     let motion = window.use_keyed_state("face-motion", cx, |window, cx| {
                         let mut motion = FaceMotion::new(now, timing, status);
                         if let Some(key) = watch.clone() {
-                            motion._activation = Some(cx.observe_window_activation(
-                                window,
-                                |motion: &mut FaceMotion, window, _| {
+                            motion._activation =
+                                Some(cx.observe_window_activation(window, |motion: &mut FaceMotion, window, _| {
                                     if !window.is_window_active() {
                                         motion.release_input();
                                     }
-                                },
-                            ));
+                                }));
                             let id = cx.entity_id();
                             cx.on_release(move |_, cx| {
                                 let owns_watch = cx
@@ -393,19 +391,11 @@ mod tests {
             state: Duration::from_millis(240),
             ease_in: linear,
         };
-        let press = Press {
-            at,
-            from: 0.,
-            down: true,
-        };
+        let press = Press { at, from: 0., down: true };
         assert_eq!(PRESS, Duration::from_millis(70));
         assert!(press.sample(at + PRESS - Duration::from_millis(1), timing).1);
         assert_eq!(press.sample(at + PRESS, timing), (1., false));
-        let release = Press {
-            at,
-            from: 1.,
-            down: false,
-        };
+        let release = Press { at, from: 1., down: false };
         assert!(release.sample(at + timing.settle - Duration::from_millis(1), timing).1);
         assert_eq!(release.sample(at + timing.settle, timing), (0., false));
     }

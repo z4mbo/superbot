@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use clap::Subcommand;
 use serde_json::json;
 use superbot_client::{Client, CredentialStore, Space};

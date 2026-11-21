@@ -8,8 +8,8 @@ use crate::app::{conversation::FileState, Desktop};
 use crate::files;
 use crate::theme::{radius, Theme};
 use crate::transcript::{Entry, FileRef};
-use crate::ui::motion::{Colors, Pointer};
 use crate::ui::focus::{self, Ring};
+use crate::ui::motion::{Colors, Pointer};
 use crate::ui::{icon, Type};
 
 pub(super) fn row_id(row: usize, entry: Option<&Entry>) -> ElementId {
@@ -26,11 +26,7 @@ pub(super) fn row_id(row: usize, entry: Option<&Entry>) -> ElementId {
 }
 
 fn card_id(file: &FileRef, occurrence: usize) -> ElementId {
-    (
-        SharedString::from(format!("attachment:{}", file.artifact_id)),
-        occurrence,
-    )
-        .into()
+    (SharedString::from(format!("attachment:{}", file.artifact_id)), occurrence).into()
 }
 
 fn file_action<V: 'static>(
@@ -149,27 +145,15 @@ mod tests {
 
     impl Render for History {
         fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-            list(
-                self.list.clone(),
-                cx.processor(|history, index, _, cx| history.row(index, cx)),
-            )
-            .size_full()
+            list(self.list.clone(), cx.processor(|history, index, _, cx| history.row(index, cx))).size_full()
         }
     }
 
     impl History {
         fn row(&self, index: usize, cx: &mut Context<Self>) -> AnyElement {
-            let theme = Theme::of(
-                Skin::Midnight,
-                &Fonts {
-                    sans: "sans-serif".into(),
-                    mono: "monospace".into(),
-                },
-            );
+            let theme = Theme::of(Skin::Midnight, &Fonts { sans: "sans-serif".into(), mono: "monospace".into() });
             let entry = &self.entries[index];
-            let Part::File(file) = &entry.parts[0] else {
-                unreachable!()
-            };
+            let Part::File(file) = &entry.parts[0] else { unreachable!() };
             div()
                 .id(row_id(index + 1, Some(entry)))
                 .child(div().id(card_id(file, 0)).child(file_action(
@@ -248,11 +232,7 @@ mod tests {
                     window.dispatch_event(PlatformInput::KeyUp(KeyUpEvent { keystroke: key }), cx);
                 })
                 .unwrap();
-            window
-                .update(cx, |history, _, _| {
-                    assert_eq!(history.saved.as_deref(), Some("artifact-latest"))
-                })
-                .unwrap();
+            window.update(cx, |history, _, _| assert_eq!(history.saved.as_deref(), Some("artifact-latest"))).unwrap();
         });
     }
 }

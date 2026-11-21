@@ -201,7 +201,9 @@ impl Desktop {
         let presets = self.render_preset_section(theme, cx);
         let presets = match (presets, self.render_marketplace_section(super::marketplace::Shelf::Apps, theme, cx)) {
             (None, None) => None,
-            (presets, market) => Some(div().flex().flex_col().gap_6().children(presets).children(market).into_any_element()),
+            (presets, market) => {
+                Some(div().flex().flex_col().gap_6().children(presets).children(market).into_any_element())
+            }
         };
         let services = match &self.store.services {
             None => {
@@ -215,13 +217,8 @@ impl Desktop {
                     .into_any_element();
             }
             Some(Err(problem)) => {
-                let problem = div()
-                    .flex()
-                    .flex_col()
-                    .items_start()
-                    .gap_3()
-                    .child(error_line(problem.clone(), theme))
-                    .child(
+                let problem =
+                    div().flex().flex_col().items_start().gap_3().child(error_line(problem.clone(), theme)).child(
                         pill_button("services-retry", "Try again", Tone::Quiet, true, theme)
                             .on_click(cx.listener(|this, _, window, cx| this.load_services(window, cx))),
                     );

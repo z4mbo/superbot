@@ -13,15 +13,15 @@ use wry::{NewWindowResponse, Rect, WebView, WebViewBuilder};
 
 use super::engine::{self, Host, Missing, Profile};
 use super::policy::{self, Navigate, Popup};
+#[cfg(not(target_os = "macos"))]
+use crate::theme::CAPTION_WIDTH;
 #[cfg(target_os = "macos")]
 use crate::theme::TRAFFIC_LIGHTS;
 use crate::theme::{ActiveTheme, Skin, Theme, CAPTION_HEIGHT};
 #[cfg(not(target_os = "macos"))]
-use crate::theme::CAPTION_WIDTH;
+use crate::ui::overlays::caption_buttons;
 #[cfg(target_os = "macos")]
 use crate::ui::traffic_lights_reserve;
-#[cfg(not(target_os = "macos"))]
-use crate::ui::overlays::caption_buttons;
 use crate::ui::{drag_region, icon, pill_button, Tone, Type};
 
 const TITLE: &str = "Superbot workspace";
@@ -241,8 +241,7 @@ impl WebWorkspace {
         let bar = bar.pl(traffic_lights_reserve(window).max(px(8.))).pr_3();
         #[cfg(not(target_os = "macos"))]
         let bar = bar.pl_4().pr(CAPTION_WIDTH + px(8.));
-        bar
-            .flex()
+        bar.flex()
             .items_center()
             .gap_1()
             .border_b_1()

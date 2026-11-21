@@ -85,17 +85,11 @@ impl Desktop {
             String::new()
         };
         let enabled = !switch.busy;
-        let cancel = pill_button(
-            "version-switch-cancel",
-            "Keep current version",
-            Tone::Quiet,
-            enabled,
-            &theme,
-        )
-        .on_click(cx.listener(|this, _, _, cx| {
-            this.store.cancel_version_switch();
-            cx.notify();
-        }));
+        let cancel = pill_button("version-switch-cancel", "Keep current version", Tone::Quiet, enabled, &theme)
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.store.cancel_version_switch();
+                cx.notify();
+            }));
         let submit = pill_button(
             "version-switch-confirm",
             if switch.busy { "Switching…" } else { "Switch version" },

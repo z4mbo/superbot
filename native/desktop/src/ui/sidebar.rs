@@ -48,14 +48,14 @@ impl Desktop {
         if pinned.is_empty() {
             self.forget_tile_preview();
         }
-        let card = primary.map(|agent| {
-            div().pt_2().child(self.render_primary_card(agent, open.as_ref(), &theme, window, cx))
-        });
-        let tiles = (!pinned.is_empty()).then(|| {
-            div().flex().flex_wrap().justify_center().gap_1().pt_2().pb_4().children(
-                pinned.into_iter().map(|agent| self.render_tile(agent, open.as_ref(), &theme, window, cx)),
-            )
-        });
+        let card =
+            primary.map(|agent| div().pt_2().child(self.render_primary_card(agent, open.as_ref(), &theme, window, cx)));
+        let tiles =
+            (!pinned.is_empty()).then(|| {
+                div().flex().flex_wrap().justify_center().gap_1().pt_2().pb_4().children(
+                    pinned.into_iter().map(|agent| self.render_tile(agent, open.as_ref(), &theme, window, cx)),
+                )
+            });
         let rows = div()
             .flex()
             .flex_col()
@@ -475,11 +475,14 @@ impl Desktop {
                     .items_center()
                     .justify_center()
                     .cursor_pointer()
-                    .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                        window.prevent_default();
-                        cx.stop_propagation();
-                        this.open_menu(MenuKind::Agent(more_menu.clone()), event.position, window, cx);
-                    }))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                            window.prevent_default();
+                            cx.stop_propagation();
+                            this.open_menu(MenuKind::Agent(more_menu.clone()), event.position, window, cx);
+                        }),
+                    )
                     .child(icon("ellipsis", px(14.), theme.ink_secondary)),
             )
             .into_any_element()

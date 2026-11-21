@@ -356,7 +356,8 @@ impl Desktop {
         let Some(panel) = self.assist_panel() else { return };
         let request = panel.request.read(cx).value().trim().to_owned();
         let Some(chosen) = panel.chosen.as_mut().filter(|chosen| chosen.asking.is_none()) else { return };
-        let saving = chosen.asked.as_ref().and_then(|asked| asked.addition.as_ref()).is_some_and(|add| add.save == Save::Saving);
+        let saving =
+            chosen.asked.as_ref().and_then(|asked| asked.addition.as_ref()).is_some_and(|add| add.save == Save::Saving);
         if request.is_empty() || saving {
             return;
         }
@@ -442,9 +443,7 @@ impl Desktop {
                     addition.save = Save::Added;
                     this.load_app_context(false, window, cx);
                 }
-                Err(error) if revoked(&error) => {
-                    addition.save = Save::Failed(WITHDRAWN.into())
-                }
+                Err(error) if revoked(&error) => addition.save = Save::Failed(WITHDRAWN.into()),
                 Err(error) => addition.save = Save::Failed(api::explain(&error)),
             }
         });

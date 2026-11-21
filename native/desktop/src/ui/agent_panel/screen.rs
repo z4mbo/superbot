@@ -83,11 +83,7 @@ impl Desktop {
 
     pub(super) fn open_screen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(owner) = self.features() else { return };
-        let Some(panel) = self
-            .agent_panel
-            .as_mut()
-            .filter(|panel| panel.width.target() == PANEL_WIDTH)
-        else {
+        let Some(panel) = self.agent_panel.as_mut().filter(|panel| panel.width.target() == PANEL_WIDTH) else {
             return;
         };
         let serial = SESSIONS.fetch_add(1, Ordering::Relaxed);
@@ -440,9 +436,7 @@ mod tests {
         let client = superbot_client::Client::new(&origin).unwrap().with_token("test.signature").unwrap();
         let owner = (super::Features::new(client), "space-a".into());
         let controls = crate::control::Controls::default();
-        let granted = super::ControlLease::acquire(&controls, owner.clone(), "bot-a".into())
-            .await
-            .unwrap();
+        let granted = super::ControlLease::acquire(&controls, owner.clone(), "bot-a".into()).await.unwrap();
         let at = super::Instant::now();
         let mut panel = super::AgentPanel::new(
             "bot-a".into(),

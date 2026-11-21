@@ -589,7 +589,9 @@ impl WorkspacePanel {
                 .flex_shrink_0()
                 .gap_1()
                 .px_3()
-                .when(self.caption_width > px(0.), |bar| bar.pr(self.caption_width + px(16.)))
+                .when(self.caption_width > px(0.), |bar| {
+                    bar.pr(self.caption_width + px(16.))
+                })
                 .py_2()
                 .border_b_1()
                 .border_color(t.edge)
@@ -732,7 +734,10 @@ impl Render for WorkspacePanel {
         };
         let pad = if compact { px(16.) } else { px(32.) };
         #[cfg(target_os = "macos")]
-        let drag_strip = self.window_drag_strip.filter(|_| !compact).map(|strip| strip(window, cx));
+        let drag_strip = self
+            .window_drag_strip
+            .filter(|_| !compact)
+            .map(|strip| strip(window, cx));
 
         div()
             .id("workspace-panel")

@@ -72,19 +72,14 @@ impl ConversationBlink {
             self.seed.truncate(n_start);
             let weak = cx.entity().downgrade();
             self.timer = Some(window.spawn(cx, async move |cx| {
-                cx.background_executor()
-                    .timer(Duration::from_millis(4_500 + roll % 3_500))
-                    .await;
+                cx.background_executor().timer(Duration::from_millis(4_500 + roll % 3_500)).await;
                 let Some(state) = weak.upgrade() else { return };
                 let _ = cx.update(|window, cx| {
                     state.update(cx, |state, cx| {
                         state.timer = None;
                         if window.is_visible() && !cx.reduce_motion() {
                             state.pulse += 1;
-                            state.last = Some(Blink {
-                                at: Instant::now(),
-                                twice: roll / 3_500 % 6 == 0,
-                            });
+                            state.last = Some(Blink { at: Instant::now(), twice: roll / 3_500 % 6 == 0 });
                             window.refresh();
                         }
                         state.sync_timer(window.is_visible(), window, cx);

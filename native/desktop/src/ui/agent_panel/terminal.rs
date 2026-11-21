@@ -95,11 +95,7 @@ impl Desktop {
         else {
             return;
         };
-        let Some(panel) = self
-            .agent_panel
-            .as_mut()
-            .filter(|panel| panel.width.target() == PANEL_WIDTH)
-        else {
+        let Some(panel) = self.agent_panel.as_mut().filter(|panel| panel.width.target() == PANEL_WIDTH) else {
             return;
         };
         if panel.terminal.is_some() {

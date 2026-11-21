@@ -34,7 +34,12 @@ impl Desktop {
         }
     }
 
-    pub(super) fn render_store_skills(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_store_skills(
+        &mut self,
+        theme: &Theme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let query = self.store.query.read(cx).value().trim().to_lowercase();
         let matches = |text: &str| query.is_empty() || text.to_lowercase().contains(&query);
 
@@ -89,7 +94,8 @@ impl Desktop {
         };
         let plugins = (!plugins.is_empty()).then(|| {
             let columns = if window.viewport_size().width > px(1180.) { 2 } else { 1 };
-            let cards: Vec<AnyElement> = plugins.into_iter().map(|version| self.render_card(version, theme, cx)).collect();
+            let cards: Vec<AnyElement> =
+                plugins.into_iter().map(|version| self.render_card(version, theme, cx)).collect();
             div()
                 .flex()
                 .flex_col()
@@ -125,13 +131,12 @@ fn skill_row(skill: &AgentSkillEntry, theme: &Theme) -> Div {
                 .child(icon("sparkles", px(15.), theme.ink_secondary)),
         )
         .child(
-            div()
-                .flex_1()
-                .min_w_0()
-                .child(div().name().truncate().child(skill.name.clone()))
-                .when(!skill.description.is_empty(), |cell| {
+            div().flex_1().min_w_0().child(div().name().truncate().child(skill.name.clone())).when(
+                !skill.description.is_empty(),
+                |cell| {
                     cell.child(div().body().text_color(theme.ink_secondary).truncate().child(skill.description.clone()))
-                }),
+                },
+            ),
         )
         .child(div().meta().text_color(theme.ink_tertiary).child(source_label(&skill.source)))
 }
