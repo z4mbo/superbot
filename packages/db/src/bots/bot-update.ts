@@ -107,12 +107,14 @@ export async function commitBotUpdate(
 
 export function botProfileLabelsChanged(input: {
   name?: unknown;
+  label?: unknown;
   description?: unknown;
   color?: unknown;
   avatarSet?: unknown;
 }): boolean {
   return (
     input.name !== undefined ||
+    input.label !== undefined ||
     input.description !== undefined ||
     input.color !== undefined ||
     input.avatarSet !== undefined
