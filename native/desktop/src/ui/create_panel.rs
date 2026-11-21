@@ -74,7 +74,13 @@ pub(super) fn accent_button(
         .text_color(gpui_kit::white())
         .body()
         .font_weight(FontWeight::MEDIUM)
-        .when(enabled, |button| button.cursor_pointer().hover(move |style| style.bg(hover)))
+        .when(enabled, |button| {
+            button
+                .cursor_pointer()
+                .hover(move |style| style.bg(hover))
+                .tab_index(0)
+                .focus_visible(|style| style.border_2().border_color(theme.focus))
+        })
         .when(!enabled, |button| button.opacity(0.4))
         .child(label.into())
 }
@@ -96,18 +102,28 @@ pub(super) fn quiet_button(
         .rounded(radius::FIELD)
         .body()
         .text_color(theme.ink_secondary)
-        .when(enabled, |button| button.cursor_pointer().hover(move |style| style.bg(hover)))
+        .when(enabled, |button| {
+            button
+                .cursor_pointer()
+                .hover(move |style| style.bg(hover))
+                .tab_index(0)
+                .focus_visible(|style| style.border_2().border_color(theme.focus))
+        })
         .when(!enabled, |button| button.opacity(0.5))
         .child(label.into())
 }
 
 pub(super) fn icon_button(id: &'static str, glyph: &'static str, size: Pixels, theme: &Theme) -> Stateful<Div> {
     let hover = theme.raised;
-    div().id(id).p_1p5().rounded(radius::FIELD).cursor_pointer().hover(move |style| style.bg(hover)).child(icon(
-        glyph,
-        size,
-        theme.ink_secondary,
-    ))
+    div()
+        .id(id)
+        .p_1p5()
+        .rounded(radius::FIELD)
+        .cursor_pointer()
+        .hover(move |style| style.bg(hover))
+        .tab_index(0)
+        .focus_visible(|style| style.border_2().border_color(theme.focus))
+        .child(icon(glyph, size, theme.ink_secondary))
 }
 
 impl Desktop {
@@ -174,7 +190,7 @@ impl Desktop {
                 .cursor_pointer()
                 .hover(move |style| style.bg(hover))
                 .on_click(cx.listener(move |this, _, _, cx| this.toggle_pick(id.clone(), cx)))
-                .child(self.roster_avatar(agent.avatar(), px(28.), theme, cx))
+                .child(self.roster_avatar(&agent, px(28.), theme, cx))
                 .child(div().flex_1().min_w_0().truncate().item().text_color(theme.ink).child(agent.name.clone()))
                 .child(mark)
         });

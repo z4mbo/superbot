@@ -149,7 +149,7 @@ impl Desktop {
                     watch: Some(key.clone()),
                     empty_chat: true,
                     looking_down,
-                    presence: face_state(Some(agent), self.avatar_asleep(), false),
+                    presence: face_state(Some(agent), self.avatar_asleep(&agent.id), false),
                     blink: Self::face_blink_scope(&target),
                     ..AvatarSlot::default()
                 };
@@ -215,15 +215,18 @@ impl Desktop {
     }
 
     fn prepare_face_blink(&self, target: &Target, window: &mut Window, cx: &mut App) {
-        if cx.reduce_motion() || self.avatar_asleep() {
+        let Some((scope, id)) = Self::face_blink_scope(target).zip(target.agent()) else {
+            return;
+        };
+        if cx.reduce_motion() || self.avatar_asleep(id) {
             return;
         }
-        let Some((scope, id)) = Self::face_blink_scope(target).zip(target.agent()) else { return };
         let Some(agent) = self.agent(id) else { return };
         if superbot_avatars::look(agent.avatar(), cx).is_some() {
             return;
         }
-        let model = self.selected_local_model()
+        let model = self
+            .local_model_for(id)
             .map(|model| format!("local:{}:{}", model.provider, model.id))
             .or_else(|| {
                 let bot = self.agent_info.bot(id)?;
@@ -398,7 +401,7 @@ impl Desktop {
         if let Some(look) = superbot_avatars::look(agent.avatar(), cx) {
             return Some(Mark::new("presence", look, px(28.), theme.ink).working(true).into_any_element());
         }
-        let presence = face_state(Some(agent), self.avatar_asleep(), true);
+        let presence = face_state(Some(agent), self.avatar_asleep(&agent.id), true);
         Some(bot_avatar_with(agent.avatar(), px(28.), true, AvatarSlot { presence, ..AvatarSlot::default() }, theme, cx))
     }
 
@@ -426,7 +429,7 @@ impl Desktop {
                 let working = live.is_some_and(|chat| chat.working) || agent.is_some_and(AgentSummary::working);
                 let presence = face_state(
                     agent,
-                    self.avatar_asleep(),
+                    self.avatar_asleep(id),
                     working || live.is_some_and(|chat| chat.local_turn.is_some()),
                 );
                 let blink = if watch.is_some() { Self::face_blink_scope(target) } else { None };
@@ -444,7 +447,6 @@ impl Desktop {
                     .map(|group| group.members.iter().take(2).cloned().collect())
                     .unwrap_or_default();
                 let face = size * 0.68;
-                let asleep = self.avatar_asleep();
                 let surface = if watch.is_some() {
                     theme.composer
                 } else if size == px(64.) {
@@ -462,7 +464,7 @@ impl Desktop {
                         let ring = front && superbot_avatars::look(bot, cx).is_none();
                         let agent = self.agent(&member.bot_id);
                         let group_working = agent.is_some_and(|agent| matches!(agent.status.as_str(), "queued" | "leased" | "running"));
-                        let presence = face_state(agent, asleep, group_working);
+                        let presence = face_state(agent, self.avatar_asleep(&member.bot_id), group_working);
                         let slot = AvatarSlot { back_of_stack: !front, presence, ..AvatarSlot::default() };
                         div().absolute().left(offset).top(offset).size(face)
                             .when(ring, |face| {
@@ -479,14 +481,13 @@ impl Desktop {
     fn render_row(&mut self, row: usize, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.skin().clone();
         let Some(chat) = self.chat.as_ref() else { return div().into_any_element() };
-        let marked = row
-            .checked_sub(1)
-            .and_then(|index| chat.entries.get(index))
-            .is_some_and(|entry| chat.reveal.marked.as_deref() == Some(entry.id.as_str()));
+        let entry = row.checked_sub(1).and_then(|index| chat.entries.get(index));
+        let marked = entry.is_some_and(|entry| chat.reveal.marked.as_deref() == Some(entry.id.as_str()));
+        let row_id = file::row_id(row, entry);
         let content = match row.checked_sub(1) {
             // This space scrolls away with the first row while the header floats above the list.
             None => div().pt(HEADER_HEIGHT).child(self.render_head(&theme, cx)).into_any_element(),
-            Some(index) => match chat.entries.get(index) {
+            Some(index) => match entry {
                 Some(entry) => {
                     let place = place(&chat.entries, index, &Local);
                     let phase = chat.motion.arrival(&entry.id, Instant::now());
@@ -503,7 +504,7 @@ impl Desktop {
             },
         };
         div()
-            .id(("row", row))
+            .id(row_id)
             .w_full()
             .flex()
             .justify_center()
@@ -640,7 +641,13 @@ impl Desktop {
                 .justify_center()
                 .child(div().meta().text_color(theme.ink_tertiary).child(text.clone()))
                 .into_any_element(),
-            Part::File(file) => self.render_file(file, (index, part_index), theme, cx),
+            Part::File(file) => {
+                let occurrence = entry.parts[..part_index]
+                    .iter()
+                    .filter(|part| matches!(part, Part::File(other) if other.artifact_id == file.artifact_id))
+                    .count();
+                self.render_file(file, occurrence, theme, cx)
+            }
             Part::Facts(lines) => card(theme)
                 .gap_1()
                 .children(lines.iter().map(|(key, value)| {
@@ -842,6 +849,11 @@ impl Desktop {
             .shadow(theme.float_shadow())
             .occlude()
             .children(list.choices.iter().enumerate().map(|(index, member)| {
+                let presence = face_state(self.agent(&member.bot_id), self.avatar_asleep(&member.bot_id), false);
+                let slot = AvatarSlot {
+                    presence,
+                    ..AvatarSlot::default()
+                };
                 div()
                     .id(("mention", index))
                     .h(px(30.))
@@ -858,7 +870,7 @@ impl Desktop {
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.pick_mention(Some(index), window, cx);
                     }))
-                    .child(self.roster_avatar(member.avatar(), px(20.), theme, cx))
+                    .child(bot_avatar_with(member.avatar(), px(20.), false, slot, theme, cx))
                     .child(div().flex_1().min_w_0().truncate().child(member.name.clone()))
             }))
     }

@@ -88,7 +88,7 @@ impl Desktop {
             TileKey::Open => self.open(Target::Agent(agent.to_owned()), window, cx),
             TileKey::Menu => {
                 let at = self.tile_bounds(agent).get().center();
-                self.open_menu(MenuKind::Agent(agent.to_owned()), at, cx);
+                self.open_menu(MenuKind::Agent(agent.to_owned()), at, window, cx);
             }
         }
         true

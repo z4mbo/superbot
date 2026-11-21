@@ -119,6 +119,7 @@ impl Desktop {
     pub fn open_templates(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search templates"));
         let watch = cx.observe(&search, |_, _, cx| cx.notify());
+        self.begin_modal(window, cx);
         search.update(cx, |input, cx| input.focus(window, cx));
         self.create.panel = Some(Panel::Templates(Templates {
             search,

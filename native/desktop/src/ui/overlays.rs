@@ -202,7 +202,7 @@ impl Desktop {
                             .tab_index(0)
                             .focus_visible(move |style| style.bg(hover))
                             .on_click(cx.listener(move |this, _, window, cx| {
-                                this.menu = None;
+                                this.close_menu(window, cx);
                                 act(this, window, cx);
                                 cx.notify();
                             }))
@@ -226,15 +226,15 @@ impl Desktop {
                 .occlude()
                 .on_mouse_down(
                     MouseButton::Left,
-                    cx.listener(|this, _, _, cx| {
-                        this.menu = None;
+                    cx.listener(|this, _, window, cx| {
+                        this.close_menu(window, cx);
                         cx.notify();
                     }),
                 )
                 .on_mouse_down(
                     MouseButton::Right,
-                    cx.listener(|this, _, _, cx| {
-                        this.menu = None;
+                    cx.listener(|this, _, window, cx| {
+                        this.close_menu(window, cx);
                         cx.notify();
                     }),
                 )
@@ -260,6 +260,20 @@ impl Desktop {
             DialogKind::JoinSpace => ("Join a workspace", "Invite link", "Continue", "Checking…"),
             DialogKind::RenameAgent(_) => ("Rename agent", "Name", "Save", "Saving…"),
         };
+        let enabled = !dialog.busy;
+        let cancel = pill_button("dialog-cancel", "Cancel", Tone::Quiet, enabled, &theme).on_click(cx.listener(
+            |this, _, window, cx| {
+                this.dismiss(window, cx);
+            },
+        ));
+        let submit = pill_button(
+            "dialog-submit",
+            if dialog.busy { working } else { action },
+            Tone::Primary,
+            enabled,
+            &theme,
+        )
+        .on_click(cx.listener(|this, _, window, cx| this.submit_dialog(window, cx)));
         Some(
             div()
                 .id("dialog-scrim")
@@ -270,8 +284,8 @@ impl Desktop {
                 .justify_center()
                 .bg(theme.scrim)
                 .occlude()
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.dismiss(cx);
+                .on_click(cx.listener(|this, _, window, cx| {
+                    this.dismiss(window, cx);
                 }))
                 .child(
                     div()
@@ -295,23 +309,8 @@ impl Desktop {
                                 .flex()
                                 .justify_end()
                                 .gap_2()
-                                .child(
-                                    pill_button("dialog-cancel", "Cancel", Tone::Quiet, !dialog.busy, &theme).on_click(
-                                        cx.listener(|this, _, _, cx| {
-                                            this.dismiss(cx);
-                                        }),
-                                    ),
-                                )
-                                .child(
-                                    pill_button(
-                                        "dialog-submit",
-                                        if dialog.busy { working } else { action },
-                                        Tone::Primary,
-                                        !dialog.busy,
-                                        &theme,
-                                    )
-                                    .on_click(cx.listener(|this, _, window, cx| this.submit_dialog(window, cx))),
-                                ),
+                                .child(super::focus::modal_button(cancel, enabled, &theme))
+                                .child(super::focus::modal_button(submit, enabled, &theme)),
                         ),
                 )
                 .into_any_element(),

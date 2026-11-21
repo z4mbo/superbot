@@ -56,7 +56,15 @@ impl Desktop {
             ),
             Some(ComputerView::Ready(status)) => {
                 let face = |opacity: f32| {
-                    div().opacity(opacity).child(self.roster_avatar(avatar, px(44.), theme, cx)).into_any_element()
+                    let presence = crate::ui::face_state(self.agent(avatar.id), self.avatar_asleep(avatar.id), false);
+                    let slot = crate::ui::AvatarSlot {
+                        presence,
+                        ..Default::default()
+                    };
+                    div()
+                        .opacity(opacity)
+                        .child(crate::ui::bot_avatar_with(avatar, px(44.), false, slot, theme, cx))
+                        .into_any_element()
                 };
                 let (title, start) = match status.state {
                     ComputerState::Running => match &status.busy_bot_name {

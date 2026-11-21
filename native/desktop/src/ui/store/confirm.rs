@@ -87,6 +87,20 @@ impl Desktop {
                 "Disconnecting…",
             ),
         };
+        let cancel = pill_button("store-confirm-cancel", "Cancel", Tone::Quiet, !busy, &theme).on_click(cx.listener(
+            |this, _, _, cx| {
+                this.cancel_store_confirm();
+                cx.notify();
+            },
+        ));
+        let submit = pill_button(
+            "store-confirm-action",
+            if busy { acting } else { action },
+            Tone::Danger,
+            !busy,
+            &theme,
+        )
+        .on_click(cx.listener(|this, _, window, cx| this.confirmed(window, cx)));
         Some(
             div()
                 .id("store-confirm-scrim")
@@ -123,24 +137,8 @@ impl Desktop {
                                 .flex()
                                 .justify_end()
                                 .gap_2()
-                                .child(
-                                    pill_button("store-confirm-cancel", "Cancel", Tone::Quiet, !busy, &theme).on_click(
-                                        cx.listener(|this, _, _, cx| {
-                                            this.cancel_store_confirm();
-                                            cx.notify();
-                                        }),
-                                    ),
-                                )
-                                .child(
-                                    pill_button(
-                                        "store-confirm-action",
-                                        if busy { acting } else { action },
-                                        Tone::Danger,
-                                        !busy,
-                                        &theme,
-                                    )
-                                    .on_click(cx.listener(|this, _, window, cx| this.confirmed(window, cx))),
-                                ),
+                                .child(crate::ui::focus::modal_button(cancel, !busy, &theme))
+                                .child(crate::ui::focus::modal_button(submit, !busy, &theme)),
                         ),
                 )
                 .into_any_element(),

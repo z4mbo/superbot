@@ -95,7 +95,13 @@ impl Desktop {
         else {
             return;
         };
-        let Some(panel) = self.agent_panel.as_mut() else { return };
+        let Some(panel) = self
+            .agent_panel
+            .as_mut()
+            .filter(|panel| panel.width.target() == PANEL_WIDTH)
+        else {
+            return;
+        };
         if panel.terminal.is_some() {
             return;
         }
@@ -509,5 +515,34 @@ mod tests {
         assert_eq!(color(vt100::Color::Idx(16)), Some(gpui_kit::rgb(0x000000).into()));
         assert_eq!(color(vt100::Color::Idx(231)), Some(gpui_kit::rgb(0xffffff).into()));
         assert_eq!(color(vt100::Color::Idx(255)), Some(gpui_kit::rgb(0xeeeeee).into()));
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod close_tests {
+    use super::*;
+
+    #[::core::prelude::v1::test]
+    fn closing_detaches_the_terminal_immediately_and_reversing_does_not_reopen_it() {
+        crate::test_support::headless(|cx| {
+            let at = Instant::now();
+            let mut panel = AgentPanel::new("bot-a".into(), PanelTab::Computer, Tween::at_rest(PANEL_WIDTH, at));
+            panel.terminal = Some(TerminalSession {
+                serial: 1,
+                phase: Phase::Live,
+                parser: vt100::Parser::new(24, 80, SCROLLBACK),
+                size: (24, 80),
+                scrolled: 0,
+                connection: None,
+                lease: None,
+                focus: cx.focus_handle(),
+                _tasks: vec![],
+            });
+            panel.close(at, false);
+            assert!(panel.terminal.is_none());
+            assert!(panel.width.moving(at));
+            transition::aim(&mut panel.width, true, at + Duration::from_millis(50), false);
+            assert!(panel.terminal.is_none());
+        });
     }
 }

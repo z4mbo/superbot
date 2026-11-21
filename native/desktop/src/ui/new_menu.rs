@@ -88,8 +88,20 @@ impl Desktop {
             .absolute()
             .inset_0()
             .occlude()
-            .on_mouse_down(MouseButton::Left, cx.listener(|this, _, _, cx| this.close_menu(cx)))
-            .on_mouse_down(MouseButton::Right, cx.listener(|this, _, _, cx| this.close_menu(cx)))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _, window, cx| {
+                    this.close_menu(window, cx);
+                    cx.notify();
+                }),
+            )
+            .on_mouse_down(
+                MouseButton::Right,
+                cx.listener(|this, _, window, cx| {
+                    this.close_menu(window, cx);
+                    cx.notify();
+                }),
+            )
             .child(
                 deferred(
                     anchored()
@@ -101,11 +113,5 @@ impl Desktop {
                 .with_priority(1),
             )
             .into_any_element()
-    }
-
-    fn close_menu(&mut self, cx: &mut Context<Self>) {
-        self.menu = None;
-        self.create.highlight = None;
-        cx.notify();
     }
 }

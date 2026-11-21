@@ -199,6 +199,14 @@ pub struct AgentPanel {
 }
 
 impl AgentPanel {
+    fn close(&mut self, now: Instant, reduce_motion: bool) {
+        let had_screen = self.screen.take().is_some();
+        if self.terminal.take().is_some() || had_screen {
+            self.computer = None;
+        }
+        transition::aim(&mut self.width, false, now, reduce_motion);
+    }
+
     fn new(agent_id: String, tab: PanelTab, width: Tween<Pixels>) -> Self {
         Self {
             agent_id,
@@ -257,7 +265,9 @@ fn chat_agent(desktop: &Desktop) -> Option<String> {
 
 impl Desktop {
     pub(crate) fn chat_model_label(&self, id: &str) -> Option<String> {
-        self.selected_local_model().map(|model| model.label).or_else(|| self.agent_info.model_label(id))
+        self.local_model_for(id)
+            .map(|model| model.label.clone())
+            .or_else(|| self.agent_info.model_label(id))
     }
 
     fn features(&self) -> Option<(Features, String)> {
@@ -293,22 +303,21 @@ impl Desktop {
     }
 
     pub fn close_agent_panel(&mut self, cx: &mut Context<Self>) {
-        if cx.reduce_motion() {
-            self.agent_panel = None;
-        } else if let Some(panel) = self.agent_panel.as_mut() {
-            transition::aim(&mut panel.width, false, Instant::now(), false);
+        if let Some(panel) = self.agent_panel.as_mut() {
+            panel.close(Instant::now(), cx.reduce_motion());
+            if cx.reduce_motion() {
+                self.agent_panel = None;
+            }
         }
         cx.notify();
     }
 
     pub(in crate::ui) fn agent_panel_layout(&mut self, window: &Window, cx: &App) -> Option<PanelLayout> {
         let Some(panel) = &mut self.agent_panel else {
-            self.panel_performance.stop();
             return None;
         };
         let target = panel.width.target();
         if self.view != View::Chat || self.inbox.open {
-            self.panel_performance.stop();
             if target == px(0.) {
                 self.agent_panel = None;
             }
@@ -320,18 +329,16 @@ impl Desktop {
         }
         let visible = transition::sample(&panel.width, now);
         let moving = panel.width.moving(now);
-        self.panel_performance.observe(window, moving);
         if moving {
             window.request_animation_frame();
         } else if target == px(0.) {
             self.agent_panel = None;
             return None;
         }
-        Some(PanelLayout::new(
-            visible,
-            target,
-            self.panel_performance.fixed_chat_width(),
-        ))
+        Some(PanelLayout {
+            measure_from: moving.then_some(now),
+            ..PanelLayout::new(visible, target, self.panel_performance.fixed_chat_width())
+        })
     }
 
     pub(in crate::ui) fn agent_panel_reserves_sidebar(&self) -> bool {

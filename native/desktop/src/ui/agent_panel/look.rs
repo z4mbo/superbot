@@ -238,7 +238,7 @@ impl Desktop {
         let chat = self.chat.as_ref().filter(|chat| chat.target.agent() == Some(bot.id.as_str()));
         let presence = face_state(
             self.agent(&bot.id),
-            self.avatar_asleep(),
+            self.avatar_asleep(&bot.id),
             working || chat.is_some_and(|chat| chat.working || chat.local_turn.is_some()),
         );
         let blink = chat.and_then(|chat| Self::face_blink_scope(&chat.target));

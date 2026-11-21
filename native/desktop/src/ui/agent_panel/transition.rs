@@ -1,8 +1,8 @@
-use std::sync::OnceLock;
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use gpui_kit::profiler::{self, FrameEvent, FrameTimingCollector};
-use gpui_kit::{px, Pixels, Window};
+use gpui_kit::{canvas, px, AnyElement, IntoElement, Pixels, Styled};
 
 use super::PANEL_WIDTH;
 use crate::ui::motion::{self, Tween};
@@ -20,98 +20,53 @@ fn interpolate(from: Pixels, to: Pixels, progress: f32) -> Pixels {
     from + (to - from) * progress
 }
 
-fn frame_override() -> Option<Duration> {
-    static FRAME_OVERRIDE: OnceLock<Option<Duration>> = OnceLock::new();
-    *FRAME_OVERRIDE.get_or_init(|| {
-        std::env::var("SUPERBOT_PANEL_FRAME_MS")
-            .ok()
-            .and_then(|value| value.parse::<f64>().ok())
-            .and_then(|ms| Duration::try_from_secs_f64(ms / 1000.).ok())
-    })
-}
-
-fn fixed_chat_width(overridden: Option<Duration>, slow_frame: bool) -> bool {
-    overridden.map_or(slow_frame, exceeds_frame_budget)
-}
-
-fn exceeds_frame_budget(frame: Duration) -> bool {
-    frame > FRAME_BUDGET
-}
-
 const FRAME_BUDGET: Duration = Duration::from_millis(12);
 
-/// Measure only draws made while the panel is asking the chat to reflow. Keep the fallback for
-/// this window once a draw misses the budget so lighter frames cannot switch it back mid-flight.
+fn exceeds_frame_budget(started: Instant, painted: Instant) -> bool {
+    painted.duration_since(started) > FRAME_BUDGET
+}
+
+/// Latch the fallback for this window after a slow draw. Time the UI work leading
+/// up to paint, since the gap between frames also includes the display's refresh interval.
 #[derive(Default)]
 pub(crate) struct PanelPerformance {
-    probe: Option<FrameProbe>,
-    slow_frame: bool,
+    slow_frame: Rc<Cell<bool>>,
 }
 
 impl PanelPerformance {
-    pub(super) fn observe(&mut self, window: &Window, moving: bool) {
-        if frame_override().is_some() || self.slow_frame {
-            return;
+    pub(in crate::ui) fn measure_draw(&self, started: Instant) -> Option<AnyElement> {
+        if self.fixed_chat_width() {
+            return None;
         }
-        if let Some(probe) = &mut self.probe {
-            let id = window.window_handle().window_id();
-            self.slow_frame = probe.frames.collect_unseen().into_iter().any(|event| {
-                matches!(event, FrameEvent::Draw(frame) if frame.window_id == id && exceeds_frame_budget(frame.draw_duration()))
-            });
-        }
-        if moving && !self.slow_frame {
-            self.probe.get_or_insert_with(FrameProbe::new);
-        } else {
-            self.stop();
-        }
-    }
-
-    pub(crate) fn stop(&mut self) {
-        self.probe = None;
+        let slow_frame = self.slow_frame.clone();
+        Some(
+            canvas(|_, _, _| (), move |_, _, _, _| slow_frame.set(exceeds_frame_budget(started, Instant::now())))
+                .absolute()
+                .size_0()
+                .into_any_element(),
+        )
     }
 
     pub(super) fn fixed_chat_width(&self) -> bool {
-        fixed_chat_width(frame_override(), self.slow_frame)
-    }
-}
-
-struct FrameProbe {
-    frames: FrameTimingCollector,
-    enabled_trace: bool,
-}
-
-impl FrameProbe {
-    fn new() -> Self {
-        let enabled_trace = profiler::set_trace_enabled(true);
-        Self {
-            frames: FrameTimingCollector::new(),
-            enabled_trace,
-        }
-    }
-}
-
-impl Drop for FrameProbe {
-    fn drop(&mut self) {
-        if self.enabled_trace {
-            profiler::set_trace_enabled(false);
-        }
+        self.slow_frame.get()
     }
 }
 
 pub(in crate::ui) struct PanelLayout {
     pub visible: Pixels,
     pub occupied: Pixels,
+    pub measure_from: Option<Instant>,
 }
 
 impl PanelLayout {
     pub(super) fn new(visible: Pixels, target: Pixels, fixed_chat: bool) -> Self {
-        Self { visible, occupied: if fixed_chat { target } else { visible } }
+        Self { visible, measure_from: None, occupied: if fixed_chat { target } else { visible } }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{aim, fixed_chat_width, sample, PanelLayout, PANEL_WIDTH};
+    use super::{aim, exceeds_frame_budget, sample, PanelLayout, PANEL_WIDTH};
     use crate::ui::motion::{Tween, PANEL_CLOSE, PANEL_OPEN};
     use gpui_kit::px;
     use std::time::{Duration, Instant};
@@ -157,11 +112,53 @@ mod tests {
     }
 
     #[test]
+    fn the_draw_budget_excludes_idle_time_between_frames() {
+        let first = Instant::now();
+        let second = first + Duration::from_millis(17);
+        assert!(!exceeds_frame_budget(first, first + Duration::from_millis(8)));
+        assert!(!exceeds_frame_budget(second, second + Duration::from_millis(12)));
+        assert!(exceeds_frame_budget(second, second + Duration::from_micros(12_001)));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_slow_paint_latches_fixed_width_for_the_following_draws() {
+        use super::PanelPerformance;
+        use gpui_kit::*;
+
+        #[derive(Default)]
+        struct Probe {
+            performance: PanelPerformance,
+            started: Option<Instant>,
+        }
+
+        impl Render for Probe {
+            fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+                div().children(self.started.and_then(|started| self.performance.measure_draw(started)))
+            }
+        }
+
+        crate::test_support::headless(|cx| {
+            let window = cx.open_window(WindowOptions::default(), |_, cx| cx.new(|_| Probe::default())).unwrap();
+            window
+                .update(cx, |probe, _, cx| {
+                    assert!(!probe.performance.fixed_chat_width());
+                    probe.started = Some(Instant::now() - Duration::from_millis(13));
+                    cx.notify();
+                })
+                .unwrap();
+            AnyWindowHandle::from(window).update(cx, |_, window, cx| window.draw(cx).clear(cx)).unwrap();
+            window
+                .update(cx, |probe, _, _| {
+                    assert!(probe.performance.fixed_chat_width());
+                    assert!(probe.performance.measure_draw(Instant::now()).is_none());
+                })
+                .unwrap();
+        });
+    }
+
+    #[test]
     fn the_fallback_keeps_the_trajectory_but_reserves_the_final_chat_width() {
-        assert!(!fixed_chat_width(None, false));
-        assert!(fixed_chat_width(None, true));
-        assert!(!fixed_chat_width(Some(Duration::from_millis(12)), true));
-        assert!(fixed_chat_width(Some(Duration::from_micros(12_001)), false));
         let middle = px(245.);
         assert_eq!(PanelLayout::new(middle, PANEL_WIDTH, false).occupied, middle);
         for target in [px(0.), PANEL_WIDTH] {

@@ -128,7 +128,7 @@ pub fn arrivals_first(bots: &mut Vec<AgentSummary>, arrivals: &[&str]) {
 impl Desktop {
     pub fn open_new_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.create.highlight = None;
-        self.open_menu(MenuKind::New, Point::default(), cx);
+        self.open_menu(MenuKind::New, Point::default(), window, cx);
         if self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::New) {
             let focus = self.create.menu_focus.get_or_insert_with(|| cx.focus_handle()).clone();
             focus.focus(window, cx);
@@ -140,7 +140,7 @@ impl Desktop {
     }
 
     pub fn choose_create_row(&mut self, row: CreateRow, window: &mut Window, cx: &mut Context<Self>) {
-        self.menu = None;
+        self.close_menu(window, cx);
         self.create.highlight = None;
         match row {
             CreateRow::NewConversation => self.new_conversation(window, cx),

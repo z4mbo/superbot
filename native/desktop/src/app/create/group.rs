@@ -52,6 +52,7 @@ impl Desktop {
                 }
             })
         });
+        self.begin_modal(window, cx);
         name.update(cx, |input, cx| input.focus(window, cx));
         self.create.panel = Some(Panel::Group(GroupForm {
             name,

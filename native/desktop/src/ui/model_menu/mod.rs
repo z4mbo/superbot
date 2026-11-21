@@ -17,7 +17,7 @@ use superbot_features::{BotSettings, Features, ModelOption, ModelSelection, Patc
 use superbot_workspace_panel::Section;
 
 use crate::api;
-use crate::app::{Desktop, Menu, MenuKind};
+use crate::app::{Desktop, MenuKind};
 use local::{probe_local, Favorites, LocalGroup};
 use marks::{model_mark, Mark};
 
@@ -265,7 +265,7 @@ impl Desktop {
         }
         self.model_menu.trigger = trigger;
         let at = self.model_menu.bounds(trigger).get().bottom_left();
-        self.menu = Some(Menu { kind, at });
+        self.open_menu(kind, at, window, cx);
         let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search models"));
         let events = cx.subscribe_in(&query, window, |this, _, event: &InputEvent, window, cx| match event {
             InputEvent::PressEnter { .. } => this.model_menu_enter(window, cx),
@@ -370,8 +370,8 @@ impl Desktop {
 
     /// The maker's mark beside the model a chat with `bot_id` answers with.
     pub(crate) fn chat_model_mark(&self, bot_id: &str) -> Option<&'static Mark> {
-        if let Some(model) = self.selected_local_model() {
-            return Pick::Local(model).mark();
+        if let Some(model) = self.local_model_for(bot_id) {
+            return model_mark(Some(&model.provider), Some(&model.id), Some(&model.label));
         }
         let bot = self.agent_info.bot(bot_id)?;
         match bot.model_provider.as_deref().zip(bot.model_id.as_deref()) {
@@ -398,7 +398,7 @@ impl Desktop {
     /// What the popover shows for `bot_id`, as the Simple menu builds it: the current model pinned,
     /// following the main model, then each source's suggestions with favorites first.
     pub(super) fn model_sheet(&self, bot_id: &str, typed_query: &str) -> Sheet {
-        let local = self.local_cli().and_then(|cli| cli.selection(bot_id).ok().flatten());
+        let local = self.local_model_for(bot_id).cloned();
         let bot = self.agent_info.bot(bot_id);
         let name = bot.map(|bot| bot.name.clone()).unwrap_or_else(|| "This agent".into());
         let own = bot.and_then(|bot| bot.model_provider.clone().zip(bot.model_id.clone()));
@@ -807,7 +807,10 @@ impl Desktop {
         let cli = self.local_cli();
         if let Pick::Local(model) = &pick {
             match cli.map(|cli| cli.save_selection(&bot_id, Some(model))) {
-                Some(Ok(())) => self.close_model_menu(cx),
+                Some(Ok(())) => {
+                    self.remember_local_model(&bot_id, Some(model.clone()));
+                    self.close_model_menu(cx);
+                }
                 Some(Err(problem)) => self.model_menu.problem = Some(problem.to_owned()),
                 None => self.model_menu.problem = Some("Local models are unavailable here.".into()),
             }
@@ -836,7 +839,12 @@ impl Desktop {
                     let local = cli.filter(|cli| cli.selection(&bot_id).ok().flatten().is_some());
                     match local.map(|cli| cli.save_selection(&bot_id, None)) {
                         Some(Err(problem)) => this.model_menu.problem = Some(problem.to_owned()),
-                        _ => this.close_model_menu(cx),
+                        cleared => {
+                            if cleared.is_some() {
+                                this.remember_local_model(&bot_id, None);
+                            }
+                            this.close_model_menu(cx);
+                        }
                     }
                 }
                 Err(error) => this.model_menu.problem = Some(api::explain(&error)),
