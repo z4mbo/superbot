@@ -2,10 +2,15 @@ import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import type { BotAvatarSet } from "@rakazo/contracts";
 import { resolveBotAvatarSet } from "@rakazo/contracts";
+import type { AvatarCrop } from "@rakazo/core";
 import {
+  AVATAR_CROP_MAX_ZOOM,
+  avatarCropSquare,
   botLookState,
   botLookWithColor,
   botLookWithShape,
+  centeredAvatarCrop,
+  clampAvatarCrop,
   SHIPPED_BOT_AVATAR_SHAPE_KEYS,
 } from "@rakazo/core";
 import {
@@ -26,7 +31,7 @@ import {
 } from "@rakazo/ui-web";
 import { Button } from "@rakazo/ui-web/components/ui/button";
 import { Check, Pencil, Upload, X } from "lucide-react";
-import type { ClipboardEvent, DragEvent } from "react";
+import type { ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent } from "react";
 import { useRef, useState } from "react";
 
 /**
@@ -183,6 +188,7 @@ export function AvatarStudioPopover({
   const [activeTab, setActiveTab] = useState<"bot" | "upload">("bot");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [picked, setPicked] = useState<PickedImage | null>(null);
 
   function restoreDefaultAvatar() {
     const next = defaultBotAvatarValue(value);
@@ -197,28 +203,32 @@ export function AvatarStudioPopover({
       if (!src) return;
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const targetSize = 256;
-        canvas.width = targetSize;
-        canvas.height = targetSize;
-        if (!ctx) return;
-
-        ctx.beginPath();
-        ctx.arc(targetSize / 2, targetSize / 2, targetSize / 2, 0, Math.PI * 2);
-        ctx.clip();
-
-        const minDim = Math.min(img.width, img.height);
-        const sx = (img.width - minDim) / 2;
-        const sy = (img.height - minDim) / 2;
-        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, targetSize, targetSize);
-
-        onChange(canvas.toDataURL("image/webp", 0.9));
-        setOpen(false);
+        if (!img.width || !img.height) return;
+        setPicked({ image: img, crop: centeredAvatarCrop(img) });
       };
       img.src = src;
     };
     reader.readAsDataURL(file);
+  }
+
+  function setPickedAvatar({ image, crop }: PickedImage) {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const targetSize = 256;
+    canvas.width = targetSize;
+    canvas.height = targetSize;
+    if (!ctx) return;
+
+    ctx.beginPath();
+    ctx.arc(targetSize / 2, targetSize / 2, targetSize / 2, 0, Math.PI * 2);
+    ctx.clip();
+
+    const { left, top, side } = avatarCropSquare(image, crop);
+    ctx.drawImage(image, left, top, side, side, 0, 0, targetSize, targetSize);
+
+    onChange(canvas.toDataURL("image/webp", 0.9));
+    setPicked(null);
+    setOpen(false);
   }
 
   function handleDrop(event: DragEvent<HTMLButtonElement>) {
@@ -264,7 +274,13 @@ export function AvatarStudioPopover({
         </div>
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setPicked(null);
+        }}
+      >
         <DialogContent
           showCloseButton={false}
           className="w-[360px] max-w-full gap-4 rounded-3xl p-5 sm:max-w-[360px]"
@@ -335,54 +351,172 @@ export function AvatarStudioPopover({
               />
             </TabsContent>
             <TabsContent value="upload">
-              <button
-                type="button"
-                aria-label={t`Image upload area`}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                onPaste={handlePaste}
-                onClick={() => fileInputRef.current?.click()}
-                className={`flex w-full flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors ${
-                  dragOver
-                    ? "border-primary bg-primary/10"
-                    : "border-border bg-muted hover:border-foreground/30"
-                }`}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) processImageFile(file);
-                  }}
+              {picked ? (
+                <AvatarCropper
+                  picked={picked}
+                  onChange={setPicked}
+                  onCancel={() => setPicked(null)}
+                  onDone={() => setPickedAvatar(picked)}
                 />
-                <div className="mb-2 grid size-10 place-items-center rounded-full bg-secondary text-muted-foreground">
-                  <Upload size={18} strokeWidth={1.8} />
-                </div>
-                <p className="text-body-sm font-medium text-muted-foreground">
-                  <Trans>Drag, drop, or paste an image</Trans>
-                </p>
-                <span className="mt-3 rounded-lg bg-secondary px-3 py-1.5 text-label font-medium text-foreground">
-                  <Trans>Choose file</Trans>
-                </span>
-              </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label={t`Image upload area`}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  onPaste={handlePaste}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`flex w-full flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors ${
+                    dragOver
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-muted hover:border-foreground/30"
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) processImageFile(file);
+                    }}
+                  />
+                  <div className="mb-2 grid size-10 place-items-center rounded-full bg-secondary text-muted-foreground">
+                    <Upload size={18} strokeWidth={1.8} />
+                  </div>
+                  <p className="text-body-sm font-medium text-muted-foreground">
+                    <Trans>Drag, drop, or paste an image</Trans>
+                  </p>
+                  <span className="mt-3 rounded-lg bg-secondary px-3 py-1.5 text-label font-medium text-foreground">
+                    <Trans>Choose file</Trans>
+                  </span>
+                </button>
+              )}
             </TabsContent>
           </Tabs>
 
-          <DialogFooter className="border-border sm:justify-end">
-            <Button variant="secondary" size="sm" type="button" onClick={() => setOpen(false)}>
-              <Check size={14} />
-              <Trans>Done</Trans>
-            </Button>
-          </DialogFooter>
+          {picked && activeTab === "upload" ? null : (
+            <DialogFooter className="border-border sm:justify-end">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setOpen(false)}>
+                <Check size={14} />
+                <Trans>Done</Trans>
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+interface PickedImage {
+  image: HTMLImageElement;
+  crop: AvatarCrop;
+}
+
+const CROP_VIEWPORT = 200;
+const CROP_KEY_STEP = 8;
+
+/** Drag or use the arrow keys to position an uploaded image, and the slider to zoom it. */
+function AvatarCropper({
+  picked,
+  onChange,
+  onCancel,
+  onDone,
+}: {
+  picked: PickedImage;
+  onChange: (next: PickedImage) => void;
+  onCancel: () => void;
+  onDone: () => void;
+}) {
+  const { image, crop } = picked;
+  const drag = useRef<{ x: number; y: number } | null>(null);
+  const { left, top, side } = avatarCropSquare(image, crop);
+  const scale = CROP_VIEWPORT / side;
+
+  function move(dx: number, dy: number) {
+    onChange({
+      image,
+      crop: clampAvatarCrop(image, { ...crop, x: crop.x - dx / scale, y: crop.y - dy / scale }),
+    });
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLButtonElement>) {
+    if (!drag.current) return;
+    move(event.clientX - drag.current.x, event.clientY - drag.current.y);
+    drag.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const step = { ArrowLeft: [1, 0], ArrowRight: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[
+      event.key
+    ];
+    if (!step) return;
+    event.preventDefault();
+    move(step[0]! * CROP_KEY_STEP, step[1]! * CROP_KEY_STEP);
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4" data-testid="avatar-cropper">
+      <button
+        type="button"
+        aria-label={t`Image position`}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          drag.current = { x: event.clientX, y: event.clientY };
+        }}
+        onPointerMove={handlePointerMove}
+        onPointerUp={() => {
+          drag.current = null;
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+        }}
+        onKeyDown={handleKeyDown}
+        className="relative cursor-grab touch-none overflow-hidden rounded-full border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+        style={{ width: CROP_VIEWPORT, height: CROP_VIEWPORT }}
+      >
+        <img
+          src={image.src}
+          alt=""
+          draggable={false}
+          className="pointer-events-none absolute max-w-none select-none"
+          style={{
+            left: -left * scale,
+            top: -top * scale,
+            width: image.width * scale,
+            height: image.height * scale,
+          }}
+        />
+      </button>
+      <input
+        type="range"
+        aria-label={t`Zoom`}
+        min={1}
+        max={AVATAR_CROP_MAX_ZOOM}
+        step={0.01}
+        value={crop.zoom}
+        onChange={(event) =>
+          onChange({
+            image,
+            crop: clampAvatarCrop(image, { ...crop, zoom: Number(event.target.value) }),
+          })
+        }
+        className="w-full accent-primary"
+      />
+      <div className="flex w-full justify-end gap-2">
+        <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
+          <Trans>Cancel</Trans>
+        </Button>
+        <Button size="sm" type="button" onClick={onDone}>
+          <Trans>Set avatar</Trans>
+        </Button>
+      </div>
+    </div>
   );
 }

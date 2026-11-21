@@ -1020,6 +1020,8 @@ model Bot {
   space             Space             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   userId            String
   name              String
+  /// Short line under the name on the profile; null when unset.
+  label             String?
   description       String            @default("")
   instructions      String            @default("")
   instructionHistory Json @default("[]")

@@ -30,7 +30,7 @@ export type { PickedAttachment, PickSkip } from "./pick-attachments-filter.js";
 
 let imageManipulator: typeof ImageManipulatorModule | null | undefined;
 
-function loadImageManipulator() {
+export function loadImageManipulator() {
   if (imageManipulator !== undefined) return imageManipulator;
   imageManipulator = null;
   try {

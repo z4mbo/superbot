@@ -77,6 +77,7 @@ function mapBot(
     id: string;
     spaceId: string;
     name: string;
+    label?: string | null;
     description: string;
     instructions: string;
     instructionHistory?: unknown;
@@ -123,6 +124,7 @@ function mapBot(
     spaceId: bot.spaceId,
     name: bot.name,
     title: "",
+    label: bot.label ?? null,
     description: bot.description,
     instructions: bot.instructions,
     instructionHistory: InstructionVersionSchema.array().parse(bot.instructionHistory ?? []),
