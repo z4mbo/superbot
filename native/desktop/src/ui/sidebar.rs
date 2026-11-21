@@ -21,7 +21,6 @@ use crate::ui::{
 impl Desktop {
     pub fn render_sidebar(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.skin().clone();
-        let asleep = self.avatar_asleep();
         let query = if self.search_open { self.search.read(cx).value().trim().to_lowercase() } else { String::new() };
         let matches = |name: &str| query.is_empty() || name.to_lowercase().contains(&query);
         let open = self.chat.as_ref().filter(|_| self.view == View::Chat).map(|chat| chat.target.clone());
@@ -50,11 +49,11 @@ impl Desktop {
             self.forget_tile_preview();
         }
         let card = primary.map(|agent| {
-            div().pt_2().child(self.render_primary_card(agent, open.as_ref(), asleep, &theme, window, cx))
+            div().pt_2().child(self.render_primary_card(agent, open.as_ref(), &theme, window, cx))
         });
         let tiles = (!pinned.is_empty()).then(|| {
             div().flex().flex_wrap().justify_center().gap_1().pt_2().pb_4().children(
-                pinned.into_iter().map(|agent| self.render_tile(agent, open.as_ref(), asleep, &theme, window, cx)),
+                pinned.into_iter().map(|agent| self.render_tile(agent, open.as_ref(), &theme, window, cx)),
             )
         });
         let rows = div()
@@ -63,7 +62,7 @@ impl Desktop {
             .gap_0p5()
             .pb_2()
             .when(tiles.is_none(), |rows| rows.pt_2())
-            .children(listed.into_iter().map(|agent| self.render_agent_row(agent, open.as_ref(), asleep, &theme, cx)))
+            .children(listed.into_iter().map(|agent| self.render_agent_row(agent, open.as_ref(), &theme, cx)))
             .children(groups.into_iter().map(|group| self.render_group_row(group, open.as_ref(), &theme, cx)));
 
         div()
@@ -140,8 +139,8 @@ impl Desktop {
                     .cursor_pointer()
                     .occlude()
                     .hover(move |style| style.bg(hover))
-                    .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                        this.open_menu(MenuKind::Spaces, event.position() + point(px(-8.), px(22.)), cx)
+                    .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
+                        this.open_menu(MenuKind::Spaces, event.position() + point(px(-8.), px(22.)), window, cx)
                     }))
                     .child(name)
                     .child(icon("chevron-down", px(14.), theme.ink_secondary));
@@ -209,7 +208,6 @@ impl Desktop {
         &mut self,
         agent: AgentSummary,
         open: Option<&Target>,
-        asleep: bool,
         theme: &Theme,
         window: &Window,
         cx: &mut Context<Self>,
@@ -227,7 +225,7 @@ impl Desktop {
         let keyboard = focus::visible(&handle, window);
         let watch = SharedString::from(format!("primary:{}", agent.id));
         let slot = AvatarSlot {
-            presence: face_state(Some(&agent), asleep, false),
+            presence: face_state(Some(&agent), self.avatar_asleep(&agent.id), false),
             watch: Some(watch.clone()),
             ..AvatarSlot::default()
         };
@@ -264,9 +262,9 @@ impl Desktop {
             .items_center()
             .justify_center()
             .when(!keyboard, |button| button.invisible().group_hover("primary-card", |style| style.visible()))
-            .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 cx.stop_propagation();
-                this.open_menu(MenuKind::Agent(more.clone()), event.position(), cx);
+                this.open_menu(MenuKind::Agent(more.clone()), event.position(), window, cx);
             }))
             .child(icon("ellipsis", px(14.), theme.ink_secondary));
         let card = div()
@@ -291,9 +289,9 @@ impl Desktop {
             }))
             .on_mouse_down(
                 MouseButton::Right,
-                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                     this.close_tile_preview(cx);
-                    this.open_menu(MenuKind::Agent(menu.clone()), event.position, cx);
+                    this.open_menu(MenuKind::Agent(menu.clone()), event.position, window, cx);
                 }),
             )
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
@@ -323,7 +321,6 @@ impl Desktop {
         &mut self,
         agent: AgentSummary,
         open: Option<&Target>,
-        asleep: bool,
         theme: &Theme,
         window: &Window,
         cx: &mut Context<Self>,
@@ -339,7 +336,7 @@ impl Desktop {
         let shape = radius::FIELD;
         let watch = SharedString::from(format!("tile:{}", agent.id));
         let width = px(78.);
-        let presence = face_state(Some(&agent), asleep, false);
+        let presence = face_state(Some(&agent), self.avatar_asleep(&agent.id), false);
         let slot = AvatarSlot { presence, watch: Some(watch.clone()), ..AvatarSlot::default() };
         let quote = latest_line(&agent).0;
         let preview = (self.tile_preview_shown(&agent.id) && !quote.is_empty()).then(|| {
@@ -376,9 +373,9 @@ impl Desktop {
                 }))
                 .on_mouse_down(
                     MouseButton::Right,
-                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                         this.close_tile_preview(cx);
-                        this.open_menu(MenuKind::Agent(menu.clone()), event.position, cx)
+                        this.open_menu(MenuKind::Agent(menu.clone()), event.position, window, cx)
                     }),
                 )
                 .child(
@@ -417,7 +414,6 @@ impl Desktop {
         &mut self,
         agent: AgentSummary,
         open: Option<&Target>,
-        asleep: bool,
         theme: &Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -435,7 +431,7 @@ impl Desktop {
         let drawn = bounds.clone();
         let watch = SharedString::from(format!("row:{}", agent.id));
         let slot = AvatarSlot {
-            presence: face_state(Some(&agent), asleep, false),
+            presence: face_state(Some(&agent), self.avatar_asleep(&agent.id), false),
             watch: Some(watch.clone()),
             ..AvatarSlot::default()
         };
@@ -458,14 +454,14 @@ impl Desktop {
         .on_click(cx.listener(move |this, _, window, cx| this.open(target.clone(), window, cx)))
         .on_mouse_down(
             MouseButton::Right,
-            cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                this.open_menu(MenuKind::Agent(menu.clone()), event.position, cx)
+            cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                this.open_menu(MenuKind::Agent(menu.clone()), event.position, window, cx)
             }),
         )
         .on_prepaint(move |area, _, _| drawn.set(area))
-        .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
+        .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
             if crate::ui::tile_preview::is_menu_key(&event.keystroke) {
-                this.open_menu(MenuKind::Agent(key_menu.clone()), bounds.get().center(), cx);
+                this.open_menu(MenuKind::Agent(key_menu.clone()), bounds.get().center(), window, cx);
                 cx.stop_propagation();
             }
         }));
@@ -482,7 +478,7 @@ impl Desktop {
                     .on_mouse_down(MouseButton::Left, cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                         window.prevent_default();
                         cx.stop_propagation();
-                        this.open_menu(MenuKind::Agent(more_menu.clone()), event.position, cx);
+                        this.open_menu(MenuKind::Agent(more_menu.clone()), event.position, window, cx);
                     }))
                     .child(icon("ellipsis", px(14.), theme.ink_secondary)),
             )
@@ -541,8 +537,8 @@ impl Desktop {
                         .gap_2()
                         .cursor_pointer()
                         .hover(move |style| style.text_color(ink))
-                        .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                            this.open_menu(MenuKind::Profile, event.position() + point(px(-12.), px(-18.)), cx)
+                        .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
+                            this.open_menu(MenuKind::Profile, event.position() + point(px(-12.), px(-18.)), window, cx)
                         }))
                         .child(person_face(&name, px(36.), theme))
                         .child(div().name().truncate().child(name)),

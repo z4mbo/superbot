@@ -62,6 +62,7 @@ pub(crate) struct FaceMotion {
     allows_blink: bool,
     hover_blink: Option<Blink>,
     last_blink: Option<Instant>,
+    _activation: Option<Subscription>,
 }
 
 impl FaceMotion {
@@ -75,6 +76,7 @@ impl FaceMotion {
             allows_blink: false,
             hover_blink: None,
             last_blink: None,
+            _activation: None,
         }
     }
 
@@ -162,6 +164,11 @@ impl FaceMotion {
         }
         self.gaze.release(Instant::now());
         true
+    }
+
+    fn release_input(&mut self) {
+        self.rest();
+        self.press(false);
     }
 
     pub(crate) fn press(&mut self, down: bool) -> bool {
@@ -257,8 +264,17 @@ impl RenderOnce for Face {
                     let eligibility = blink_scope.filter(|_| !small && status != FaceState::Asleep);
                     let shared_blink = eligibility.as_ref().and_then(|scope| blink::active(scope, window, cx));
                     let now = Instant::now();
-                    let motion = window.use_keyed_state("face-motion", cx, |_, cx| {
+                    let motion = window.use_keyed_state("face-motion", cx, |window, cx| {
+                        let mut motion = FaceMotion::new(now, timing, status);
                         if let Some(key) = watch.clone() {
+                            motion._activation = Some(cx.observe_window_activation(
+                                window,
+                                |motion: &mut FaceMotion, window, _| {
+                                    if !window.is_window_active() {
+                                        motion.release_input();
+                                    }
+                                },
+                            ));
                             let id = cx.entity_id();
                             cx.on_release(move |_, cx| {
                                 let owns_watch = cx
@@ -271,7 +287,7 @@ impl RenderOnce for Face {
                             })
                             .detach();
                         }
-                        FaceMotion::new(now, timing, status)
+                        motion
                     });
                     if let Some(key) = watch {
                         if status == FaceState::Asleep {
@@ -285,9 +301,8 @@ impl RenderOnce for Face {
                     let (pose, moving, working) = motion.update(cx, |motion, _| {
                         motion.change_state(status, d, now);
                         motion.allows_blink = eligibility.is_some();
-                        if cfg!(target_os = "windows") && !window.is_window_hovered() {
-                            motion.rest();
-                            motion.press(false);
+                        if !window.is_window_active() || cfg!(target_os = "windows") && !window.is_window_hovered() {
+                            motion.release_input();
                         }
                         motion.current(d, now, epoch, seed, looking_down, shared_blink)
                     });
@@ -346,6 +361,26 @@ mod tests {
         assert_eq!(pose.eye_dy, 0.);
         assert_eq!(pose.shine_dx, 0.);
         assert_eq!(pose.shine_dy, 0.);
+    }
+
+    #[test]
+    fn releasing_window_input_releases_both_gaze_and_pressure() {
+        let at = Instant::now();
+        let timing = FaceTiming {
+            standard: linear,
+            emphasis: linear,
+            settle: Duration::from_millis(160),
+            state: Duration::from_millis(240),
+            ease_in: linear,
+        };
+        let mut motion = super::FaceMotion::new(at, timing, FaceState::Rest);
+        motion.gaze.look(1., 0.5, at);
+        motion.press(true);
+        assert!(motion.gaze.holding());
+        assert!(motion.press.down);
+        motion.release_input();
+        assert!(!motion.gaze.holding());
+        assert!(!motion.press.down);
     }
 
     #[test]

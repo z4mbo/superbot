@@ -73,6 +73,29 @@ pub struct Chat {
 }
 
 impl Chat {
+    pub(super) fn new(target: Target, switching: bool) -> Self {
+        Self {
+            target,
+            entries: Vec::new(),
+            loading: true,
+            working: false,
+            activity: None,
+            draft: String::new(),
+            error: None,
+            unread: false,
+            reconnecting: false,
+            list: transcript_list(),
+            motion: ChatMotion::new(switching),
+            conversation: Conversation::new(),
+            cards: crate::cards::Cards::default(),
+            _live: None,
+            local_turn: None,
+            local_prompt: None,
+            reveal: Default::default(),
+            app_assist: Default::default(),
+        }
+    }
+
     /// The transcript's rows: one for the history before what is loaded, every message, then
     /// one for what is happening now.
     pub fn rows(&self) -> usize {
@@ -150,6 +173,9 @@ impl Desktop {
         let target = self.conversations.resume(target);
         self.conversations.opened(&target);
         let (Some(api), Some(space_id)) = (self.api.clone(), self.space_id()) else { return };
+        if let Some(bot) = target.agent() {
+            self.refresh_local_model(bot);
+        }
         self.view = View::Chat;
         self.set_workspace_visible(false, window, cx);
         self.menu = None;
@@ -160,26 +186,7 @@ impl Desktop {
         let switching = self.chat.is_some();
         self.keep_draft(window, cx);
         self.composer.update(cx, |composer, cx| composer.focus(window, cx));
-        self.chat = Some(Chat {
-            target: target.clone(),
-            entries: Vec::new(),
-            loading: true,
-            working: false,
-            activity: None,
-            draft: String::new(),
-            error: None,
-            unread: false,
-            reconnecting: false,
-            list: transcript_list(),
-            motion: ChatMotion::new(switching),
-            conversation: Conversation::new(),
-            cards: crate::cards::Cards::default(),
-            _live: None,
-            local_turn: None,
-            local_prompt: None,
-            reveal: Default::default(),
-            app_assist: Default::default(),
-        });
+        self.chat = Some(Chat::new(target.clone(), switching));
         self.resume_draft(window, cx);
         self.restore_local_write();
         let read = target.clone();
@@ -483,6 +490,9 @@ impl Desktop {
             self.retry_local_write(window, cx);
             return;
         }
+        if let Some(bot) = self.chat.as_ref().and_then(|chat| chat.target.agent()).map(str::to_owned) {
+            self.refresh_local_model(&bot);
+        }
         if self.take_apps_command(window, cx) {
             return;
         }
@@ -585,9 +595,10 @@ impl Desktop {
     }
 
     fn local_model_selection(&self) -> Result<Option<InstalledModel>, &'static str> {
-        let (Some(cli), Some(chat)) = (self.local_cli(), self.chat.as_ref()) else { return Ok(None) };
-        let Some(bot) = chat.target.agent() else { return Ok(None) };
-        cli.selection(bot)
+        let Some(bot) = self.chat.as_ref().and_then(|chat| chat.target.agent()) else {
+            return Ok(None);
+        };
+        self.local_models.selection(bot).map(|model| model.cloned())
     }
 
     pub(crate) fn selected_local_model(&self) -> Option<InstalledModel> {

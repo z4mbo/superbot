@@ -181,6 +181,7 @@ impl Desktop {
 
 impl Render for Desktop {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let mut panel_draw_started = None;
         let theme = cx.skin().clone();
         let content = match self.session {
             Session::Restoring => self.render_restoring(window, cx),
@@ -190,6 +191,7 @@ impl Render for Desktop {
             }
             Session::SignedIn => {
                 let agent_layout = self.agent_panel_layout(window, cx);
+                panel_draw_started = agent_layout.as_ref().and_then(|layout| layout.measure_from);
                 let main = match self.view {
                     View::Chat => self.render_chat(
                         agent_layout.as_ref().map_or(px(0.), |layout| layout.occupied),
@@ -229,12 +231,15 @@ impl Render for Desktop {
             .child(content);
         #[cfg(not(target_os = "macos"))]
         let frame = frame.child(caption_buttons(window, &theme));
+        let overlay = self
+            .render_store_confirm(cx)
+            .or_else(|| self.render_version_switch(cx))
+            .or_else(|| self.render_create_panel(cx))
+            .or_else(|| self.render_dialog(cx));
         frame
             .children(self.render_menu(window, cx))
-            .children(self.render_dialog(cx))
-            .children(self.render_create_panel(cx))
-            .children(self.render_version_switch(cx))
-            .children(self.render_store_confirm(cx))
+            .children(self.modal(overlay, window, cx))
             .children(self.render_notice(cx))
+            .children(panel_draw_started.and_then(|started| self.panel_performance.measure_draw(started)))
     }
 }

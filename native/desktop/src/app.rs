@@ -1,6 +1,8 @@
 pub mod conversation;
 pub mod conversations;
 pub mod create;
+mod keyboard;
+mod local_models;
 pub mod new_agent;
 pub mod onboarding;
 pub mod reveal;
@@ -78,6 +80,7 @@ pub enum MenuKind {
 pub struct Menu {
     pub kind: MenuKind,
     pub at: Point<Pixels>,
+    return_focus: Option<WeakFocusHandle>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -133,6 +136,7 @@ pub struct Desktop {
     pub chat: Option<Chat>,
     /// What is typed and attached in conversations that are not on screen.
     pub drafts: Drafts,
+    local_models: local_models::LocalModels,
     local_writes: std::collections::HashMap<crate::outbox::Place, conversation::LocalWrite>,
     pub composer: Entity<TextareaState>,
     pub search: Entity<InputState>,
@@ -151,6 +155,7 @@ pub struct Desktop {
     pub onboarding: onboarding::Onboarding,
     pub menu: Option<Menu>,
     pub dialog: Option<Dialog>,
+    modal_focus: Option<keyboard::ModalFocus>,
     /// The Space selection a new agent is being made in.
     creating_agent: Option<u64>,
     pub create: create::Create,
@@ -161,6 +166,12 @@ pub struct Desktop {
 
 impl Desktop {
     pub fn new(server: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut desktop = Self::initial(server, window, cx);
+        desktop.restore(window, cx);
+        desktop
+    }
+
+    fn initial(server: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let field = |placeholder: &'static str, window: &mut Window, cx: &mut Context<Self>| {
             cx.new(|cx| InputState::new(window, cx).placeholder(placeholder))
         };
@@ -196,27 +207,6 @@ impl Desktop {
                     cx.notify();
                 }
             }),
-            // Observed for the whole window: a key press only reaches an element while something
-            // inside it has focus, and a menu or a confirmation can be open with nothing focused.
-            cx.observe_keystrokes(|this, event, window, cx| {
-                if event.keystroke.key == "escape" {
-                    this.dismiss(cx);
-                } else if event.keystroke.key == "tab" && event.action.is_none() {
-                    // The kit's Root binding needs a mounted focus path. A dismissed menu can leave none.
-                    let modifiers = event.keystroke.modifiers;
-                    if !modifiers.control && !modifiers.alt && !modifiers.platform && !modifiers.function {
-                        if modifiers.shift {
-                            window.focus_prev(cx);
-                        } else {
-                            window.focus_next(cx);
-                        }
-                    }
-                } else if new_agent::is_new_agent_shortcut(&event.keystroke) {
-                    this.new_agent(window, cx);
-                } else if conversations::is_new_conversation_shortcut(&event.keystroke) {
-                    this.new_conversation(window, cx);
-                }
-            }),
             cx.observe_window_activation(window, |this, window, cx| {
                 if window.is_window_active() {
                     gpui_kit::base::apply_system_reduce_motion(cx);
@@ -226,6 +216,7 @@ impl Desktop {
                 }
             }),
         ];
+        subscriptions.extend(keyboard::shortcuts(window, cx));
         for input in [&sign_in.email, &sign_in.password, &sign_in.code, &sign_in.name, &sign_in.server, &sign_in.invite] {
             subscriptions.push(cx.subscribe_in(input, window, |this, _, event: &InputEvent, window, cx| {
                 if let InputEvent::PressEnter { .. } = event {
@@ -234,7 +225,7 @@ impl Desktop {
             }));
         }
 
-        let mut this = Self {
+        Self {
             session: Session::Restoring,
             sign_in,
             api: None,
@@ -246,6 +237,7 @@ impl Desktop {
             view: View::Chat,
             chat: None,
             drafts: Drafts::default(),
+            local_models: Default::default(),
             local_writes: Default::default(),
             composer,
             search,
@@ -264,14 +256,13 @@ impl Desktop {
             onboarding: Default::default(),
             menu: None,
             dialog: None,
+            modal_focus: None,
             creating_agent: None,
             create: create::Create::default(),
             notice: None,
             notices: 0,
             _subscriptions: subscriptions,
-        };
-        this.restore(window, cx);
-        this
+        }
     }
 
     /// Runs one call against the server, then hands its answer back to the interface.
@@ -569,6 +560,7 @@ impl Desktop {
         self.me = None;
         self.spaces.clear();
         self.space = None;
+        self.local_models = Default::default();
         self.space_selection += 1;
         self.sidebar = Sidebar::default();
         self.conversations = Default::default();
@@ -586,16 +578,23 @@ impl Desktop {
         self.store.forget();
         self.workspace = Workspace::default();
         self.agent_panel = None;
-        self.panel_performance.stop();
         self.inbox = Inbox::default();
         self.agent_info = AgentInfo::default();
     }
 
     fn apply_navigation(&mut self, navigation: Navigation) {
         self.spaces = navigation.spaces;
-        self.space = Some(navigation.current);
-        self.place_arrivals();
+        self.apply_current_space(navigation.current);
         self.remember_open_space();
+    }
+
+    fn apply_current_space(&mut self, space: CurrentSpace) {
+        if self.space.as_ref().is_none_or(|current| current.id != space.id) {
+            self.local_models = Default::default();
+        }
+        self.space = Some(space);
+        self.read_roster_models();
+        self.place_arrivals();
     }
 
     fn first_conversation(&self) -> Option<Target> {
@@ -688,8 +687,7 @@ impl Desktop {
                 if let Some(navigation) = result.ok().filter(|nav| nav.current.id == space_id) {
                     match kind {
                         SidebarRead::Current => {
-                            this.space = Some(navigation.current);
-                            this.place_arrivals();
+                            this.apply_current_space(navigation.current);
                         }
                         SidebarRead::Navigation => this.apply_navigation(navigation),
                     };
@@ -778,11 +776,13 @@ impl Desktop {
         cx.notify();
     }
 
-    pub fn open_menu(&mut self, kind: MenuKind, at: Point<Pixels>, cx: &mut Context<Self>) {
-        self.menu = match &self.menu {
-            Some(menu) if menu.kind == kind => None,
-            _ => Some(Menu { kind, at }),
-        };
+    pub fn open_menu(&mut self, kind: MenuKind, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+        if self.menu.as_ref().is_some_and(|menu| menu.kind == kind) {
+            self.close_menu(window, cx);
+        } else {
+            let return_focus = window.focused(cx).map(|focus| focus.downgrade());
+            self.menu = Some(Menu { kind, at, return_focus });
+        }
         cx.notify();
     }
 
@@ -798,6 +798,7 @@ impl Desktop {
                 this.submit_dialog(window, cx);
             }
         });
+        self.begin_modal(window, cx);
         input.update(cx, |input, cx| input.focus(window, cx));
         self.menu = None;
         self.dialog = Some(Dialog { kind, input, busy: false, error: None, _submit: submit });
@@ -942,38 +943,6 @@ impl Desktop {
         })
         .detach();
         cx.notify();
-    }
-
-    /// Escape closes the topmost thing that is open.
-    pub fn dismiss(&mut self, cx: &mut Context<Self>) -> bool {
-        let closed = if self.menu.take().is_some() {
-            true
-        } else if self.cancel_rename(cx) {
-            true
-        } else if self.dialog.as_ref().is_some_and(|dialog| !dialog.busy) {
-            self.dialog = None;
-            true
-        } else if self.close_create_panel() {
-            true
-        } else if self.store.cancel_version_switch() {
-            true
-        } else if self.cancel_store_confirm() {
-            true
-        } else if self.search_open {
-            self.search_open = false;
-            true
-        } else if self.agent_panel_back(cx) {
-            true
-        } else if self.view == View::Chat && self.chat.as_ref().is_some_and(|chat| chat.app_assist.is_open()) {
-            self.close_app_assist(cx);
-            true
-        } else {
-            false
-        };
-        if closed {
-            cx.notify();
-        }
-        closed
     }
 }
 

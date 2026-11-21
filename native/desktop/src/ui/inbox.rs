@@ -421,7 +421,7 @@ impl Desktop {
         let (done_id, open_item) = (item.id.clone(), item.clone());
         let is_done = item.state == InboxState::Done;
         let face = match &agent {
-            Some(agent) => self.roster_avatar(agent.avatar(), px(18.), theme, cx),
+            Some(agent) => self.roster_avatar(agent, px(18.), theme, cx),
             None => div().size(px(18.)).into_any_element(),
         };
         let dot = div()

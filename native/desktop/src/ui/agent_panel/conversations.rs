@@ -66,9 +66,9 @@ impl Desktop {
                 .when(menu_open, |button| button.bg(theme.ink_at(0.06)))
                 .hover(move |style| style.bg(hover))
                 .when(!menu_open, |button| tooltip::on(button, label))
-                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                     cx.stop_propagation();
-                    this.open_conversation_menu(&agent, &thread, event.position(), cx);
+                    this.open_conversation_menu(&agent, &thread, event.position(), window, cx);
                 }))
                 .child(icon("ellipsis", px(14.), theme.ink_secondary))
         });
@@ -100,9 +100,9 @@ impl Desktop {
             }))
             .on_mouse_down(
                 MouseButton::Right,
-                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                     if let Some(thread) = &menu_thread {
-                        this.open_conversation_menu(&menu_agent, thread, event.position, cx);
+                        this.open_conversation_menu(&menu_agent, thread, event.position, window, cx);
                     }
                 }),
             )

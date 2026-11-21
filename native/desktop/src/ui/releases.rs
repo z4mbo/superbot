@@ -84,6 +84,26 @@ impl Desktop {
         } else {
             String::new()
         };
+        let enabled = !switch.busy;
+        let cancel = pill_button(
+            "version-switch-cancel",
+            "Keep current version",
+            Tone::Quiet,
+            enabled,
+            &theme,
+        )
+        .on_click(cx.listener(|this, _, _, cx| {
+            this.store.cancel_version_switch();
+            cx.notify();
+        }));
+        let submit = pill_button(
+            "version-switch-confirm",
+            if switch.busy { "Switching…" } else { "Switch version" },
+            Tone::Danger,
+            enabled,
+            &theme,
+        )
+        .on_click(cx.listener(|this, _, window, cx| this.switch_version(window, cx)));
         Some(
             div()
                 .id("version-switch-scrim")
@@ -123,29 +143,8 @@ impl Desktop {
                                 .flex()
                                 .justify_end()
                                 .gap_2()
-                                .child(
-                                    pill_button(
-                                        "version-switch-cancel",
-                                        "Keep current version",
-                                        Tone::Quiet,
-                                        !switch.busy,
-                                        &theme,
-                                    )
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.store.cancel_version_switch();
-                                        cx.notify();
-                                    })),
-                                )
-                                .child(
-                                    pill_button(
-                                        "version-switch-confirm",
-                                        if switch.busy { "Switching…" } else { "Switch version" },
-                                        Tone::Danger,
-                                        !switch.busy,
-                                        &theme,
-                                    )
-                                    .on_click(cx.listener(|this, _, window, cx| this.switch_version(window, cx))),
-                                ),
+                                .child(super::focus::modal_button(cancel, enabled, &theme))
+                                .child(super::focus::modal_button(submit, enabled, &theme)),
                         ),
                 )
                 .into_any_element(),

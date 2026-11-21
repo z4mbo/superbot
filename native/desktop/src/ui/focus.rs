@@ -213,3 +213,11 @@ impl Element for FocusControl {
         control.paint(window, cx);
     }
 }
+
+pub(super) fn modal_button(button: Stateful<Div>, enabled: bool, theme: &Theme) -> AnyElement {
+    if enabled {
+        control(button, Ring::InnerPill, theme).into_any_element()
+    } else {
+        button.into_any_element()
+    }
+}

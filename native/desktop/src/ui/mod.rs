@@ -202,10 +202,6 @@ pub(crate) fn bot_avatar_with(
         .into_any_element()
 }
 
-fn model_missing(account_needs_model: bool, has_local_model: bool) -> bool {
-    account_needs_model && !has_local_model
-}
-
 pub(crate) fn face_state(agent: Option<&AgentSummary>, asleep: bool, working: bool) -> FaceState {
     let failed = agent.is_some_and(|agent| agent.status == "failed");
     let waiting = agent.is_some_and(AgentSummary::waiting_on_you);
@@ -224,12 +220,6 @@ fn state_from_signals(asleep: bool, failed: bool, waiting: bool, working: bool) 
 }
 
 impl Desktop {
-    /// Matches the model connection banner in the composer.
-    pub(crate) fn avatar_asleep(&self) -> bool {
-        let account_needs_model = self.me.as_ref().is_some_and(|me| me.needs_model);
-        model_missing(account_needs_model, account_needs_model && self.selected_local_model().is_some())
-    }
-
     pub(crate) fn face_blink_scope(target: &Target) -> Option<SharedString> {
         match target {
             Target::Agent(id) => Some(format!("face-blink:agent:{id}").into()),
@@ -238,15 +228,25 @@ impl Desktop {
         }
     }
 
-    pub(crate) fn roster_avatar(&self, bot: Bot, size: Pixels, theme: &Theme, cx: &App) -> AnyElement {
-        let presence = face_state(self.agent(bot.id), self.avatar_asleep(), false);
-        bot_avatar_with(bot, size, false, AvatarSlot { presence, ..AvatarSlot::default() }, theme, cx)
+    pub(crate) fn roster_avatar(&self, agent: &AgentSummary, size: Pixels, theme: &Theme, cx: &App) -> AnyElement {
+        let presence = face_state(Some(agent), self.avatar_asleep(&agent.id), false);
+        bot_avatar_with(
+            agent.avatar(),
+            size,
+            false,
+            AvatarSlot {
+                presence,
+                ..AvatarSlot::default()
+            },
+            theme,
+            cx,
+        )
     }
 }
 
 #[cfg(test)]
 mod avatar_tests {
-    use super::{face_state, model_missing, state_from_signals};
+    use super::{face_state, state_from_signals};
     use crate::api::AgentSummary;
     use superbot_avatars::face::FaceState;
 
@@ -277,13 +277,6 @@ mod avatar_tests {
             })).unwrap();
             assert_eq!(face_state(Some(&agent), false, working), expected);
         }
-    }
-
-    #[test]
-    fn a_local_model_suppresses_the_model_banner_and_sleep() {
-        assert!(model_missing(true, false));
-        assert!(!model_missing(true, true));
-        assert!(!model_missing(false, false));
     }
 }
 

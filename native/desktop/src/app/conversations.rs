@@ -4,7 +4,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::*;
 use superbot_features::{BotConversation, BotConversationPatch, Features};
 
-use super::{Desktop, Menu, MenuKind};
+use super::{Desktop, MenuKind};
 use crate::api::{self, Target};
 
 /// Conversations the agent panel lists before "Show more", as the reference card does.
@@ -251,13 +251,16 @@ impl Desktop {
     }
 
     /// Opens the actions of one of the agent's conversations where the pointer is.
-    pub fn open_conversation_menu(&mut self, agent: &str, thread: &str, at: Point<Pixels>, cx: &mut Context<Self>) {
+    pub fn open_conversation_menu(
+        &mut self,
+        agent: &str,
+        thread: &str,
+        at: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let kind = MenuKind::Conversation { agent: agent.to_owned(), thread: thread.to_owned() };
-        self.menu = match &self.menu {
-            Some(menu) if menu.kind == kind => None,
-            _ => Some(Menu { kind, at }),
-        };
-        cx.notify();
+        self.open_menu(kind, at, window, cx);
     }
 
     /// Saves a change to one conversation's title, pin or archive.

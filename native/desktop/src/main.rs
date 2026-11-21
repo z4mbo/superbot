@@ -12,6 +12,8 @@ mod fonts;
 mod outbox;
 mod runtime;
 mod terminal;
+#[cfg(all(test, target_os = "linux"))]
+mod test_support;
 mod theme;
 mod transcript;
 mod ui;

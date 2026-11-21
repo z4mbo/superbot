@@ -83,7 +83,13 @@ impl Desktop {
 
     pub(super) fn open_screen(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(owner) = self.features() else { return };
-        let Some(panel) = self.agent_panel.as_mut() else { return };
+        let Some(panel) = self
+            .agent_panel
+            .as_mut()
+            .filter(|panel| panel.width.target() == PANEL_WIDTH)
+        else {
+            return;
+        };
         let serial = SESSIONS.fetch_add(1, Ordering::Relaxed);
         let agent_id = panel.agent_id.clone();
         let heartbeat = cx.spawn(async move |this, cx| loop {
@@ -270,7 +276,7 @@ impl Desktop {
     /// Keeps the view over the panel's screen area, and out of sight while a menu or dialog
     /// is open, since the system web view draws above the app.
     fn place_screen(&mut self, window: &Window) {
-        let covered = self.menu.is_some() || self.dialog.is_some();
+        let covered = self.menu.is_some() || self.modal_open();
         let bounds = screen_bounds(window.viewport_size());
         let Some(screen) = self.agent_panel.as_mut().and_then(|panel| panel.screen.as_mut()) else { return };
         let Some(view) = &screen.view else { return };
@@ -401,7 +407,7 @@ mod tests {
     use super::{screen_address, screen_bounds};
 
     #[tokio::test]
-    async fn abandoning_an_acquired_control_lease_releases_that_exact_lease() {
+    async fn closing_the_panel_hands_back_its_screen_lease_before_the_next_render() {
         use serde_json::{json, Value};
         use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
         use tokio::net::TcpListener;
@@ -434,8 +440,34 @@ mod tests {
         let client = superbot_client::Client::new(&origin).unwrap().with_token("test.signature").unwrap();
         let owner = (super::Features::new(client), "space-a".into());
         let controls = crate::control::Controls::default();
-        let granted = super::ControlLease::acquire(&controls, owner, "bot-a".into()).await.unwrap();
-        drop(granted);
+        let granted = super::ControlLease::acquire(&controls, owner.clone(), "bot-a".into())
+            .await
+            .unwrap();
+        let at = super::Instant::now();
+        let mut panel = super::AgentPanel::new(
+            "bot-a".into(),
+            super::PanelTab::Computer,
+            super::Tween::at_rest(super::PANEL_WIDTH, at),
+        );
+        panel.screen = Some(super::ScreenSession {
+            serial: 1,
+            agent_id: "bot-a".into(),
+            phase: super::ScreenPhase::Live,
+            state: None,
+            busy: false,
+            handing_back: false,
+            view: None,
+            lease: Some(granted),
+            placed: None,
+            owner,
+            _tasks: vec![],
+        });
+        panel.close(at, false);
+        assert!(panel.screen.is_none());
+        assert!(panel.width.moving(at));
+        let reverse = at + super::Duration::from_millis(50);
+        super::transition::aim(&mut panel.width, true, reverse, false);
+        assert!(panel.screen.is_none());
         tokio::time::timeout(super::Duration::from_secs(5), server).await.unwrap().unwrap();
     }
 
