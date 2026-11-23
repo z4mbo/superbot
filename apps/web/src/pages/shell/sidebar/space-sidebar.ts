@@ -84,8 +84,8 @@ export function sidebarGroupsForSpaces<TBot extends SidebarChat, TGroup extends 
       }
       const order = [
         "pinned",
-        ...space.botSections.map((section) => `section:${section.id}`),
         "unassigned",
+        ...space.botSections.map((section) => `section:${section.id}`),
       ];
       grouped.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
     }

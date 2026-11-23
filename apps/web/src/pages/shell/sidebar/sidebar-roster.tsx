@@ -1,7 +1,6 @@
-import { i18n } from "@lingui/core";
-import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, BotSection, Group, Me, Space, ThreadSnapshot } from "@rakazo/contracts";
+import { botInks } from "@rakazo/ui-tokens";
 import {
   BotAvatar,
   Button,
@@ -24,6 +23,7 @@ import {
   Lock,
   MoreHorizontal,
   Pencil,
+  Star,
   Trash2,
   Users,
 } from "lucide-react";
@@ -36,7 +36,6 @@ import {
 import type { BotsSidebarDensity } from "../../../lib/preferences/bots-sidebar-density-pref";
 import type { ChatMenuState } from "../chat/chat-context-menu";
 import { ChatMenu } from "../chat/chat-context-menu";
-import { useRedrawAtMidnight } from "../chat/use-redraw-at-midnight";
 import type { RosterDropAction, RosterDropTarget } from "./roster-drop";
 import type { sidebarGroupsForSpaces } from "./space-sidebar";
 
@@ -99,7 +98,6 @@ export function SidebarRoster({
   activeSnapshot: ThreadSnapshot | null;
   mini?: boolean;
 }) {
-  useRedrawAtMidnight();
   const { t } = useLingui();
   return (
     <>
@@ -116,6 +114,21 @@ export function SidebarRoster({
             ? { kind: "section", sectionId: group.sectionId }
             : null;
         const headerDropKey = `header:${group.key}`;
+        if (!mini && group.key.endsWith("pinned") && group.bots.length > 0) {
+          return (
+            <PinnedTiles
+              key={group.key}
+              group={group}
+              inGroup={inGroup}
+              active={active}
+              activeGroup={activeGroup}
+              activeSnapshot={activeSnapshot}
+              chatMenu={chatMenu}
+              ownSpaceId={bootstrapMe?.spaceId}
+              openSpaceChat={openSpaceChat}
+            />
+          );
+        }
         const section = group.sectionId
           ? (group.spaceId === bootstrapMe?.spaceId
               ? botSections
@@ -139,9 +152,9 @@ export function SidebarRoster({
                 data-roster-drop={rosterDropKey === headerDropKey ? "true" : undefined}
                 className={`${
                   group.title && hasSpaceActions
-                    ? "grid pt-3 pb-0.5"
-                    : `flex items-center pt-3 pb-0.5${group.title ? "" : " justify-end"}`
-                } rounded-lg ${rosterDropKey === headerDropKey ? "bg-sidebar-accent" : ""}`}
+                    ? "grid pt-2.5"
+                    : `flex items-center pt-2.5${group.title ? "" : " justify-end"}`
+                } rounded-[6px] ${rosterDropKey === headerDropKey ? "bg-sidebar-accent" : ""}`}
                 onDragOver={(event) => {
                   if (!headerDropTarget || !rosterDropAction(headerDropTarget, false)) return;
                   event.preventDefault();
@@ -165,7 +178,7 @@ export function SidebarRoster({
                       render={
                         group.emptySpaceId ? <button type="button" /> : <CollapsibleTrigger />
                       }
-                      className={`flex min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1 text-label font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring ${hasSpaceActions ? "col-start-1 row-start-1 w-full" : "flex-1"}`}
+                      className={`group/section flex min-w-0 items-center justify-between gap-2 rounded-[6px] px-2 py-1.5 text-body-sm text-muted-foreground transition-colors hover:bg-sidebar-row-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring ${hasSpaceActions ? "col-start-1 row-start-1 w-full" : "flex-1"}`}
                       onClick={() => {
                         if (group.emptySpaceId) {
                           openSpaceChat(group.emptySpaceId, "/onboarding");
@@ -219,9 +232,11 @@ export function SidebarRoster({
                         <ChevronDown
                           size={14}
                           strokeWidth={1.8}
-                          className={
-                            collapsed ? "-rotate-90 transition-transform" : "transition-transform"
-                          }
+                          className={`transition-[rotate,opacity] ${
+                            collapsed
+                              ? "-rotate-90"
+                              : "opacity-0 group-hover/section:opacity-100 group-focus-visible/section:opacity-100"
+                          }`}
                           aria-hidden="true"
                         />
                       )}
@@ -276,7 +291,7 @@ export function SidebarRoster({
                 ) : null}
               </div>
             ) : null}
-            <CollapsibleContent className="flex flex-col gap-0.5">
+            <CollapsibleContent className="flex flex-col gap-1">
               {group.bots.map((item) => {
                 const selected =
                   (item.kind === "bot" && !inGroup && active?.id === item.chat.id) ||
@@ -294,8 +309,9 @@ export function SidebarRoster({
                       ? t`Error`
                       : compactRosterStatusLabel(item.chat.status)
                     : null;
+                // A working bot keeps its last message here; its avatar shows the work.
                 const previewLine =
-                  workStatusLabel ??
+                  (item.kind === "bot" && !item.chat.preview ? workStatusLabel : null) ??
                   (item.kind === "bot"
                     ? item.chat.preview || (item.chat.status !== "idle" ? item.chat.status : "")
                     : item.chat.preview ||
@@ -328,11 +344,11 @@ export function SidebarRoster({
                       avatarSet={item.chat.avatarSet}
                       color={item.chat.color}
                       identity={item.chat.id}
-                      size={mini ? 40 : compact ? 28 : 38}
+                      size={mini ? 40 : compact ? 28 : 36}
                       status={item.chat.status}
                     />
                   ) : (
-                    <GroupAvatar members={groupMembers} size={mini ? 40 : compact ? 28 : 38} />
+                    <GroupAvatar members={groupMembers} size={mini ? 40 : compact ? 28 : 36} />
                   );
                 const chatTrigger = (
                   <ContextMenuTrigger
@@ -410,7 +426,7 @@ export function SidebarRoster({
                         ? "mx-auto size-12 justify-center rounded-xl"
                         : compact
                           ? "w-full min-h-11 gap-2 rounded-sm px-2.5 py-1.5"
-                          : "w-full min-h-13.5 gap-2.5 rounded-sm px-2.5 py-[7px]"
+                          : "w-full min-h-13.5 gap-2.5 rounded-lg p-2"
                     } text-start ${
                       selected || rosterDropKey === rowDropKey
                         ? "bg-sidebar-accent"
@@ -480,13 +496,6 @@ export function SidebarRoster({
                               >
                                 <Trans>Woke</Trans>
                               </span>
-                            ) : !compact ? (
-                              <span
-                                data-roster-time
-                                className="text-label text-faint-foreground tabular-nums"
-                              >
-                                {formatRosterTime(item.chat.updatedAt)}
-                              </span>
                             ) : null}
                             {item.chat.unread ? (
                               <span
@@ -524,8 +533,8 @@ export function SidebarRoster({
                           <div
                             dir="auto"
                             data-roster-preview={!workStatusLabel ? "true" : undefined}
-                            className={`mt-0.5 truncate text-body-sm ${
-                              workStatusLabel
+                            className={`truncate text-body-sm ${
+                              workStatusLabel && item.kind === "bot" && !item.chat.preview
                                 ? "font-semibold text-status-working"
                                 : item.chat.unread
                                   ? "font-medium text-foreground/75"
@@ -618,33 +627,104 @@ function headerName(group: { title?: string | null; subtitle?: string }): string
   return group.subtitle ? `${group.title}, ${group.subtitle}` : (group.title ?? "");
 }
 
-function formatRosterTime(isoDate?: string | null): string {
-  if (!isoDate) return "";
-  try {
-    const d = new Date(isoDate);
-    if (Number.isNaN(d.getTime())) return "";
-    const locale = i18n.locale || "en";
-    const now = new Date();
-    const isToday =
-      d.getDate() === now.getDate() &&
-      d.getMonth() === now.getMonth() &&
-      d.getFullYear() === now.getFullYear();
-    if (isToday) {
-      return d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
-    }
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const isYesterday =
-      d.getDate() === yesterday.getDate() &&
-      d.getMonth() === yesterday.getMonth() &&
-      d.getFullYear() === yesterday.getFullYear();
-    if (isYesterday) return t`Yesterday`;
-    const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays < 7) {
-      return d.toLocaleDateString(locale, { weekday: "short" });
-    }
-    return d.toLocaleDateString(locale, { month: "short", day: "numeric" });
-  } catch {
-    return "";
-  }
+type RosterGroup = ReturnType<
+  typeof sidebarGroupsForSpaces<Space["bots"][number], Space["groups"][number]>
+>[number];
+
+/** Pinned chats sit above the sections as tiles; the first bot the account made wears a star. */
+function PinnedTiles({
+  group,
+  inGroup,
+  active,
+  activeGroup,
+  activeSnapshot,
+  chatMenu,
+  ownSpaceId,
+  openSpaceChat,
+}: {
+  group: RosterGroup;
+  inGroup: boolean;
+  active: Pick<Bot, "id"> | undefined;
+  activeGroup: Pick<Group, "id"> | undefined;
+  activeSnapshot: ThreadSnapshot | null;
+  chatMenu: ChatMenuState;
+  ownSpaceId: string | undefined;
+  openSpaceChat: (spaceId: string, path: string) => void;
+}) {
+  const { t } = useLingui();
+  return (
+    <div data-sidebar-group={group.key} className="flex flex-wrap justify-center gap-1 pt-2.5 pb-2">
+      {group.bots.map((item) => {
+        const selected =
+          (item.kind === "bot" && !inGroup && active?.id === item.chat.id) ||
+          (item.kind === "group" && inGroup && activeGroup?.id === item.chat.id);
+        const members =
+          item.kind === "group"
+            ? item.chat.id === activeSnapshot?.groupId
+              ? (activeSnapshot.members ?? item.chat.members)
+              : item.chat.members
+            : [];
+        const main = item.kind === "bot" && item.chat.spawnKey === "onboarding:first";
+        return (
+          <ChatMenu
+            key={`${item.kind}:${item.chat.id}`}
+            target={{ kind: item.kind, id: item.chat.id }}
+            state={chatMenu}
+            disabled={item.chat.spaceId !== ownSpaceId}
+          >
+            <ContextMenuTrigger
+              render={<button type="button" />}
+              data-roster-bot-id={item.kind === "bot" ? item.chat.id : undefined}
+              data-roster-unread={item.chat.unread ? "true" : undefined}
+              aria-current={selected ? "page" : undefined}
+              aria-label={item.chat.unread ? t`${item.chat.name} (unread)` : undefined}
+              onClick={() =>
+                openSpaceChat(
+                  item.chat.spaceId,
+                  item.kind === "bot" ? `/app/${item.chat.id}` : `/app/g/${item.chat.id}`,
+                )
+              }
+              onContextMenu={(event) => event.currentTarget.focus()}
+              className={`flex w-[95px] flex-col items-center gap-1.5 rounded-lg px-2 pt-1.5 pb-1 ${
+                selected ? "bg-sidebar-accent" : "hover:bg-sidebar-row-hover"
+              }`}
+            >
+              <span className="relative">
+                {item.kind === "bot" ? (
+                  <BotAvatar
+                    avatarSet={item.chat.avatarSet}
+                    color={item.chat.color}
+                    identity={item.chat.id}
+                    size={60}
+                    status={item.chat.status}
+                  />
+                ) : (
+                  <GroupAvatar members={members} size={60} />
+                )}
+                {main ? (
+                  <span
+                    aria-hidden="true"
+                    style={{ background: botInks.yellow }}
+                    className="absolute -end-0.5 -bottom-0.5 flex size-[18px] items-center justify-center rounded-full text-white ring-2 ring-sidebar"
+                  >
+                    <Star className="size-2.5" fill="currentColor" strokeWidth={0} />
+                  </span>
+                ) : null}
+                {item.chat.unread ? (
+                  <span
+                    aria-hidden="true"
+                    data-roster-unread-dot
+                    className="absolute end-0 top-0 size-2.5 rounded-full bg-unread ring-2 ring-sidebar"
+                  />
+                ) : null}
+              </span>
+              <span dir="auto" className="max-w-full truncate text-label text-foreground">
+                {item.chat.name}
+              </span>
+            </ContextMenuTrigger>
+          </ChatMenu>
+        );
+      })}
+    </div>
+  );
 }
