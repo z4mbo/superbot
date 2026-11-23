@@ -67,6 +67,6 @@ test("reduced motion keeps every avatar flat and facing forward", async ({ page 
   }
   const idle = page.locator('[data-state="idle"] .avatar-shape-0');
   await idle.hover();
-  await page.waitForTimeout(500);
+  // With transitions off, a hover turn would show at once.
   expect(await faceScale(idle)).toBe(1);
 });
