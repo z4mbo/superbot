@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   capabilities: { list: vi.fn(), catalogSearch: vi.fn(), sourcePresets: vi.fn() },
   mcp: { servers: { list: vi.fn() }, assignments: { list: vi.fn() } },
   marketplace: { catalog: vi.fn() },
+  apps: { catalog: vi.fn(), installed: vi.fn() },
   pluginRegistry: { discover: vi.fn(), installations: vi.fn() },
 }));
 
@@ -114,6 +115,8 @@ beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   api.connections.catalog.mockReset().mockResolvedValue([]);
+  api.apps.catalog.mockReset().mockResolvedValue([]);
+  api.apps.installed.mockReset().mockResolvedValue([]);
   api.connections.list.mockReset().mockResolvedValue([]);
   api.connections.tools.mockReset().mockResolvedValue([]);
   api.capabilities.list.mockReset().mockResolvedValue([]);
