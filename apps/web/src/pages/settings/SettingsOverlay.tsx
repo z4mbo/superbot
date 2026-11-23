@@ -293,7 +293,7 @@ export function SettingsOverlay({
         initialFocus={() =>
           section === "usage" ? (usageRef.current ?? panelRef.current) : panelRef.current
         }
-        className="flex h-[min(760px,calc(100%-2rem))] max-h-[calc(100%-2rem)] w-[min(1080px,calc(100%-2rem))] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-h-[calc(100%-5rem)] sm:max-w-[1080px]"
+        className="flex h-[min(696px,calc(100%-2rem))] max-h-[calc(100%-2rem)] w-[min(900px,calc(100%-2rem))] flex-col gap-0 overflow-hidden rounded-[14px] p-0 sm:max-w-[900px]"
       >
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 md:contents">
@@ -312,7 +312,7 @@ export function SettingsOverlay({
               ref={setNav}
               data-testid="settings-nav"
               aria-label={t`Settings`}
-              className="flex min-w-0 flex-1 flex-row gap-1 overflow-x-auto py-3 md:w-[200px] md:shrink-0 md:flex-none md:flex-col md:overflow-y-auto md:border-e md:border-border md:bg-sidebar md:px-3 md:py-4"
+              className="flex min-w-0 flex-1 flex-row gap-1 overflow-x-auto py-3 md:w-[198px] md:shrink-0 md:flex-none md:flex-col md:gap-0.5 md:overflow-y-auto md:border-e md:border-hairline md:px-[13px] md:py-[17px]"
             >
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -326,10 +326,8 @@ export function SettingsOverlay({
                     aria-current={active ? "page" : undefined}
                     disabled={panelBusy}
                     onClick={() => onSectionChange(item.id)}
-                    className={`flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-body transition-colors disabled:pointer-events-none disabled:opacity-50 ${
-                      active
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className={`flex h-8 shrink-0 items-center gap-2 rounded-sm px-[9px] text-start text-body-sm text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50 ${
+                      active ? "bg-sidebar-accent" : "hover:bg-accent"
                     }`}
                   >
                     <Icon className="size-4 shrink-0" strokeWidth={1.75} />
@@ -353,7 +351,7 @@ export function SettingsOverlay({
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div
               data-testid="settings-header"
-              className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-6 pb-5 pt-6 sm:px-8 sm:pt-7"
+              className="flex shrink-0 items-start justify-between gap-4 px-6 pb-2 pt-6 sm:ps-[46px] sm:pe-[13px] sm:pt-[13px]"
             >
               <div className="flex min-w-0 items-center gap-2">
                 {section === "space" ? (
@@ -369,7 +367,7 @@ export function SettingsOverlay({
                   </Button>
                 ) : null}
                 <div className="min-w-0">
-                  <DialogTitle className="break-words text-heading2 font-medium text-foreground">
+                  <DialogTitle className="break-words pt-5 text-heading3 font-medium text-foreground">
                     {sectionTitle}
                   </DialogTitle>
                   {sectionDescription ? (
@@ -400,7 +398,7 @@ export function SettingsOverlay({
                 className={`min-h-0 flex-1 ${
                   section === "memory"
                     ? "flex flex-col overflow-hidden"
-                    : "rk-scroll overflow-y-auto overscroll-contain px-6 pb-6 pt-6 sm:px-8 sm:pb-8"
+                    : "rk-scroll overflow-y-auto overscroll-contain px-6 pb-6 pt-4 sm:px-8 sm:pb-8"
                 }`}
               >
                 {/* Memory scrolls its own body and applies the same width there; Usage's table needs the room. */}

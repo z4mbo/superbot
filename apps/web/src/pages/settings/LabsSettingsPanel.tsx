@@ -34,7 +34,7 @@ export function LabsSettingsPanel({
               <>
                 <Label
                   htmlFor={`${id}-${feature}`}
-                  className="text-body font-normal text-foreground"
+                  className="text-body-sm font-normal text-foreground"
                 >
                   {copy[feature].title}
                 </Label>

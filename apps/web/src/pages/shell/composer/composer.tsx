@@ -94,6 +94,8 @@ const ComposerBody = memo(function Composer({
   onSend,
   onStop,
   phoneCallsEnabled,
+  onVoiceChat,
+  voiceReady,
   dictationTranscribe,
   replyTarget,
   replyQuote,
@@ -136,6 +138,9 @@ const ComposerBody = memo(function Composer({
   ) => Promise<boolean>;
   onStop: () => Promise<void>;
   phoneCallsEnabled?: boolean;
+  /** Starts a voice chat with the open bot; absent in groups and threads. */
+  onVoiceChat?: () => void;
+  voiceReady?: boolean;
   /** Hold-to-talk falls back to the voice provider's transcription; undefined while unknown. */
   dictationTranscribe?: boolean;
   artifactTarget: ArtifactTarget;
@@ -626,7 +631,7 @@ const ComposerBody = memo(function Composer({
       aria-label={t`Message composer`}
       data-dragging={draggingFiles ? "files" : undefined}
       {...dropHandlers}
-      className={`relative z-30 m-0 min-w-0 border-0 ${docked ? "p-0" : "px-3 pb-4 pt-0 md:px-[max(1.5rem,calc((100%_-_60rem)/2))]"} [&>*]:pointer-events-auto ${fileDragActive ? "pointer-events-auto" : "pointer-events-none"} ${
+      className={`relative z-30 m-0 min-w-0 border-0 ${docked ? "p-0" : "px-3 pb-4 pt-0 md:px-[max(1.25rem,calc((100%_-_60rem)/2))]"} [&>*]:pointer-events-auto ${fileDragActive ? "pointer-events-auto" : "pointer-events-none"} ${
         draggingFiles ? "rounded-[14px] ring-2 ring-inset ring-ring" : ""
       }`}
     >
@@ -718,14 +723,10 @@ const ComposerBody = memo(function Composer({
         ref={composerBarRef}
         data-testid="composer-bar"
         data-expanded={expanded}
-        className={`grid grid-cols-[auto_minmax(0,1fr)_auto] content-end items-center border border-foreground/10 pe-2 ps-2 transition-colors hover:border-input focus-within:border-input ${
-          docked ? "bg-card" : "bg-popover"
-        } ${
+        className={`grid grid-cols-[auto_minmax(0,1fr)_auto] content-end items-center border border-input bg-elevated pe-2 ps-[7px] shadow-composer transition-colors ${
           expanded
-            ? "gap-x-2 gap-y-2 rounded-[18px] pb-[9px] pt-3"
-            : docked
-              ? "gap-x-3 rounded-[22px] py-[5px]"
-              : "gap-x-1.5 rounded-[22px] py-[7px]"
+            ? "gap-x-2 gap-y-2 rounded-[22px] pb-[7px] pt-3"
+            : "gap-x-2 rounded-[22px] py-[7px]"
         }`}
       >
         <input
@@ -743,11 +744,11 @@ const ComposerBody = memo(function Composer({
           aria-label={t`Attach file`}
           disabled={disabled}
           onClick={() => fileInputRef.current?.click()}
-          className={`col-start-1 shrink-0 rounded-full border border-foreground/4 bg-foreground/4 text-faint-foreground transition-colors hover:bg-foreground/8 hover:text-foreground ${
+          className={`col-start-1 shrink-0 rounded-full bg-secondary text-faint-foreground ring-[0.5px] ring-hairline ring-inset transition-colors hover:bg-accent hover:text-foreground ${
             expanded ? "row-start-2" : ""
           }`}
         >
-          <Plus className="size-5" strokeWidth={2} />
+          <Plus className="size-4.5" strokeWidth={1.75} />
         </Button>
         <div
           ref={composerFieldRef}
@@ -902,7 +903,7 @@ const ComposerBody = memo(function Composer({
               autoComplete="off"
               dir="auto"
               rows={1}
-              className={`${COMPOSER_TEXT} block max-h-25 min-h-[24px] w-full resize-none overflow-y-auto bg-transparent text-transparent caret-foreground outline-none placeholder:text-muted-foreground selection:bg-ring/30 selection:text-transparent disabled:opacity-40 forced-colors:text-[CanvasText]`}
+              className={`${COMPOSER_TEXT} block max-h-25 min-h-[24px] w-full resize-none overflow-y-auto bg-transparent text-transparent caret-foreground outline-none placeholder:text-placeholder selection:bg-ring/30 selection:text-transparent disabled:opacity-40 forced-colors:text-[CanvasText]`}
             />
             <ComposerMentionHighlights
               ref={mirrorRef}
@@ -924,6 +925,8 @@ const ComposerBody = memo(function Composer({
           stopDisabled={sending}
           sendColors={sendColors}
           modelPicker={modelPicker}
+          onVoiceChat={onVoiceChat}
+          voiceReady={voiceReady}
           onSend={() => void send()}
           onStop={() => void onStop()}
         />
