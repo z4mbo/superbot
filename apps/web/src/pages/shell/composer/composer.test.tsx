@@ -128,9 +128,9 @@ it("keeps the Send button tinted when the theme overrides transcript colors", ()
   expect(send()?.className).not.toContain("bg-chat-user");
 });
 
-it("uses the shared secondary text color for the empty composer placeholder", () => {
+it("uses the shared placeholder text color for the empty composer", () => {
   const textarea = renderComposer(async () => true);
-  expect(textarea.classList.contains("placeholder:text-muted-foreground")).toBe(true);
+  expect(textarea.classList.contains("placeholder:text-placeholder")).toBe(true);
 });
 
 it("shows a readable run error with raw details, while preserving send errors", () => {

@@ -282,11 +282,11 @@ function renderAuthored(message: ThreadMessage, meId = "user-b") {
   return { bubble, row: bubble.parentElement };
 }
 
-it("puts someone else's message at the start and uses the card surface", () => {
+it("puts someone else's message at the start on the bot bubble surface", () => {
   const { bubble, row } = renderAuthored(authored);
 
   expect(row.classList).toContain("justify-start");
-  expect(bubble.classList).toContain("bg-card");
+  expect(bubble.classList).toContain("bg-chat-agent");
 });
 
 it("keeps my own message unnamed on the right", () => {
