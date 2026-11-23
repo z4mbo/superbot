@@ -66,11 +66,22 @@ const DECLARATION_ROLES: ReadonlySet<IdentifierRole | null> = new Set([
   IdentifierRole.ImportDeclaration,
 ]);
 
+/** What an extension built on the kit adds to a page; plain pages pass nothing. */
+export type PageSourceOptions = {
+  /** More names the page finds in scope, given by an extension's runtime. */
+  globals?: readonly string[];
+  /** One line of code the viewer runs before the page; see pageViewerCode. */
+  prelude?: string;
+};
+
 /**
  * Catches mistakes before the user sees the page, with line numbers the bot can act on. It is
  * not a security boundary: page code runs only inside the sandboxed viewer, which is the boundary.
  */
-export function checkPageSource(source: string): PageSourceCheck {
+export function checkPageSource(source: string, options: PageSourceOptions = {}): PageSourceCheck {
+  const given: ReadonlySet<string> = options.globals?.length
+    ? new Set([...GIVEN, ...options.globals])
+    : GIVEN;
   const bytes = pageSourceBytes(source);
   if (bytes > PAGE_SOURCE_MAX_BYTES) {
     return {
@@ -184,7 +195,7 @@ export function checkPageSource(source: string): PageSourceCheck {
     errors.push(`line ${lineOf(start)}: ${selfRenderingMessage(name)}`);
   }
   for (const [name, line] of tags) {
-    if (GIVEN.has(name) || declared.has(name)) continue;
+    if (given.has(name) || declared.has(name)) continue;
     errors.push(
       `line ${line}: <${name}> is not a kit component. Use ${KIT_LIST}, or define ${name} in this file.`,
     );
@@ -210,7 +221,7 @@ export function checkPageSource(source: string): PageSourceCheck {
   } catch (error) {
     return { ok: false, errors: [syntaxErrorText(error)] };
   }
-  const code = pageViewerCode(source, compiled);
+  const code = pageViewerCode(source, compiled, options.prelude);
   return warnings.length
     ? { ok: true, code, warnings: warnings.slice(0, MAX_REPORTED_ERRORS) }
     : { ok: true, code };

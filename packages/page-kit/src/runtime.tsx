@@ -34,7 +34,8 @@ declare global {
  */
 function loadPage(code: string): ComponentType {
   const script = document.createElement("script");
-  script.text = `window.__rakazoPageFactory=function(exports,require,${PAGE_GLOBALS.join(",")}){(function(){${code}\n})()};`;
+  const extra = [...extensions.keys()];
+  script.text = `window.__rakazoPageFactory=function(exports,require,${[...PAGE_GLOBALS, ...extra].join(",")}){(function(){${code}\n})()};`;
   document.head.append(script);
   script.remove();
   const factory = window.__rakazoPageFactory;
@@ -53,11 +54,27 @@ function loadPage(code: string): ComponentType {
     ...PAGE_HOOKS.map((name) => HOOKS[name]),
     ...PAGE_HELPERS.map((name) => helpers[name]),
     ...PAGE_KIT_COMPONENTS.map((name) => kit[name]),
+    ...extra.map((name) => extensions.get(name)),
   );
   if (typeof exports.default !== "function") {
     throw new Error("The page has no default export component.");
   }
   return exports.default as ComponentType;
+}
+
+const extensions = new Map<string, unknown>();
+const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+/**
+ * An extension built on the kit (apps) adds names a page finds in scope, beside the kit's own.
+ * It runs in this same viewer and sandbox; it cannot replace a kit name.
+ */
+export function extendPageGlobals(globals: Record<string, unknown>) {
+  for (const [name, value] of Object.entries(globals)) {
+    if (!IDENTIFIER.test(name) || (PAGE_GLOBALS as readonly string[]).includes(name))
+      throw new Error(`${name} cannot be added to the page's scope.`);
+    extensions.set(name, value);
+  }
 }
 
 const HOOKS: Record<(typeof PAGE_HOOKS)[number], unknown> = {
