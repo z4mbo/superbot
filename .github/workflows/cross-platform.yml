@@ -33,6 +33,12 @@ env:
   # storage/workspace-archive.test.ts (a file name with a newline) and
   # desktop-sandbox-write-containment.test.ts (a parent swapped for a junction during mkdir).
   UNIT_TESTS: >-
+    packages/contracts/src/apps/app-manifest.test.ts
+    packages/plugin-sdk/src/node/app-folder.test.ts
+    packages/plugin-sdk/src/state/app-state.test.ts
+    packages/plugin-sdk/src/bridge/bridge.test.ts
+    packages/plugin-sdk/src/check/check-app.test.ts
+    packages/plugin-sdk/src/runtime/app-runtime.test.tsx
     packages/adapters/src/storage/file-handle-path.test.ts
     packages/adapters/src/storage/home-races.test.ts
     packages/adapters/src/runtime/pi/pi-session.test.ts
@@ -46,6 +52,7 @@ env:
     smoke.spec.ts
     setup.spec.ts
     window-drag.spec.ts
+    app-sdk.spec.ts
 
 jobs:
   unit:
