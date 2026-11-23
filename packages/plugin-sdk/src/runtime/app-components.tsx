@@ -1,5 +1,5 @@
 import type { AppActionInput } from "@rakazo/contracts";
-import type { FormEvent } from "react";
+import type { KeyboardEvent } from "react";
 import { useCallback, useState, useSyncExternalStore } from "react";
 import type { ActionResult } from "./app-store.js";
 import { actionsAvailable, getState, runAction, subscribe, surface } from "./app-store.js";
@@ -120,15 +120,15 @@ export function ActionForm({
   if (!declared || !buttonLabel) return null;
   const set = (name: string, value: Value) =>
     setValues((current) => ({ ...current, [name]: value }));
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
+  // The viewer's sandbox blocks form submission, so a click or Enter runs the action directly.
+  const submit = () => {
     void run({ ...inputFrom(fields, values), ...fixed }).then((result) => {
       if (result.ok) setValues(initialValues(fields));
     });
   };
   const available = actionsAvailable();
   return (
-    <form className="rk-actions" onSubmit={submit}>
+    <div className="rk-actions" role="group" aria-label={buttonLabel}>
       {fields.map(([name, field]) =>
         field.type === "boolean" ? (
           <label key={name} className="rk-toggle">
@@ -173,19 +173,23 @@ export function ActionForm({
               value={String(values[name] ?? "")}
               disabled={!available}
               onChange={(event) => set(name, event.target.value)}
+              onKeyDown={(event: KeyboardEvent) => {
+                if (event.key === "Enter" && !pending) submit();
+              }}
             />
           </label>
         ),
       )}
       <button
-        type="submit"
+        type="button"
         className="rk-button"
         data-variant="primary"
         disabled={pending || !available}
+        onClick={submit}
       >
         {buttonLabel}
       </button>
       <ActionError error={error} />
-    </form>
+    </div>
   );
 }

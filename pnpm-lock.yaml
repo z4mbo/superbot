@@ -339,6 +339,9 @@ importers:
       '@rakazo/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@rakazo/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
       '@rakazo/ui-tokens':
         specifier: workspace:*
         version: link:../../packages/ui-tokens
