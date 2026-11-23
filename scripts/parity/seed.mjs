@@ -88,6 +88,8 @@ const spaceId = me.spaceId;
 const userId = me.id ?? me.userId;
 const db = new Client({ connectionString: databaseUrl });
 await db.connect();
+// The account keeps the fixture's display name, so screenshots never show another one.
+await db.query(`UPDATE "user" SET name = $2 WHERE id = $1`, [userId, name]);
 
 const firstBot = await db.query(
   `SELECT id FROM bots WHERE "spaceId" = $1 AND "spawnKey" = 'onboarding:first'`,

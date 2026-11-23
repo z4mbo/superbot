@@ -93,6 +93,16 @@ const shots = {
     await page.getByRole("dialog").first().waitFor({ timeout: 10_000 });
     await settle(page);
   },
+  async hover(page) {
+    await page.goto(`/app/${await botId(page, "main")}`);
+    await page.getByTestId("composer-bar").waitFor({ timeout: 30_000 });
+    await settle(page);
+    // Over a roster row, so its avatar faces the pointer with upright eyes.
+    const row = page.locator("[data-roster-bot-id]").nth(3);
+    const box = await row.boundingBox();
+    if (box) await page.mouse.move(box.x + 26, box.y + box.height / 2 - 4, { steps: 8 });
+    await page.waitForTimeout(600);
+  },
   async "model-menu"(page) {
     await page.goto(`/app/${await botId(page, "main")}`);
     await page.getByTestId("composer-bar").waitFor({ timeout: 30_000 });
