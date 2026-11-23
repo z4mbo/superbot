@@ -29,8 +29,11 @@ export function ComposerModelPicker({
   open,
   onOpenChange,
   onKeysChange,
+  placement,
 }: {
   bot: Bot;
+  /** Beside Send, or inside the chat's capsule. */
+  placement?: "composer" | "capsule";
   disabled?: boolean;
   onSaved: (bot: Bot) => void;
   /** Opens the model connections, offered when no provider is connected yet. */
@@ -135,6 +138,7 @@ export function ComposerModelPicker({
   return (
     <ChatModelPicker
       compact
+      placement={placement}
       choices={choices}
       value={selectedModelKey}
       // The button names the model alone (the one behind the Space default when the bot follows
