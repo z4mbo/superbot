@@ -187,6 +187,21 @@ Settings
   main the whole theme is ignored. The ink user bubble could be offered through the instance theme
   once main supports such a field.
 
+## Declutter review (ux-declutter skill)
+
+Screens changed: every place a shape or default bot avatar appears (roster, thread, group avatars,
+avatar picker). Reviewed from `web/after-*.png` against `web/before-*.png`.
+
+- Removed: the drop shadow under every idle avatar and the coloured glow behind every working one.
+  Both were chrome on a 20–56 px mark; the turn now says "working" by itself.
+- Added: nothing visible at rest. The extruded side only appears while the avatar moves, in a
+  darker shade of the bot's own colour, so the screen keeps ink, grey and the bots' colours.
+- Words and controls: none added or changed; accessible names are unchanged (the avatar stays
+  decorative next to the bot's name).
+- Newcomer read: states differ by motion only, as in the reference. A bot that is waiting or
+  blocked is also shown by the existing status rows and cards, so nothing relies on motion alone,
+  and reduced motion loses no information.
+
 ## Mobile (Expo)
 
 Not changed on purpose, apart from what comes through shared code: shape avatars on mobile pick up
