@@ -114,6 +114,8 @@ test("launches with a narrow preload bridge and an isolated renderer", async () 
     "platform",
     "server",
     "settings",
+    // System speech is offered only on macOS.
+    ...(process.platform === "darwin" ? ["speech"] : []),
     "update",
     "window",
   ]);
