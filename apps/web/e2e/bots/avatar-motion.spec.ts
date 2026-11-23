@@ -76,19 +76,18 @@ test("photo avatar animations stay still when reduced motion is enabled", async 
   expect(second).toEqual(first);
 });
 
-test("working studio shapes move their body like organic avatars, with no ring", async ({
-  page,
-}) => {
+test("working studio shapes move and turn like organic avatars, with no ring", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/e2e/fixtures/avatar-motion.html");
   const shape = page.locator(".avatar-shape-working");
   await expect(shape).toHaveAttribute("data-working", "true");
   await expect(page.locator(".rakazo-bot-avatar-ring")).toHaveCount(1);
   await expect(shape.locator(".rakazo-mascot-avatar-body-working")).toHaveCSS("opacity", "1");
-  await expect(shape.locator(".rakazo-mascot-avatar-body-working")).toHaveCSS(
+  await expect(shape.locator(".rakazo-mascot-avatar-solid")).toHaveCSS(
     "animation-name",
     /rakazo-mascot-/,
   );
+  await expect(shape).toHaveCSS("animation-name", "rakazo-mascot-turn-work");
 });
 
 test("organic avatars hold still while idle and stop working motion while offscreen or hidden", async ({

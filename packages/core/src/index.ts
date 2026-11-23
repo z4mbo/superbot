@@ -16,6 +16,7 @@ export * from "./avatars/avatar-clips.js";
 export * from "./avatars/avatar-life.js";
 export * from "./avatars/avatar-shape.js";
 export * from "./avatars/bot-avatar-colors.js";
+export * from "./avatars/bot-avatar-motion.js";
 export * from "./avatars/bot-avatar-shapes.js";
 export * from "./avatars/logo-avatar-activity.js";
 export * from "./avatars/logo-avatar-activity-store.js";

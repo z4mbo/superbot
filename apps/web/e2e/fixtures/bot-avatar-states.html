@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bot avatar states</title>
+    <style>
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font: 14px ui-sans-serif, system-ui, sans-serif;
+      }
+      #root {
+        display: grid;
+        gap: 28px;
+        padding: 32px;
+      }
+      .avatar-row {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+      }
+      .avatar-row > span {
+        width: 88px;
+        color: var(--muted-foreground);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/e2e/fixtures/bot-avatar-states.tsx"></script>
+  </body>
+</html>
