@@ -1,34 +1,15 @@
 import { BotAvatarValueSchema, parseBotAvatarValue } from "@rakazo/contracts";
-import { lightTokens } from "@rakazo/ui-tokens";
-import type { AvatarEyes } from "./avatar-shape.js";
-import {
-  avatarEyeRects,
-  avatarIdentitySeed,
-  ORGANIC_AVATAR_EYES,
-  ORGANIC_AVATAR_VIEWBOX,
-  organicAvatarEyeTilt,
-  organicAvatarPath,
-} from "./avatar-shape.js";
-import { botEyeInk, resolvePersonaColorDef } from "./bot-avatar-colors.js";
-import {
-  SHIPPED_BOT_AVATAR_EYES,
-  SHIPPED_BOT_AVATAR_VIEWBOX,
-  shippedBotAvatarShapePath,
-} from "./bot-avatar-shapes.js";
-import {
-  LOGO_AVATAR_BODY_Y,
-  LOGO_AVATAR_EYES,
-  LOGO_AVATAR_VIEWBOX,
-  LOGO_BODY_PATH,
-  logoAvatarEyeInk,
-} from "./logo-avatar-art.js";
-import { logoAvatarTraits } from "./logo-avatar-traits.js";
+import { botInks } from "@rakazo/ui-tokens";
+import { resolvePersonaColorDef } from "./bot-avatar-colors.js";
+import { BOT_MARK_VIEWBOX, botMarkInkFor, botMarkRestPath, botMarkShapeFor } from "./bot-mark.js";
 
-/** A static notification portrait, with the same identity, saved photo and silhouette as chat. */
+/** A static notification portrait: the saved photo, or the bot's mark at rest in its ink. */
 export function notificationAvatarSource(bot: {
   id: string;
   color: string;
   avatarSet?: string | null;
+  lookShape?: string | null;
+  lookColor?: string | null;
 }): string {
   const parsed = BotAvatarValueSchema.safeParse(bot.color).success
     ? parseBotAvatarValue(bot.color)
@@ -38,34 +19,15 @@ export function notificationAvatarSource(bot: {
     bot.id,
     parsed && "color" in parsed ? parsed.color : bot.color,
   ).hex;
-  // The push is flattened onto white, so the eyes are inked for a light page.
-  let viewBox: string;
-  let body: string;
-  if (parsed?.kind === "shape") {
-    viewBox = SHIPPED_BOT_AVATAR_VIEWBOX;
-    body = `<path d="${shippedBotAvatarShapePath(parsed.shapeIndex)}" fill="${color}"/>${barEyes(SHIPPED_BOT_AVATAR_EYES, botEyeInk(color, lightTokens))}`;
-  } else if (bot.avatarSet === "rakazo") {
-    const fill = logoAvatarTraits(bot.id, color).color;
-    const { width, height, leftCx, rightCx, cy } = LOGO_AVATAR_EYES;
-    const eyes = [leftCx, rightCx]
-      .map((cx) => `<ellipse cx="${cx}" cy="${cy}" rx="${width / 2}" ry="${height / 2}"/>`)
-      .join("");
-    viewBox = LOGO_AVATAR_VIEWBOX;
-    body = `<g transform="translate(0 ${LOGO_AVATAR_BODY_Y})"><path d="${LOGO_BODY_PATH}" fill="${fill}"/><g fill="${logoAvatarEyeInk(fill, lightTokens)}">${eyes}</g></g>`;
-  } else {
-    const seed = avatarIdentitySeed(bot.id);
-    viewBox = ORGANIC_AVATAR_VIEWBOX;
-    body = `<path d="${organicAvatarPath(seed)}" fill="${color}"/><g transform="rotate(${organicAvatarEyeTilt(seed)})">${barEyes(ORGANIC_AVATAR_EYES, botEyeInk(color, lightTokens))}</g>`;
-  }
-  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="${viewBox}">${body}</svg>`)}`;
-}
-
-function barEyes(eyes: AvatarEyes, fill: string): string {
-  const rects = avatarEyeRects(eyes)
-    .map(
-      ({ x, y, width, height, rx }) =>
-        `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${rx}"/>`,
-    )
-    .join("");
-  return `<g fill="${fill}">${rects}</g>`;
+  const ink = botMarkInkFor(bot.lookColor, color);
+  // The push is flattened onto white, so a neutral mark is black and its eyes show white.
+  const fill = ink === "neutral" ? "#000000" : botInks[ink];
+  const d = botMarkRestPath(
+    botMarkShapeFor(
+      bot.id,
+      bot.lookShape,
+      parsed?.kind === "shape" ? parsed.shapeIndex : undefined,
+    ),
+  );
+  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="${BOT_MARK_VIEWBOX}"><path d="${d}" fill="${fill}" fill-rule="evenodd"/></svg>`)}`;
 }

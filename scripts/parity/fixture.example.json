@@ -52,7 +52,9 @@
         "provider": "local",
         "id": "anthropic/offline-fixture",
         "thinking": "high"
-      }
+      },
+      "color": "neutral",
+      "shape": "circle"
     },
     {
       "key": "whatsnew",
@@ -133,7 +135,8 @@
         "provider": "local",
         "id": "anthropic/offline-fixture",
         "thinking": "high"
-      }
+      },
+      "color": "neutral"
     },
     {
       "key": "pulse",

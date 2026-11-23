@@ -48,7 +48,7 @@ export function ActiveBotGlyph({ bots, label }: { bots: GroupAvatarMember[]; lab
       <GroupAvatar members={bots} size={28} />
       <span
         dir="auto"
-        className="min-w-0 truncate text-body leading-5.5 text-muted-foreground text-shimmer"
+        className="min-w-0 truncate text-body leading-5.5 text-faint-foreground text-shimmer"
       >
         {label}
       </span>

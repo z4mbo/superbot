@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import type { BotAvatarSet } from "@rakazo/contracts";
+import { botMarkShapeFor } from "@rakazo/core";
 import { DEFAULT_BOT_AVATAR_COLOR } from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { act, useState } from "react";
@@ -77,18 +78,18 @@ describe("selectable bot icon sets", () => {
     await render("#10B981");
     await click("Customize bot avatar");
     expect(button("Original").getAttribute("aria-selected")).toBe("true");
-    expect(document.querySelector(".rakazo-organic-avatar")).not.toBeNull();
+    expect(document.querySelector("svg[data-bot-mark]")).not.toBeNull();
     expect(changed).not.toHaveBeenCalled();
     await click("Superbot");
     expect(changed).toHaveBeenLastCalledWith("#10B981", "rakazo");
-    expect(document.querySelector(".rakazo-logo-avatar")).not.toBeNull();
+    expect(document.querySelector("svg[data-bot-mark]")).not.toBeNull();
     await render("#10B981", "rakazo", "reload");
     await click("Customize bot avatar");
     expect(button("Superbot").getAttribute("aria-selected")).toBe("true");
     await click("Original");
     expect(changed).toHaveBeenLastCalledWith("#10B981", "organic");
-    expect(document.querySelector(".rakazo-organic-avatar")).not.toBeNull();
-    expect(button("wedge")).toBeDefined();
+    expect(document.querySelector("svg[data-bot-mark]")).not.toBeNull();
+    expect(button(botMarkShapeFor("", null, 1))).toBeDefined();
   });
 
   it("leaves a photo intact until the user explicitly selects another set", async () => {

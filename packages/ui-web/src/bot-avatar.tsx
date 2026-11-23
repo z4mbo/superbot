@@ -1,29 +1,26 @@
 import type { BotAvatarSet, BotColorDef } from "@rakazo/contracts";
 import { BOT_COLOR_LIST, BOT_COLORS } from "@rakazo/contracts";
-import type { AvatarEyes, LogoAvatarActivity } from "@rakazo/core";
+import type { AvatarEyes, BotMarkState, LogoAvatarActivity } from "@rakazo/core";
 import {
   avatarEyeRects,
-  avatarIdentitySeed,
+  BOT_MARK_VIEWBOX,
   botEyeTone,
+  botMarkInkFor,
+  botMarkRestPath,
+  botMarkShapeFor,
   DEFAULT_BOT_AVATAR_COLOR,
   isRunWorking,
-  ORGANIC_AVATAR_EYES,
-  ORGANIC_AVATAR_VIEWBOX,
-  organicAvatarEyeTilt,
-  organicAvatarPath,
+  logoAvatarStatusActivity,
   resolvePersonaColorDef,
-  SHIPPED_BOT_AVATAR_EYES,
   SHIPPED_BOT_AVATAR_SHAPE_KEYS,
   SHIPPED_BOT_AVATAR_SHAPES,
   SHIPPED_BOT_AVATAR_VIEWBOX,
-  shippedBotAvatarShapePath,
 } from "@rakazo/core";
-import type { ComponentProps, CSSProperties } from "react";
-import { memo, useEffect, useMemo, useSyncExternalStore } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { createContext, memo, useContext, useMemo } from "react";
 import { useBotAvatarActivity } from "./bot-avatar-activity.js";
-import { useAvatarMotionVisibility } from "./hooks/use-avatar-motion-visibility.js";
+import { BotMark } from "./bot-mark.js";
 import { cn } from "./lib/utils.js";
-import { LogoAvatar } from "./logo-avatar.js";
 import "./styles.css";
 
 export type { BotColorDef };
@@ -31,7 +28,7 @@ export { BOT_COLOR_LIST, BOT_COLORS, DEFAULT_BOT_AVATAR_COLOR, resolvePersonaCol
 
 export const BOT_SHAPES = SHIPPED_BOT_AVATAR_SHAPES;
 export const SHIPPED_SHAPE_KEYS = SHIPPED_BOT_AVATAR_SHAPE_KEYS;
-const VIEWBOX = SHIPPED_BOT_AVATAR_VIEWBOX;
+const _VIEWBOX = SHIPPED_BOT_AVATAR_VIEWBOX;
 
 export const BOT_MASCOT_SHAPES = SHIPPED_SHAPE_KEYS.map(
   (k) => BOT_SHAPES[k] ?? FALLBACK_SHAPE_PATH,
@@ -76,6 +73,22 @@ export function defaultBotAvatarValue(rawColor: string): string {
   return DEFAULT_BOT_AVATAR_COLOR;
 }
 
+type BotLook = { lookShape?: string | null; lookColor?: string | null };
+
+const BotLooks = createContext<ReadonlyMap<string, BotLook>>(new Map());
+
+/** The shapes and inks people picked for their bots, so every avatar of a bot draws the same. */
+export function BotLookProvider({
+  bots,
+  children,
+}: {
+  bots: readonly ({ id: string } & BotLook)[];
+  children: ReactNode;
+}) {
+  const looks = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
+  return <BotLooks value={looks}>{children}</BotLooks>;
+}
+
 export interface BotAvatarProps {
   color: string;
   avatarSet?: BotAvatarSet;
@@ -83,19 +96,29 @@ export interface BotAvatarProps {
   size?: number;
   status?: string;
   identity?: string;
+  /** The shape and ink a person picked (`Bot.lookShape`, `Bot.lookColor`), when known. */
+  lookShape?: string | null;
+  lookColor?: string | null;
+  /** A state the run status cannot say, such as a sleeping computer. */
+  state?: BotMarkState;
   className?: string;
 }
 
 export const BotAvatar = memo(function BotAvatar({
   color,
-  avatarSet,
   activity,
   size = 36,
   status,
   identity = "",
+  lookShape,
+  lookColor,
+  state,
   className,
 }: BotAvatarProps) {
   const isWorking = isRunWorking(status);
+  const picked = useContext(BotLooks).get(identity);
+  const shapeName = lookShape ?? picked?.lookShape;
+  const inkName = lookColor ?? picked?.lookColor;
 
   const parsed = useMemo(() => parseBotAvatar(color, identity), [color, identity]);
   const effectiveId = identity || parsed.color || "agent";
@@ -142,209 +165,74 @@ export const BotAvatar = memo(function BotAvatar({
     );
   }
 
-  if (parsed.shapeIndex === undefined && avatarSet === "rakazo") {
-    const Avatar = activity === undefined ? LiveLogoAvatar : LogoAvatar;
+  // Every drawn bot is one flat body with cut-out eyes, in the shape picked for it or the one its
+  // identity picks; notification portraits draw the same.
+  const shape = botMarkShapeFor(effectiveId, shapeName, parsed.shapeIndex);
+  const ink = state === "asleep" ? "gray" : botMarkInkFor(inkName, colorDef.hex);
+  if (activity !== undefined || state !== undefined) {
+    const shown = state ?? botMarkStateForActivity(activity ?? logoAvatarStatusActivity(status));
     return (
-      <Avatar
-        avatarValue={color ? colorDef.hex : undefined}
+      <BotMark
         identity={effectiveId}
-        size={size}
+        shape={shape}
+        ink={ink}
+        state={shown}
         activity={activity}
-        status={status}
-        className={className}
-      />
-    );
-  }
-  if (parsed.shapeIndex === undefined) {
-    return (
-      <OrganicAvatar
-        color={colorDef.hex}
-        identity={effectiveId}
         size={size}
-        isWorking={isWorking}
         className={className}
       />
     );
   }
-
   return (
-    <MascotAvatar
-      color={colorDef.hex}
-      seed={avatarIdentitySeed(effectiveId)}
-      body={shippedBotAvatarShapePath(parsed.shapeIndex)}
-      viewBox={VIEWBOX}
-      eyes={SHIPPED_BOT_AVATAR_EYES}
+    <LiveBotMark
+      identity={effectiveId}
+      shape={shape}
+      ink={ink}
+      status={status}
       size={size}
-      isWorking={isWorking}
-      className={cn("rakazo-shape-avatar", className)}
+      className={className}
     />
   );
 });
 
-/** Only live Rakazo consumers subscribe to public activity updates. */
-function LiveLogoAvatar({
+/** A mark that follows its bot's live activity feed, such as a tool it is running right now. */
+function LiveBotMark({
   status,
   ...props
-}: ComponentProps<typeof LogoAvatar> & { status?: string }) {
-  const activity = useBotAvatarActivity(props.identity ?? "", status);
-  return <LogoAvatar {...props} activity={activity} />;
+}: Omit<ComponentProps<typeof BotMark>, "state" | "activity"> & { status?: string }) {
+  const activity = useBotAvatarActivity(props.identity, status);
+  return <BotMark {...props} state={botMarkStateForActivity(activity)} activity={activity} />;
 }
 
-function OrganicAvatar({
-  color,
-  identity,
-  className,
-  ...props
-}: {
-  color: string;
-  identity?: string;
-  size: number;
-  isWorking: boolean;
-  className?: string;
-}) {
-  const seed = avatarIdentitySeed(identity || color || DEFAULT_BOT_AVATAR_COLOR);
-  return (
-    <MascotAvatar
-      {...props}
-      color={color}
-      seed={seed}
-      body={organicAvatarPath(seed)}
-      morph={organicAvatarPath(seed, 0.42)}
-      viewBox={ORGANIC_AVATAR_VIEWBOX}
-      eyes={ORGANIC_AVATAR_EYES}
-      eyeTilt={organicAvatarEyeTilt(seed)}
-      className={cn("rakazo-organic-avatar", className)}
-    />
-  );
+/** The mark state that shows a live activity: reading, writing and using a computer are work. */
+function botMarkStateForActivity(activity: LogoAvatarActivity): BotMarkState {
+  switch (activity) {
+    case "reading":
+    case "writing":
+    case "computer":
+    case "working":
+      return "working";
+    case "thinking":
+      return "thinking";
+    case "waiting":
+      return "waiting";
+    case "error":
+      return "error";
+    default:
+      return "idle";
+  }
 }
 
-/** A body with bar eyes that moves while its bot works; the seed picks the motion. */
-function MascotAvatar({
-  color,
-  seed,
-  body,
-  morph,
-  viewBox,
-  eyes,
-  eyeTilt = 0,
-  size,
-  isWorking,
-  className,
-}: {
-  color: string;
-  seed: number;
-  body: string;
-  morph?: string;
-  viewBox: string;
-  eyes: AvatarEyes;
-  eyeTilt?: number;
-  size: number;
-  isWorking: boolean;
-  className?: string;
-}) {
-  const reducedMotion = useSyncExternalStore(
-    subscribeToReducedMotion,
-    reducedMotionSnapshot,
-    () => false,
-  );
-  const { ref, visible } = useAvatarMotionVisibility(!reducedMotion);
-  useEffect(() => {
-    // jsdom has no SMIL clock, so these are optional.
-    if (visible) ref.current?.unpauseAnimations?.();
-    else ref.current?.pauseAnimations?.();
-  }, [ref, visible]);
-  const duration = `${4.8 + (seed % 24) / 10}s`;
-  const eyeOrigin = `${(eyes.leftCx + eyes.rightCx) / 2}px ${eyes.cy}px`;
-  const unit = viewBoxWidth(viewBox) / viewBoxWidth(ORGANIC_AVATAR_VIEWBOX);
-
-  return (
-    <svg
-      ref={ref}
-      viewBox={viewBox}
-      aria-hidden="true"
-      className={cn("rakazo-mascot-avatar overflow-visible select-none", className)}
-      data-working={isWorking}
-      data-paused={!visible}
-      data-shape-family={seed % 10}
-      data-eye-pattern={seed % 4}
-      // Inline size so a parent's icon sizing (Button sizes bare SVGs) cannot shrink it.
-      style={
-        {
-          width: size,
-          height: size,
-          flex: "none",
-          "--rakazo-mascot-unit": `${unit}px`,
-        } as CSSProperties
-      }
-    >
-      {(["idle", "working"] as const).map((mode) => (
-        <path
-          key={mode}
-          className={`rakazo-mascot-avatar-body rakazo-mascot-avatar-body-${mode}`}
-          d={body}
-          fill={color}
-          style={
-            {
-              "--rakazo-mascot-path": `path("${body}")`,
-              filter:
-                mode === "working"
-                  ? `drop-shadow(0 0 ${Math.round(size * 0.16 * unit)}px ${color})`
-                  : "drop-shadow(0 calc(2 * var(--rakazo-mascot-unit)) calc(3 * var(--rakazo-mascot-unit)) rgba(0,0,0,.34))",
-            } as CSSProperties
-          }
-        >
-          {/* Only a working body morphs. A late <animate> joins the svg clock mid-loop. */}
-          {morph && !reducedMotion && mode === "working" && isWorking ? (
-            <animate
-              attributeName="d"
-              values={`${body};${morph};${body}`}
-              dur={duration}
-              repeatCount="indefinite"
-            />
-          ) : null}
-        </path>
-      ))}
-      <g transform={`rotate(${eyeTilt})`}>
-        {(["idle", "working"] as const).map((mode) => (
-          <g
-            key={mode}
-            className={`rakazo-mascot-avatar-eyes rakazo-mascot-avatar-eyes-${mode} ${eyeFill(color)}`}
-            style={{ transformOrigin: eyeOrigin }}
-          >
-            <BarEyes eyes={eyes} />
-          </g>
-        ))}
-      </g>
-    </svg>
-  );
-}
-
-function viewBoxWidth(viewBox: string): number {
-  return Number(viewBox.split(" ")[2]);
-}
-
-function BarEyes({ eyes }: { eyes: AvatarEyes }) {
+function _BarEyes({ eyes }: { eyes: AvatarEyes }) {
   return avatarEyeRects(eyes).map((rect) => <rect key={rect.x} {...rect} />);
 }
 
 /** Eyes are cut-outs in the page color unless the body is nearly white or black. */
-function eyeFill(bodyHex: string): string {
+function _eyeFill(bodyHex: string): string {
   const tone = botEyeTone(bodyHex);
   if (tone === "dark") return "fill-foreground dark:fill-background";
   if (tone === "light") return "fill-background dark:fill-foreground";
   return "fill-background";
-}
-
-const reducedMotionMedia = "(prefers-reduced-motion: reduce)";
-
-function reducedMotionSnapshot(): boolean {
-  return window.matchMedia(reducedMotionMedia).matches;
-}
-
-function subscribeToReducedMotion(onChange: () => void): () => void {
-  const media = window.matchMedia(reducedMotionMedia);
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
 }
 
 export function BotShapePreview({
@@ -363,10 +251,7 @@ export function BotShapePreview({
   selected?: boolean;
   onClick?: () => void;
 }) {
-  const key =
-    shapeIndex === undefined
-      ? undefined
-      : (SHIPPED_SHAPE_KEYS[shapeIndex % SHIPPED_SHAPE_KEYS.length] ?? "hex");
+  const key = shapeIndex === undefined ? undefined : botMarkShapeFor("", null, shapeIndex);
   const colorDef = resolvePersonaColorDef("preview", color);
 
   return (
@@ -385,11 +270,12 @@ export function BotShapePreview({
       {shapeIndex === undefined ? (
         <BotAvatar color={color} identity={identity} size={32} />
       ) : (
-        <svg viewBox={VIEWBOX} className="size-8 overflow-visible" aria-hidden="true">
-          <path d={shippedBotAvatarShapePath(shapeIndex)} fill={colorDef.hex} />
-          <g className={eyeFill(colorDef.hex)}>
-            <BarEyes eyes={SHIPPED_BOT_AVATAR_EYES} />
-          </g>
+        <svg viewBox={BOT_MARK_VIEWBOX} className="size-8 overflow-visible" aria-hidden="true">
+          <path
+            d={botMarkRestPath(botMarkShapeFor("", null, shapeIndex))}
+            fill={colorDef.hex}
+            fillRule="evenodd"
+          />
         </svg>
       )}
     </button>

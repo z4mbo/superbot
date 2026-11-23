@@ -24,7 +24,7 @@ import {
   workingRoutineName,
 } from "@rakazo/core";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
-import { Button } from "@rakazo/ui-web";
+import { BotLookProvider, Button } from "@rakazo/ui-web";
 import { useIsMobile } from "@rakazo/ui-web/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -610,6 +610,11 @@ function SpaceShell({ threadId }: { threadId?: string }) {
     enabled: showComposerModel && !recordingSkill,
   });
 
+  // Every bot the person can see, so each avatar draws the shape and ink picked for it.
+  const lookBots = useMemo(
+    () => [...bots, ...spaces.flatMap((space) => space.bots)],
+    [bots, spaces],
+  );
   const sidebarSpaces = useMemo(
     () =>
       spaces.length > 0
@@ -1615,7 +1620,9 @@ function SpaceShell({ threadId }: { threadId?: string }) {
   return (
     <SpaceRpcProvider spaceId={shellSpaceId}>
       {initialBotsLoaded || initialLoadFailed ? (
-        <PagesProvider value={pages}>{shell}</PagesProvider>
+        <PagesProvider value={pages}>
+          <BotLookProvider bots={lookBots}>{shell}</BotLookProvider>
+        </PagesProvider>
       ) : (
         <PageLoading />
       )}

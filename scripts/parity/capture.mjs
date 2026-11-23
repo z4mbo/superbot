@@ -73,8 +73,7 @@ async function botId(page, key) {
 
 async function settle(page) {
   await page.evaluate(() => document.fonts.ready);
-  // Park the pointer far from the roster so idle avatars rest the way the reference shows them.
-  await page.mouse.move(1275, 400);
+  // No pointer move: idle avatars rest the way the reference shows them with the pointer away.
   await page.waitForTimeout(1200);
 }
 
