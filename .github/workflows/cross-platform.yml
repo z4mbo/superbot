@@ -133,6 +133,64 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  # The shared bot avatar on every OS: the web fixture in Chromium, then the same page inside the
+  # desktop window. Screenshots go up as <os>-avatar.
+  avatar:
+    name: Bot avatar (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux-avatar
+          - os: windows-latest
+            artifact: windows-avatar
+          - os: macos-latest
+            artifact: macos-avatar
+    env:
+      WEB_PORT: "5180"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
+        with:
+          electron: "true"
+          playwright: "true"
+      - run: pnpm --filter @rakazo/web exec playwright install chromium
+      # The web config starts the dev server itself and stops it when the specs end.
+      - name: Web avatar specs
+        shell: bash
+        run: pnpm --filter @rakazo/web exec playwright test e2e/bots/bot-avatar-states.spec.ts e2e/bots/avatar-motion.spec.ts
+      - run: pnpm --filter @rakazo/desktop build
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-cache
+      - name: Desktop avatar spec
+        shell: bash
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-cache
+          RAKAZO_E2E_WEB_URL: http://127.0.0.1:5180
+        run: |
+          pnpm --filter @rakazo/web exec vite --port "$WEB_PORT" --strictPort --host 127.0.0.1 > vite.log 2>&1 &
+          curl --silent --fail --retry 60 --retry-delay 2 --retry-all-errors --output /dev/null \
+            "$RAKAZO_E2E_WEB_URL/e2e/fixtures/bot-avatar-states.html"
+          run=(pnpm --filter @rakazo/desktop exec playwright test --config e2e/playwright.config.ts bot-avatar.spec.ts)
+          if [[ "$RUNNER_OS" == Linux ]]; then run=(xvfb-run --auto-servernum "${run[@]}"); fi
+          "${run[@]}"
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            apps/desktop/e2e/screenshots/bot-avatar-*.png
+            apps/web/test-results/**/*.png
+            vite.log
+          if-no-files-found: warn
+          retention-days: 14
+
   # TEMPORARY (removed in the next commit): one inventory run of the whole unit suite on Windows.
   whole-unit-windows:
     name: Whole unit suite on Windows (${{ matrix.shard }}/4)
