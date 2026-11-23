@@ -99,6 +99,8 @@ export function BotSettings({
     instructions?: string;
     color?: string;
     avatarSet?: BotAvatarSet;
+    lookShape?: string | null;
+    lookColor?: string | null;
     notifyOnFinish?: boolean;
     computerMode?: ComputerMode;
     autoSpeak?: boolean;
@@ -138,6 +140,10 @@ export function BotSettings({
   const savedDescriptionRef = useRef(bot.description ?? "");
   const [color, setColor] = useState(bot.color);
   const [avatarSet, setAvatarSet] = useState(() => resolveBotAvatarSet(bot.avatarSet));
+  const [look, setLook] = useState(() => ({
+    lookShape: bot.lookShape ?? null,
+    lookColor: bot.lookColor ?? null,
+  }));
   const [notifyOnFinish, setNotifyOnFinish] = useState(bot.notifyOnFinish ?? true);
   const acceptedAutomatic = useRef({
     color: bot.color,
@@ -586,6 +592,11 @@ export function BotSettings({
               status={bot.status}
               size={76}
               avatarSet={avatarSet}
+              look={look}
+              onLookChange={(next) => {
+                setLook(next);
+                void onSave(next);
+              }}
               onChange={(newColor, nextAvatarSet) => {
                 setColor(newColor);
                 if (nextAvatarSet !== undefined) setAvatarSet(nextAvatarSet);

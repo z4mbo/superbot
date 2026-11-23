@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { BotAvatarSet } from "@rakazo/contracts";
-import { botMarkShapeFor } from "@rakazo/core";
+import { BOT_MARK_SHAPES, botMarkShapeFor } from "@rakazo/core";
 import { DEFAULT_BOT_AVATAR_COLOR } from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { act, useState } from "react";
@@ -113,5 +113,42 @@ describe("selectable bot icon sets", () => {
     expect(button("Original").getAttribute("aria-selected")).toBe("true");
     await click("Superbot");
     expect(changed).toHaveBeenLastCalledWith("#00C972", "rakazo");
+  });
+});
+
+describe("bot mark look", () => {
+  it("offers every mark shape and ink and saves the pick as the bot's look", async () => {
+    const looks = vi.fn();
+    function LookHarness() {
+      const [look, setLook] = useState({
+        lookShape: null as string | null,
+        lookColor: null as string | null,
+      });
+      return (
+        <AvatarStudioPopover
+          value="#FF781C"
+          identity="sample-bot"
+          onChange={changed}
+          look={look}
+          onLookChange={(next) => {
+            looks(next);
+            setLook(next);
+          }}
+        />
+      );
+    }
+    await act(async () => root.render(<LookHarness />));
+    await click("Customize bot avatar");
+    expect(document.querySelectorAll('[data-testid="avatar-studio-shapes"] button')).toHaveLength(
+      BOT_MARK_SHAPES.length,
+    );
+    expect(document.querySelectorAll('[data-testid="avatar-studio-inks"] button')).toHaveLength(10);
+    expect(button("orange").getAttribute("aria-pressed")).toBe("true");
+    await click("cloud");
+    expect(looks).toHaveBeenLastCalledWith({ lookShape: "cloud", lookColor: null });
+    await click("green");
+    expect(looks).toHaveBeenLastCalledWith({ lookShape: "cloud", lookColor: "green" });
+    expect(button("cloud").getAttribute("aria-pressed")).toBe("true");
+    expect(changed).not.toHaveBeenCalled();
   });
 });

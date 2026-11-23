@@ -114,14 +114,16 @@ function polar(radius: (theta: number) => number, sx = 1, sy = 1): Point[] {
   });
 }
 
-function superellipse(power: number, sx = 1, sy = 1): Point[] {
+function superellipse(power: number, sx = 1, sy = 1, turn = 0): Point[] {
   return Array.from({ length: SAMPLES }, (_, index) => {
     const theta = (index / SAMPLES) * Math.PI * 2;
     const c = Math.cos(theta);
     const s = Math.sin(theta);
+    const x = Math.sign(c) * Math.abs(c) ** (2 / power) * sx;
+    const y = Math.sign(s) * Math.abs(s) ** (2 / power) * sy;
     return [
-      Math.sign(c) * Math.abs(c) ** (2 / power) * sx,
-      Math.sign(s) * Math.abs(s) ** (2 / power) * sy,
+      x * Math.cos(turn) - y * Math.sin(turn),
+      x * Math.sin(turn) + y * Math.cos(turn),
     ] as const;
   });
 }
@@ -188,10 +190,11 @@ const RAW_BODIES: Record<BotMarkShape, () => Point[]> = {
       0.86,
     ),
   blob: () => polar((theta) => 1 + 0.07 * Math.cos(3 * theta + 0.5) + 0.05 * Math.sin(5 * theta)),
-  capsule: () => superellipse(5, 1.12, 0.74),
-  cloud: () =>
-    polar((theta) => 0.84 + 0.16 * Math.abs(Math.cos(2.5 * theta + 0.3)) ** 0.7, 1.08, 0.9),
-  clover: () => polar((theta) => 0.76 + 0.24 * Math.abs(Math.cos(2 * theta)) ** 0.6),
+  // Fitted to the reference roster's silhouettes by overlap (scripts/parity), drawn as our own curves.
+  capsule: () => superellipse(2.57, 1.144, 0.811, -0.237),
+  cloud: () => polar((theta) => 0.84 + 0.12 * Math.abs(Math.cos(2 * theta + 0.2)) ** 0.6, 1, 0.86),
+  clover: () =>
+    polar((theta) => 0.879 + 0.137 * Math.abs(Math.cos(2 * theta - 0.055)) ** 0.441, 1.116, 0.941),
   crystal: () =>
     rounded(
       [
@@ -277,19 +280,19 @@ const RAW_BODIES: Record<BotMarkShape, () => Point[]> = {
   teardrop: () =>
     rounded(
       [
-        [-0.55, -0.95],
-        [1.0, -0.05],
-        [-0.75, 0.95],
-        [-0.92, 0.0],
+        [-0.585, -1.188],
+        [0.747, 0.007],
+        [-0.42, 0.877],
+        [-1.158, -0.027],
       ],
-      4,
+      5,
     ),
   wedge: () =>
     rounded(
       [
-        [-0.95, 0.72],
-        [1.02, 0.6],
-        [0.05, -1.0],
+        [-0.44, 1.571],
+        [1.919, 0.536],
+        [-0.055, -0.881],
       ],
       4,
     ),

@@ -75,6 +75,10 @@ impl Desktop {
         items.push(item("join-space", "link", "Join with an invite…", |this, window, cx| {
             this.open_dialog(DialogKind::JoinSpace, window, cx)
         }));
+        // People are invited from the workspace panel's People section.
+        items.push(item("invite-people", "user-plus", "Invite people…", |this, window, cx| {
+            this.show(View::Workspace, window, cx)
+        }));
         items
     }
 

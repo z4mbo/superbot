@@ -309,6 +309,40 @@ impl Desktop {
 
         let attach = attach_control(attach, !sending, theme);
         let send = send_control(send, stopping || ready, fill, ink, theme);
+        // As on the web: an empty draft offers dictation and a voice chat; Send appears once
+        // there is something to send, and Stop while a run works.
+        let quiet = !has_content && !stopping && !sending;
+        let voice = quiet.then(|| {
+            // TODO: dictation needs the desktop's own speech capture; until then the control
+            // shows and stays disabled.
+            let mic = div()
+                .id("dictate")
+                .size_7()
+                .flex_shrink_0()
+                .rounded_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(theme.control)
+                .opacity(0.5)
+                .map(|button| tooltip::on(button, "Dictate"))
+                .child(icon("mic", px(16.), theme.ink_tertiary));
+            // Voice chats run in the web workspace, which this opens.
+            let call = div()
+                .id("voice-chat")
+                .size_7()
+                .flex_shrink_0()
+                .rounded_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(theme.ink)
+                .cursor_pointer()
+                .map(|button| tooltip::on(button, "Start voice chat"))
+                .on_click(cx.listener(|this, _, _, cx| this.open_web_workspace(cx)))
+                .child(icon("audio-lines", px(16.), theme.app));
+            div().flex().items_center().gap_2().child(mic).child(call)
+        });
         let name = self.target_name(target);
         let label = match target {
             _ if local.is_some() => format!("Message {name} using the local model"),
@@ -366,7 +400,10 @@ impl Desktop {
                     .when(!local_mode, |row| row.child(attach))
                     .children(apps)
                     .child(input)
-                    .child(send),
+                    .map(|row| match voice {
+                        Some(voice) => row.child(voice),
+                        None => row.child(send),
+                    }),
             );
 
         let pill = hover_ring(pill, focused, ring, ring_hover);

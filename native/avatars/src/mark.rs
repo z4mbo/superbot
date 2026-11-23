@@ -71,11 +71,16 @@ fn polar(radius: impl Fn(f32) -> f32, sx: f32, sy: f32) -> Vec<Point> {
 }
 
 fn superellipse(power: f32, sx: f32, sy: f32) -> Vec<Point> {
+    superellipse_turned(power, sx, sy, 0.)
+}
+
+fn superellipse_turned(power: f32, sx: f32, sy: f32, turn: f32) -> Vec<Point> {
     (0..SAMPLES)
         .map(|index| {
             let theta = index as f32 / SAMPLES as f32 * TAU;
             let (c, s) = (theta.cos(), theta.sin());
-            (c.signum() * c.abs().powf(2. / power) * sx, s.signum() * s.abs().powf(2. / power) * sy)
+            let (x, y) = (c.signum() * c.abs().powf(2. / power) * sx, s.signum() * s.abs().powf(2. / power) * sy);
+            (x * turn.cos() - y * turn.sin(), x * turn.sin() + y * turn.cos())
         })
         .collect()
 }
@@ -132,9 +137,9 @@ fn raw(shape: Shape) -> Vec<Point> {
         ),
         Bean => polar(|t| 1. + 0.1 * (2. * t).cos() - 0.22 * (t + 0.4).cos().max(0.).powi(6), 1.06, 0.86),
         Blob => polar(|t| 1. + 0.07 * (3. * t + 0.5).cos() + 0.05 * (5. * t).sin(), 1., 1.),
-        Capsule => superellipse(5., 1.12, 0.74),
-        Cloud => polar(|t| 0.84 + 0.16 * (2.5 * t + 0.3).cos().abs().powf(0.7), 1.08, 0.9),
-        Clover => polar(|t| 0.76 + 0.24 * (2. * t).cos().abs().powf(0.6), 1., 1.),
+        Capsule => superellipse_turned(2.57, 1.144, 0.811, -0.237),
+        Cloud => polar(|t| 0.84 + 0.12 * (2. * t + 0.2).cos().abs().powf(0.6), 1., 0.86),
+        Clover => polar(|t| 0.879 + 0.137 * (2. * t - 0.055).cos().abs().powf(0.441), 1.116, 0.941),
         Crystal => rounded(&[(0., -1.08), (0.78, -0.3), (0.55, 0.9), (-0.55, 0.9), (-0.78, -0.3)], 3),
         Cylinder => superellipse(7., 0.82, 1.),
         Dome => {
@@ -172,8 +177,8 @@ fn raw(shape: Shape) -> Vec<Point> {
         Squircle => superellipse(4., 0.96, 0.96),
         Star => polar(|t| 0.74 + 0.3 * ((1. + (5. * t + PI / 2.).cos()) / 2.).powf(1.6), 1., 1.),
         Tablet => superellipse(6., 0.8, 1.),
-        Teardrop => rounded(&[(-0.55, -0.95), (1., -0.05), (-0.75, 0.95), (-0.92, 0.)], 4),
-        Wedge => rounded(&[(-0.95, 0.72), (1.02, 0.6), (0.05, -1.)], 4),
+        Teardrop => rounded(&[(-0.585, -1.188), (0.747, 0.007), (-0.42, 0.877), (-1.158, -0.027)], 5),
+        Wedge => rounded(&[(-0.44, 1.571), (1.919, 0.536), (-0.055, -0.881)], 4),
     }
 }
 

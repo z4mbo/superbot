@@ -4,7 +4,10 @@
     "email": "parity@example.test",
     "password": "parity-fixture-pass-1"
   },
-  "sections": ["Work", "Projects"],
+  "sections": [
+    "Work",
+    "Projects"
+  ],
   "bots": [
     {
       "key": "main",
@@ -50,7 +53,6 @@
         "id": "anthropic/offline-fixture",
         "thinking": "high"
       },
-      "color": "neutral",
       "shape": "circle"
     },
     {
