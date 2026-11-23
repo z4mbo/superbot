@@ -307,7 +307,7 @@ export const MessageView = memo(function MessageView({
             <div
               data-testid="message-bot-bubble"
               className={cn(
-                "max-w-full space-y-2.5 rounded-[18px] bg-card px-3 py-[7px] text-body-lg text-foreground",
+                "max-w-full space-y-2.5 rounded-[18px] bg-chat-agent px-3 py-[7px] text-body-lg text-foreground",
                 joinAbove && topCorner,
                 joinBelow && bottomCorner,
               )}
@@ -466,7 +466,7 @@ export const MessageView = memo(function MessageView({
               >
                 <div
                   data-testid="message-bot-bubble"
-                  className="max-w-full rounded-[18px] bg-card px-3 py-[7px] text-body-lg text-foreground"
+                  className="max-w-full rounded-[18px] bg-chat-agent px-3 py-[7px] text-body-lg text-foreground"
                   dir="auto"
                 >
                   <ChatMarkdown streaming renderMention={renderMention} onOpenPage={openPage}>
@@ -621,7 +621,9 @@ export const MessageView = memo(function MessageView({
                   data-quote-message-id={quoteMessageId}
                   className={cn(
                     "max-w-full whitespace-pre-wrap wrap-anywhere rounded-[18px] px-3 py-[7px] text-body-lg",
-                    mine ? "bg-chat-user text-chat-user-foreground" : "bg-card text-foreground",
+                    mine
+                      ? "bg-chat-user bg-linear-to-b from-white/5 to-transparent text-chat-user-foreground dark:from-white/1"
+                      : "bg-chat-agent text-foreground",
                     joinAbove && i === textAnchorIndex && topCorner,
                     i === lastTextIndex && bottomCorner,
                   )}
@@ -643,7 +645,7 @@ export const MessageView = memo(function MessageView({
                 <div
                   data-testid="message-bot-bubble"
                   className={cn(
-                    "max-w-full rounded-[18px] bg-card px-3 py-[7px] text-body-lg text-foreground",
+                    "max-w-full rounded-[18px] bg-chat-agent px-3 py-[7px] text-body-lg text-foreground",
                     joinAbove && i === textAnchorIndex && topCorner,
                     i === lastTextIndex && bottomCorner,
                   )}

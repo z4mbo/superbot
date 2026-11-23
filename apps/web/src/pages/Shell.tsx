@@ -1202,20 +1202,10 @@ function SpaceShell({ threadId }: { threadId?: string }) {
             active={active}
             activeGroup={activeGroup}
             activeSnapshot={activeSnapshot}
-            phoneCallsEnabled={threadId === undefined && Boolean(bootstrapMe?.phoneCallsEnabled)}
             meetingsEnabled={Boolean(bootstrapMe?.meetingsEnabled)}
-            voiceReady={Boolean(voiceStatus?.ready)}
-            inCall={Boolean(active) && call?.botId === active?.id}
             panelOpen={chatPanelOpen}
             onOpenNavigation={() => setMobileSidebarOpen(true)}
             onTogglePanel={toggleChatPanel}
-            onCall={(bot) => {
-              if (call?.botId === bot.id) {
-                setCallMinimized(false);
-                return;
-              }
-              callBot(bot);
-            }}
           />
           {linkedChatUnavailable ? (
             <div className="grid flex-1 place-items-center" role="status">
@@ -1347,6 +1337,15 @@ function SpaceShell({ threadId }: { threadId?: string }) {
               onSend={composer.sendMessage}
               onStop={stopRun}
               phoneCallsEnabled={bootstrapMe?.phoneCallsEnabled === true}
+              onVoiceChat={
+                threadId === undefined && !inGroup && active
+                  ? () => {
+                      if (call?.botId === active.id) setCallMinimized(false);
+                      else callBot(active);
+                    }
+                  : undefined
+              }
+              voiceReady={Boolean(voiceStatus?.ready)}
               dictationTranscribe={voiceStatus ? Boolean(voiceStatus.transcribe) : undefined}
               artifactTarget={transcriptArtifactTarget}
               replyTarget={composer.replyTarget}

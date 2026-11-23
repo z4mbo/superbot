@@ -3,8 +3,9 @@ import type { AgentSkillCatalogEntry } from "@rakazo/contracts";
 import type { ComposerMention, SLASH_ACTIONS, SlashActionId } from "@rakazo/core";
 import { mentionChipKey, truncateSlashDescription } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
-import { ArrowUp, Box, Paperclip, Settings, Square, X } from "lucide-react";
+import { ArrowUp, AudioLines, Box, Paperclip, Settings, Square, X } from "lucide-react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
+import { IconTooltip } from "../../../components/IconTooltip";
 import type { PendingAttachment } from "../chat/chat-shared";
 import { MentionOptionIcon, slashActionLabel } from "./composer-mentions";
 import type { useHoldToTalk } from "./hold-to-talk";
@@ -205,6 +206,8 @@ export function ComposerActions({
   stopDisabled,
   sendColors,
   modelPicker,
+  onVoiceChat,
+  voiceReady,
   onSend,
   onStop,
 }: {
@@ -220,6 +223,10 @@ export function ComposerActions({
   /** The bot's color, which the send button wears in a one-bot chat. */
   sendColors?: { background: string; foreground: string };
   modelPicker?: ReactNode;
+  /** Starts a voice chat with the bot; while the draft is empty it takes Send's place. */
+  onVoiceChat?: () => void;
+  /** False while the voice status loads or no voice is connected. */
+  voiceReady?: boolean;
   onSend: () => void;
   onStop: () => void;
 }) {
@@ -233,6 +240,36 @@ export function ComposerActions({
     : undefined;
   // An empty draft keeps the quiet disabled look either way; the bot's color shows once it can go.
   const sendClassName = `shrink-0 rounded-full transition-transform active:scale-95 disabled:bg-primary-disabled disabled:text-foreground/30 disabled:opacity-100 ${sendColors ? "bg-chat-user text-chat-user-foreground hover:bg-chat-user/90" : ""}`;
+  // Enter sends; the visible Send only appears once there is something to send, and until then
+  // the filled button starts a voice chat.
+  const voiceChat =
+    onVoiceChat && showTalk ? (
+      <IconTooltip label={t`Start voice chat`}>
+        <Button
+          size="icon-sm"
+          aria-label={t`Start voice chat`}
+          disabled={talkDisabled}
+          onClick={onVoiceChat}
+          data-testid="call-button"
+          data-voice-ready={voiceReady ? "" : undefined}
+          className="shrink-0 rounded-full"
+        >
+          <AudioLines size={16} strokeWidth={2} />
+        </Button>
+      </IconTooltip>
+    ) : null;
+  const sendButton = voiceChat ?? (
+    <Button
+      size="icon-sm"
+      aria-label={t`Send`}
+      disabled={sendDisabled}
+      onClick={onSend}
+      style={sendStyle}
+      className={sendClassName}
+    >
+      <ArrowUp size={16} strokeWidth={2.2} />
+    </Button>
+  );
   return (
     <div
       ref={actionsRef}
@@ -246,16 +283,7 @@ export function ComposerActions({
       ) : running ? (
         <>
           {showTalk ? <HoldToTalkControls talk={talk} disabled={talkDisabled} /> : null}
-          <Button
-            size="icon-sm"
-            aria-label={t`Send`}
-            disabled={sendDisabled}
-            onClick={onSend}
-            style={sendStyle}
-            className={sendClassName}
-          >
-            <ArrowUp size={16} strokeWidth={2.2} />
-          </Button>
+          {sendButton}
           <Button
             variant="outline"
             size="icon-sm"
@@ -270,16 +298,7 @@ export function ComposerActions({
       ) : (
         <>
           {showTalk ? <HoldToTalkControls talk={talk} disabled={talkDisabled} /> : null}
-          <Button
-            size="icon-sm"
-            aria-label={t`Send`}
-            disabled={sendDisabled}
-            onClick={onSend}
-            style={sendStyle}
-            className={sendClassName}
-          >
-            <ArrowUp size={16} strokeWidth={2.2} />
-          </Button>
+          {sendButton}
         </>
       )}
     </div>

@@ -80,13 +80,9 @@ function renderHeader({ inGroup = false } = {}) {
         }
         activeGroup={undefined}
         activeSnapshot={null}
-        phoneCallsEnabled={false}
-        voiceReady={false}
-        inCall={false}
         panelOpen={false}
         onOpenNavigation={() => undefined}
         onTogglePanel={() => undefined}
-        onCall={() => undefined}
       />,
     ),
   );
