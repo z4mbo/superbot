@@ -73,7 +73,9 @@ function iconDataUrl(path: string, file: AppFile, errors: string[]): string | nu
   }
   const bytes = Buffer.from(file.content, "base64");
   if (bytes.byteLength > APP_ICON_MAX_BYTES) {
-    errors.push(`${path}: the icon is ${bytes.byteLength} bytes; the limit is ${APP_ICON_MAX_BYTES}.`);
+    errors.push(
+      `${path}: the icon is ${bytes.byteLength} bytes; the limit is ${APP_ICON_MAX_BYTES}.`,
+    );
     return null;
   }
   if (!kind.matches(bytes)) {

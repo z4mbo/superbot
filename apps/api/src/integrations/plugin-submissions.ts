@@ -25,7 +25,7 @@ import {
   PluginSubmissionInputSchema,
 } from "@rakazo/contracts";
 import { ClientError, pluginCategory } from "@rakazo/core";
-import type { Prisma, PluginSubmission as PluginSubmissionRow, PrismaClient } from "@rakazo/db";
+import type { PluginSubmission as PluginSubmissionRow, Prisma, PrismaClient } from "@rakazo/db";
 import { readJsonColumn } from "@rakazo/db";
 import type { Context } from "hono";
 import { Hono } from "hono";

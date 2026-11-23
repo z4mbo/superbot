@@ -1,5 +1,3 @@
-export * from "./apps/app-bundle.js";
-export * from "./apps/app-installs.js";
 export * from "./analytics/product-analytics.js";
 export * from "./approvals/auto-review.js";
 export {
@@ -15,7 +13,10 @@ export * from "./approvals/auto-review-factory.js";
 export * from "./approvals/decision-models.js";
 export * from "./approvals/http-decisions.js";
 export * from "./approvals/scripted-auto-review.js";
+export * from "./apps/app-bundle.js";
+export * from "./apps/app-installs.js";
 export * from "./apps/app-pages.js";
+export * from "./apps/app-tools.js";
 export * from "./billing/billing-emulator.js";
 export * from "./billing/plan-limits.js";
 export * from "./bots/agent-connections.js";
