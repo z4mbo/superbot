@@ -20,9 +20,9 @@ const buttonVariants = cva(
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
         text: "text-muted-foreground hover:text-foreground aria-expanded:text-foreground",
-        // Floats over scrolling content, so it carries its own frosted surface.
+        // Floats over scrolling content, so it carries its own raised surface and hairline.
         floating:
-          "border-foreground/6 bg-popover/90 text-foreground/90 backdrop-blur hover:bg-accent data-active:bg-accent aria-pressed:bg-accent",
+          "border-hairline bg-elevated text-foreground shadow-floating hover:bg-elevated-hover data-active:bg-elevated-hover aria-pressed:bg-elevated-hover aria-expanded:bg-elevated-hover",
       },
       size: {
         default: `${controlHeight.default} gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2`,

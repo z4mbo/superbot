@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import type { NavLink } from "@rakazo/contracts";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web";
 import {
+  Bell,
   Building2,
   Check,
   ChevronRight,
@@ -39,6 +40,8 @@ type Props = {
   onLink?: (link: NavLink) => void;
   onArtifacts: () => void;
   onSettings: () => void;
+  /** Shows the runs list in place of the roster. */
+  onActivity?: () => void;
   /** How much of the member's allowance is used; the Usage row shows only with one. */
   usage?: string | null;
   onUsage?: () => void;
@@ -68,6 +71,7 @@ export function SidebarFooter({
   onLink,
   onArtifacts,
   onSettings,
+  onActivity,
   usage,
   onUsage,
   onInvite,
@@ -101,7 +105,7 @@ export function SidebarFooter({
   return (
     <div
       data-testid="sidebar-footer"
-      className={`flex shrink-0 items-center gap-2 bg-transparent ${mini ? "flex-col px-1 py-2" : "px-4 pt-2 pb-4"}`}
+      className={`flex shrink-0 items-center gap-2 bg-transparent ${mini ? "flex-col px-1 py-2" : "justify-between px-4 pt-2 pb-4"}`}
     >
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger
@@ -110,7 +114,7 @@ export function SidebarFooter({
           className={
             mini
               ? `${avatarClass} outline-none hover:ring-2 hover:ring-foreground/15 focus-visible:ring-2 focus-visible:ring-ring`
-              : "flex min-w-0 flex-1 items-center gap-2 rounded-full text-start outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              : "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full text-start outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
           }
         >
           {mini ? (
@@ -180,16 +184,25 @@ export function SidebarFooter({
                 </span>
               </Button>
             ) : null}
-            {mini ? (
+            <Button
+              variant="ghost"
+              size="lg"
+              className="w-full justify-start gap-2.5 font-normal"
+              aria-label={settingsLabel}
+              onClick={onSettings}
+            >
+              <Settings className="text-muted-foreground" strokeWidth={1.75} />
+              <Trans>Settings</Trans>
+            </Button>
+            {onActivity && !mini ? (
               <Button
                 variant="ghost"
                 size="lg"
                 className="w-full justify-start gap-2.5 font-normal"
-                aria-label={settingsLabel}
-                onClick={onSettings}
+                onClick={onActivity}
               >
-                <Settings className="text-muted-foreground" strokeWidth={1.75} />
-                <Trans>Settings</Trans>
+                <Bell className="text-muted-foreground" strokeWidth={1.75} />
+                <Trans>Activity</Trans>
               </Button>
             ) : null}
             <Button
@@ -278,28 +291,16 @@ export function SidebarFooter({
         </IconTooltip>
       ) : null}
       {!mini ? (
-        <>
-          <IconTooltip label={storeLabel}>
-            <Button
-              variant="floating"
-              size="icon-lg"
-              aria-label={storeLabel}
-              onClick={onIntegrations}
-            >
-              <Grid2x2Plus size={16} strokeWidth={1.75} aria-hidden="true" />
-            </Button>
-          </IconTooltip>
-          <IconTooltip label={settingsLabel}>
-            <Button
-              variant="floating"
-              size="icon-lg"
-              aria-label={settingsLabel}
-              onClick={onSettings}
-            >
-              <Settings size={16} strokeWidth={1.75} aria-hidden="true" />
-            </Button>
-          </IconTooltip>
-        </>
+        <IconTooltip label={storeLabel}>
+          <Button
+            variant="floating"
+            size="icon-lg"
+            aria-label={storeLabel}
+            onClick={onIntegrations}
+          >
+            <Grid2x2Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+          </Button>
+        </IconTooltip>
       ) : null}
     </div>
   );
