@@ -10,6 +10,7 @@ import {
 } from "@rakazo/core";
 import { Button, SectionHeading, Spinner } from "@rakazo/ui-web";
 import { ArrowUpRight, Search } from "lucide-react";
+import type { ReactNode } from "react";
 import type { PluginSelection } from "../../components/integrations/plugin-marketplace";
 import {
   PluginRow,
@@ -33,6 +34,7 @@ export function PluginBrowse({
   tileContext,
   onOpenPlugin,
   onSearchPublic,
+  apps,
 }: {
   browse: CatalogBrowse;
   state: PluginConnections;
@@ -40,6 +42,8 @@ export function PluginBrowse({
   onOpenPlugin: (selection: PluginSelection) => void;
   /** Opens the public MCP catalog searched for the query. */
   onSearchPublic: (query: string) => void;
+  /** Reviewed apps, listed ahead of the plugins in browse and in search. */
+  apps?: ReactNode;
 }) {
   const { t } = useLingui();
   const { catalogLoaded, catalog, pluginCatalog, pluginInstalls } = state;
@@ -120,6 +124,7 @@ export function PluginBrowse({
     return (
       <>
         {unavailable}
+        {category ? null : apps}
         {renderPluginResults()}
       </>
     );

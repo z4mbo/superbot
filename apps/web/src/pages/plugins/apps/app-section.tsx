@@ -23,7 +23,7 @@ export function AppSection({
   if (!listings.length) return null;
   const installedIds = new Set((installed.data ?? []).map((install) => install.appId));
   return (
-    <section data-testid="app-section" className="mb-8">
+    <section data-testid="app-section" className="mt-8">
       <SectionHeading as="h2" className="mb-2 px-2.5">
         <Trans>Apps</Trans>
       </SectionHeading>

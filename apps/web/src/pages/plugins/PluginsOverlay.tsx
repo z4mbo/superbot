@@ -641,19 +641,17 @@ export function PluginsOverlay({
               />
             </div>
           ) : (
-            <>
-              {category ? null : <AppSection query={query} onOpen={setAppListing} />}
-              <PluginBrowse
-                browse={browse}
-                state={state}
-                tileContext={tileContext}
-                onOpenPlugin={openPlugin}
-                onSearchPublic={(publicQuery) => {
-                  setPublicCatalogQuery(publicQuery);
-                  openAddView("browseMcp");
-                }}
-              />
-            </>
+            <PluginBrowse
+              browse={browse}
+              state={state}
+              tileContext={tileContext}
+              onOpenPlugin={openPlugin}
+              onSearchPublic={(publicQuery) => {
+                setPublicCatalogQuery(publicQuery);
+                openAddView("browseMcp");
+              }}
+              apps={<AppSection query={query} onOpen={setAppListing} />}
+            />
           )}
         </div>
       </DialogContent>
