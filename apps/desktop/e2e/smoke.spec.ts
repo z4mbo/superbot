@@ -70,6 +70,10 @@ test("launches with a narrow preload bridge and an isolated renderer", async () 
   const page = await shownWindow(app);
   await expect(page.getByText("Desktop fixture ready")).toBeVisible();
   await expect(page).toHaveTitle("Superbot desktop smoke");
+  // The cross-platform workflow uploads this per OS as proof the window opened there.
+  await page.screenshot({
+    path: path.join(import.meta.dirname, "screenshots", "launch-window.png"),
+  });
 
   const renderer = await page.evaluate(async () => {
     const desktop = (window as typeof window & { rakazoDesktop?: RakazoDesktop }).rakazoDesktop;
