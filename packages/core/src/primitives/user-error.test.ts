@@ -1,3 +1,5 @@
+import { expectLinearTime } from "@rakazo/contracts/test-timing";
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   authErrorMessage,
@@ -130,6 +132,41 @@ describe("credentialIssue", () => {
 
   it("skips the password when the form has none", () => {
     expect(credentialIssue({ email: "ada@example.com" })).toBeNull();
+  });
+
+  it("accepts exactly the addresses the old pattern accepted", () => {
+    const previous = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailIssue = (email: string) => credentialIssue({ email }) === "email";
+    for (const email of [
+      "a@b.c",
+      "a@b.c.",
+      "a@.b.c",
+      "a@b..c",
+      "a@.c",
+      "a@b.",
+      "@b.c",
+      "a@@b.c",
+      "a@b@c.d",
+      "a b@c.d",
+      "a@b.c d",
+      "a.b@c",
+    ]) {
+      expect(emailIssue(email), email).toBe(!previous.test(email.trim()));
+    }
+    fc.assert(
+      fc.property(
+        fc.string({ unit: fc.constantFrom("a", "@", ".", " ", "\t", " ", "é") }),
+        (email) => emailIssue(email) === !previous.test(email.trim()),
+      ),
+    );
+  });
+
+  it("checks a long hostile address in linear time", () => {
+    for (const email of [`!@!.${"!.".repeat(50_000)}`, `a@${"a.".repeat(100_000)}@`]) {
+      expectLinearTime(() =>
+        expect(credentialIssue({ email })).toBe(email.endsWith("@") ? "email" : null),
+      );
+    }
   });
 });
 
