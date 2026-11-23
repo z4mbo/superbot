@@ -37,11 +37,15 @@ env:
     packages/adapters/src/providers/computer/desktop/desktop-sandbox-paths.test.ts
     packages/adapters/src/providers/computer/desktop/desktop-workspace-cleanup.test.ts
     packages/testkit/src/runtime/pi-offline.test.ts
+    packages/adapters/src/apps/app-bundle.test.ts
+    packages/contracts/src/apps/app-manifest.test.ts
+    apps/web/src/components/pages/PageFrame.test.tsx
   # ── Extension point 2: desktop Playwright specs run on every OS (file names in apps/desktop/e2e). ──
   DESKTOP_SPECS: >-
     smoke.spec.ts
     setup.spec.ts
     window-drag.spec.ts
+    app-sandbox.spec.ts
 
 jobs:
   unit:
