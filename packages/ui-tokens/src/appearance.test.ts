@@ -203,9 +203,27 @@ describe.each([
   ];
 
   it.each(pairs)("%s on %s meets WCAG AA (4.5:1)", (text, surface) => {
-    expect(contrastRatio(palette[text], palette[surface])).toBeGreaterThanOrEqual(4.5);
+    // A translucent surface (the dark user bubble) is measured where it is drawn, on the ground.
+    expect(
+      contrastRatio(palette[text], opaqueOn(palette[surface], palette.background)),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+function opaqueOn(color: string, ground: string): string {
+  if (color.length !== 9) return color;
+  const alpha = Number.parseInt(color.slice(7, 9), 16) / 255;
+  return `#${[1, 3, 5]
+    .map((i) =>
+      Math.round(
+        Number.parseInt(color.slice(i, i + 2), 16) * alpha +
+          Number.parseInt(ground.slice(i, i + 2), 16) * (1 - alpha),
+      )
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
 
 describe("tokens.css", () => {
   it("derives kebab-case variable names", () => {
@@ -296,6 +314,8 @@ describe.each([
   ];
 
   it.each(pairs)("%s on %s meets WCAG AA (4.5:1)", (text, surface) => {
-    expect(contrastRatio(palette[text], palette[surface])).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(palette[text], opaqueOn(palette[surface], palette.background)),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });

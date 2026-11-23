@@ -39,7 +39,7 @@ export function SettingsRow({
   children?: ReactNode;
 }) {
   return (
-    <div className="px-3.5 py-2.5">
+    <div data-slot="settings-row" className="px-3.5 py-2.5">
       <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 text-body-sm text-foreground">{label}</div>
         {control ? (

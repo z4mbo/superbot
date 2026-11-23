@@ -294,7 +294,7 @@ export const webLightOverrides = {
   sidebarAccent: "#1A1A1A14",
   sidebarAccentForeground: "#1C1C1C",
   link: "#0B6DD3",
-  success: "#10AB61",
+  success: "#00854A",
   warning: "#AA6300",
   statusWorking: "#0B6DD3",
   unread: "#0B6DD3",

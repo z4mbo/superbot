@@ -80,7 +80,7 @@ it("shows a compact composer quote and dismisses it", () => {
 it("navigates a one-line authoritative quote without a loaded parent", () => {
   const onJump = vi.fn();
   act(() => root.render(<ReplyLine message={message} author="Helper" onJump={onJump} />));
-  expect(container.textContent).toBe("↩ Helper: First line");
+  expect(container.textContent).toBe("Helper: First line");
   act(() => container.querySelector("button")!.click());
   expect(onJump).toHaveBeenCalledWith("parent");
 });

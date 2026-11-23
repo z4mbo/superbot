@@ -131,20 +131,20 @@ it("shows the account image and falls back to the initial after a load error", a
   expect(trigger.textContent).toBe("ALAda Lovelace");
 });
 
-it("opens Store and Settings from the footer and lists neither in the account menu", async () => {
+it("opens Store from the footer and Settings from the account menu", async () => {
   const onIntegrations = vi.fn();
   const onSettings = vi.fn();
   await render("Demo User", undefined, onIntegrations, vi.fn(), { onSettings });
   const footer = host.querySelector('[data-testid="sidebar-footer"]')!;
   const store = footer.querySelector<HTMLButtonElement>('[aria-label="Store"]')!;
-  const settings = footer.querySelector<HTMLButtonElement>('[aria-label="Settings"]')!;
-  expect(store.nextElementSibling).toBe(settings);
+  expect(footer.querySelector('[aria-label="Settings"]')).toBeNull();
   await act(async () => store.click());
-  await act(async () => settings.click());
   expect(onIntegrations).toHaveBeenCalledOnce();
-  expect(onSettings).toHaveBeenCalledOnce();
   const menu = document.querySelector('[data-slot="popover-content"]')!;
+  await act(async () => menu.querySelector<HTMLButtonElement>('[aria-label="Settings"]')!.click());
+  expect(onSettings).toHaveBeenCalledOnce();
   expect([...menu.querySelectorAll("button, a")].map((row) => row.textContent)).toEqual([
+    "Settings",
     "Skills",
     "Artifacts",
     "Board",
@@ -272,14 +272,14 @@ async function openOrganizations() {
 
 it("shows the active organization as one row, even when it is the only one", async () => {
   const rows = await renderOrganizations([personal]);
-  expect(rows.map((row) => row.textContent).slice(0, 2)).toEqual(["Personal", "Skills"]);
+  expect(rows.map((row) => row.textContent).slice(0, 2)).toEqual(["Personal", "Settings"]);
 });
 
 it("lists organizations in a submenu with the active one checked, then New organization", async () => {
   const onSwitch = vi.fn();
   const onCreate = vi.fn();
   const rows = await renderOrganizations([personal, work], onSwitch, onCreate);
-  expect(rows.map((row) => row.textContent).slice(0, 2)).toEqual(["Personal", "Skills"]);
+  expect(rows.map((row) => row.textContent).slice(0, 2)).toEqual(["Personal", "Settings"]);
   const items = await openOrganizations();
   expect(items.map((item) => item.textContent)).toEqual(["Personal", "Work", "New organization"]);
   expect(items[0]!.getAttribute("aria-current")).toBe("true");
