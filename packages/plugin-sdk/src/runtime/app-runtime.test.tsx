@@ -126,3 +126,43 @@ it("disables actions where the host cannot run them", async () => {
   await mountApp();
   expect(button().disabled).toBe(true);
 });
+
+it("sends an ActionForm's fields with a click, without a form submission", async () => {
+  document.documentElement.setAttribute("data-app-actions", "");
+  const checked = checkApp({
+    manifest: {
+      ...manifest,
+      actions: [
+        {
+          name: "add",
+          description: "Add.",
+          input: { title: { type: "string", description: "Title", required: true } },
+          effects: [{ op: "append", path: "items" }],
+        },
+      ],
+    },
+    source: `export default function Form() {\n  return <Page title="Form"><ActionForm action="add" label="Add" /></Page>;\n}\n`,
+  });
+  if (!checked.ok) throw new Error(checked.errors.join("\n"));
+  document.body.replaceChildren();
+  const page = (window as unknown as { RakazoPage: Mount }).RakazoPage;
+  await act(async () => {
+    page.mount({ code: checked.code, theme: "light", errorTitle: "x" });
+    await flush();
+  });
+  expect(document.querySelector("form")).toBeNull();
+  const input = document.querySelector("input")!;
+  await act(async () => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+    set.call(input, "Milk");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await flush();
+  });
+  await act(async () => {
+    button().click();
+    await flush();
+  });
+  expect(posted).toContainEqual(
+    expect.objectContaining({ type: "rakazo-app:action", name: "add", input: { title: "Milk" } }),
+  );
+});
