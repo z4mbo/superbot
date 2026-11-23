@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Routine } from "@rakazo/contracts";
+import { BOT_TEMPLATES } from "@rakazo/core";
 import { captureScreenshot, completeOnboarding, rpc, signup } from "../helpers/helpers";
 
 test("a bot template previews what it adds, then creates a bot with a paused routine", async ({
@@ -13,7 +14,8 @@ test("a bot template previews what it adds, then creates a bot with a paused rou
   const dialog = page.getByRole("dialog", { name: "Store", exact: true });
   await dialog.getByTestId("store-agents").click();
   const cards = dialog.getByTestId("bot-template-card");
-  await expect(cards).toHaveCount(4);
+  // The Store lists the server's whole template catalog.
+  await expect(cards).toHaveCount(BOT_TEMPLATES.length);
   const briefing = dialog.getByRole("button", { name: "Morning briefing", exact: true });
   await expect(briefing).toHaveAccessibleDescription("Your day at a glance, every weekday morning");
   await expect(briefing.getByText("Needs you", { exact: true })).toBeVisible();

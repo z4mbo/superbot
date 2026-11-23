@@ -22,7 +22,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+      # The review needs the repository's dependency graph. Where it is off, the compare API
+      # answers 403: skip with a notice instead of failing every pull request.
+      - name: Check dependency graph
+        id: graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if out=$(gh api "repos/$REPO/dependency-graph/compare/$BASE...$HEAD" --silent 2>&1); then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          elif grep -q "HTTP 403" <<<"$out" && ! grep -qi "rate limit" <<<"$out"; then
+            echo "::notice::Dependency graph is not enabled on this repository; skipping dependency review."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "$out" >&2
+            exit 1
+          fi
+      - if: steps.graph.outputs.available == 'true'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
           fail-on-scopes: runtime, development, unknown
