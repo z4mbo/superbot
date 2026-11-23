@@ -155,11 +155,14 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
     .getByText("Gmail", { exact: true })
     .locator("xpath=ancestor::*[.//button][1]");
   await gmailRow.getByRole("button", { name: "Add Gmail", exact: true }).click();
-  await expect(gmailRow.getByRole("button", { name: "Added", exact: true })).toBeVisible();
-  await expect(page.getByTestId("connection-tile-gmail")).toBeVisible();
+  // Once added, Gmail leaves Featured and leads the page under Connected.
+  const connectedNow = page.getByTestId("connected-now");
+  const gmailTile = connectedNow.getByTestId("connection-tile-gmail");
+  await expect(gmailTile.getByRole("button", { name: "Added", exact: true })).toBeVisible();
+  await expect(featured.getByText("Gmail", { exact: true })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "11a-connected-plugins");
 
-  await gmailRow.getByRole("button", { name: "Added", exact: true }).click();
+  await gmailTile.getByRole("button", { name: "Added", exact: true }).click();
   const detail = page.getByTestId("connection-detail");
   await expect(detail).toBeVisible();
   await expect(page.getByTestId("connection-accounts")).toBeVisible();
@@ -227,8 +230,13 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await linearRow.getByRole("button", { name: "Add Linear", exact: true }).click();
   const popup = await connectPopup;
   await popup.close();
-  await expect(linearRow.getByRole("button", { name: "Added", exact: true })).toBeVisible();
-  await linearRow.getByRole("button", { name: "Added", exact: true }).click();
+  // Added apps lead under Connected (More apps still lists them too).
+  const linearAdded = connectedNow
+    .getByText("Linear", { exact: true })
+    .locator("xpath=ancestor::*[.//button][1]")
+    .getByRole("button", { name: "Added", exact: true });
+  await expect(linearAdded).toBeVisible();
+  await linearAdded.click();
   const linearDetail = page.getByTestId("connection-detail");
   await expect(linearDetail).toBeVisible();
   await linearDetail.getByRole("button", { name: "Uninstall", exact: true }).click();
