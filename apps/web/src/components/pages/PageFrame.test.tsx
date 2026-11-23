@@ -159,3 +159,39 @@ it("acts for a page only in an interactive frame, right after the person used th
   expect(document.body.textContent).toContain("example.com/x");
   await act(async () => root.unmount());
 });
+
+it("lets an installed app's frame do only what its install granted", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { clipboard: { writeText } });
+  const opened = vi.spyOn(window, "open").mockReturnValue(null);
+  const replies: unknown[] = [];
+  const container = document.body.appendChild(document.createElement("div"));
+  const root = createRoot(container);
+  await act(async () =>
+    root.render(
+      <PageFrame
+        document="<p>x</p>"
+        title="Timer"
+        interactive
+        allow={["links"]}
+        onReply={(text) => replies.push(text)}
+      />,
+    ),
+  );
+  const frame = container.querySelector("iframe")!;
+  frame.focus();
+  const send = (data: object) =>
+    act(async () => {
+      window.dispatchEvent(new MessageEvent("message", { data, source: frame.contentWindow }));
+      await flush();
+    });
+
+  // Asked for more than was granted: each is ignored, and its click stays unused.
+  await send({ type: "rakazo-page:copy", id: "a", text: "secret", gesture: "k:1" });
+  await send({ type: "rakazo-page:reply", text: "Ship it", gesture: "k:2" });
+  expect([writeText.mock.calls, replies]).toEqual([[], []]);
+  await send({ type: "rakazo-page:open-link", url: "mailto:a@example.com", gesture: "k:2" });
+  expect(opened.mock.calls).toEqual([["mailto:a@example.com", "_blank", "noopener,noreferrer"]]);
+  await act(async () => root.unmount());
+});

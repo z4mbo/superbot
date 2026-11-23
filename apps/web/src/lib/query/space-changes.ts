@@ -22,6 +22,7 @@ const READS: Record<ReadChangeKind, readonly Procedure[]> = {
     ["meetings", "transcript"],
   ],
   artifacts: [["artifacts", "listSpace"]],
+  apps: [["apps", "installed"]],
 };
 
 export const isReadChangeKind = (kind: string): kind is ReadChangeKind =>

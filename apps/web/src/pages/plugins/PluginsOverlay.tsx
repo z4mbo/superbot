@@ -1,5 +1,6 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type {
+  AppListing,
   CapabilityInstall,
   ConnectionCatalogItem,
   IntegrationCatalogResult,
@@ -42,6 +43,8 @@ import { connectMcpOauth } from "../../lib/integrations/mcp-connect";
 import { rpc } from "../../lib/query/rpc";
 import { errorCode, errorText } from "../../lib/query/user-error";
 import { AddMenu } from "./add-menu";
+import { AppDetail } from "./apps/app-detail";
+import { AppSection } from "./apps/app-section";
 import { ConnectorDetail } from "./connector-detail";
 import { DomainSearch, useDomainSearch } from "./domain-search";
 import { GithubImport } from "./github-import";
@@ -84,6 +87,7 @@ export function PluginsOverlay({
   // Where a source form returns: the domain search that prefilled it, or browse.
   const [sourceBack, setSourceBack] = useState<OverlayView>("browse");
   const [plugin, setPlugin] = useState<PluginSelection | null>(null);
+  const [appListing, setAppListing] = useState<AppListing | null>(null);
   const [gitSource, setGitSource] = useState("");
   const [detailKey, setDetailKey] = useState<{
     connectorId: string;
@@ -179,7 +183,7 @@ export function PluginsOverlay({
     }),
   ].slice(0, 4);
 
-  const browsing = !plugin && !detailItem && view === "browse";
+  const browsing = !plugin && !appListing && !detailItem && view === "browse";
 
   function openPlugin(selection: PluginSelection) {
     setCatalogError(null);
@@ -367,6 +371,7 @@ export function PluginsOverlay({
 
   function openAddView(next: OverlayView) {
     setPlugin(null);
+    setAppListing(null);
     setDetailKey(null);
     setSourceError(null);
     setOauthError(null);
@@ -555,7 +560,13 @@ export function PluginsOverlay({
             </div>
           ) : null}
 
-          {plugin ? (
+          {appListing ? (
+            <AppDetail
+              key={appListing.appId}
+              listing={appListing}
+              onBack={() => setAppListing(null)}
+            />
+          ) : plugin ? (
             <PluginDetail
               key={plugin.installedSource}
               selection={plugin}
@@ -630,16 +641,19 @@ export function PluginsOverlay({
               />
             </div>
           ) : (
-            <PluginBrowse
-              browse={browse}
-              state={state}
-              tileContext={tileContext}
-              onOpenPlugin={openPlugin}
-              onSearchPublic={(publicQuery) => {
-                setPublicCatalogQuery(publicQuery);
-                openAddView("browseMcp");
-              }}
-            />
+            <>
+              {category ? null : <AppSection query={query} onOpen={setAppListing} />}
+              <PluginBrowse
+                browse={browse}
+                state={state}
+                tileContext={tileContext}
+                onOpenPlugin={openPlugin}
+                onSearchPublic={(publicQuery) => {
+                  setPublicCatalogQuery(publicQuery);
+                  openAddView("browseMcp");
+                }}
+              />
+            </>
           )}
         </div>
       </DialogContent>
