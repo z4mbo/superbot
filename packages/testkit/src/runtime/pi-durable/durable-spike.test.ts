@@ -245,6 +245,84 @@ describe("pi-durable spike: in-memory storage, same process", () => {
   });
 });
 
+describe("pi-durable spike: graceful close, as a drain or deploy does", () => {
+  it("closing mid-call aborts the call, and the next Harness does not run it again", async () => {
+    const { workdir } = await scenario();
+    let seenByModel: ReturnType<typeof toolMessages> = [];
+    const { server, endpoint } = await emulator([
+      {
+        expect: anyRequest,
+        response: {
+          type: "tool",
+          id: "call-charge",
+          name: "charge_card",
+          arguments: { cents: 300 },
+        },
+      },
+      {
+        expect(request) {
+          seenByModel = toolMessages(request);
+        },
+        response: { type: "text", text: "Stopped before confirming the charge." },
+      },
+    ]);
+    const memory = new MemoryStorage();
+    const hung = deferred<void>();
+    const before = await Harness.open(
+      crashableStorage(memory).storage,
+      {
+        models: spikeModels([endpoint]),
+        registry: spikeRegistry({
+          workdir,
+          hang: ["charge_card"],
+          onEvent: (event) => {
+            if (event.event === "tool-hang") hung.resolve();
+          },
+        }),
+        settings: SPIKE_SETTINGS,
+      },
+      context,
+    );
+    const root = await before.root(context, {
+      agent: { model: { provider: endpoint.provider, modelId: endpoint.modelId } },
+    });
+    await root.submit(
+      { type: "input", content: "Charge 3 dollars.", requestId: "close-1" },
+      context,
+    );
+    await hung.promise;
+    await before.close(context);
+
+    const after = await Harness.open(
+      memory,
+      {
+        models: spikeModels([endpoint]),
+        registry: spikeRegistry({ workdir }),
+        settings: SPIKE_SETTINGS,
+      },
+      context,
+    );
+    cleanups.push(() => after.close(context));
+    after.resume();
+    const again = await (await after.root(context)).submit(
+      { type: "input", content: "Charge 3 dollars.", requestId: "close-1" },
+      context,
+    );
+    const result = await again.wait(context);
+    server.assertComplete();
+    // A close is no different from a crash for a call that is not replay-safe: it is aborted,
+    // never resumed, and the model is told it may have partly run.
+    expect(result.status).toBe("done");
+    expect(logLines(workdir.effects)).toEqual(["charged 300"]);
+    expect(seenByModel).toEqual([
+      {
+        id: "call-charge",
+        text: "<harness>\n[error] Tool charge_card was interrupted and may have partially run\n</harness>",
+      },
+    ]);
+  });
+});
+
 describe("pi-durable spike: SQLite storage, killed child process", () => {
   it("does not run a side-effecting tool twice when the process dies while it is in flight", async () => {
     const { workdir, root, storagePath } = await scenario();
