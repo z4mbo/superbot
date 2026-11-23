@@ -8,7 +8,13 @@ import { createProvider } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { createModels } from "@earendil-works/pi-ai/models";
 import type { HarnessSettings, Registry, Storage } from "@earendil-works/pi-durable";
-import { createRegistry, defineExtension, defineTool } from "@earendil-works/pi-durable";
+import {
+  createRegistry,
+  defineExtension,
+  defineTool,
+  hook,
+  ToolTask,
+} from "@earendil-works/pi-durable";
 import { num, obj, str } from "@earendil-works/pi-schema";
 
 /** One OpenAI-compatible model endpoint, served by the testkit model emulator. */
@@ -99,6 +105,11 @@ export interface SpikeToolOptions {
   /** Tools named here stop on their first execution in this process until `release` or an abort. */
   hang?: readonly string[];
   release?: Promise<void>;
+  /**
+   * Install a policy hook over calls a restart interrupted, as Superbot would for its
+   * side-effecting tools: the model is told not to retry, and the host hears about it.
+   */
+  guardInterrupted?: boolean;
   /** Called when a tool starts and when it is about to hang, so a parent knows when to kill. */
   onEvent?: (event: SpikeEvent) => void;
 }
@@ -108,6 +119,7 @@ export type SpikeEvent =
   | { event: "tool-hang"; tool: string }
   | { event: "settled"; status: string; transcript: TranscriptLine[]; reason?: string }
   | { event: "ready" }
+  | { event: "interrupted"; tool: string }
   | { event: "error"; message: string };
 
 /** Waits for `release`; an abort (a Harness close or failure) rejects it, and a kill ends it. */
@@ -177,6 +189,31 @@ export function spikeRegistry(options: SpikeToolOptions): Registry {
   registry.install(
     defineExtension({ name: "spike-tools", tools: [readNote, slowLookup, chargeCard] }),
   );
+  if (options.guardInterrupted) {
+    registry.install(
+      defineExtension({
+        name: "spike-interrupted-guard",
+        hooks: [
+          hook(ToolTask, {
+            afterTool: (call, result) => {
+              if (!result.diagnostics?.some((item) => item.code === "interrupted"))
+                return undefined;
+              options.onEvent?.({ event: "interrupted", tool: call.name });
+              return {
+                ...result,
+                output: [
+                  {
+                    type: "text",
+                    text: `${call.name} was cut off by a restart and may already have happened. Do not retry it; ask the person.`,
+                  },
+                ],
+              };
+            },
+          }),
+        ],
+      }),
+    );
+  }
   return registry;
 }
 
@@ -190,6 +227,7 @@ export interface SpikeChildConfig {
   prompt: string;
   requestId: string;
   hang?: string[];
+  guardInterrupted?: boolean;
 }
 
 export const SPIKE_EVENT_PREFIX = "SPIKE_EVENT ";

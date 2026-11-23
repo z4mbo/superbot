@@ -35,6 +35,7 @@ async function main() {
         workdir: spikeWorkdir(config.workdir),
         hang: config.hang,
         release,
+        guardInterrupted: config.guardInterrupted,
         onEvent: emit,
       }),
       settings: SPIKE_SETTINGS,

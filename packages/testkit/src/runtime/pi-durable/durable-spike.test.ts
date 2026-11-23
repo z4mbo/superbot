@@ -143,6 +143,11 @@ async function killHard(child: SpikeChild) {
 const settled = (event: SpikeEvent): event is Extract<SpikeEvent, { event: "settled" }> =>
   event.event === "settled";
 
+function settledTranscript(event: SpikeEvent) {
+  if (event.event !== "settled") throw new Error(`expected a settled event, got ${event.event}`);
+  return event.transcript;
+}
+
 describe("pi-durable spike: in-memory storage, same process", () => {
   it("resumes a run cut off mid-tool in a new Harness and reruns only the replay-safe call", async () => {
     const { workdir } = await scenario();
@@ -275,9 +280,159 @@ describe("pi-durable spike: SQLite storage, killed child process", () => {
     const done = await second.waitFor(settled);
     expect(await second.exited).toBe(0);
     server.assertComplete();
+    // The side effect happened once, before the kill; the new process never started the tool.
     expect(logLines(workdir.effects)).toEqual(["charged 500"]);
     expect(second.events.some((event) => event.event === "tool-start")).toBe(false);
-    console.log(JSON.stringify({ seenByModel, done }, null, 2));
+    // Durable surfaces it to the model as an error result and lets the run go on.
+    expect(seenByModel).toEqual([
+      { id: "call-read", text: "Order 42 belongs to the fixture customer." },
+      {
+        id: "call-charge",
+        text: "<harness>\n[error] Tool charge_card was interrupted and may have partially run\n</harness>",
+      },
+    ]);
     expect(done).toMatchObject({ status: "done" });
+    expect(settledTranscript(done).slice(1)).toEqual([
+      { role: "user", text: "Charge the customer 5 dollars." },
+      { role: "assistant", toolCalls: ["read_note", "charge_card"] },
+      {
+        role: "toolResult",
+        toolName: "read_note",
+        isError: false,
+        text: "Order 42 belongs to the fixture customer.",
+      },
+      {
+        role: "toolResult",
+        toolName: "charge_card",
+        isError: true,
+        text: "<harness>\n[error] Tool charge_card was interrupted and may have partially run\n</harness>",
+      },
+      { role: "assistant", text: "The charge may not have gone through." },
+    ]);
+  });
+
+  it("lets a host hook turn an interrupted side effect into its own do-not-retry result", async () => {
+    const { workdir, root, storagePath } = await scenario();
+    let seenByModel: ReturnType<typeof toolMessages> = [];
+    const { server, endpoint } = await emulator([
+      {
+        expect: anyRequest,
+        response: {
+          type: "tool",
+          id: "call-charge",
+          name: "charge_card",
+          arguments: { cents: 900 },
+        },
+      },
+      {
+        expect(request) {
+          seenByModel = toolMessages(request);
+        },
+        response: { type: "text", text: "I will ask before charging again." },
+      },
+    ]);
+    const config: SpikeChildConfig = {
+      storagePath,
+      workdir: root,
+      endpoints: [endpoint],
+      model: { provider: endpoint.provider, modelId: endpoint.modelId },
+      prompt: "Charge the customer 9 dollars.",
+      requestId: "sqlite-guard-1",
+      guardInterrupted: true,
+    };
+    const first = startChild({ ...config, hang: ["charge_card"] });
+    await first.waitFor((event) => event.event === "tool-hang");
+    await killHard(first);
+    const second = startChild(config);
+    const done = await second.waitFor(settled);
+    expect(seenByModel).toEqual([
+      {
+        id: "call-charge",
+        // The hook's text, then the diagnostic Durable keeps on every interrupted result.
+        text:
+          "charge_card was cut off by a restart and may already have happened. Do not retry it; ask the person." +
+          "\n<harness>\n[error] Tool charge_card was interrupted and may have partially run\n</harness>",
+      },
+    ]);
+    expect(done).toMatchObject({ status: "done" });
+    expect(await second.exited).toBe(0);
+    server.assertComplete();
+    expect(second.events).toContainEqual({ event: "interrupted", tool: "charge_card" });
+    expect(logLines(workdir.effects)).toEqual(["charged 900"]);
+  });
+
+  it("reruns a replay-safe tool that was in flight when the process died", async () => {
+    const { workdir, root, storagePath } = await scenario();
+    const { server, endpoint } = await emulator([
+      {
+        expect: anyRequest,
+        response: {
+          type: "tool",
+          id: "call-lookup",
+          name: "slow_lookup",
+          arguments: { order: "7" },
+        },
+      },
+      {
+        expect(request) {
+          expect(toolMessages(request)).toEqual([{ id: "call-lookup", text: "order 7: shipped" }]);
+        },
+        response: { type: "text", text: "Order 7 has shipped." },
+      },
+    ]);
+    const config: SpikeChildConfig = {
+      storagePath,
+      workdir: root,
+      endpoints: [endpoint],
+      model: { provider: endpoint.provider, modelId: endpoint.modelId },
+      prompt: "Where is order 7?",
+      requestId: "sqlite-lookup-1",
+    };
+    const first = startChild({ ...config, hang: ["slow_lookup"] });
+    await first.waitFor((event) => event.event === "tool-hang");
+    await killHard(first);
+    const second = startChild(config);
+    const done = await second.waitFor(settled);
+    expect(await second.exited).toBe(0);
+    server.assertComplete();
+    expect(logLines(workdir.reads)).toEqual(["slow_lookup 7", "slow_lookup 7"]);
+    expect(settledTranscript(done).at(-1)).toEqual({
+      role: "assistant",
+      text: "Order 7 has shipped.",
+    });
+  });
+
+  it("sends a model request again when the process died while the answer streamed", async () => {
+    const { root, storagePath } = await scenario();
+    const streaming = deferred<void>();
+    const { server, endpoint } = await emulator([
+      {
+        expect: anyRequest,
+        response: { type: "hold", text: "Order 7 is", onOpen: () => streaming.resolve() },
+      },
+      { expect: anyRequest, response: { type: "text", text: "Order 7 has shipped." } },
+    ]);
+    const config: SpikeChildConfig = {
+      storagePath,
+      workdir: root,
+      endpoints: [endpoint],
+      model: { provider: endpoint.provider, modelId: endpoint.modelId },
+      prompt: "Where is order 7?",
+      requestId: "sqlite-stream-1",
+    };
+    const first = startChild(config);
+    await streaming.promise;
+    await killHard(first);
+    const second = startChild(config);
+    const done = await second.waitFor(settled);
+    expect(await second.exited).toBe(0);
+    server.assertComplete();
+    expect(server.requests).toHaveLength(2);
+    // The resent request carries the same context: the cut-off partial answer is not in it.
+    expect(server.requests[1]?.messages).toEqual(server.requests[0]?.messages);
+    expect(settledTranscript(done).slice(1)).toEqual([
+      { role: "user", text: "Where is order 7?" },
+      { role: "assistant", text: "Order 7 has shipped." },
+    ]);
   });
 });
