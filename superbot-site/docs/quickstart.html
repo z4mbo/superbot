@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quickstart: build a record app</title>
+  <meta name="description" content="Run Superbot on your machine, write a record app, publish it, approve it as your own reviewer, install it and try it with a bot.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Quickstart: a record app
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html" aria-current="page">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Get started</div>
+      <h1>Quickstart: build a record app</h1>
+      <p class="lede">Run a private Superbot server on your machine, write a record app, approve it as its reviewer and use it with a bot. Everything stays on loopback, so you can repeat it as often as you like.</p>
+
+      <h2 id="requirements">Requirements</h2>
+      <ul>
+        <li>A Superbot checkout.</li>
+        <li>Node.js 24.15 or later in the 24.x line, or Node.js 26 or later.</li>
+        <li>Docker with Linux containers and Compose 2.24.4 or later.</li>
+        <li>Rust with Cargo, to build <code>superbot</code> and <code>superbot-plugin</code>.</li>
+        <li>For the bot step only: a model connection for your bot. Everything else works without one.</li>
+      </ul>
+
+      <h2 id="server">Step 1: Start a local server</h2>
+      <p>From the checkout root:</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>node infra/superbot/host.mjs init
+node infra/superbot/host.mjs up
+node infra/superbot/host.mjs status</code></pre>
+      </figure>
+      <p>The first run builds the API, worker and web app, starts Postgres and applies migrations. Open <code>http://127.0.0.1:5173</code> when the containers report healthy. <code>init</code> writes a private <code>.env.superbot.local</code>; keep it out of version control. Your server also publishes the bundled <b>Calorie diary</b> and <b>T3 Code inbox</b>.</p>
+      <p>Make yourself the reviewer. Approving needs a verified account, so create one with the bootstrap command and list it as an admin. The password needs at least 16 characters.</p>
+      <ol class="steps">
+        <li>In <code>.env.superbot.local</code>, set <code>SUPERBOT_ADMIN_EMAILS=you@example.com</code>.</li>
+        <li>Export <code>OWNER_EMAIL=you@example.com</code> and <code>OWNER_PASSWORD</code> in your shell, run the command below, then remove both variables from your shell.</li>
+      </ol>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>node infra/superbot/host.mjs account
+node infra/superbot/host.mjs up</code></pre>
+      </figure>
+
+      <h2 id="tools">Step 2: Install the tools</h2>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>cargo install --path native/cli --locked
+cargo install --path native/plugin-kit --locked
+superbot server http://127.0.0.1:5173
+superbot login</code></pre>
+      </figure>
+      <p>The desktop installers build and install both tools too: <code>scripts/install-native.ps1</code> on Windows, <code>bash scripts/install-native-macos.sh</code> on macOS, and <code>bash scripts/install-native-linux.sh</code> on Linux. On a Linux machine without a desktop, <code>bash scripts/install-native-linux.sh --cli-only</code> installs just the two commands in <code>~/.local/bin</code>; sign-in needs an unlocked Secret Service in your D-Bus session.</p>
+      <p>Both programs share the server address and the saved session, which lives in your system credential store. If your account belongs to more than one Space, add <code>--space</code> with the Space's exact name or ID to each command.</p>
+
+      <h2 id="scaffold">Step 3: Create the app</h2>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>mkdir water-log
+cd water-log
+superbot-plugin init water-log --template kcal-diary --name "Water log"</code></pre>
+      </figure>
+      <p>This writes <code>plugin.json</code>: a copy of the Calorie diary with your name. Open it and change the fields. A water log could keep a date, a drink and millilitres:</p>
+      <figure class="code">
+        <div class="code-head"><span>plugin.json</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>,
+  <span class="tok-k">"name"</span>: <span class="tok-s">"Water log"</span>,
+  <span class="tok-k">"description"</span>: <span class="tok-s">"Log drinks and see how much water you had in a day."</span>,
+  <span class="tok-k">"parts"</span>: [
+    {
+      <span class="tok-k">"kind"</span>: <span class="tok-s">"app"</span>,
+      <span class="tok-k">"id"</span>: <span class="tok-s">"drinks"</span>,
+      <span class="tok-k">"fields"</span>: [
+        { <span class="tok-k">"id"</span>: <span class="tok-s">"date"</span>, <span class="tok-k">"label"</span>: <span class="tok-s">"Date"</span>, <span class="tok-k">"type"</span>: <span class="tok-s">"date"</span>, <span class="tok-k">"required"</span>: <span class="tok-n">true</span> },
+        { <span class="tok-k">"id"</span>: <span class="tok-s">"drink"</span>, <span class="tok-k">"label"</span>: <span class="tok-s">"Drink"</span>, <span class="tok-k">"type"</span>: <span class="tok-s">"text"</span>, <span class="tok-k">"required"</span>: <span class="tok-n">false</span> },
+        { <span class="tok-k">"id"</span>: <span class="tok-s">"ml"</span>, <span class="tok-k">"label"</span>: <span class="tok-s">"Amount (ml)"</span>, <span class="tok-k">"type"</span>: <span class="tok-s">"number"</span>, <span class="tok-k">"required"</span>: <span class="tok-n">true</span> }
+      ],
+      <span class="tok-k">"summaryField"</span>: <span class="tok-s">"ml"</span>
+    }
+  ]
+}</code></pre>
+      </figure>
+      <p>Check it locally. <code>validate</code> applies the server's limits without contacting it:</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin validate</code></pre>
+      </figure>
+      <p>Prefer a form? <b>Create plugin → Add app</b> in the store builds the same part. On desktop, <b>Open file…</b> loads this <code>plugin.json</code> into the form.</p>
+
+      <h2 id="publish">Step 4: Publish and review</h2>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin publish water-log 1
+superbot-plugin list submissions
+superbot-plugin review VERSION_ID approved</code></pre>
+      </figure>
+      <p><code>publish</code> prints the new version as JSON with status <code>pending</code>. Copy its <code>id</code> into <code>VERSION_ID</code>. Your first submission reserves the slug <code>water-log</code> on this server. On a shared server, a deployment admin reviews instead of you.</p>
+
+      <h2 id="install">Step 5: Install and grant</h2>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin install VERSION_ID
+superbot-plugin agents
+superbot-plugin set-grants INSTALLATION_ID BOT_ID drinks</code></pre>
+      </figure>
+      <p>Copy the installation's <code>id</code> and one bot's <code>id</code> from the output. If <code>agents</code> lists no bots, create one in the app first. Installing adds nothing to any bot; <code>set-grants</code> gives this one bot the <code>drinks</code> part. You can do both in the store instead: <b>Discover → Water log → Install</b>, then turn on the part for a bot under <b>Installed</b>.</p>
+
+      <h2 id="try">Step 6: Try it</h2>
+      <ol class="steps">
+        <li><b>As a person.</b> Open <code>http://127.0.0.1:5173</code>, then choose <b>Store → Plugins → Installed → Water log</b>. You can open the same app from the desktop Store and add two entries for today. The total shows their sum.</li>
+        <li><b>As a bot.</b> In a direct chat with the bot you granted, ask how much water you had today. It reads the entries without asking. Ask it to log a 250 ml glass, check the values on the approval card and choose <b>Allow once</b>.</li>
+        <li><b>With a local model.</b> If that bot answers through a model CLI on your computer, use <b>Apps</b> in the desktop composer or <code>/apps</code> in <code>superbot BOT_NAME</code>. See <a href="permissions.html#local">local models</a>.</li>
+      </ol>
+      <p>Stop the server with <code>node infra/superbot/host.mjs down</code>. It keeps its data volumes for next time.</p>
+
+      <h2 id="next">Next steps</h2>
+      <ul>
+        <li><a href="local-development.html">Local development and testing</a>: iterate on versions and run the fixtures.</li>
+        <li><a href="record-apps.html">Record apps</a>: design fields and totals.</li>
+        <li><a href="tools.html">Tools and MCP views</a>: connect your own service.</li>
+        <li><a href="publishing.html">Review, install and versions</a>: ship version 2.</li>
+      </ul>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="./"><small>Previous</small><span>Overview</span></a>
+        <a class="next" href="local-development.html"><small>Next</small><span>Local development and testing</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#requirements">Requirements</a>
+      <a href="#server">1. Start a local server</a>
+      <a href="#tools">2. Install the tools</a>
+      <a href="#scaffold">3. Create the app</a>
+      <a href="#publish">4. Publish and review</a>
+      <a href="#install">5. Install and grant</a>
+      <a href="#try">6. Try it</a>
+      <a href="#next">Next steps</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

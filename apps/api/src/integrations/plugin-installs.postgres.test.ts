@@ -19,19 +19,26 @@ const sha = "a".repeat(40);
 const fetcher = async () => ({
   resolvedSha: sha,
   files: [
-    { path: ".grok-plugin/plugin.json", content: JSON.stringify({ name: "example-plugin" }) },
+    {
+      path: "plugin.json",
+      content: JSON.stringify({
+        $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+        name: "example-plugin",
+      }),
+    },
     {
       path: "skills/example/SKILL.md",
       content: "---\nname: plugin-test-skill\ndescription: Example\n---\n\nFollow these steps.\n",
     },
     {
-      path: ".mcp.json",
+      path: "mcp.json",
       content: JSON.stringify({
         mcpServers: {
           example: {
             type: "http",
             url: "https://tools.example.test/mcp",
             headers: { "X-Tenant": "fake-package-tenant" },
+            _meta: { ideToolTitles: { list: "List items" } },
           },
         },
       }),
@@ -48,14 +55,14 @@ describe.skipIf(!enabled)("plugin install lifecycle (PostgreSQL, offline provide
   const secrets = new EncryptedSecretStore("fake-plugin-test-encryption-key");
   const endpoint = vi.fn().mockResolvedValue(undefined);
   const deps = () => ({ prisma, secrets, fetcher, assertEndpoint: endpoint });
-  const client = (asActor = actor) =>
+  const client = (asActor = actor, address = "203.0.113.10") =>
     createRouterClient(
       createRouter({
         prisma,
         secrets,
         pluginRepoFetcher: fetcher,
         remoteConnectors: {
-          resolveHostname: async () => [{ address: "203.0.113.10", family: 4 }],
+          resolveHostname: async () => [{ address, family: 4 }],
         },
         events: { notify: vi.fn() },
         env: {
@@ -128,13 +135,20 @@ describe.skipIf(!enabled)("plugin install lifecycle (PostgreSQL, offline provide
     asActor(async () => {
       const rpc = client();
       const preview = await rpc.capabilities.pluginPreview({ source });
-      const install = await rpc.capabilities.install({
-        kind: "plugin",
+      expect(preview.mcpServers).toEqual([
+        expect.objectContaining({ name: "example", endpoint: "https://tools.example.test/mcp" }),
+      ]);
+      const input = {
+        kind: "plugin" as const,
         source,
         name: "Example",
         config: {},
         pluginDigest: preview.digest,
-      });
+      };
+      await expect(client(actor, "127.0.0.1").capabilities.install(input)).rejects.toThrow(
+        /private address/,
+      );
+      const install = await rpc.capabilities.install(input);
       const skill = await prisma.agentSkill.findFirstOrThrow({
         where: { installId: install.id },
       });
@@ -147,6 +161,12 @@ describe.skipIf(!enabled)("plugin install lifecycle (PostgreSQL, offline provide
       expect((await service.get(actor, { skillId: skill.id })).readOnly).toBe(true);
       await expect(service.remove(actor, skill.id)).rejects.toThrow();
       expect(await prisma.botMcpServer.count({ where: { serverId: server.id } })).toBe(0);
+      expect(server).toMatchObject({
+        spaceId: actor.spaceId,
+        userId: actor.userId,
+        endpoint: "https://tools.example.test/mcp",
+        transport: "streamable_http",
+      });
       const secret = await prisma.secret.findUniqueOrThrow({ where: { id: server.secretId! } });
       expect(secret.ciphertext).not.toContain("fake-package-tenant");
       expect(JSON.parse(await secrets.load(secret.ciphertext, secret.id)).headers).toEqual({

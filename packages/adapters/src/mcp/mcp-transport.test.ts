@@ -220,7 +220,7 @@ describe("MCP transport seam", () => {
         allowedCommands: ["npx"],
         installedBin: { binPath: process.execPath },
       }),
-    ).rejects.toThrow("not installed by Rakazo");
+    ).rejects.toThrow("not installed by Superbot");
     await expect(
       session.connectStdio({ command: "npx", args: ["-c", "echo hi"], allowedCommands: ["npx"] }),
     ).rejects.toThrow("npx only launches");

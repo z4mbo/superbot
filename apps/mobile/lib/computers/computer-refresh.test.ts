@@ -1,6 +1,7 @@
 import type { ComputerStatus } from "@rakazo/contracts";
 import { deferred } from "@rakazo/core/test-async";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ScreenLink } from "./computer";
 import { createComputerRefresh, SCREEN_URL_RENEW_MS } from "./computer-refresh";
 
 const running = { state: "running", controlHolder: "none" } as ComputerStatus;
@@ -10,8 +11,8 @@ function setup() {
   const options = {
     readStatus: vi.fn<() => Promise<ComputerStatus>>().mockResolvedValue(running),
     readScreen: vi
-      .fn<(attempts: number) => Promise<string | null>>()
-      .mockResolvedValue("https://screen.example.test"),
+      .fn<(attempts: number) => Promise<ScreenLink | null>>()
+      .mockResolvedValue({ url: "https://screen.example.test" }),
     onStatus: vi.fn(),
     onScreen: vi.fn(),
     onReady: vi.fn(),
@@ -63,14 +64,14 @@ describe("computer refresh lifecycle", () => {
   it("lets an explicit refresh supersede an older screen read and retain its retry count", async () => {
     vi.useFakeTimers();
     const fixture = setup();
-    const oldScreen = deferred<string | null>();
+    const oldScreen = deferred<ScreenLink | null>();
     fixture.readScreen.mockReturnValueOnce(oldScreen.promise);
     fixture.controller.start();
     await vi.advanceTimersByTimeAsync(0);
     fixture.readStatus.mockResolvedValue(stopped);
     fixture.readScreen.mockResolvedValue(null);
     await fixture.controller.refresh({ screenAttempts: 5 });
-    oldScreen.resolve("https://old-screen.example.test");
+    oldScreen.resolve({ url: "https://old-screen.example.test" });
     await vi.advanceTimersByTimeAsync(0);
     expect(fixture.onStatus).toHaveBeenLastCalledWith(stopped);
     expect(fixture.onScreen).toHaveBeenCalledExactlyOnceWith(null);
@@ -101,16 +102,18 @@ describe("computer refresh lifecycle", () => {
   it("ignores a pending screen response after unmount, including strict-mode restart", async () => {
     vi.useFakeTimers();
     const fixture = setup();
-    const pending = deferred<string | null>();
+    const pending = deferred<ScreenLink | null>();
     fixture.readScreen.mockReturnValueOnce(pending.promise);
     fixture.controller.start();
     await vi.advanceTimersByTimeAsync(0);
     fixture.controller.dispose();
     fixture.controller.start();
     await vi.advanceTimersByTimeAsync(0);
-    pending.resolve("https://old-screen.example.test");
+    pending.resolve({ url: "https://old-screen.example.test" });
     await vi.advanceTimersByTimeAsync(0);
-    expect(fixture.onScreen).toHaveBeenCalledExactlyOnceWith("https://screen.example.test");
+    expect(fixture.onScreen).toHaveBeenCalledExactlyOnceWith({
+      url: "https://screen.example.test",
+    });
     fixture.controller.dispose();
   });
 
@@ -197,19 +200,21 @@ describe("computer action lifecycle", () => {
   it("invalidates an old screen when an action begins, before the mutation completes", async () => {
     vi.useFakeTimers();
     const fixture = setup();
-    const oldScreen = deferred<string | null>();
+    const oldScreen = deferred<ScreenLink | null>();
     fixture.readScreen.mockReturnValueOnce(oldScreen.promise);
     fixture.controller.start();
     await vi.advanceTimersByTimeAsync(0);
     const action = fixture.controller.beginAction();
-    oldScreen.resolve("https://obsolete.example.test");
+    oldScreen.resolve({ url: "https://obsolete.example.test" });
     await vi.advanceTimersByTimeAsync(5000);
     expect(fixture.onScreen).not.toHaveBeenCalled();
     expect(fixture.onReady).not.toHaveBeenCalled();
     expect(fixture.readStatus).toHaveBeenCalledTimes(1);
     await action.refresh();
     action.finish();
-    expect(fixture.onScreen).toHaveBeenCalledExactlyOnceWith("https://screen.example.test");
+    expect(fixture.onScreen).toHaveBeenCalledExactlyOnceWith({
+      url: "https://screen.example.test",
+    });
     fixture.controller.dispose();
   });
 
@@ -312,7 +317,9 @@ describe("screen URL reuse", () => {
     await vi.advanceTimersByTimeAsync(10_000);
     expect(fixture.readStatus).toHaveBeenCalledTimes(6);
     expect(fixture.readScreen).toHaveBeenCalledTimes(1);
-    expect(fixture.onScreen).toHaveBeenCalledExactlyOnceWith("https://screen.example.test");
+    expect(fixture.onScreen).toHaveBeenCalledExactlyOnceWith({
+      url: "https://screen.example.test",
+    });
     fixture.controller.dispose();
   });
 
@@ -326,10 +333,10 @@ describe("screen URL reuse", () => {
     expect(fixture.readScreen).toHaveBeenCalledTimes(1);
     expect(fixture.onScreen).toHaveBeenCalledExactlyOnceWith(null);
     fixture.readStatus.mockResolvedValue(running);
-    fixture.readScreen.mockResolvedValue("https://screen.example.test");
+    fixture.readScreen.mockResolvedValue({ url: "https://screen.example.test" });
     await vi.advanceTimersByTimeAsync(2000);
     expect(fixture.readScreen).toHaveBeenCalledTimes(2);
-    expect(fixture.onScreen).toHaveBeenLastCalledWith("https://screen.example.test");
+    expect(fixture.onScreen).toHaveBeenLastCalledWith({ url: "https://screen.example.test" });
     fixture.controller.dispose();
   });
 
@@ -339,10 +346,10 @@ describe("screen URL reuse", () => {
     fixture.controller.start();
     await vi.advanceTimersByTimeAsync(0);
     fixture.readStatus.mockResolvedValue(controlled);
-    fixture.readScreen.mockResolvedValue("https://control.example.test");
+    fixture.readScreen.mockResolvedValue({ url: "https://control.example.test" });
     await vi.advanceTimersByTimeAsync(2000);
     expect(fixture.readScreen).toHaveBeenCalledTimes(2);
-    expect(fixture.onScreen).toHaveBeenLastCalledWith("https://control.example.test");
+    expect(fixture.onScreen).toHaveBeenLastCalledWith({ url: "https://control.example.test" });
     await vi.advanceTimersByTimeAsync(4000);
     expect(fixture.readScreen).toHaveBeenCalledTimes(2);
     fixture.controller.dispose();
@@ -378,7 +385,7 @@ describe("screen URL reuse", () => {
     const reused = `https://app.example/novnc/session/view/${expiresAt}.tok/embed.html`;
     const renewed = `https://app.example/novnc/session/view/${readAt + 90 * 60_000}.next/embed.html`;
     const fixture = setup();
-    fixture.readScreen.mockResolvedValueOnce(reused).mockResolvedValue(renewed);
+    fixture.readScreen.mockResolvedValueOnce({ url: reused }).mockResolvedValue({ url: renewed });
     fixture.controller.start();
     await vi.advanceTimersByTimeAsync(0);
     expect(fixture.readScreen).toHaveBeenCalledTimes(1);

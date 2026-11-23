@@ -356,10 +356,10 @@ function stdioParams(options: McpStdioOptions): StdioServerParameters {
   }
   if (isPackageRunnerCommand(options.command)) throw new Error(PACKAGE_RUNNER_REFUSAL);
   if (options.installedBin !== undefined && !isInstalledMcpBin(options.installedBin)) {
-    throw new Error("MCP stdio bin was not installed by Rakazo");
+    throw new Error("MCP stdio bin was not installed by Superbot");
   }
   if (options.installedBin === undefined && isNpxCommand(options.command)) {
-    throw new Error("npx only launches a package bin Rakazo installed");
+    throw new Error("npx only launches a package bin Superbot installed");
   }
   const command = options.installedBin?.binPath ?? options.command.trim();
   const env: Record<string, string> = {};
@@ -399,7 +399,10 @@ export class McpSession {
 
   private newClient(): Client {
     const client = createMcpClient(
-      { name: this.clientOptions.name ?? "rakazo", version: this.clientOptions.version ?? "0.1.0" },
+      {
+        name: this.clientOptions.name ?? "superbot",
+        version: this.clientOptions.version ?? "0.1.0",
+      },
       this.clientOptions.capabilities ?? {
         capabilities: mcpClientCapabilities(this.clientOptions.elicitation === true),
       },

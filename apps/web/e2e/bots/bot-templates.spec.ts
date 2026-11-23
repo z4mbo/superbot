@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Routine } from "@rakazo/contracts";
+import { BOT_TEMPLATES } from "@rakazo/core";
 import { captureScreenshot, completeOnboarding, rpc, signup } from "../helpers/helpers";
 
 test("a bot template previews what it adds, then creates a bot with a paused routine", async ({
@@ -9,14 +10,12 @@ test("a bot template previews what it adds, then creates a bot with a paused rou
   await signup(page, `templates-${Date.now()}@rakazo.test`, "password12", "Template Test");
   await completeOnboarding(page);
 
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  await page
-    .getByRole("dialog", { name: "Integrations", exact: true })
-    .getByTestId("open-bot-templates")
-    .click();
-  const dialog = page.getByRole("dialog", { name: "Bot templates", exact: true });
+  await page.getByRole("button", { name: "Store", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Store", exact: true });
+  await dialog.getByTestId("store-agents").click();
   const cards = dialog.getByTestId("bot-template-card");
-  await expect(cards).toHaveCount(4);
+  // The Store lists the server's whole template catalog.
+  await expect(cards).toHaveCount(BOT_TEMPLATES.length);
   const briefing = dialog.getByRole("button", { name: "Morning briefing", exact: true });
   await expect(briefing).toHaveAccessibleDescription("Your day at a glance, every weekday morning");
   await expect(briefing.getByText("Needs you", { exact: true })).toBeVisible();

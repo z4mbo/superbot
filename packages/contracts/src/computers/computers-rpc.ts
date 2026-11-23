@@ -95,13 +95,21 @@ export const computersRpc = {
         }),
       )
       .output(z.object({ ok: z.literal(true) })),
-    terminalUrl: oc.input(botId).output(z.object({ url: z.string().nullable() })),
+    /** `nativeSession` also returns the proof a native app opens the terminal socket with. */
+    terminalUrl: oc
+      .input(botId.extend({ nativeSession: z.literal(true).optional() }))
+      .output(z.object({ url: z.string().nullable(), socketSession: z.string().optional() })),
     commands: oc
       .input(botId)
       .output(z.array(ComputerCommandSchema.extend({ createdAt: z.string() }))),
     /** A `preview` read only watches, so it leaves the computer's sleep schedule alone. */
     screenUrl: oc
-      .input(botId.extend({ preview: z.boolean().optional() }))
+      .input(
+        botId.extend({
+          preview: z.boolean().optional(),
+          nativeSession: z.literal(true).optional(),
+        }),
+      )
       .output(ComputerScreenSchema),
     /** A still of the screen as an image data URL, or null when the computer is not running. */
     preview: oc

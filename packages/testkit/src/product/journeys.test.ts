@@ -3594,11 +3594,10 @@ describeJourneys("required product journeys", () => {
     });
     await rpc(app, cookie, "computer/boot", { botId: bot.id });
     await rpc(app, cookie, "computer/takeover", { botId: bot.id });
-    void rpc(app, cookie, "threads/send", {
+    const working = await rpc<{ runId: string }>(app, cookie, "threads/send", {
       botId: bot.id,
       text: "keep working until I stop you",
     });
-    await new Promise((resolve) => setTimeout(resolve, 100));
     const skill = await rpc<{
       id: string;
       status: string;
@@ -3609,6 +3608,9 @@ describeJourneys("required product journeys", () => {
       goal: "Export weekly CRM list",
     });
     expect(skill.status).toBe("recording");
+    expect((await prisma.run.findUniqueOrThrow({ where: { id: working.runId } })).status).toBe(
+      "cancelled",
+    );
     await rpc(app, cookie, "computer/input", {
       botId: bot.id,
       kind: "pointer",

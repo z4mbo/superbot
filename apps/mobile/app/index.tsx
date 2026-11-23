@@ -60,7 +60,6 @@ import { signOut } from "../lib/auth/api-auth";
 import { explicitSignInRoute } from "../lib/auth/auth-routing";
 import { offerPasskeyOnce } from "../lib/auth/passkey";
 import { hasSignedInBefore, rememberSignedIn } from "../lib/auth/returning-user";
-import { offerSelfHostedSupportOnce } from "../lib/billing/self-hosted-support";
 import { AvatarViewportScope, createAvatarViewport } from "../lib/bots/avatar-life";
 import { mobileLogoAvatarActivity } from "../lib/bots/logo-avatar-activity";
 import { useUiLocale } from "../lib/i18n/i18n";
@@ -224,12 +223,11 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
     useCallback(() => {
       if (!userId) return;
       let active = true;
-      // One prompt per visit: the passkey offer, then the support offer, then the store rating.
+      // Ask for a store rating only if the passkey prompt did not appear.
       void bestEffort(
         "inbox prompts",
         (async () => {
           if (await offerPasskeyOnce(userId, () => active)) return;
-          if (await offerSelfHostedSupportOnce(() => active)) return;
           await askForReviewIfDue(() => active);
         })(),
       );

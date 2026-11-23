@@ -79,7 +79,6 @@ export function ShellSidebar({
   chatMenu,
   roster,
   archived,
-  footerLogos,
   user,
   boardEnabled,
   navLinks,
@@ -109,7 +108,6 @@ export function ShellSidebar({
   chatMenu: ChatMenuState;
   roster: ReactNode;
   archived: ReactNode;
-  footerLogos: Array<{ name: string; logo?: string | null }>;
   user: User | undefined;
   boardEnabled: boolean;
   navLinks: NavLink[];
@@ -166,7 +164,7 @@ export function ShellSidebar({
           isMobile
             ? `absolute inset-y-0 start-0 z-40 flex w-[calc(100%-48px)] max-w-[316px] shrink-0 flex-col border-e border-sidebar-border bg-sidebar transition-transform duration-200 ease-out motion-reduce:transition-none ${mobileOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"}`
             : // The sidebar is fixed to the window edge, so it steps aside for the rail there.
-              `h-full overflow-hidden border-sidebar-border ${rail ? "data-[side=left]:left-18 data-[side=right]:right-18" : ""}`
+              `h-full overflow-hidden border-sidebar-border ${rail ? "data-[side=left]:left-(--app-rail-width) data-[side=right]:right-(--app-rail-width)" : ""}`
         }
       >
         <SidebarHeader
@@ -308,7 +306,6 @@ export function ShellSidebar({
         </div>
         <ShellSidebarFooter
           mini={mini}
-          logos={footerLogos}
           user={user}
           boardEnabled={boardEnabled}
           navLinks={navLinks}
@@ -326,7 +323,6 @@ export function ShellSidebar({
 
 function ShellSidebarFooter({
   mini,
-  logos,
   user,
   boardEnabled,
   navLinks,
@@ -338,7 +334,6 @@ function ShellSidebarFooter({
   openSpaceChat,
 }: {
   mini: boolean;
-  logos: Array<{ name: string; logo?: string | null }>;
   user: User | undefined;
   boardEnabled: boolean;
   navLinks: NavLink[];
@@ -388,7 +383,6 @@ function ShellSidebarFooter({
       ) : null}
       <SidebarFooter
         mini={mini}
-        logos={logos}
         name={userName}
         initials={initials}
         image={user?.image}
@@ -434,6 +428,11 @@ function ShellSidebarFooter({
         onUsage={() => {
           setMenuOpen(false);
           openSettings("usage");
+        }}
+        onWorkspaces={() => {
+          setMenuOpen(false);
+          closeMobileSidebar();
+          navigate("/workspaces");
         }}
         onInvite={
           referral

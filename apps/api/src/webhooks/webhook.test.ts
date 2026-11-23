@@ -678,6 +678,52 @@ describe("GitHub event HTTP route", () => {
   });
 
   const fullMetadata = { event: "pull_request", repositoryId: 55, number: 42, action: "opened" };
+  it.each(["/github", "/github/issues/opened"])(
+    "delivers the issue number through %s",
+    async (path) => {
+      const deps = createDeps({
+        routines: [{ id: "routine-1", name: "Issue watcher", prompt: "Tell me about new issues" }],
+      });
+      const app = mount(deps);
+      const raw = JSON.stringify({
+        action: "opened",
+        repository: { id: 55 },
+        issue: { id: 9001, number: 42, title: "External title", body: "External body" },
+      });
+      const response = await app.request(
+        `/api/v1/bots/bot-1${path}`,
+        await githubRequest(raw, SECRET, "fixture-issue-opened", "issues"),
+      );
+      expect(response.status).toBe(200);
+      const prompt = deps.sendUserMessage.mock.calls[0]![0].prompt;
+      expect(prompt).toContain('"number": 42');
+      expect(prompt).toContain('"action": "opened"');
+      expect(prompt).not.toContain("External title");
+      expect(prompt).not.toContain("External body");
+      expect(deps.enqueue).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each([
+    ["issues", "edited", { number: 42 }],
+    ["issues", "reopened", { number: 42 }],
+    ["issues", "opened", {}],
+    ["pull_request", "opened", undefined],
+  ] as const)(
+    "ignores unrelated %s/%s deliveries at the opened-issue URL",
+    async (event, action, issue) => {
+      const deps = createDeps({
+        routines: [{ id: "routine-1", name: "Issue watcher", prompt: "Tell me about new issues" }],
+      });
+      const path = "/api/v1/bots/bot-1/github/issues/opened";
+      const raw = JSON.stringify({ action, issue, repository: { id: 55 } });
+      const response = await mount(deps).request(
+        path,
+        await githubRequest(raw, SECRET, "delivery", event),
+      );
+      expect(await response.json()).toEqual({ ok: true, ignored: true });
+      expect(deps.enqueue).not.toHaveBeenCalled();
+    },
+  );
   it.each([
     {
       name: "reads the payload field of GitHub's default form encoding",
@@ -758,22 +804,22 @@ describe("GitHub event HTTP route", () => {
     expect(deps.enqueue).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects a signature made with the wrong secret", async () => {
+  it.each(["/github", "/github/issues/opened"])("rejects a wrong signature at %s", async (path) => {
     const deps = createDeps({
       routines: [{ id: "routine-1", name: "Review pushes", prompt: "Inspect the change" }],
     });
     const app = mount(deps);
-    const raw = JSON.stringify({ ref: "refs/heads/main" });
+    const raw = JSON.stringify({ action: "opened", issue: { number: 42 } });
     const res = await app.request(
-      "/api/v1/bots/bot-1/github",
-      await githubRequest(raw, "wrong-secret"),
+      `/api/v1/bots/bot-1${path}`,
+      await githubRequest(raw, "wrong-secret", "delivery-1", "issues"),
     );
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Unauthorized" });
     expect(deps.sendUserMessage).not.toHaveBeenCalled();
     const unknown = await mount(createDeps({ bot: null })).request(
-      "/api/v1/bots/missing/github",
-      await githubRequest(raw, SECRET, "delivery-1", "push", "missing"),
+      `/api/v1/bots/missing${path}`,
+      await githubRequest(raw, SECRET, "delivery-1", "issues", "missing"),
     );
     expect(unknown.status).toBe(401);
   });

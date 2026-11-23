@@ -58,7 +58,10 @@ import { TASK_CATALOG_GUIDANCE } from "../../tasks/task-catalog.prompt.js";
 import { agentConnectionTools, builtinAgentTools } from "../../tools/builtin.tool-definition.js";
 import type { ExecutorDeps } from "../executor/executor-deps.js";
 import type { RunExecutorServices, RunHold } from "../lifecycle/run-attempt.js";
-import { APPROVED_EFFECT_REPLAY_ORDER } from "../lifecycle/run-effects.js";
+import {
+  APPROVED_EFFECT_REPLAY_ORDER,
+  refuseRevokedSpawnApprovals,
+} from "../lifecycle/run-effects.js";
 import { createRunWorkspaceCheckpoint, failRunBeforeTurn } from "../lifecycle/run-lifecycle.js";
 import {
   BUILTIN_AGENT_TOOL_NAMES,
@@ -825,11 +828,15 @@ export async function selectRunTools(
   const taskCatalogInstruction = tools.some((tool) => tool.name === "task_catalog")
     ? TASK_CATALOG_GUIDANCE
     : undefined;
-  const approvedEffects = await deps.prisma.externalEffect.findMany({
+  let approvedEffects = await deps.prisma.externalEffect.findMany({
     where: { runId, status: "approved" },
     orderBy: APPROVED_EFFECT_REPLAY_ORDER,
     select: { kind: true, request: true, idempotencyKey: true },
   });
+  if (!bot.fleetManagement && approvedEffects.some(({ kind }) => kind === "spawn_bot")) {
+    await refuseRevokedSpawnApprovals(deps, run);
+    approvedEffects = approvedEffects.filter(({ kind }) => kind !== "spawn_bot");
+  }
   const approvedEffectReplays = createApprovedEffectReplayQueue(approvedEffects);
   return {
     teammates,

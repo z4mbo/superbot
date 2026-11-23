@@ -1,5 +1,6 @@
 import type { ConnectorApp } from "@rakazo/adapter-kit";
-import { isBackgroundRunTrigger, redactSecrets } from "@rakazo/core";
+import { MCP_APP_HTML_MAX_BYTES } from "@rakazo/contracts";
+import { isBackgroundRunTrigger, mcpAppCsp, redactSecrets } from "@rakazo/core";
 import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
 import { executeCloudAgentTool } from "../../cloud-agents/cloud-agent-service.js";
@@ -8,6 +9,12 @@ import {
   redactConnectorPayload,
   sanitizeConnectorError,
 } from "../../integrations/connector-safety.js";
+import {
+  executeMarketplaceTool,
+  MARKETPLACE_UNAVAILABLE,
+  marketplaceScope,
+  marketplaceToolName,
+} from "../../integrations/marketplace-runtime.js";
 import { mcpAppViewArguments, mcpAppViewResult } from "../../mcp/mcp-app.js";
 import { addMcpServerFromTool } from "../../mcp/mcp-server-tool.js";
 import { serviceCallFromTool, serviceSearchFromTool } from "../../payments/paid-service-tools.js";
@@ -43,10 +50,30 @@ export async function cloudAgentTool(ctx: RunContext, call: ToolCall) {
 export async function connectorTool(ctx: RunContext, call: ToolCall) {
   const { deps, run, bot, thread, context } = ctx;
   const { name, args, effectKey, connectorCall } = call;
+  const withApp = Boolean(deps.artifacts) && !isBackgroundRunTrigger(run.trigger);
+  if (marketplaceToolName(name)) {
+    const scope = marketplaceScope(run, bot, ctx.source.messagingChannelRun);
+    const tool = ctx.tools.connector.get(name);
+    return call.finish(
+      scope && tool
+        ? await executeMarketplaceTool(
+            {
+              prisma: deps.prisma,
+              scope,
+              signal: context.signal,
+              appAllowed: ctx.source.marketplaceAppAllowed,
+            },
+            tool,
+            args,
+            effectKey,
+            () => deps.events.publishSpaceChange?.(scope.spaceId, "pluginRegistry"),
+            withApp ? (app, result) => showConnectorApp(ctx, call, app, result) : undefined,
+          )
+        : { error: MARKETPLACE_UNAVAILABLE },
+    );
+  }
   if (deps.connector) {
     let result: unknown = { error: `unknown tool ${name}` };
-    // Background work posts no cards, so it does not fetch the app either.
-    const withApp = Boolean(deps.artifacts) && !isBackgroundRunTrigger(run.trigger);
     for await (const event of deps.connector.execute(
       { ...connectorCall, tool: name, args, executionId: effectKey, withApp },
       { ...context, askPerson: toolAskFor(ctx) },
@@ -101,6 +128,10 @@ async function showConnectorApp(
   const { deps, run, bot, thread } = ctx;
   if (!deps.artifacts) return;
   try {
+    const html = redactSecrets(app.html, ctx.secrets);
+    if (Buffer.byteLength(html) > MCP_APP_HTML_MAX_BYTES) return;
+    const server = redactSecrets(app.server, ctx.secrets);
+    const csp = mcpAppCsp(redactConnectorPayload(app.csp, ctx.secrets));
     const artifactId = await storeMcpAppHtml(
       { prisma: deps.prisma, artifacts: deps.artifacts },
       {
@@ -109,8 +140,8 @@ async function showConnectorApp(
         botId: bot.id,
         groupId: thread.groupId ?? undefined,
         runId: run.id,
-        server: app.server,
-        html: redactSecrets(app.html, ctx.secrets),
+        server,
+        html,
         operationId: `${call.effectKey}:app`,
       },
     );
@@ -118,14 +149,17 @@ async function showConnectorApp(
       {
         kind: "app",
         artifactId,
-        server: app.server.slice(0, 200),
-        tool: (call.connectorCall.route?.toolName ?? call.name).slice(0, 200),
+        server: server.slice(0, 200),
+        tool: redactSecrets(call.connectorCall.route?.toolName ?? call.name, ctx.secrets).slice(
+          0,
+          200,
+        ),
         // Secrets revealed earlier in the run stay out of the card, as they do from replies.
         toolArguments: mcpAppViewArguments(
           redactConnectorPayload(call.args, ctx.secrets) as Record<string, unknown>,
         ),
         toolResult: mcpAppViewResult(redactConnectorPayload(result, ctx.secrets)),
-        ...(app.csp.connectDomains || app.csp.resourceDomains ? { csp: app.csp } : {}),
+        ...(csp.connectDomains || csp.resourceDomains ? { csp } : {}),
         ...(app.prefersBorder !== undefined ? { prefersBorder: app.prefersBorder } : {}),
       },
     ]);

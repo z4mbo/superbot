@@ -20,6 +20,11 @@ import {
   parseCrispWebsiteId,
 } from "@rakazo/contracts/content-security-policy";
 import {
+  issueScreenProof,
+  SCREEN_SOCKET_PROTOCOL_PREFIX,
+  screenCapabilityPrefix,
+} from "@rakazo/core/node/screen-capability";
+import {
   safeScreenProxyResponseHeaders,
   stripSensitiveHandshakeHeaders,
 } from "@rakazo/core/node/screen-proxy-response";
@@ -31,7 +36,8 @@ import { missingAssetMiddleware } from "./missing-asset.js";
 import {
   collectNovncHtml,
   injectNovncStorageShim,
-  isNovncPage,
+  injectScreenDocumentAccess,
+  isScreenHtml,
   MAX_NOVNC_HTML_BYTES,
   novncPageRequestHeaders,
   rewrittenNovncHeaders,
@@ -44,12 +50,16 @@ import {
   resolveNovncTarget,
   safeProxyHeaders,
   screenCapabilityExpiry,
+  screenHttpAccess,
   screenProbePath,
   screenProbeStatus,
   screenRefusal,
+  screenRequestOrigin,
+  screenSocketAccess,
   screenUpstreamReachable,
   watchScreenAuthorization,
 } from "./screen-proxy.js";
+import { welcomePages } from "./welcome.js";
 
 export type Middleware = (
   req: IncomingMessage,
@@ -131,6 +141,16 @@ export function attachNovncProxy(server: WebServerHost, settings: WebServerSetti
       return;
     }
     req.url = path;
+    res.setHeader("cache-control", "no-store");
+    const origin = screenRequestOrigin(req);
+    const request = origin && screenHttpAccess(req, path, origin);
+    if (!request) {
+      res.statusCode = 403;
+      res.end();
+      return;
+    }
+    const { access } = request;
+    const asset = "purpose" in access && access.purpose === "asset";
     const connectionId = randomUUID();
     const bindings = {
       "screen.connection_id": connectionId,
@@ -138,16 +158,23 @@ export function attachNovncProxy(server: WebServerHost, settings: WebServerSetti
     };
     const confirmedAt = performance.now();
     // A status-only probe is answered here, after the same access check, and never forwarded.
-    const probe = screenProbePath(req.url);
+    const probe = screenProbePath(request.path);
+    const targetPath = probe ?? request.path;
     let refusal: ScreenTargetFailure | undefined;
-    const target = await resolveNovncTarget(probe ?? req.url, secret, api, (reason) => {
-      refusal = reason;
-      log.warn("screen.proxy.target_rejected", {
-        ...bindings,
-        "screen.transport": "http",
-        reason,
-      });
-    });
+    const target = await resolveNovncTarget(
+      targetPath,
+      secret,
+      api,
+      (reason) => {
+        refusal = reason;
+        log.warn("screen.proxy.target_rejected", {
+          ...bindings,
+          "screen.transport": "http",
+          reason,
+        });
+      },
+      access,
+    );
     if (res.destroyed) return;
     if (probe) {
       // Only a connection attempt reaches the computer; the proxy writes the whole answer.
@@ -167,7 +194,7 @@ export function attachNovncProxy(server: WebServerHost, settings: WebServerSetti
     const forwarded = safeProxyHeaders(req.headers, target);
     const headers = {
       // The storage shim rewrites the page, so ask for all of it, uncompressed.
-      ...(isNovncPage(target.path) ? novncPageRequestHeaders(forwarded) : forwarded),
+      ...(!asset ? novncPageRequestHeaders(forwarded) : forwarded),
       host: `${target.hostname.includes(":") ? `[${target.hostname}]` : target.hostname}:${target.port}`,
     };
     const transport = target.protocol === "https:" ? https : http;
@@ -234,8 +261,29 @@ export function attachNovncProxy(server: WebServerHost, settings: WebServerSetti
               "screen.retries": retries,
             });
           }
+          const status = incoming.statusCode ?? 502;
+          if (status >= 300 && status < 400 && status !== 304) {
+            finishUnavailable("upstream_redirect");
+            incoming.destroy();
+            return;
+          }
           const responseHeaders = safeScreenProxyResponseHeaders(incoming.headers);
-          if (shouldInjectNovncStorageShim(responseHeaders, target.path)) {
+          if (isScreenHtml(responseHeaders)) {
+            const prefix = screenCapabilityPrefix(targetPath);
+            const assetProof = issueScreenProof(targetPath, secret, origin, "asset");
+            const socketProof = issueScreenProof(targetPath, secret, origin, "socket");
+            const encoding = incoming.headers["content-encoding"];
+            if (
+              asset ||
+              !prefix ||
+              !assetProof ||
+              !socketProof ||
+              (encoding && encoding !== "identity")
+            ) {
+              finishUnavailable("unexpected_html");
+              incoming.destroy();
+              return;
+            }
             const declaredLength = Number(incoming.headers["content-length"] ?? 0);
             if (Number.isFinite(declaredLength) && declaredLength > MAX_NOVNC_HTML_BYTES) {
               finishUnavailable("html_too_large");
@@ -246,9 +294,17 @@ export function attachNovncProxy(server: WebServerHost, settings: WebServerSetti
               .then((html) => {
                 if (downstreamFinished || res.destroyed || res.writableEnded) return;
                 downstreamFinished = true;
-                const body = injectNovncStorageShim(html, { viewOnly: !target.interactive });
-                res.writeHead(incoming.statusCode ?? 502, rewrittenNovncHeaders(responseHeaders));
-                res.end(body);
+                const document = shouldInjectNovncStorageShim(responseHeaders, target.path)
+                  ? injectNovncStorageShim(html, { viewOnly: !target.interactive })
+                  : html;
+                const body = injectScreenDocumentAccess(document, {
+                  path: targetPath,
+                  prefix,
+                  assetProof,
+                  socketProof,
+                });
+                res.writeHead(status, rewrittenNovncHeaders(responseHeaders));
+                res.end(req.method === "HEAD" ? undefined : body);
               })
               .catch(() => {
                 finishUnavailable("html_read_failed");
@@ -284,7 +340,7 @@ export function attachNovncProxy(server: WebServerHost, settings: WebServerSetti
       else req.pipe(upstream);
     };
     stopChecking = watchScreenAuthorization(
-      () => checkScreenAuthorization(req.url, secret, api, target),
+      () => checkScreenAuthorization(targetPath, secret, api, target, access),
       (reason) => {
         log.warn("screen.proxy.http_revoked", {
           ...bindings,
@@ -339,14 +395,26 @@ export function attachNovncProxy(server: WebServerHost, settings: WebServerSetti
       });
       closeInitiator ??= "client";
     });
+    const origin = screenRequestOrigin(req);
+    const access = origin && screenSocketAccess(req, path, origin);
+    if (!access) {
+      socket.destroy();
+      return;
+    }
     const confirmedAt = performance.now();
-    const target = await resolveNovncTarget(req.url, secret, api, (reason) => {
-      log.warn("screen.proxy.target_rejected", {
-        ...bindings,
-        "screen.transport": "websocket",
-        reason,
-      });
-    });
+    const target = await resolveNovncTarget(
+      req.url,
+      secret,
+      api,
+      (reason) => {
+        log.warn("screen.proxy.target_rejected", {
+          ...bindings,
+          "screen.transport": "websocket",
+          reason,
+        });
+      },
+      access,
+    );
     if (socket.destroyed) return;
     if (!target) {
       socket.destroy();
@@ -372,7 +440,7 @@ export function attachNovncProxy(server: WebServerHost, settings: WebServerSetti
       else log.info("screen.proxy.websocket_closed", details);
     };
     const stopChecking = watchScreenAuthorization(
-      () => checkScreenAuthorization(req.url, secret, api, target),
+      () => checkScreenAuthorization(path, secret, api, target, access),
       (reason) => {
         log.warn("screen.proxy.websocket_revoked", {
           ...bindings,
@@ -435,7 +503,10 @@ export function attachNovncProxy(server: WebServerHost, settings: WebServerSetti
           return;
         }
         const responseHead = Buffer.concat(responseChunks, responseSize);
-        const safe = stripSensitiveHandshakeHeaders(responseHead);
+        const safe = stripSensitiveHandshakeHeaders(
+          responseHead,
+          "proof" in access ? SCREEN_SOCKET_PROTOCOL_PREFIX + access.proof : undefined,
+        );
         if (!safe) {
           log.warn("screen.proxy.websocket_handshake_failed", {
             ...bindings,
@@ -547,6 +618,7 @@ export function attachPreviewMiddleware(
   });
   // A shared page's link is its only key: keep it out of search results and Referer.
   middlewares.use(sharedPageHeaders);
+  middlewares.use(welcomePages(path.join(site.outDir, "welcome")));
   let archive: string | null = null;
   try {
     archive = archiveAssets({

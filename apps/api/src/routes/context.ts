@@ -297,7 +297,7 @@ export function createRouterContext(deps: RouterDeps) {
           ? {
               ...entry,
               managed: true,
-              billing: runsOnHostedCredits(auth, entry) ? "Uses Rakazo credits" : entry.billing,
+              billing: runsOnHostedCredits(auth, entry) ? "Uses Superbot credits" : entry.billing,
             }
           : entry,
       );
@@ -611,7 +611,7 @@ export function createRouterContext(deps: RouterDeps) {
     home: deps.home,
     dataDir: deps.dataDir,
   });
-  const agentSkills = createAgentSkillsService(deps.prisma);
+  const agentSkills = createAgentSkillsService(deps.prisma, deps.events);
 
   const signedIn = os.middleware(async ({ context, next }) => {
     const actor = context.actor;

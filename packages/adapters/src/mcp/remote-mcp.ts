@@ -1,14 +1,10 @@
 import { lookup } from "node:dns/promises";
 import type { LookupFunction } from "node:net";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import {
-  StreamableHTTPClientTransport,
-  StreamableHTTPError,
-} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import type { ConnectorTool } from "@rakazo/adapter-kit";
+import type { ConnectorApp, ConnectorTool } from "@rakazo/adapter-kit";
 import {
   ConnectionSetupError,
   ipVersion,
@@ -36,7 +32,7 @@ import { createCheckedProxyDispatcher } from "../network/proxy-dispatcher.js";
 import { dispatcherFetch, fetchPairedWithDispatcher } from "../network/undici-fetch.js";
 import { composioMcpToolFields } from "../providers/integration/composio/composio-batch.js";
 import { credentialDigest } from "../secrets/credential-digest.js";
-import { mcpToolAppResourceUri, mcpToolVisibleToModel } from "./mcp-app.js";
+import { mcpToolAppResourceUri, mcpToolVisibleToModel, readMcpApp } from "./mcp-app.js";
 import type { McpCallAsker } from "./mcp-elicitation.js";
 import {
   callMcpToolAsking,
@@ -45,6 +41,7 @@ import {
   newRemoteMcpClient,
 } from "./mcp-elicitation.js";
 import { limitMcpResponseBody } from "./mcp-response-limit.js";
+import { isMcpSessionGoneError, isMcpWaitTimeout } from "./mcp-session-errors.js";
 import { withoutDuplicatedStructuredText } from "./mcp-structured-text.js";
 
 const DEFAULT_MAX_MCP_TOOLS = 250;
@@ -67,6 +64,7 @@ export const MCP_HTTP_TIMEOUTS = {
 const MAX_RESULT_BYTES = 1_000_000;
 
 export type { ResolveHostname } from "../network/network-address.js";
+export { isMcpSessionGoneError } from "./mcp-session-errors.js";
 
 export interface RemoteUrlPolicy {
   /** Deployment-owner escape for loopback / LAN / Docker-network endpoints. Default off. */
@@ -98,6 +96,13 @@ export interface RemoteMcpOptions extends RemoteTransportDependencies, RemoteUrl
   elicitation?: boolean;
   /** Who a call's questions go to; without an `ask` they are declined. */
   asker?: McpCallAsker;
+  authorizeTool?: (tool: Tool) => void;
+  authorizeRequest?: () => Promise<void>;
+  app?: {
+    server: string;
+    uri: string;
+    publish: (app: ConnectorApp, result: unknown) => Promise<void>;
+  };
 }
 
 /** A reusable Streamable HTTP session failed below the protocol: the guarded
@@ -199,11 +204,26 @@ export async function callRemoteMcpTool(
   args: Record<string, unknown>,
   projectResult?: (result: unknown) => unknown,
 ): Promise<unknown> {
-  const long = options.longToolCalls === true;
+  const { app, asker, authorizeTool, longToolCalls: long = false } = options;
   return withScopedMcpClient(
     options,
-    (client, signal, router) =>
-      callMcpTool(client, signal, router, options.asker, toolName, args, long, projectResult),
+    async (client, signal, router) => {
+      if (authorizeTool) {
+        const { tools } = await listMcpTools(client, { signal, timeout: MCP_TIMEOUT_MS });
+        const matching = tools.filter((tool) => tool.name === toolName);
+        if (matching.length !== 1) throw new Error("MCP tool is unavailable");
+        authorizeTool(matching[0]!);
+      }
+      const envelope = await callMcpTool(client, signal, router, asker, toolName, args, long);
+      const result = limitRemoteMcpPayload(projectResult ? projectResult(envelope) : envelope);
+      if (app) {
+        const view = await readMcpApp(app.server, app.uri, envelope, (uri) =>
+          readMcpResource(client, uri, signal),
+        );
+        if (view) await app.publish(view, result);
+      }
+      return result;
+    },
     // A long call keeps its own clock, which leaves out the time a person spends answering.
     long ? null : MCP_TIMEOUT_MS,
   );
@@ -214,10 +234,11 @@ export async function readRemoteMcpResource(
   options: RemoteMcpOptions,
   uri: string,
 ): Promise<{ contents?: unknown }> {
-  return withScopedMcpClient(options, (client, signal) =>
-    // The call already answered; its app gets a shorter wait than a call.
-    client.readResource({ uri }, { signal, timeout: MCP_APP_READ_TIMEOUT_MS }),
-  );
+  return withScopedMcpClient(options, (client, signal) => readMcpResource(client, uri, signal));
+}
+
+function readMcpResource(client: Client, uri: string, signal: AbortSignal | undefined) {
+  return client.readResource({ uri }, { signal, timeout: MCP_APP_READ_TIMEOUT_MS });
 }
 
 async function callMcpTool(
@@ -228,8 +249,7 @@ async function callMcpTool(
   toolName: string,
   args: Record<string, unknown>,
   long: boolean,
-  projectResult?: (result: unknown) => unknown,
-): Promise<unknown> {
+) {
   const result =
     long || router
       ? await callMcpToolAsking(client, router ?? new McpElicitationRouter(), toolName, args, {
@@ -243,15 +263,12 @@ async function callMcpTool(
           timeout: MCP_TIMEOUT_MS,
         });
   const isError = result.isError === true;
-  const envelope = {
+  return {
     content: withoutDuplicatedStructuredText(result.content, result.structuredContent, isError),
     structuredContent: result.structuredContent,
     isError,
     _meta: result._meta,
   };
-  // Providers may extract a bounded domain result before the MCP envelope
-  // consumes the budget. The final limit still applies.
-  return limitRemoteMcpPayload(projectResult ? projectResult(envelope) : envelope);
 }
 
 /** One client per call, or the run-scoped session when `options` carries one.
@@ -291,7 +308,7 @@ async function withRemoteMcpClient<T>(
     options.fetch,
     options.resolveHostname ?? resolveHostname,
     policy,
-    undefined,
+    options.authorizeRequest,
     MCP_HTTP_TIMEOUTS,
   );
   const transport = new StreamableHTTPClientTransport(endpoint, {
@@ -300,7 +317,13 @@ async function withRemoteMcpClient<T>(
       redirect: "manual",
       signal,
     },
-    fetch: async (input, init) => limitMcpResponseBody(await safeFetch(input, init), init?.headers),
+    fetch: async (input, init) => {
+      const response = await safeFetch(input, {
+        ...init,
+        signal: combineSignals(signal, init?.signal ?? undefined),
+      });
+      return limitMcpResponseBody(response, init?.headers);
+    },
   });
   const router = options.elicitation ? new McpElicitationRouter() : undefined;
   const client = newRemoteMcpClient(router);
@@ -485,7 +508,7 @@ export class RemoteMcpSessionCache {
       options.fetch,
       options.resolveHostname ?? resolveHostname,
       policy,
-      undefined,
+      options.authorizeRequest,
       MCP_HTTP_TIMEOUTS,
     );
     const transport = new StreamableHTTPClientTransport(endpoint, {
@@ -677,7 +700,7 @@ export function createSafeRemoteFetch(
   resolve: ResolveHostname = resolveHostname,
   policy: RemoteUrlPolicy = {},
   /** Called once the destination is checked, just before the request is sent; a throw stops it. */
-  beforeSend?: () => void,
+  beforeSend?: () => void | Promise<void>,
   /** The HTTP client's waits for headers and between body chunks; its defaults otherwise. */
   responseTimeouts?: { headersTimeout: number; bodyTimeout: number },
 ): SafeRemoteFetch {
@@ -695,7 +718,7 @@ export function createSafeRemoteFetch(
       throw new Error("Connector fetch requires a URL, not a Request");
     }
     const { url, addresses } = await inspectSafeRemoteUrl(String(input), resolve, policy);
-    beforeSend?.();
+    if (beforeSend) await beforeSend();
     let response: Response;
     try {
       const requestInit = { ...init, redirect: "manual" as const };
@@ -955,31 +978,6 @@ export function limitRemoteMcpPayload(value: unknown): unknown {
     truncated: true,
     content: bytes.toString("utf8", 0, written),
   };
-}
-
-/** Whether the server rejected the request because it no longer knows the
- * session: the request never ran there, so a fresh session may replay it. */
-export function isMcpSessionGoneError(error: unknown): boolean {
-  if (!(error instanceof StreamableHTTPError)) return false;
-  return (
-    error.code === 404 ||
-    (error.code === 400 &&
-      /\bBad Request: (?:Server not initialized|No valid session ID(?: provided| or initialization request)?|Mcp-Session-Id header is required)(?="|$)/i.test(
-        error.message,
-      ))
-  );
-}
-
-/** The SDK's own wait for an answer (a tool call without progress) ran out. A cancel uses
- * the same code, but only the SDK's timers attach how long they waited. */
-function isMcpWaitTimeout(error: unknown): boolean {
-  if (!(error instanceof McpError) || error.code !== ErrorCode.RequestTimeout) return false;
-  const data = error.data;
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    ("timeout" in data || "maxTotalTimeout" in data || "ceiling" in data)
-  );
 }
 
 /** Whether the connection below the protocol really broke, so the session —

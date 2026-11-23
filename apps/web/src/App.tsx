@@ -31,6 +31,7 @@ import {
   showSessionUnavailable,
 } from "./lib/auth/session-gate";
 import {
+  isBotConversationLink,
   MCP_OAUTH_CALLBACK_PATH,
   newAccountDestination,
   SLACK_INSTALL_CALLBACK_PATH,
@@ -59,6 +60,9 @@ import { AppRailLayout } from "./pages/shell/app-rail";
 const AuthPage = lazyComponent(() => import("./pages/auth/Auth").then((module) => module.AuthPage));
 const PasswordResetPage = lazyComponent(() =>
   import("./pages/auth/Auth").then((module) => module.PasswordResetPage),
+);
+const WorkspacesPage = lazyComponent(() =>
+  import("./pages/onboarding/Workspaces").then((module) => module.WorkspacesPage),
 );
 const OnboardingPage = lazyComponent(() =>
   import("./pages/onboarding/Onboarding").then((module) => module.OnboardingPage),
@@ -117,6 +121,13 @@ export function App() {
       </LinkFaviconsContext.Provider>
     </RemoteImagesContext.Provider>
   );
+}
+
+function WelcomeRedirect() {
+  useEffect(() => {
+    window.location.replace("/welcome/");
+  }, []);
+  return <PageLoading />;
 }
 
 function SessionApp() {
@@ -192,10 +203,11 @@ function SessionApp() {
               <Route
                 path="/"
                 element={
-                  <Navigate
-                    to={user ? "/app" : hasSignedInBefore() ? "/sign-in" : "/sign-up"}
-                    replace
-                  />
+                  user || hasSignedInBefore() ? (
+                    <Navigate to={user ? "/app" : "/sign-in"} replace />
+                  ) : (
+                    <WelcomeRedirect />
+                  )
                 }
               />
               {["/sign-in", "/sign-in/email"].map((path) => (
@@ -290,6 +302,12 @@ function SessionApp() {
                 }
               />
               <Route
+                path="/workspaces"
+                element={
+                  user ? <WorkspacesPage /> : <Navigate to="/sign-in?next=/workspaces" replace />
+                }
+              />
+              <Route
                 path="/invite/:token"
                 element={
                   user ? (
@@ -312,7 +330,14 @@ function SessionApp() {
                       <Outlet />
                     </SubscriptionGate>
                   ) : (
-                    <Navigate to="/sign-in" replace />
+                    <Navigate
+                      to={
+                        isBotConversationLink(pathname, search)
+                          ? `/sign-in?next=${encodeURIComponent(pathname + search)}`
+                          : "/sign-in"
+                      }
+                      replace
+                    />
                   )
                 }
               >

@@ -44,11 +44,13 @@ function routeChatListed(route: ChatRoute, bots: readonly Bot[], groups: readonl
 
 /** The space's bots, groups, sections and spaces, refreshed while the shell is open. */
 export function useSpaceRoster({
+  preserveChatLink,
   rpc,
   seed,
   navigate,
   redirectKeepingOverlay,
 }: {
+  preserveChatLink?: boolean;
   rpc: ReturnType<typeof createSpaceRpc>;
   seed: AppBootstrap | undefined;
   navigate: Navigation["navigate"];
@@ -165,6 +167,7 @@ export function useSpaceRoster({
       setFirstBotDue(navigation.firstBotDue !== false);
       setInitialBotsLoaded(true);
       botsRefreshApplied.current = request;
+      if (preserveChatLink) return;
       const route = liveRoute();
       if (!route) return;
       if (
@@ -189,7 +192,7 @@ export function useSpaceRoster({
         redirectKeepingOverlay(firstThreadRoute(list, groupList));
       }
     },
-    [navigate, liveRoute],
+    [navigate, liveRoute, preserveChatLink],
   );
 
   /**
@@ -301,6 +304,7 @@ export type SpaceRoster = ReturnType<typeof useSpaceRoster>;
  * revisit paints at once. Returns what the server's roster signals drive.
  */
 export function useSpaceBootstrap({
+  preserveChatLink,
   roster,
   thread,
   commitComputer,
@@ -322,6 +326,7 @@ export function useSpaceBootstrap({
   shellSpaceId: string | null;
   seed: AppBootstrap | undefined;
   startChat: ChatTarget | undefined;
+  preserveChatLink?: boolean;
   botId: string | undefined;
   groupId: string | undefined;
   chat: ChatTarget | undefined;
@@ -393,6 +398,7 @@ export function useSpaceBootstrap({
     }
     // Leaving for another page or space keeps the sidebar and open chat to reopen with.
     return () => {
+      if (preserveChatLink) return;
       const state = seedStateRef.current;
       if (!state?.me) return;
       const { me, chat, ...lists } = state;
@@ -426,7 +432,7 @@ export function useSpaceBootstrap({
           setInitialBotsLoaded(true);
         }
         // A seeded shell already loads its chat live; this older copy must not replace it.
-        if (!seed && !groupId && bootstrap.thread) {
+        if (!preserveChatLink && !seed && !groupId && bootstrap.thread) {
           bootstrappedThread.current = bootstrap.thread;
           commitSnapshot(bootstrap.thread);
           commitComputer(bootstrap.thread.computer ?? null);
@@ -451,7 +457,7 @@ export function useSpaceBootstrap({
           openSpaceChat.current(linked.spaceId, linked.path);
           return;
         }
-        if (!applyBotLists) return;
+        if (!applyBotLists || preserveChatLink) return;
         // The shell moves only if the chat its route names is gone.
         if (routeChatListed(route, bootstrap.bots, groupList)) return;
         if (

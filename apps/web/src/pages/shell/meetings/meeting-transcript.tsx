@@ -102,7 +102,7 @@ export function MeetingTranscript({
         <ConfirmDialog
           title={t`Delete this transcript?`}
           confirmLabel={t`Delete transcript`}
-          description={t`The transcript will be removed from Rakazo.`}
+          description={t`The transcript will be removed from Superbot.`}
           busy={removal.pending}
           error={
             removal.error && errorDetails(removal.error, t`Could not delete transcript`).message

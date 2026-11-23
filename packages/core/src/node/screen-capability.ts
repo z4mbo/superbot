@@ -1,4 +1,4 @@
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
   ipVersion,
   isLocalhostOrLoopbackIp,
@@ -8,6 +8,9 @@ import { AES_GCM_NONCE_BYTES, openAesGcm, sealAesGcm } from "@rakazo/core/node/a
 
 export const SCREEN_PROXY_TTL_MS = 60 * 60_000;
 export const SCREEN_TARGET_ENDPOINT = "/api/internal/screen-target";
+export const SCREEN_SESSION_HEADER = "x-rakazo-screen-session";
+export const SCREEN_SOCKET_PROTOCOL_PREFIX = "rakazo-screen.";
+export const SCREEN_ASSET_SEGMENT = "/_screen-assets/";
 export const SCREEN_RECHECK_MS = 1_000;
 /**
  * An open screen rides out an authority it can't reach (a timeout, a dropped connection, a
@@ -28,6 +31,67 @@ export interface ScreenCapabilityScope {
   botGeneration: number;
   computerGeneration: number;
   controlLeaseId: string | null;
+  sessionId?: string;
+  spaceId?: string;
+}
+
+export type ScreenProofPurpose = "native" | "asset" | "socket";
+
+export function screenCapabilityPrefix(path: string) {
+  return /^\/novnc\/session\/(?:view|control)\/\d+\.[A-Za-z0-9_-]+(?=\/|\?|$)/.exec(path)?.[0];
+}
+
+export function issueScreenProof(
+  path: string,
+  secret: string,
+  origin: string,
+  purpose: ScreenProofPurpose,
+  now = Date.now(),
+) {
+  const prefix = screenCapabilityPrefix(path);
+  if (!prefix || !secret) return undefined;
+  const capabilityExpiry = Number(prefix.split("/").at(-1)?.split(".", 1)[0]);
+  const expiresAt =
+    purpose === "native" ? Math.min(capabilityExpiry, now + 120_000) : capabilityExpiry;
+  return `${expiresAt}.${screenProofSignature(secret, proofPath(path, prefix, purpose), origin, purpose, expiresAt)}`;
+}
+
+export function verifyScreenProof(
+  proof: string,
+  path: string,
+  secret: string,
+  origin: string,
+  purpose: ScreenProofPurpose,
+  now = Date.now(),
+) {
+  const prefix = screenCapabilityPrefix(path);
+  const match = /^(\d+)\.([A-Za-z0-9_-]{43})$/.exec(proof);
+  if (!secret || !prefix || !match) return false;
+  const expiresAt = Number(match[1]);
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= now) return false;
+  return timingSafeEqual(
+    Buffer.from(match[2]!, "ascii"),
+    Buffer.from(
+      screenProofSignature(secret, proofPath(path, prefix, purpose), origin, purpose, expiresAt),
+      "ascii",
+    ),
+  );
+}
+
+function proofPath(path: string, prefix: string, purpose: ScreenProofPurpose) {
+  return purpose === "native" ? path.split("?", 1)[0]! : prefix;
+}
+
+function screenProofSignature(
+  secret: string,
+  prefix: string,
+  origin: string,
+  purpose: ScreenProofPurpose,
+  expiresAt: number,
+) {
+  return createHmac("sha256", secret)
+    .update(JSON.stringify(["screen-session", prefix, origin, purpose, expiresAt]))
+    .digest("base64url");
 }
 
 export interface ScreenProxyTarget {
@@ -202,6 +266,8 @@ export function openScreenCapability(
       typeof scope.computerId !== "string" ||
       !Number.isSafeInteger(scope.botGeneration) ||
       !Number.isSafeInteger(scope.computerGeneration) ||
+      (scope.sessionId !== undefined && typeof scope.sessionId !== "string") ||
+      (scope.spaceId !== undefined && typeof scope.spaceId !== "string") ||
       (scope.controlLeaseId !== null && typeof scope.controlLeaseId !== "string")
     )
       return null;

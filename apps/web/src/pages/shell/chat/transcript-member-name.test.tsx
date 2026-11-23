@@ -130,9 +130,9 @@ function renderTranscript(messages: ThreadMessage[], roster: Roster) {
 
 function header(messageId: string): string | null {
   const row = container.querySelector(`[data-message-id="${messageId}"]`);
-  const name = row?.querySelector(".font-semibold.tracking-tight");
-  const text = name?.textContent?.replace(/\s+/g, " ").trim();
-  return text || null;
+  const names = row!.querySelectorAll('[data-testid="message-sender-label"]');
+  expect(names.length).toBeLessThanOrEqual(1);
+  return names[0]?.textContent?.replace(/\s+/g, " ").trim() || null;
 }
 
 function handoffLine(messageId: string): string {
@@ -247,6 +247,11 @@ it("group-removed-member-keeps-author-label prefers the current member", () => {
 it("labels each consecutive sender once and starts over after a time separator", () => {
   const text = [{ kind: "text", text: "A message" }] as const;
   const member = { id: "member", name: "A member" };
+  const memberMessage = {
+    role: "user",
+    author: member,
+    createdAt: "2026-11-12T12:00:00.000Z",
+  } satisfies Partial<ThreadMessage>;
   renderTranscript(
     [
       message("first", G1, [...text]),
@@ -254,8 +259,17 @@ it("labels each consecutive sender once and starts over after a time separator",
       message("other-bot", G2, [...text]),
       message("back", G1, [...text]),
       message("later", G1, [...text], { createdAt: "2026-11-12T12:00:00.000Z" }),
-      message("member", undefined, [...text], { role: "user", author: member }),
-      message("member-follow-up", undefined, [...text], { role: "user", author: member }),
+      message("member", undefined, [...text], memberMessage),
+      message("member-follow-up", undefined, [...text], memberMessage),
+      message("member-later", undefined, [...text], {
+        ...memberMessage,
+        createdAt: "2026-11-13T12:00:00.000Z",
+      }),
+      message("mine", undefined, [...text], {
+        role: "user",
+        author: { id: "viewer", name: "The viewer" },
+        createdAt: "2026-11-13T12:00:00.000Z",
+      }),
     ],
     {
       members: [
@@ -268,6 +282,58 @@ it("labels each consecutive sender once and starts over after a time separator",
   );
 
   expect(
-    ["first", "follow-up", "other-bot", "back", "later", "member", "member-follow-up"].map(header),
-  ).toEqual(["G1", null, "G2", "G1", "G1", "A member", null]);
+    [
+      "first",
+      "follow-up",
+      "other-bot",
+      "back",
+      "later",
+      "member",
+      "member-follow-up",
+      "member-later",
+      "mine",
+    ].map(header),
+  ).toEqual(["G1", null, "G2", "G1", "G1", "A member", null, "A member", null]);
+
+  const memberRow = container.querySelector('[data-message-id="member"]')!;
+  const label = memberRow.querySelector('[data-testid="message-sender-label"]')!;
+  expect(label.classList).toContain("px-3");
+  expect(label.classList).not.toContain("text-end");
+  expect(label.childElementCount).toBe(1);
+  expect(label.firstElementChild?.tagName).toBe("BDI");
+  expect(memberRow.textContent).toBe("A memberA message");
+  expect(container.querySelector('[data-message-id="member-follow-up"]')?.textContent).toBe(
+    "A message",
+  );
+  expect(
+    container.querySelector('[data-message-id="member-later"]')?.previousElementSibling,
+  ).toHaveProperty("dataset.testid", "time-separator");
+  expect(container.querySelector('[data-message-id="mine"]')?.textContent).toBe("A message");
+});
+
+it("keeps Local CLI attribution and labels the first hosted reply after it", () => {
+  const text = [{ kind: "text", text: "A reply" }] as const;
+  const member = { id: "member", name: "A member" };
+  renderTranscript(
+    [
+      message("hosted-first", G1, [...text]),
+      message("local-first", G1, [...text], { origin: "local_cli", author: member }),
+      message("local-second", G1, [...text], { origin: "local_cli" }),
+      message("hosted-next", G1, [...text]),
+      message("hosted-follow-up", G1, [...text]),
+    ],
+    { members: [{ botId: G1, name: "G1" }], bots: [], archivedBots: [] },
+  );
+
+  expect(container.querySelector('[data-message-id="local-first"]')?.textContent).toContain(
+    "Local CLI used by A member",
+  );
+  expect(container.querySelector('[data-message-id="local-second"]')?.textContent).toContain(
+    "Local CLI",
+  );
+  expect(["hosted-first", "hosted-next", "hosted-follow-up"].map(header)).toEqual([
+    "G1",
+    "G1",
+    null,
+  ]);
 });

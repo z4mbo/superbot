@@ -454,7 +454,7 @@ function LayoutContent() {
                     >
                       <Stack.Screen
                         name="index"
-                        options={{ headerShown: false, title: "Rakazo" }}
+                        options={{ headerShown: false, title: "Superbot" }}
                       />
                       <Stack.Screen
                         name="search"

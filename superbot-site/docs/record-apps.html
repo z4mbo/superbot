@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Record apps</title>
+  <meta name="description" content="Declare fields, and Superbot stores the entries, draws the form, list and total, and lets granted bots read and propose entries.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Record apps
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html" aria-current="page">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Build</div>
+      <h1>Record apps</h1>
+      <p class="lede">A record app is a list of fields. Superbot stores the entries, draws the form, the list and the total, and gives granted bots two actions. You write no code and run no server.</p>
+
+      <h2 id="when">When to use one</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">You want</th><th scope="col">Use</th></tr></thead>
+          <tbody>
+            <tr><td>Entries a person and their bot both keep, such as meals, expenses or requests</td><td class="muted">A record app</td></tr>
+            <tr><td>To teach a bot how to do something</td><td class="muted">A <a href="manifest.html#skill">skill</a></td></tr>
+            <tr><td>To reach your own service, or show a custom interactive view</td><td class="muted">A <a href="tools.html">tool server</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Superbot draws every record app the same way. A manifest can't change the layout or bring its own HTML or JavaScript.</p>
+
+      <h2 id="fields">Design the fields</h2>
+      <figure class="code">
+        <div class="code-head"><span>plugin.json, one part</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"kind"</span>: <span class="tok-s">"app"</span>,
+  <span class="tok-k">"id"</span>: <span class="tok-s">"meals"</span>,
+  <span class="tok-k">"fields"</span>: [
+    { <span class="tok-k">"id"</span>: <span class="tok-s">"date"</span>, <span class="tok-k">"label"</span>: <span class="tok-s">"Date"</span>, <span class="tok-k">"type"</span>: <span class="tok-s">"date"</span>, <span class="tok-k">"required"</span>: <span class="tok-n">true</span> },
+    { <span class="tok-k">"id"</span>: <span class="tok-s">"meal"</span>, <span class="tok-k">"label"</span>: <span class="tok-s">"Meal"</span>, <span class="tok-k">"type"</span>: <span class="tok-s">"text"</span>, <span class="tok-k">"required"</span>: <span class="tok-n">true</span> },
+    { <span class="tok-k">"id"</span>: <span class="tok-s">"kcal"</span>, <span class="tok-k">"label"</span>: <span class="tok-s">"Calories (kcal)"</span>, <span class="tok-k">"type"</span>: <span class="tok-s">"number"</span>, <span class="tok-k">"required"</span>: <span class="tok-n">true</span> }
+  ],
+  <span class="tok-k">"summaryField"</span>: <span class="tok-s">"kcal"</span>
+}</code></pre>
+      </figure>
+      <ul>
+        <li><b>Types.</b> <code>text</code> holds up to 2,000 characters and can't be blank. <code>number</code> is between −10<sup>12</sup> and 10<sup>12</sup>. <code>date</code> is a calendar day written <code>YYYY-MM-DD</code>.</li>
+        <li><b>Required.</b> Write <code>required</code> on every field. People and bots may leave optional fields out.</li>
+        <li><b>Labels.</b> People see the label in the form and bots see it in the tool description, so name the unit: <i>Calories (kcal)</i>, not <i>Amount</i>.</li>
+        <li><b>Day filter.</b> The first <code>date</code> field, in manifest order, is the one people and bots filter by day.</li>
+        <li><b>Total.</b> <code>summaryField</code> names a <code>number</code> field. The total covers every matching entry, not only the page on screen.</li>
+        <li><b>Ids.</b> Field and part ids are stored with every entry. Keep them stable across versions.</li>
+      </ul>
+      <p>One plugin can hold up to 16 parts, so several apps and a skill can work together. The <a href="example-t3-code-inbox.html">T3 Code inbox</a> uses two apps and a skill.</p>
+
+      <h2 id="people">What people see</h2>
+      <p>After installing, a person opens the app from <b>Installed</b>. They can pick a day or <b>All dates</b>, read the total, add an entry with the form and remove entries. Entries can't be edited in place: remove one and add a corrected entry.</p>
+
+      <h2 id="bots">What a granted bot gets</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Action</th><th scope="col">Input</th><th scope="col">Approval</th></tr></thead>
+          <tbody>
+            <tr><td>List entries</td><td class="muted"><code>date?</code>, <code>after?</code>, <code>limit?</code>. Returns entries newest first and the total</td><td class="muted">None. It only reads</td></tr>
+            <tr><td>Add an entry</td><td class="muted"><code>values</code>, checked against your fields</td><td class="muted">Every time. A person sees the values and chooses <b>Allow once</b>. Never ask refuses it</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Bots can't remove entries. They get these actions only in a direct chat with the installer, in a turn the installer's own message started. A bot answering through a model CLI on your computer gets no tools: you share entries with it yourself through <b>Apps</b> in the desktop composer or <code>/apps</code> in <code>superbot</code>. The full rules are in <a href="permissions.html">People, bots and permissions</a>.</p>
+
+      <h2 id="data">Data, versions and uninstall</h2>
+      <ul>
+        <li>Entries belong to one installation: one account in one Space. Other members of the Space install their own copy and never see yours.</li>
+        <li>Each version keeps its own entries. After switching versions you see that version's entries, and switching back shows the earlier ones.</li>
+        <li>Turning off a bot's grant keeps the entries.</li>
+        <li>Removing an entry erases its values. Uninstalling permanently deletes the entries of every version.</li>
+      </ul>
+
+      <h2 id="publish">Write and publish one</h2>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>superbot-plugin init water-log --template kcal-diary --name "Water log"
+superbot-plugin validate
+superbot-plugin publish water-log 1</code></pre>
+      </figure>
+      <p>The <code>kcal-diary</code> template is the only app starter: edit its fields before validating. On desktop, <b>Create plugin → Add app</b> builds the same part with a form. The <a href="quickstart.html">quickstart</a> walks through every step, including review and testing on your own server.</p>
+
+      <h2 id="next">Next steps</h2>
+      <ul>
+        <li><a href="example-calorie-diary.html">Calorie diary</a>: the complete example.</li>
+        <li><a href="manifest.html#app">Manifest reference</a>: every limit.</li>
+        <li><a href="api.html#records">Registry API</a>: read and write entries from a program.</li>
+      </ul>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="local-development.html"><small>Previous</small><span>Local development and testing</span></a>
+        <a class="next" href="tools.html"><small>Next</small><span>Tools and MCP views</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#when">When to use one</a>
+      <a href="#fields">Design the fields</a>
+      <a href="#people">What people see</a>
+      <a href="#bots">What a granted bot gets</a>
+      <a href="#data">Data, versions and uninstall</a>
+      <a href="#publish">Write and publish one</a>
+      <a href="#next">Next steps</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

@@ -21,16 +21,55 @@ import {
 } from "./external-conversations.js";
 import { MessageReactionSchema } from "./reactions.js";
 import { SEARCH_QUERY_MAX_LENGTH, SearchQueryOutputSchema } from "./search.js";
-import { ChatAlertSchema, ThreadMessagePageSchema, ThreadSnapshotSchema } from "./thread.js";
 import {
+  BOT_CONVERSATION_PREVIEW_LIMIT,
+  ChatAlertSchema,
+  ThreadMessagePageSchema,
+  ThreadSnapshotSchema,
+} from "./thread.js";
+import {
+  appendLocalHistoryInput,
   threadSendInput,
   threadSendOutput,
   threadSendWithRoutinesInput,
   threadTarget,
 } from "./thread-send.js";
 
+const BotConversationSchema = z.object({
+  threadId: Id,
+  botId: Id,
+  createdAt: z.iso.datetime(),
+  title: z.string().nullable(),
+  pinnedAt: z.iso.datetime().nullable(),
+  archivedAt: z.iso.datetime().nullable(),
+  preview: z.string().max(BOT_CONVERSATION_PREVIEW_LIMIT).nullable(),
+});
+
+const updateBotConversationInput = z
+  .object({
+    botId: Id,
+    threadId: Id,
+    title: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .regex(/^[^\p{Cc}]+$/u)
+      .optional(),
+    pinned: z.boolean().optional(),
+    archived: z.boolean().optional(),
+  })
+  .refine(
+    ({ title, pinned, archived }) =>
+      title !== undefined || pinned !== undefined || archived !== undefined,
+    "Provide a conversation change",
+  );
+
 export const threadsRpc = {
   threads: {
+    createBotConversation: oc.input(botId).output(BotConversationSchema),
+    listBotConversations: oc.input(botId).output(z.array(BotConversationSchema)),
+    updateBotConversation: oc.input(updateBotConversationInput).output(BotConversationSchema),
     head: oc.input(threadTarget).output(
       z.object({
         threadId: Id,
@@ -57,6 +96,10 @@ export const threadsRpc = {
       .input(threadTarget.safeExtend({ cursor: z.number().int().min(-1) }))
       .output(eventIterator(ProductEventSchema)),
     send: oc.input(threadSendInput).output(threadSendOutput),
+    /** Records a local note or a completed local CLI exchange in the normal thread. */
+    appendLocalHistory: oc
+      .input(appendLocalHistoryInput)
+      .output(z.object({ messageIds: z.array(Id).min(1).max(2) })),
     /**
      * A send that also test-runs the mentioned routines: the message and every run commit
      * together, keyed by the nonce. A separate procedure, because an API without it must

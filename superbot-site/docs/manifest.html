@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manifest reference</title>
+  <meta name="description" content="Every field of the Superbot plugin manifest, schema version 1, with its limits: skills, tools and record apps.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Manifest
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html" aria-current="page">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Reference</div>
+      <h1>Manifest reference</h1>
+      <p class="lede">Schema version 1. The server rejects any manifest with a field not listed here.</p>
+
+      <h2 id="top">Top level</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Rules</th></tr></thead>
+          <tbody>
+            <tr><td><code>schemaVersion</code></td><td class="muted">number</td><td class="muted">Always <code>1</code>.</td></tr>
+            <tr><td><code>name</code></td><td class="muted">string</td><td class="muted">1 to 120 characters after trimming. Shown in the store.</td></tr>
+            <tr><td><code>description</code></td><td class="muted">string</td><td class="muted">1 to 1,000 characters after trimming. The first two lines show on the store card.</td></tr>
+            <tr><td><code>parts</code></td><td class="muted">array</td><td class="muted">1 to 16 parts. Part ids must be unique within the manifest.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The slug and the version number are not in the manifest. You send them beside it when you <a href="api.html#submit">submit</a>.</p>
+
+      <h2 id="ids">Part ids and slugs</h2>
+      <p>Part ids and plugin slugs follow the same pattern: 1 to 64 characters, lowercase letters and digits, words joined by single hyphens.</p>
+      <figure class="code">
+        <div class="code-head"><span>pattern</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>^[a-z0-9]+(?:-[a-z0-9]+)*$</code></pre>
+      </figure>
+      <p><code>notes</code>, <code>issue-tracker</code> and <code>v2</code> are valid. <code>Notes</code>, <code>issue_tracker</code>, <code>-notes</code> and <code>a--b</code> are not. People grant parts to bots by id, so keep an id stable across versions when the part does the same job.</p>
+
+      <h2 id="skill">Skill part</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Rules</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td class="muted">string</td><td class="muted">See <a href="#ids">part ids</a>.</td></tr>
+            <tr><td><code>kind</code></td><td class="muted">string</td><td class="muted"><code>"skill"</code></td></tr>
+            <tr><td><code>instructions</code></td><td class="muted">string</td><td class="muted">Markdown, 1 to 16,000 characters after trimming.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="mcp">Tool part</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Rules</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td class="muted">string</td><td class="muted">See <a href="#ids">part ids</a>.</td></tr>
+            <tr><td><code>kind</code></td><td class="muted">string</td><td class="muted"><code>"mcp"</code></td></tr>
+            <tr><td><code>transport</code></td><td class="muted">string</td><td class="muted"><code>"streamable_http"</code>, the only transport.</td></tr>
+            <tr><td><code>endpoint</code></td><td class="muted">string</td><td class="muted">A public <code>https://</code> address with no credentials, query string or fragment.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The registry checks the endpoint during review. At runtime the server refuses redirects and private addresses, rechecks that the grant is still in place, and asks a person to approve every call after showing the endpoint and the arguments. In a Space set to Never ask, calls are refused.</p>
+
+      <h2 id="app">Record app part</h2>
+      <p>A record app declares fields. The server stores entries with those fields and shows them in Superbot's standard form and list.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Rules</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td class="muted">string</td><td class="muted">See <a href="#ids">part ids</a>.</td></tr>
+            <tr><td><code>kind</code></td><td class="muted">string</td><td class="muted"><code>"app"</code></td></tr>
+            <tr><td><code>fields</code></td><td class="muted">array</td><td class="muted">1 to 16 fields with unique ids.</td></tr>
+            <tr><td><code>summaryField</code></td><td class="muted">string, optional</td><td class="muted">The id of a <code>number</code> field to total.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Each entry in <code>fields</code> has exactly these four properties:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Field</th><th scope="col">Type</th><th scope="col">Rules</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td class="muted">string</td><td class="muted">Same pattern as <a href="#ids">part ids</a>. Keep it stable across versions.</td></tr>
+            <tr><td><code>label</code></td><td class="muted">string</td><td class="muted">Up to 120 characters, not blank, without text-direction control characters. Shown in the form and to bots.</td></tr>
+            <tr><td><code>type</code></td><td class="muted">string</td><td class="muted"><code>"text"</code>, <code>"number"</code> or <code>"date"</code>.</td></tr>
+            <tr><td><code>required</code></td><td class="muted">boolean</td><td class="muted">Always written out, <code>true</code> or <code>false</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Saved values follow the field type. Text holds up to 2,000 characters and can't be blank. A number is finite, between −10<sup>12</sup> and 10<sup>12</sup>. A date is a calendar day written <code>YYYY-MM-DD</code>. An optional field may be left out of an entry. The first <code>date</code> field, in manifest order, is the one people and bots filter by day. The total adds up the <code>summaryField</code> of every entry that matches.</p>
+
+      <h2 id="not-allowed">What a manifest can't contain</h2>
+      <ul>
+        <li>API keys, tokens, passwords or HTTP headers. If your server needs sign-in, use OAuth on the server; people sign in when they connect it.</li>
+        <li>Commands, packages, scripts or install hooks.</li>
+        <li>HTML or JavaScript. Superbot draws record apps from their declared fields. A tool server can serve its own <a href="tools.html#view">view</a>, which runs in a sandbox.</li>
+        <li>Local or private addresses such as <code>localhost</code>, <code>127.0.0.1</code> or <code>10.0.0.0/8</code>.</li>
+        <li>Any field not listed on this page, at any level.</li>
+      </ul>
+
+      <h2 id="full">Complete example</h2>
+      <figure class="code">
+        <div class="code-head"><span>plugin.json</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>,
+  <span class="tok-k">"name"</span>: <span class="tok-s">"Release notes"</span>,
+  <span class="tok-k">"description"</span>: <span class="tok-s">"Draft release notes from issue summaries."</span>,
+  <span class="tok-k">"parts"</span>: [
+    {
+<span class="tok-k">"id"</span>: <span class="tok-s">"notes"</span>,
+<span class="tok-k">"kind"</span>: <span class="tok-s">"skill"</span>,
+<span class="tok-k">"instructions"</span>: <span class="tok-s">"Summarize the provided issue descriptions."</span>
+    },
+    {
+<span class="tok-k">"id"</span>: <span class="tok-s">"tracker"</span>,
+<span class="tok-k">"kind"</span>: <span class="tok-s">"mcp"</span>,
+<span class="tok-k">"transport"</span>: <span class="tok-s">"streamable_http"</span>,
+<span class="tok-k">"endpoint"</span>: <span class="tok-s">"https://tracker.example.com/mcp"</span>
+    }
+  ]
+}</code></pre>
+      </figure>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="example-t3-code-inbox.html"><small>Previous</small><span>T3 Code inbox</span></a>
+        <a class="next" href="cli.html"><small>Next</small><span>superbot-plugin commands</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#top">Top level</a>
+      <a href="#ids">Part ids and slugs</a>
+      <a href="#skill">Skill part</a>
+      <a href="#mcp">Tool part</a>
+      <a href="#app">Record app part</a>
+      <a href="#not-allowed">What a manifest can't contain</a>
+      <a href="#full">Complete example</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

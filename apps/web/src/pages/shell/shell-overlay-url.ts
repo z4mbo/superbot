@@ -24,6 +24,7 @@ export type ShellOverlay =
   | { kind: "integrations" }
   | { kind: "skills" }
   | { kind: "templates" }
+  | { kind: "plugins" }
   | { kind: "import" }
   | { kind: "mcp"; serverId?: string }
   | null;
@@ -34,6 +35,7 @@ const OVERLAY_KEYS = [
   "integrations",
   "skills",
   "templates",
+  "plugins",
   "import",
   "mcp",
   "messaging",
@@ -55,6 +57,7 @@ export function readShellOverlay(params: URLSearchParams): ShellOverlay {
   if (params.has("integrations")) return { kind: "integrations" };
   if (params.has("skills")) return { kind: "skills" };
   if (params.has("templates")) return { kind: "templates" };
+  if (params.has("plugins")) return { kind: "plugins" };
   if (params.has("import")) return { kind: "import" };
   if (params.has("mcp")) {
     const serverId = params.get("mcp");
@@ -92,4 +95,27 @@ export function shellOverlaySearch(params: URLSearchParams): string {
   // The plan choice opens above the shell from its own link, so it survives the redirect too.
   if (params.has("plans")) next.set("plans", "");
   return searchString(next);
+}
+
+const STORE_KINDS = {
+  templates: "agents",
+  skills: "skills",
+  plugins: "plugins",
+  integrations: "apps",
+} as const;
+type StoreKind = keyof typeof STORE_KINDS;
+export type StoreSection = (typeof STORE_KINDS)[StoreKind];
+
+/** The Store section an overlay opens; each section keeps the link it had as its own dialog. */
+export function storeSection(overlay: ShellOverlay): StoreSection | null {
+  return overlay && Object.hasOwn(STORE_KINDS, overlay.kind)
+    ? STORE_KINDS[overlay.kind as StoreKind]
+    : null;
+}
+
+export function storeOverlay(section: StoreSection): ShellOverlay {
+  const kind = (Object.keys(STORE_KINDS) as StoreKind[]).find(
+    (key) => STORE_KINDS[key] === section,
+  )!;
+  return { kind };
 }

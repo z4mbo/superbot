@@ -1197,7 +1197,7 @@ it("keeps native picker credit and personal selections distinct for the same mod
   const request = modelPickerRequest(
     (push.mock.calls.at(-1)![0] as { params: { requestId: string } }).params.requestId,
   )!;
-  const credit = request.choices.find((choice) => choice.providerLabel === "Rakazo credits")!;
+  const credit = request.choices.find((choice) => choice.providerLabel === "Superbot credits")!;
   const personal = request.choices.find((choice) => choice.providerLabel?.includes("Personal"))!;
   expect(credit.key).not.toBe(personal.key);
   await act(async () => {

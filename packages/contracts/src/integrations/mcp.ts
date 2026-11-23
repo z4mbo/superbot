@@ -171,6 +171,11 @@ export function parseMcpOAuthAuthorizationParams(value: string): Record<string, 
 export const McpSourcePresetSchema = z.object({
   id: z.string(),
   name: z.string(),
+  /** Bundled artwork served by the same host as the Store. */
+  logo: z
+    .string()
+    .regex(/^\/service-logos\/[a-z0-9-]+\.(?:svg|png)$/)
+    .optional(),
   /** Fixed endpoint; omitted when the person enters their own. */
   url: z.string().url().optional(),
   /** Endpoint filled in for the person to keep or change, when `url` is not fixed. */
@@ -179,6 +184,8 @@ export const McpSourcePresetSchema = z.object({
   /** The server signs the person in itself (OAuth), so no token is asked for. Otherwise
    * the preset connects with a bearer token. */
   signIn: z.boolean().optional(),
+  /** Provider's instructions for registering an OAuth client for this MCP service. */
+  oauthSetupUrl: z.url({ protocol: /^https$/ }).optional(),
 });
 export type McpSourcePreset = z.infer<typeof McpSourcePresetSchema>;
 

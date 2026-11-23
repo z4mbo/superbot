@@ -4,7 +4,10 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./model-emulator": "./src/model-emulator.ts",
+    "./mcp-host": "./src/apps/mcp-host.ts",
+    "./t3-mcp-emulator": "./src/t3-mcp-emulator.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",

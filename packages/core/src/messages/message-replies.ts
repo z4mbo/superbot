@@ -1,4 +1,4 @@
-import type { MessageAuthor, MessageBlock, ReplyPreview } from "@rakazo/contracts";
+import type { MessageAuthor, MessageBlock, ReplyPreview, ThreadMessage } from "@rakazo/contracts";
 import { MessageAuthorSchema, ReplyPreviewSchema } from "@rakazo/contracts";
 import { isQuestionAskBlock } from "../asks/ask-kind.js";
 import { displayName } from "../bots/display-name.js";
@@ -62,7 +62,7 @@ export function otherAuthor(
   return author && meId && author.id !== meId ? author : undefined;
 }
 
-type SenderMessage = VoiceChatMessage & { author?: MessageAuthor; botId?: string };
+type SenderMessage = VoiceChatMessage & Pick<ThreadMessage, "author" | "botId" | "origin">;
 
 /** Later messages in a visible sender group do not need another sender header. */
 export function continuedSenderMessageIds(
@@ -78,6 +78,8 @@ export function continuedSenderMessageIds(
     if (
       item.kind === "voiceChat" ||
       isPeerReceiptBlocks(item.message.blocks) ||
+      // A Local CLI reply names the person at the CLI, independently of the hosted sender.
+      (item.message.role === "bot" && item.message.origin === "local_cli") ||
       canShowSender?.(item.message) === false
     ) {
       previousSender = undefined;
@@ -106,12 +108,13 @@ export function continuedSenderMessageIds(
  * event's payload.
  */
 export function messageUnreadFor(
-  message: { role?: unknown; author?: unknown },
+  message: { role?: unknown; author?: unknown; origin?: unknown },
   meId: string | undefined,
 ) {
   return (
-    message.role === "bot" ||
-    (message.role === "user" && Boolean(otherAuthor(payloadAuthor(message).author, meId)))
+    (message.role === "bot" && message.origin !== "local_cli") ||
+    ((message.role === "user" || message.origin === "local_cli") &&
+      Boolean(otherAuthor(payloadAuthor(message).author, meId)))
   );
 }
 

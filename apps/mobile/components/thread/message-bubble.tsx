@@ -33,8 +33,9 @@ import {
   userMentionTargets,
 } from "../../lib/messages/message-mentions";
 import {
-  hasMessageSenderContent,
+  isSpecialMessageBlock,
   messagePresentationSegments,
+  pieceShowsSender,
   splitMessageBlocks,
 } from "../../lib/messages/message-presentation";
 import type { RoutineEventBlock } from "../../lib/messages/routine-event-label";
@@ -58,13 +59,14 @@ import { AudioAttachment } from "../media/audio-attachment";
 import type { ImageArtifactPreviewTarget } from "../media/image-artifact-viewer";
 import { InlineImageAttachment } from "../media/inline-image-attachment";
 import { MessageMentions } from "../messages/bot-mention";
+import { LocalReplyText } from "../messages/local-reply-text";
 import { MessageCaption } from "../messages/message-caption";
 import { NativeSymbol } from "../native/native-symbol";
 import { AskBlock } from "./ask-block";
 import { McpAppCard } from "./mcp-app-card";
 import type { MessageRowActions } from "./message-row";
 import { PeerReceiptLine } from "./peer-receipt-line";
-import { isSpecialMessageBlock, SpecialMessageCard } from "./special-message-card";
+import { SpecialMessageCard } from "./special-message-card";
 
 type AskAction = NonNullable<Extract<MessageBlock, { kind: "ask" }>["actions"]>[number];
 
@@ -146,27 +148,9 @@ function MessageBubbleWithMentions({
   );
 }
 
-/** Blocks drawn as their own card between the message's text pieces. */
-function isOwnCardBlock(block: MessageBlock): boolean {
-  return (
-    isSpecialMessageBlock(block) ||
-    block.kind === "page" ||
-    block.kind === "app" ||
-    block.kind === "tool_question"
-  );
-}
-
-function pieceShowsSender(blocks: readonly MessageBlock[]): boolean {
-  return !blocks.some(isOwnCardBlock) && hasMessageSenderContent(blocks);
-}
-
-export function hasSenderLabelContent(message: { blocks: MessageBlock[] }): boolean {
-  return splitMessageBlocks(message.blocks, isOwnCardBlock).some(pieceShowsSender);
-}
-
 function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
   const { message } = props;
-  const pieces = splitMessageBlocks(message.blocks, isOwnCardBlock);
+  const pieces = splitMessageBlocks(message.blocks);
   if (pieces[0] === message.blocks) return <MessageBubbleContent {...props} />;
   const firstContent = pieces.findIndex(pieceShowsSender);
   const content = pieces.map((blocks, index) => {
@@ -183,14 +167,12 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
           canAnswer={props.canAnswer}
         />
       );
-    if (first.kind === "app")
-      return (
-        <McpAppCard
-          key={`app-${index}`}
-          block={first}
-          target={props.groupId ? { groupId: props.groupId } : { botId: props.botId }}
-        />
-      );
+    if (first.kind === "app") {
+      const target = props.groupId
+        ? { groupId: props.groupId }
+        : { botId: props.botId, threadId: message.threadId };
+      return <McpAppCard key={`app-${index}`} block={first} target={target} />;
+    }
     return isSpecialMessageBlock(first) ? (
       <SpecialMessageCard
         key={first.kind === "subagent" ? first.agentId : `${first.kind}-${index}`}
@@ -920,25 +902,31 @@ function MessageTextCard({
         borderRadius: 20,
       }}
     >
-      {speaker ? (
-        <Text
-          style={{
-            color: speakerColor ?? tokens.mutedForeground,
-            ...typeScale.footnote,
-            marginBottom: 4,
-          }}
-        >
-          {speaker}
-        </Text>
-      ) : null}
-      <MessageCaption
-        role={message.role}
-        received={!outgoing}
-        text={contentText}
-        tokens={tokens}
-        colorScheme={colorScheme}
-        streaming={message.id.startsWith("progress:")}
-      />
+      {message.origin === "local_cli" && message.role === "bot" ? (
+        <LocalReplyText name={message.author?.name} text={contentText} tokens={tokens} />
+      ) : (
+        <>
+          {speaker ? (
+            <Text
+              style={{
+                color: speakerColor ?? tokens.mutedForeground,
+                ...typeScale.footnote,
+                marginBottom: 4,
+              }}
+            >
+              {speaker}
+            </Text>
+          ) : null}
+          <MessageCaption
+            role={message.role}
+            received={!outgoing}
+            text={contentText}
+            tokens={tokens}
+            colorScheme={colorScheme}
+            streaming={message.id.startsWith("progress:")}
+          />
+        </>
+      )}
     </Surface>
   );
 }

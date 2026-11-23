@@ -1,5 +1,9 @@
 import type { IncomingHttpHeaders } from "node:http";
 import type { Readable } from "node:stream";
+import {
+  SCREEN_ASSET_SEGMENT,
+  SCREEN_SOCKET_PROTOCOL_PREFIX,
+} from "@rakazo/core/node/screen-capability";
 
 export const MAX_NOVNC_HTML_BYTES = 1024 * 1024;
 
@@ -18,6 +22,61 @@ export function isNovncPage(path: string) {
   return NOVNC_PAGES.has(pathname.slice(pathname.lastIndexOf("/") + 1));
 }
 
+export function isScreenHtml(headers: IncomingHttpHeaders) {
+  const contentType = String(headers["content-type"] ?? "").toLowerCase();
+  return contentType.includes("text/html") || contentType.includes("application/xhtml+xml");
+}
+
+export function injectScreenDocumentAccess(
+  html: string,
+  options: { path: string; prefix: string; assetProof: string; socketProof: string },
+) {
+  const { path, prefix, assetProof, socketProof } = options;
+  const base = new URL(
+    `${prefix}${SCREEN_ASSET_SEGMENT}${assetProof}${path.slice(prefix.length)}`,
+    "http://screen.invalid",
+  ).pathname
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;");
+  const authentication = `<base href="${base}"><script>
+(() => {
+  const prefix = ${JSON.stringify(prefix)};
+  const assetPath = prefix + ${JSON.stringify(`${SCREEN_ASSET_SEGMENT}${assetProof}/`)};
+  const proof = ${JSON.stringify(SCREEN_SOCKET_PROTOCOL_PREFIX + socketProof)};
+  const WebSocket = window.WebSocket;
+  window.WebSocket = new Proxy(WebSocket, {
+    construct(Socket, [url, protocols = []], newTarget) {
+      const target = new URL(url, document.baseURI);
+      const path = target.pathname.replace(/^\\/{2,}/, "/");
+      const proxied = target.host === location.host && path.startsWith(prefix + "/");
+      if (proxied) {
+        target.pathname = path.startsWith(assetPath)
+          ? prefix + "/" + path.slice(assetPath.length)
+          : path;
+        protocols = [...(typeof protocols === "string" ? [protocols] : protocols), proof];
+      }
+      // noVNC checks for send and the other raw-channel methods on the socket's immediate prototype.
+      const socket = Reflect.construct(Socket, [target, protocols], newTarget);
+      if (proxied) {
+        const readProtocol = Object.getOwnPropertyDescriptor(Socket.prototype, "protocol").get;
+        Object.defineProperty(socket, "protocol", { configurable: true, get() {
+          const selected = readProtocol.call(this);
+          return selected === proof ? "" : selected;
+        } });
+      }
+      return socket;
+    }
+  });
+})();
+</script>`;
+  const head = /<head(?:\s[^>]*)?>/i;
+  if (head.test(html)) return html.replace(head, (tag) => tag + authentication);
+  const doctype = /^<!doctype[^>]*>/i;
+  return doctype.test(html)
+    ? html.replace(doctype, (tag) => tag + authentication)
+    : authentication + html;
+}
+
 /**
  * The proxy sandboxes screen documents without same-origin, so noVNC's settings reads from
  * localStorage throw. Only uncompressed HTML for a noVNC page is rewritten.
@@ -28,8 +87,7 @@ export function shouldInjectNovncStorageShim(headers: IncomingHttpHeaders, path:
     .trim()
     .toLowerCase();
   if (encoding && encoding !== "identity") return false;
-  const contentType = String(headers["content-type"] ?? "").toLowerCase();
-  return contentType.includes("text/html") || contentType.includes("application/xhtml+xml");
+  return isScreenHtml(headers);
 }
 
 /**

@@ -1,6 +1,11 @@
 import type { SemanticMemoryProvider } from "@rakazo/adapter-kit";
 import { hasLab, resolveLabs } from "@rakazo/contracts";
-import { BACKGROUND_HELPER_TRIGGER, isMessagingChannelRun, messagingChannelId } from "@rakazo/core";
+import {
+  BACKGROUND_HELPER_TRIGGER,
+  isMessagingChannelRun,
+  isOwnerStartedRun,
+  messagingChannelId,
+} from "@rakazo/core";
 import {
   effectiveMemoryScope,
   expireRunToolQuestions,
@@ -24,6 +29,11 @@ import {
   persistLivePluginConnections,
   selectRunConnections,
 } from "../../integrations/connection-context.js";
+import {
+  discoverMarketplaceTools,
+  marketplaceScope,
+  marketplaceToolName,
+} from "../../integrations/marketplace-runtime.js";
 import { loadBotMessageContext } from "../../messaging/bot-messages.js";
 import { resolveMemberMainModel } from "../../models/model-roles.js";
 import {
@@ -427,9 +437,33 @@ export async function connectRun(
     ),
   );
 
-  const discoveredPromise = deps.connector
-    ? deps.connector.discoverTools(context)
-    : Promise.resolve([]);
+  const { conversationRun, conversationThread, messages, nonOwnerChatRun, origin } = parts.records;
+  const scope = marketplaceScope(run, bot, nonOwnerChatRun);
+  const marketplaceAppAllowed = Boolean(
+    scope &&
+      !conversationThread.groupId &&
+      conversationRun.userId === scope.userId &&
+      isOwnerStartedRun(
+        conversationRun.trigger,
+        (origin?.sourceMessage ?? messages.find(({ id }) => id === conversationRun.sourceMessageId))
+          ?.role === "user",
+        nonOwnerChatRun,
+      ),
+  );
+  const discoveredPromise = Promise.all([
+    deps.connector?.discoverTools(context) ?? [],
+    scope && run.trigger !== "created"
+      ? discoverMarketplaceTools({
+          prisma: deps.prisma,
+          scope,
+          signal: context.signal,
+          appAllowed: marketplaceAppAllowed,
+        })
+      : [],
+  ]).then(([connectors, marketplace]) => [
+    ...connectors.filter((tool) => !marketplaceToolName(tool.name)),
+    ...marketplace,
+  ]);
   // Awaited steps later: if one before it throws, a rejection here would stop the process.
   void bestEffort("tool discovery", discoveredPromise);
   // A connection that cannot be read now leaves the cloud-agent tools out of this turn only.
@@ -444,6 +478,7 @@ export async function connectRun(
     context,
     memoryScope,
     semanticMemory,
+    marketplaceAppAllowed,
     discoveredPromise,
     cloudAgentPromise,
   };

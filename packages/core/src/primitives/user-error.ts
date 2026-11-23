@@ -1,10 +1,5 @@
-import { MCP_OAUTH_REDIRECT_MISMATCH } from "@rakazo/contracts";
-
 /** Only reviewed, public documentation links belong here; never use URLs from an error body. */
-const ERROR_GUIDES: Readonly<Record<string, string>> = {
-  [MCP_OAUTH_REDIRECT_MISMATCH]:
-    "https://rakazo.com/docs/troubleshooting/#mcp-oauth-redirect-mismatch",
-};
+const ERROR_GUIDES: Readonly<Record<string, string>> = {};
 
 /** A stable error code opts into troubleshooting without depending on message wording. */
 export function errorHelpUrl(error: unknown): string | undefined {
@@ -115,14 +110,23 @@ export function userErrorMessage(error: unknown, copy: UserErrorCopy): string {
 
 export type CredentialField = "email" | "password";
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/**
+ * `local@domain.tld`: one `@`, no whitespace, a non-empty local part, and a dot inside the domain
+ * with text on both sides. Checked by scanning, so a long hostile address costs linear time.
+ */
+function isEmailShaped(value: string): boolean {
+  if (/\s/.test(value)) return false;
+  const at = value.indexOf("@");
+  if (at <= 0 || at !== value.lastIndexOf("@")) return false;
+  return value.slice(at + 2, -1).includes(".");
+}
 
 /** Catches empty or malformed credentials before they round-trip to the server. */
 export function credentialIssue(input: {
   email: string;
   password?: string;
 }): CredentialField | null {
-  if (!EMAIL.test(input.email.trim())) return "email";
+  if (!isEmailShaped(input.email.trim())) return "email";
   if (input.password !== undefined && !input.password) return "password";
   return null;
 }

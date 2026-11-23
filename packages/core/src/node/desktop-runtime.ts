@@ -119,9 +119,27 @@ function browserPidPathForScreen(screenId: string) {
   return `/tmp/rakazo/browser-pid-${browserKeyForScreen(screenId)}`;
 }
 
-function browserRunningFunction(profile: string, pidFile: string) {
-  const flag = shellQuote(`--user-data-dir=${profile}`);
-  const profileQuoted = shellQuote(profile);
+/**
+ * One browser profile as shell words: quoted literal paths, or the variables a loop over
+ * profile directories sets. Paths reach a script only through these words.
+ */
+type ProfileWords = { profile: string; flag: string; pidFile: string };
+
+function literalProfileWords(profile: string, pidFile: string): ProfileWords {
+  return {
+    profile: shellQuote(profile),
+    flag: shellQuote(`--user-data-dir=${profile}`),
+    pidFile: shellQuote(pidFile),
+  };
+}
+
+const LOOP_PROFILE_WORDS: ProfileWords = {
+  profile: '"$profile"',
+  flag: '"--user-data-dir=$profile"',
+  pidFile: '"$pid_file"',
+};
+
+function browserRunningFunction({ profile: profileQuoted, flag, pidFile }: ProfileWords) {
   return [
     // Match the configured flag in either NUL-separated argv or Chromium's one-line
     // setproctitle. Searching for the whole flag keeps spaces and " --" inside the path.
@@ -527,12 +545,20 @@ export function stopBrowserCommand(screenId: string, env = DEFAULT_DESKTOP_ENV) 
   );
 }
 
-/** Close one Chromium profile with Browser.close, then SIGTERM, before a checkpoint copies it. */
+/**
+ * Close one Chromium profile with Browser.close, then SIGTERM, before a checkpoint copies it.
+ * Both paths are literal: the script quotes them, so shell syntax in a path is never run.
+ */
 export function stopBrowserProfileCommand(profile: string, pidFile: string) {
+  return stopBrowserProfile(literalProfileWords(profile, pidFile));
+}
+
+function stopBrowserProfile(words: ProfileWords) {
+  const { profile, pidFile } = words;
   return [
-    ...browserRunningFunction(profile, pidFile),
+    ...browserRunningFunction(words),
     `if browser_running; then`,
-    `  python3 -c ${shellQuote(CLOSE_BROWSER)} "$pid" ${shellQuote(profile)} >/dev/null 2>&1 || true`,
+    `  python3 -c ${shellQuote(CLOSE_BROWSER)} "$pid" ${profile} >/dev/null 2>&1 || true`,
     `  for i in $(seq 1 40); do browser_matches "$pid" || break; sleep 0.25; done`,
     `  if browser_matches "$pid"; then kill "$pid" 2>/dev/null || true; for i in $(seq 1 40); do browser_matches "$pid" || break; sleep 0.25; done; fi`,
     `  browser_matches "$pid" && kill -KILL "$pid" 2>/dev/null || true`,
@@ -541,15 +567,12 @@ export function stopBrowserProfileCommand(profile: string, pidFile: string) {
     // Rediscover once before removing lock state rather than on every close poll.
     `if browser_running; then echo 'browser still running' >&2; exit ${BROWSER_STILL_RUNNING_EXIT}; fi`,
     `rm -f ${pidFile}`,
-    `rm -f ${shellQuote(profile)}/SingletonLock ${shellQuote(profile)}/SingletonCookie ${shellQuote(profile)}/SingletonSocket`,
+    `rm -f ${profile}/SingletonLock ${profile}/SingletonCookie ${profile}/SingletonSocket`,
   ].join("\n");
 }
 
 function stopProfileDirectoriesCommand(profileList: string) {
-  const placeholder = "RAKAZO_INTERNAL_PROFILE";
-  const stop = stopBrowserProfileCommand(placeholder, '"$pid_file"')
-    .replaceAll(shellQuote(`--user-data-dir=${placeholder}`), '"--user-data-dir=$profile"')
-    .replaceAll(shellQuote(placeholder), '"$profile"');
+  const stop = stopBrowserProfile(LOOP_PROFILE_WORDS);
   return [
     "set -eu",
     "failed=0",
@@ -784,7 +807,7 @@ function renderEnsureScreenCommand(
   const fluxHome = `/tmp/fluxbox-home-${layout.displayNumber}`;
   const log = `/tmp/rakazo/screen-${layout.displayNumber}`;
   const profile = browserProfilePathForScreen(screenId, env);
-  const pidFile = browserPidPathForScreen(screenId);
+  const profileWords = literalProfileWords(profile, browserPidPathForScreen(screenId));
   const setupDisplay =
     index === 0 && env.preservePrimaryDisplay
       ? [
@@ -845,14 +868,14 @@ function renderEnsureScreenCommand(
     ...setupDisplay,
     `xdpyinfo -display ${layout.display} >/dev/null 2>&1 || { echo 'computer display is not running' >&2; exit 1; }`,
     `mkdir -p /tmp/rakazo ${shellQuote(path.posix.dirname(profile))}`,
-    ...browserRunningFunction(profile, pidFile),
+    ...browserRunningFunction(profileWords),
     `printf %s ${shellQuote(profile)} >/tmp/rakazo/browser-profile-${layout.displayNumber}`,
     ...renderStartScreenSessionCommand(index, env),
     "launch_browser() {",
     `  ${prepareBrowserProfileCommand(screenId, env)}`,
     `  rm -f ${shellQuote(profile)}/SingletonLock ${shellQuote(profile)}/SingletonCookie ${shellQuote(profile)}/SingletonSocket`,
     `  nohup ${browserLauncherPath(layout.displayNumber)} 8>&- 9>&- </dev/null >${log}-browser.log 2>&1 & launched=$!`,
-    `  printf %s "$launched" >${pidFile}`,
+    `  printf %s "$launched" >${profileWords.pidFile}`,
     "}",
     "launched=",
     "relaunched=0",

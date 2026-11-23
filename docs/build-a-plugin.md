@@ -1,5 +1,7 @@
 # Build a plugin
 
+To publish a version in the Superbot marketplace, follow the [marketplace authoring guide](superbot/build-a-marketplace-plugin.md).
+
 ## Most plugins wrap an MCP server
 
 Host your tools, describe the connection in two JSON files, then publish them in a public

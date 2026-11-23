@@ -17,8 +17,8 @@ export function webManifest() {
   }));
   return {
     id: "/",
-    name: "Rakazo",
-    short_name: "Rakazo",
+    name: "Superbot",
+    short_name: "Superbot",
     description: "Your team of always-on agents.",
     start_url: "/",
     scope: "/",
@@ -50,7 +50,11 @@ export function shellFiles(bundle: Rolldown.OutputBundle): string[] {
     if (output.type === "chunk" && output.isEntry && output.fileName !== SERVICE_WORKER_FILE) {
       visit(output.fileName);
     }
-    if (output.type === "asset" && /\.(css|woff2)$/.test(output.fileName)) {
+    if (
+      output.type === "asset" &&
+      !output.fileName.startsWith("welcome/") &&
+      /\.(css|woff2)$/.test(output.fileName)
+    ) {
       files.add(`/${output.fileName}`);
     }
   }

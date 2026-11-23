@@ -9,7 +9,6 @@ import {
   catalogItemAccounts,
   catalogItemKey,
   connectCatalogItem,
-  connectedAppMarks,
   isCatalogItemConnected,
 } from "@rakazo/core";
 import { fetchFresh, writeSaved } from "@rakazo/core/query";
@@ -46,13 +45,11 @@ export function usePluginConnections({
   activeBotId,
   detailKey,
   closeDetail,
-  onConnectedAppsChange,
 }: {
   activeBotId?: string;
   /** The app whose page is open; its tools load while it is. */
   detailKey: { connectorId: string; slug: string } | null;
   closeDetail: () => void;
-  onConnectedAppsChange?: (apps: ReturnType<typeof connectedAppMarks>) => void;
 }) {
   const { t } = useLingui();
   // Only accounts whose label is being edited; the rest follow the saved name.
@@ -162,10 +159,6 @@ export function usePluginConnections({
   useEffect(() => {
     return () => connectionAttempt.current?.abort();
   }, []);
-
-  useEffect(() => {
-    if (catalogLoaded) onConnectedAppsChange?.(connectedAppMarks(catalog, connections));
-  }, [catalog, catalogLoaded, connections, onConnectedAppsChange]);
 
   function itemConnected(item: ConnectionCatalogItem) {
     return isCatalogItemConnected(connections, item);

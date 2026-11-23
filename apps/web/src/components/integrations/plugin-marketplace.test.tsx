@@ -208,7 +208,7 @@ describe("plugin detail", () => {
     expect(api.approve).toHaveBeenCalledWith({ botId: "bot-1", serverId: server.id });
   });
 
-  it("offers the shared troubleshooting guide for a documented sign-in error", async () => {
+  it("links no outside guide for a sign-in error", async () => {
     api.connect.mockRejectedValue(
       Object.assign(new Error("Sign-in configuration mismatch"), {
         code: "MCP_OAUTH_REDIRECT_MISMATCH",
@@ -217,9 +217,8 @@ describe("plugin detail", () => {
     await render({ install, servers: [server] });
     await click("Sign in");
     const alert = container.querySelector('[role="alert"]');
-    expect(alert?.querySelector("a")?.getAttribute("href")).toBe(
-      "https://rakazo.com/docs/troubleshooting/#mcp-oauth-redirect-mismatch",
-    );
+    expect(alert?.textContent).toContain("Sign-in configuration mismatch");
+    expect(alert?.querySelector("a")).toBeNull();
     api.connect.mockRejectedValue(new Error("Could not sign in"));
     await click("Sign in");
     expect(container.querySelector('[role="alert"] a')).toBeNull();
@@ -417,6 +416,27 @@ describe("integration fallback icons", () => {
       [...container.querySelectorAll("img")].map((image) => image.getAttribute("src")),
     ).toEqual([logo, logo, logo]);
   });
+  it("names each Added button after its standalone plugin without changing the visible text", async () => {
+    await act(async () =>
+      root.render(
+        <>
+          <PluginRow name="Notes Board" description="" installed onOpen={vi.fn()} />
+          <PluginRow name="Checklist Pack" description="" installed onOpen={vi.fn()} />
+          <PluginRow name="Task Cards" description="" installed={false} onOpen={vi.fn()} />
+        </>,
+      ),
+    );
+    const actions = [
+      ...container.querySelectorAll('[data-testid="plugin-row"] > button:last-child'),
+    ];
+    expect(actions.map((node) => node.getAttribute("aria-label"))).toEqual([
+      "Added: Notes Board",
+      "Added: Checklist Pack",
+      "Add Task Cards",
+    ]);
+    expect(actions.map((node) => node.textContent)).toEqual(["Added", "Added", "Add"]);
+  });
+
   it("names each Add button after its app and hides the decorative initial", async () => {
     const item = { connectorId: "gm", slug: "gmail", name: "Gmail" } as never;
     const context = {

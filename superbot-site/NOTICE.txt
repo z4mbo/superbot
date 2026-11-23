@@ -1,0 +1,43 @@
+Superbot website and desktop design
+Third-party notices
+
+1. App icon (assets/logo.svg) and design tokens (assets/site.css; DESKTOP-DESIGN.md section 3)
+
+   Adapted from OpenMausBot: the app icon public/app-icon.svg, and the Midnight
+   and Daylight colour tokens, bot identity colours, type scale, radius scale and
+   layout measurements in src/styles.css and src/components/.
+   Source: OpenMausBot fork z4mbo/bot, branch simple-only, revision 49b44777d.
+
+   OpenMausBot
+   Copyright 2026 Milind Soni and OpenMausBot contributors
+   Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
+
+   Changes: the Superbot app icon has a white circle filling the bottom of a black
+   tile and two centred, forward-facing eyes. Tokens were transcribed into plain CSS custom properties
+   and a GPUI theme specification.
+
+2. Icons drawn inline in the HTML pages
+
+   Paths from Lucide (https://lucide.dev), lucide-react 0.539.0.
+   Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as
+   part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide
+   Contributors 2022.
+   Licensed under the ISC License (licenses/Lucide-ISC.txt).
+
+3. Fonts
+
+   Geist and Geist Mono (assets/fonts/), Copyright 2026 The Geist Project
+   Authors (https://github.com/vercel/geist-font), licensed under the SIL Open
+   Font License 1.1 (licenses/Geist-OFL.txt). The variable font files are
+   redistributed unmodified.
+
+4. New bot names (native/desktop/src/app/new_agent.rs)
+
+   The list of names a new bot is given is adapted from OpenMausBot
+   server/names.ts. Source: OpenMausBot fork z4mbo/bot, branch simple-only.
+
+   OpenMausBot
+   Copyright 2026 Milind Soni and OpenMausBot contributors
+   Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
+
+   Changes: transcribed to Rust; numbered names skip ones already in use.

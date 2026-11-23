@@ -47,7 +47,7 @@ const OWNER_TURN_TRIGGERS = ["user", "follow_up", "routine"];
  * cannot all be read as entries with a kind, is left out.
  */
 export function routineReadableSql(ownerId: string, botId: string): Prisma.Sql {
-  return Prisma.sql`(
+  return Prisma.sql`m."localOperationId" IS NULL AND (
     (m.role = 'user' AND m."authorUserId" = ${ownerId}
       AND jsonb_typeof(m.blocks) = 'array'
       AND NOT jsonb_path_exists(m.blocks, '$[*] ? (@.kind == "channel_message" || !(exists(@.kind)))'))
@@ -85,6 +85,7 @@ export async function loadRunHistoryMessages(
   const recent = await prisma.message.findMany({
     where: {
       threadId: run.threadId,
+      localOperationId: null,
       ...(readableIds ? { id: { in: readableIds } } : {}),
       ...(groupTurn
         ? {
@@ -192,12 +193,13 @@ export interface CreateThreadMessageInput {
   /** A bot reply's tool calls as sent and returned, for its later runs only. */
   toolHistory?: ToolHistory;
   botId?: string;
-  /** The signed-in person who wrote a user message; null when the sender is not a known user. */
+  /** The signed-in person responsible for the message, when known. */
   authorUserId?: string;
   replyToMessageId?: string;
   replyQuote?: string;
   runId?: string;
   clientNonce?: string;
+  localOperationId?: string;
   nativeCalendarSessionId?: string;
   nativeCalendarDeviceDigest?: string;
   markUnread?: boolean;
@@ -254,6 +256,7 @@ export async function createThreadMessageInTransaction(
       replyQuote: input.replyQuote,
       runId: input.runId,
       clientNonce: input.clientNonce,
+      localOperationId: input.localOperationId,
       nativeCalendarSessionId: input.nativeCalendarSessionId,
       nativeCalendarDeviceDigest: input.nativeCalendarDeviceDigest,
     },

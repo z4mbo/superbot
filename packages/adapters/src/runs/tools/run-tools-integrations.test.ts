@@ -92,7 +92,14 @@ describe("connector tool with an MCP app", () => {
     const { ctx, call } = setup(
       [
         { type: "result", data: { content: [{ type: "text", text: `token ${secret}` }] } },
-        { type: "app", app: { ...app, html: `<p>${secret}</p>` } },
+        {
+          type: "app",
+          app: {
+            server: `Weather ${secret}`,
+            html: `<p>${secret}</p>`,
+            csp: { connectDomains: [`https://${secret}.weather.example`] },
+          },
+        },
       ],
       {},
       [secret],

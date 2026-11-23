@@ -37,7 +37,7 @@ import {
   foldComputerCommands,
 } from "@rakazo/contracts";
 import { ACTIVE_RUN_STATUSES, ClientError, computerUsingRuns, scrollDirection } from "@rakazo/core";
-import { addScreenProxyCapability } from "@rakazo/core/node/screen-capability";
+import { addScreenProxyCapability, issueScreenProof } from "@rakazo/core/node/screen-capability";
 import type { ComputerRunEnd } from "@rakazo/db";
 import {
   expireComputerExecutionLeases,
@@ -683,22 +683,29 @@ export function computerRoutes(ctx: RouterContext) {
           .catch((error: unknown) => clearGoneSandbox(deps, computer, error));
         if (!session) return { url: null };
         await keepComputerAwake(deps, computer.id);
-        return {
-          url: addScreenProxyCapability(
-            withViewOnly(session.url, false),
-            deps.env.screenProxySecret,
-            deps.env.webOrigin,
-            {
-              botId: bot.id,
-              computerId: computer.id,
-              botGeneration: bot.screenGeneration,
-              computerGeneration: computer.screenGeneration,
-              controlLeaseId: computer.controlLeaseId,
-            },
-            undefined,
-            session.headers,
-          ),
-        };
+        const url = addScreenProxyCapability(
+          withViewOnly(session.url, false),
+          deps.env.screenProxySecret,
+          deps.env.webOrigin,
+          {
+            botId: bot.id,
+            computerId: computer.id,
+            botGeneration: bot.screenGeneration,
+            computerGeneration: computer.screenGeneration,
+            controlLeaseId: computer.controlLeaseId,
+            sessionId: context.sessionId,
+            spaceId: context.actor.spaceId,
+          },
+          undefined,
+          session.headers,
+        );
+        // A native app opens the terminal socket itself, with no page for the web server to
+        // hand this same proof to. It is still checked against this session and lease.
+        const page = input.nativeSession && context.sessionId ? new URL(url) : undefined;
+        const socketSession =
+          page &&
+          issueScreenProof(page.pathname, deps.env.screenProxySecret, page.origin, "socket");
+        return { url, ...(socketSession ? { socketSession } : {}) };
       }),
       screenUrl: authed.computer.screenUrl.handler(async ({ context, input }) => {
         let bot = await repos.getBot(context.actor, input.botId);
@@ -733,21 +740,35 @@ export function computerRoutes(ctx: RouterContext) {
         if (!session?.url) return { url: null };
         if (!input.preview) scheduleComputerSleep(deps.jobs, bot.computer.id);
         const viewUrl = withViewOnly(session.url, !holder);
+        const url = addScreenProxyCapability(
+          viewUrl,
+          deps.env.screenProxySecret,
+          deps.env.webOrigin,
+          {
+            botId: bot.id,
+            computerId: computer.id,
+            botGeneration: bot.screenGeneration,
+            computerGeneration: computer.screenGeneration,
+            controlLeaseId: computer.controlLeaseId,
+            sessionId: context.sessionId,
+            spaceId: context.actor.spaceId,
+          },
+          undefined,
+          session.headers,
+        );
+        const screenUrl = new URL(url);
+        const screenSession =
+          input.nativeSession && context.sessionId
+            ? issueScreenProof(
+                screenUrl.pathname,
+                deps.env.screenProxySecret,
+                screenUrl.origin,
+                "native",
+              )
+            : undefined;
         return {
-          url: addScreenProxyCapability(
-            viewUrl,
-            deps.env.screenProxySecret,
-            deps.env.webOrigin,
-            {
-              botId: bot.id,
-              computerId: computer.id,
-              botGeneration: bot.screenGeneration,
-              computerGeneration: computer.screenGeneration,
-              controlLeaseId: computer.controlLeaseId,
-            },
-            undefined,
-            session.headers,
-          ),
+          url,
+          ...(screenSession ? { screenSession } : {}),
           // The view is part of what a screen shows: taking or releasing control changes it.
           ...(session.singleUseSignIn
             ? {

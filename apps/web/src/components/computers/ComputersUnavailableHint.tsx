@@ -124,14 +124,6 @@ export function ComputersUnavailableHint({
               <Trans>Open computer settings</Trans>
             </Button>
           ) : null}
-          <a
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-            href="https://github.com/elie222/rakazo/blob/main/docs/self-host-sandbox-providers.md"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Trans>Setup help</Trans>
-          </a>
         </div>
       ) : null}
     </div>

@@ -456,7 +456,7 @@ export class MeetingService {
       sessionId: row.id,
       meetingUrl: row.meetingUrl,
       platform: MeetingPlatformSchema.parse(row.platform),
-      botName: `${bot.name.slice(0, 88)} · Rakazo`,
+      botName: `${bot.name.slice(0, 88)} · Superbot`,
       expiresAt: row.expiresAt,
     };
     const { count } = await prisma.meetingSession.updateMany({

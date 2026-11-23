@@ -752,9 +752,7 @@ it("links callback mismatches in MCP settings to the shared recovery guide", asy
     await act(async () => root.render(overlay()));
     await vi.waitFor(() => expect(connectButton()).toBeDefined());
     await act(async () => connectButton()?.click());
-    expect(host.querySelector('[role="alert"] a')?.getAttribute("href")).toBe(
-      "https://rakazo.com/docs/troubleshooting/#mcp-oauth-redirect-mismatch",
-    );
+    expect(host.querySelector('[role="alert"] a')).toBeNull();
     expect(connectButton()?.disabled).toBe(false);
   } finally {
     await act(async () => root.unmount());

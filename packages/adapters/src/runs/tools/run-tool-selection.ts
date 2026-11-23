@@ -198,6 +198,7 @@ export function selectBuiltinToolsForRun(options: {
       (options.trigger !== BACKGROUND_HELPER_TRIGGER || !SUBAGENT_HIDDEN_TOOLS.has(tool.name)) &&
       (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
         (Boolean(options.fleetManagement) && ownerStartedRun)) &&
+      (options.fleetManagement || tool.name !== "spawn_bot") &&
       (ownerStartedRun || (tool.name !== "update_preferences" && tool.name !== "feedback")) &&
       (options.paymentWalletEnabled || !PURCHASE_TOOL_NAMES.has(tool.name)) &&
       (options.mediaImagesEnabled || tool.name !== "generate_image") &&

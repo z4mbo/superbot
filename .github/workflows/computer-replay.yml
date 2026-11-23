@@ -7,10 +7,19 @@ on:
       - infra/sandboxes/computer/**
       - infra/sandboxes/supervisor/**
       - packages/core/src/node/**
+      - apps/api/src/routes/computer.ts
+      - apps/api/src/routes/bots.ts
+      - apps/api/src/computers/**
       - packages/adapters/src/providers/computer/docker/docker-sandbox.ts
-      - packages/adapters/src/computers/screens/computer-browser.ts
+      - packages/adapters/src/computers/**
+      - packages/adapters/src/runs/tools/run-tools-computer.ts
+      - packages/adapters/src/tools/builtin-computer.tool-definition.ts
+      - packages/adapters/src/secrets/bot-secrets.ts
+      - packages/adapters/src/secrets/vault/**
       - packages/testkit/src/computers/computer-*.ts
       - packages/testkit/src/cli/computer-replay.ts
+      - packages/testkit/src/cli/harness.ts
+      - packages/testkit/src/cli/postgres.ts
       - pnpm-lock.yaml
   workflow_dispatch:
 
@@ -25,14 +34,20 @@ jobs:
   replay:
     name: Docker computer replay
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      - name: Start Postgres
+        uses: ./.github/actions/start-postgres
       - uses: ./.github/actions/setup-workspace
       - run: pnpm db:generate
         env:
           DATABASE_URL: postgres://rakazo:rakazo@127.0.0.1:5433/rakazo
       - run: pnpm sandbox:build
       - run: pnpm test:computer-replay
+      - name: Wait for Postgres
+        run: bash .github/actions/start-postgres/wait.sh
+      - name: Test the Docker computer through the product
+        run: pnpm exec tsx packages/testkit/src/cli/harness.ts --integration --sandbox=docker --spec=computer-product

@@ -51,6 +51,7 @@ import {
 } from "../spaces/organization-changes.js";
 import { followSpaceChanges, publishSpaceChange } from "../spaces/space-changes.js";
 import { SpaceDeletionInProgressError, spaceTakesWork } from "../spaces/spaces.js";
+import { assertOpenBotConversation } from "./bot-conversations.js";
 import { createChatAlerts } from "./chat-alerts.js";
 import {
   followIncomingCallSignals,
@@ -156,6 +157,7 @@ export interface ClearThreadInput {
   /** Event author and the bot-scoped target for one-to-one chats. */
   botId: string;
   groupId?: string;
+  explicitBotConversation?: true;
 }
 
 export interface ClearThreadResult {
@@ -209,6 +211,7 @@ export interface SendUserMessageInput {
   trigger: "user" | "follow_up" | "webhook" | "messaging";
   clientNonce?: string;
   linkMessageToRun?: boolean;
+  explicitBotConversation?: true;
   /** Internal bot sender: enforce both bots' cross-space policy in the write transaction. */
   crossSpaceSenderBotId?: string;
   /** When false, persist the user message without starting a run (team-chat transcript). */
@@ -308,11 +311,19 @@ export async function clearThread(
         WHERE id = ${input.groupId} AND "spaceId" = ${input.spaceId}
         FOR NO KEY UPDATE`;
     }
+    if (input.explicitBotConversation) await assertOpenBotConversation(tx, input);
     const thread = await tx.thread.update({
       where: {
         id: input.threadId,
         spaceId: input.spaceId,
-        ...(input.groupId ? { groupId: input.groupId } : { botId: input.botId }),
+        ...(input.groupId
+          ? { groupId: input.groupId }
+          : {
+              OR: [
+                { botId: input.botId },
+                { conversationBotId: input.botId, conversationArchivedAt: null },
+              ],
+            }),
       },
       // Takes the thread's row lock, as every message writer does; nothing in it changes.
       data: { nextMessageSeq: { increment: 0 } },
@@ -484,6 +495,7 @@ export async function sendUserMessage(
       // deleted takes no new turns. A transcript copy that starts none is still kept.
       if (input.createRun !== false && !(await spaceTakesWork(tx, input.spaceId)))
         throw new SpaceDeletionInProgressError();
+      if (input.explicitBotConversation) await assertOpenBotConversation(tx, input);
       // Message first: its thread-row lock serializes the whole send against clearThread, so a
       // concurrent clear either sees the committed run and cancels it, or strictly precedes this
       // transaction. Created in separate transactions, the run could land inside the clear's
@@ -650,7 +662,7 @@ export async function sendUserMessage(
     // The event is durable; subscribers recover it from their persisted cursor.
     getLogger().error("user message realtime notification", error);
   });
-  if (committed.run) await publishSpaceChange(realtime, input.spaceId, "runs");
+  if (committed.run || committed.busy) await publishSpaceChange(realtime, input.spaceId, "runs");
   return {
     messageId: committed.message.id,
     seq: committed.message.seq,

@@ -80,17 +80,17 @@ export function SidebarHeader({
         {toggle}
       </div>
       {/* Fits beside the macOS window controls at the narrowest sidebar width. */}
-      <div className={`relative flex items-center ${mini ? "flex-col gap-1" : "gap-0.5"}`}>
+      <div className={`relative flex items-center ${mini ? "flex-col" : ""} gap-1`}>
         {onSearch && !mini ? (
           <IconTooltip label={t`Search`} side={labelSide}>
             <Button
-              variant="ghost"
+              variant="floating"
               size="icon"
               aria-label={t`Search`}
               aria-pressed={searchOpen}
               data-testid="sidebar-search-trigger"
               onClick={onSearch}
-              className="app-no-drag text-muted-foreground"
+              className="app-no-drag"
             >
               <Search className={ICON} strokeWidth={STROKE} aria-hidden="true" />
             </Button>
@@ -99,13 +99,13 @@ export function SidebarHeader({
         {mini ? null : (
           <IconTooltip label={t`Activity`} side={labelSide}>
             <Button
-              variant="ghost"
+              variant="floating"
               size="icon"
               aria-label={t`Activity`}
               aria-pressed={activityMode}
               data-activity-mode={activityMode ? "on" : "off"}
               onClick={toggleActivityMode}
-              className={`app-no-drag ${activityMode ? "bg-accent text-foreground" : "text-muted-foreground"}`}
+              className="app-no-drag"
             >
               {/* A filled bell marks Activity on, so on and hovered never look alike. */}
               <Bell
@@ -122,9 +122,9 @@ export function SidebarHeader({
             <PopoverTrigger
               render={
                 <Button
-                  variant="ghost"
+                  variant={mini ? "ghost" : "floating"}
                   size="icon"
-                  className={`app-no-drag text-muted-foreground ${railTile}`}
+                  className={`app-no-drag ${mini ? "text-muted-foreground" : ""} ${railTile}`}
                 />
               }
               aria-label={t`Create`}

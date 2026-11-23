@@ -1,11 +1,15 @@
-import type { IncomingHttpHeaders } from "node:http";
+import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
 import { connect } from "node:net";
-import type { ScreenProxyTarget } from "@rakazo/core/node/screen-capability";
+import type { ScreenProofPurpose, ScreenProxyTarget } from "@rakazo/core/node/screen-capability";
 import {
   isScreenProxyTarget,
+  SCREEN_ASSET_SEGMENT,
   SCREEN_RECHECK_MS,
+  SCREEN_SESSION_HEADER,
+  SCREEN_SOCKET_PROTOCOL_PREFIX,
   SCREEN_TARGET_ENDPOINT,
   SCREEN_UNCONFIRMED_MAX_MS,
+  screenCapabilityPrefix,
 } from "@rakazo/core/node/screen-capability";
 import { SCREEN_PROBE_PARAM } from "@rakazo/core/screen-reconnect";
 
@@ -45,12 +49,84 @@ export function novncRequestPath(url: string | undefined): string | null {
   return path?.startsWith("/novnc/") ? path : null;
 }
 
+type ScreenAccess =
+  | { cookie: string }
+  | { proof: string; origin: string; purpose: ScreenProofPurpose };
+
+export function screenRequestOrigin(req: IncomingMessage) {
+  const secure =
+    ("encrypted" in req.socket && req.socket.encrypted === true) ||
+    req.headers["x-forwarded-proto"] === "https";
+  const host = req.headers.host;
+  if (!host || !/^(?:[a-z0-9.-]+|\[[0-9a-f:]+\])(?::\d{1,5})?$/i.test(host)) return null;
+  try {
+    return new URL(`${secure ? "https" : "http"}://${host}`).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function screenHttpAccess(req: IncomingMessage, path: string, origin: string) {
+  const prefix = screenCapabilityPrefix(path);
+  if (!prefix || (req.method !== "GET" && req.method !== "HEAD")) return null;
+  const requestOrigin = req.headers.origin;
+  if (requestOrigin && requestOrigin !== origin && requestOrigin !== "null") return null;
+
+  const assetPath = path.slice(prefix.length);
+  if (assetPath.startsWith(SCREEN_ASSET_SEGMENT)) {
+    const [proof, ...parts] = assetPath.slice(SCREEN_ASSET_SEGMENT.length).split("/");
+    const dest = req.headers["sec-fetch-dest"];
+    if (!proof || !parts.length || dest === "document" || dest === "iframe") return null;
+    return {
+      path: `${prefix}/${parts.join("/")}`,
+      access: { proof, origin, purpose: "asset" } satisfies ScreenAccess,
+    };
+  }
+
+  if (requestOrigin === "null") return null;
+  const fetchSite = req.headers["sec-fetch-site"];
+  if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") return null;
+  const proof = req.headers[SCREEN_SESSION_HEADER];
+  if (typeof proof === "string" && req.method === "GET" && !screenProbePath(path)) {
+    return { path, access: { proof, origin, purpose: "native" } satisfies ScreenAccess };
+  }
+  return req.headers.cookie ? { path, access: { cookie: req.headers.cookie } } : null;
+}
+
+export function screenSocketAccess(req: IncomingMessage, path: string, origin: string) {
+  const prefix = screenCapabilityPrefix(path);
+  if (!prefix || path.slice(prefix.length).startsWith(SCREEN_ASSET_SEGMENT)) return null;
+  const protocols = req.headers["sec-websocket-protocol"]?.split(",").map((value) => value.trim());
+  const proofs =
+    protocols?.filter((value) => value.startsWith(SCREEN_SOCKET_PROTOCOL_PREFIX)) ?? [];
+  if (proofs.length > 1) return null;
+  if (protocols) {
+    const providerProtocols = protocols.filter(
+      (value) => !value.startsWith(SCREEN_SOCKET_PROTOCOL_PREFIX),
+    );
+    if (providerProtocols.length)
+      req.headers["sec-websocket-protocol"] = providerProtocols.join(", ");
+    else delete req.headers["sec-websocket-protocol"];
+  }
+  if (req.headers.origin !== "null" && req.headers.origin !== origin) return null;
+  if (proofs.length === 1)
+    return {
+      proof: proofs[0]!.slice(SCREEN_SOCKET_PROTOCOL_PREFIX.length),
+      origin,
+      purpose: "socket",
+    } satisfies ScreenAccess;
+  return req.headers.origin === origin && req.headers.cookie
+    ? { cookie: req.headers.cookie }
+    : null;
+}
+
 /** Fail closed when the authoritative lifecycle check is unavailable. */
 export async function resolveNovncTarget(
   url: string | undefined,
   secret: string,
   api: string,
   onFailure?: (reason: ScreenTargetFailure) => void,
+  access?: ScreenAccess,
 ): Promise<ScreenProxyTarget | null> {
   if (!url?.startsWith("/novnc/session/")) {
     onFailure?.("invalid_path");
@@ -62,7 +138,7 @@ export async function resolveNovncTarget(
       redirect: "error",
       signal: AbortSignal.timeout(2_000),
       headers: { authorization: `Bearer ${secret}`, "content-type": "application/json" },
-      body: JSON.stringify({ path: url }),
+      body: JSON.stringify({ path: url, access }),
     });
     if (!response.ok) {
       // The authority refuses with 403; a server error, timeout or rate limit is it being down.
@@ -186,11 +262,18 @@ export async function checkScreenAuthorization(
   secret: string,
   api: string,
   opened: ScreenProxyTarget,
+  access?: ScreenAccess,
 ): Promise<ScreenCheck> {
   let failure: ScreenTargetFailure | undefined;
-  const target = await resolveNovncTarget(url, secret, api, (reason) => {
-    failure = reason;
-  });
+  const target = await resolveNovncTarget(
+    url,
+    secret,
+    api,
+    (reason) => {
+      failure = reason;
+    },
+    access,
+  );
   if (target) return sameScreenTarget(target, opened) ? "allowed" : "denied";
   return failure === "authority_unavailable" ? "unavailable" : "denied";
 }

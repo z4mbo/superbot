@@ -1057,7 +1057,13 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   );
   app.route("/", marketingEmailRoutes(prisma, env.authSecret));
   mountApiRequestBodyLimits(app);
-  mountScreenTarget(app, prisma, env.screenProxySecret);
+  mountScreenTarget(app, prisma, env.screenProxySecret, async (cookie) => {
+    const session = await auth.api.getSession({
+      headers: new Headers({ cookie }),
+      query: { disableRefresh: true, disableCookieCache: true },
+    });
+    return session?.session.id;
+  });
   mountScriptAssets(app);
   mountSharedPages(app, prisma, requestClientIp);
   const auditAuthResponse = createAuthResponseAudit();

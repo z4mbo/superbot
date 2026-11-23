@@ -1,6 +1,11 @@
 import type { IncomingHttpHeaders } from "node:http";
 
-const SENSITIVE_RESPONSE_HEADERS = new Set(["clear-site-data", "set-cookie", "set-cookie2"]);
+const SENSITIVE_RESPONSE_HEADERS = new Set([
+  "clear-site-data",
+  "refresh",
+  "set-cookie",
+  "set-cookie2",
+]);
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
   "keep-alive",
@@ -12,7 +17,7 @@ const HOP_BY_HOP_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
 ]);
-const SCREEN_SANDBOX = "sandbox allow-scripts allow-pointer-lock";
+const SCREEN_SANDBOX = "sandbox allow-scripts allow-pointer-lock; frame-ancestors 'self'";
 
 /** Screen listeners are untrusted even when their capability URL is opened outside an iframe. */
 export function safeScreenProxyResponseHeaders(headers: IncomingHttpHeaders) {
@@ -46,19 +51,14 @@ export function safeScreenProxyResponseHeaders(headers: IncomingHttpHeaders) {
   safe["content-security-policy"] = [...policies, SCREEN_SANDBOX];
   // Module imports from the opaque sandbox origin still need access to noVNC assets.
   safe["access-control-allow-origin"] = "*";
+  safe["referrer-policy"] = "no-referrer";
   // A CDN in front of the web service must pass the screen through untouched: injected scripts,
   // minification and script loaders break noVNC's module scripts.
-  const cacheControl = safe["cache-control"];
-  safe["cache-control"] = [
-    ...(Array.isArray(cacheControl) ? cacheControl : [cacheControl]),
-    "no-transform",
-  ]
-    .filter(Boolean)
-    .join(", ");
+  safe["cache-control"] = "no-store, no-transform";
   return safe;
 }
 
-export function stripSensitiveHandshakeHeaders(response: Buffer) {
+export function stripSensitiveHandshakeHeaders(response: Buffer, screenProtocol?: string) {
   const end = response.indexOf("\r\n\r\n");
   if (end < 0) return null;
   const lines = response.subarray(0, end).toString("latin1").split("\r\n");
@@ -68,6 +68,13 @@ export function stripSensitiveHandshakeHeaders(response: Buffer) {
     const name = separator < 0 ? line : line.slice(0, separator);
     return !SENSITIVE_RESPONSE_HEADERS.has(name.trim().toLowerCase());
   });
+  if (
+    screenProtocol &&
+    /^HTTP\/1\.\d 101\b/.test(safeLines[0] ?? "") &&
+    !safeLines.some((line) => /^sec-websocket-protocol:/i.test(line))
+  ) {
+    safeLines.push(`Sec-WebSocket-Protocol: ${screenProtocol}`);
+  }
   return Buffer.concat([
     Buffer.from(`${safeLines.join("\r\n")}\r\n\r\n`, "latin1"),
     response.subarray(end + 4),

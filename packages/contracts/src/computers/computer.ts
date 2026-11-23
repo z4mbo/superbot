@@ -67,6 +67,8 @@ export type ComputerStatus = z.infer<typeof ComputerStatusSchema>;
 /** A computer screen to load, and how its URL signs the viewer in. */
 export const ComputerScreenSchema = z.object({
   url: z.string().nullable(),
+  /** Short-lived proof for the initial proxied document request in a native WebView. */
+  screenSession: z.string().optional(),
   /**
    * Set when the URL signs in with a code that works once and ends the session an earlier code
    * opened, so loading it a second time, or loading a newer one beside it, loses the screen.

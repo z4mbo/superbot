@@ -17,6 +17,8 @@ export const SpaceBotSchema = BotSchema.pick({
   name: true,
   title: true,
   color: true,
+  lookShape: true,
+  lookColor: true,
   avatarSet: true,
   notifyOnFinish: true,
   pinned: true,
@@ -145,6 +147,7 @@ export const SpaceChangeKind = z.enum([
   "meetings",
   "artifacts",
   "meetingCalendar",
+  "pluginRegistry",
   "nativeCalendar",
 ]);
 export type SpaceChangeKind = z.infer<typeof SpaceChangeKind>;

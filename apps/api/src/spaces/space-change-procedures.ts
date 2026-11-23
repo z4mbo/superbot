@@ -8,6 +8,13 @@ import type { SpaceChangeKind } from "@rakazo/contracts";
 const SPACE_CHANGE_PROCEDURES: Record<string, readonly SpaceChangeKind[]> = {
   "artifacts.create": ["artifacts"],
   "artifacts.remove": ["artifacts"],
+  "localAppRecords.add": ["pluginRegistry"],
+  "pluginRegistry.addAppRecord": ["pluginRegistry"],
+  "pluginRegistry.install": ["pluginRegistry"],
+  "pluginRegistry.removeAppRecord": ["pluginRegistry"],
+  "pluginRegistry.setGrants": ["pluginRegistry"],
+  "pluginRegistry.switchVersion": ["pluginRegistry"],
+  "pluginRegistry.uninstall": ["pluginRegistry"],
   "routines.create": ["routines"],
   "routines.update": ["routines"],
   "routines.remove": ["routines"],

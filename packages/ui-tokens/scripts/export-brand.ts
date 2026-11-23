@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import { darkTokens } from "../src/index.ts";
@@ -25,8 +25,8 @@ async function roundedCorners(input: Buffer) {
     .png()
     .toBuffer();
 }
-const square = await framed(darkTokens.background);
-const rounded = await roundedCorners(square);
+const marketingSquare = await framed(darkTokens.background);
+const marketingMark = await roundedCorners(marketingSquare);
 
 async function png(input: Buffer, name: string, size: number) {
   await sharp(input).resize(size, size).png().toFile(path(name));
@@ -52,7 +52,7 @@ async function ico(input: Buffer, name: string, sizes: number[]) {
   await writeFile(path(name), Buffer.concat([header, ...frames]));
 }
 
-for (const app of ["web", "www"]) {
+async function webIcons(app: string, rounded: Buffer, square: Buffer) {
   const publicDir = `apps/${app}/public`;
   await png(rounded, `${publicDir}/favicon-16x16.png`, 16);
   await png(rounded, `${publicDir}/favicon-32x32.png`, 32);
@@ -62,31 +62,52 @@ for (const app of ["web", "www"]) {
   await png(square, `${publicDir}/icon-512.png`, 512);
   await ico(rounded, `${publicDir}/favicon.ico`, [16, 32, 48]);
 }
+await webIcons("www", marketingMark, marketingSquare);
 await mkdir(path("apps/www/public/brand"), { recursive: true });
-await png(rounded, "apps/www/public/brand/rakazo-mark.png", 256);
+await png(marketingMark, "apps/www/public/brand/rakazo-mark.png", 256);
 // The site header shows the mark at 36px; 72px covers 2x screens.
-await sharp(rounded)
+await sharp(marketingMark)
   .resize(72, 72)
   .webp({ quality: 90 })
   .toFile(path("apps/www/public/brand/rakazo-mark-72.webp"));
-await png(rounded, "apps/mobile/assets/favicon.png", 128);
-await png(square, "apps/desktop/assets/icon.png", 1024);
-await ico(rounded, "apps/desktop/assets/icon.ico", [16, 32, 48, 64, 128, 256]);
+const logo = path("superbot-site/assets/logo.svg");
+const mark = await sharp(logo, { density: 288 }).resize(1024, 1024).png().toBuffer();
+const opaque = await sharp(mark).flatten({ background: "black" }).png().toBuffer();
+await copyFile(logo, path("apps/web/public/superbot-mark.svg"));
+await webIcons("web", mark, opaque);
+await png(mark, "apps/desktop/assets/icon.png", 1024);
+await ico(mark, "native/desktop/assets/superbot.ico", [16, 20, 24, 32, 40, 48, 64, 128, 256]);
+await copyFile(path("native/desktop/assets/superbot.ico"), path("apps/desktop/assets/icon.ico"));
 
-// The splash shows the character alone, with no plate, so it sits on either splash colour.
-// Keep the existing transparent padding so its visual size stays stable.
-await sharp(await roundedCorners(await framed("transparent")))
-  .resize(620, 620)
-  .extend({ top: 202, bottom: 202, left: 202, right: 202, background: "transparent" })
+async function padded(input: Buffer, size: number) {
+  const margin = (1024 - size) / 2;
+  return sharp(input)
+    .resize(size, size)
+    .extend({ top: margin, bottom: margin, left: margin, right: margin, background: "transparent" })
+    .png()
+    .toBuffer();
+}
+await writeFile(path("native/desktop/macos/icon.png"), await padded(mark, 824));
+await copyFile(path("native/desktop/macos/icon.png"), path("apps/desktop/assets/icon-macos.png"));
+await mkdir(path("packages/ui-tokens/assets/Superbot.icon/Assets"), { recursive: true });
+await writeFile(path("packages/ui-tokens/assets/Superbot.icon/Assets/face.png"), opaque);
+await writeFile(path("apps/mobile/assets/icon.png"), opaque);
+await png(opaque, "apps/mobile/assets/app-mark.png", 192);
+await png(opaque, "apps/mobile/ios-widgets/Assets.xcassets/AppMark.imageset/app-mark.png", 180);
+await png(mark, "apps/mobile/assets/favicon.png", 128);
+await writeFile(path("apps/mobile/assets/splash-icon.png"), await padded(mark, 620));
+
+// Android masks adaptive icons and uses the alpha channel alone for themed icons and notifications.
+const faceMask = await sharp(opaque).extractChannel("red").raw().toBuffer();
+const face = await sharp({
+  create: { width: 1024, height: 1024, channels: 3, background: "white" },
+})
+  .joinChannel(faceMask, { raw: { width: 1024, height: 1024, channels: 1 } })
   .png()
-  .toFile(path("apps/mobile/assets/splash-icon.png"));
-
-// Android notification icons must be white alpha silhouettes, with transparent eyes.
-const silhouette = await sharp(path("apps/mobile/assets/monochrome-icon.png"))
-  .resize(72, 72)
-  .extractChannel("alpha")
   .toBuffer();
-await sharp({ create: { width: 72, height: 72, channels: 3, background: "white" } })
-  .joinChannel(silhouette)
+await writeFile(path("apps/mobile/assets/adaptive-icon.png"), face);
+await writeFile(path("apps/mobile/assets/monochrome-icon.png"), face);
+await sharp({ create: { width: 1024, height: 1024, channels: 3, background: "black" } })
   .png()
-  .toFile(path("apps/mobile/assets/notification-icon.png"));
+  .toFile(path("apps/mobile/assets/icon-background.png"));
+await png(face, "apps/mobile/assets/notification-icon.png", 72);

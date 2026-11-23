@@ -46,7 +46,7 @@ export function claudeCodeProvider(models: Models, options: ClaudeCodeProviderOp
   const assertAllowed = async () => {
     const refusal = options.accessCheck
       ? await options.accessCheck()
-      : "Claude Code runs only inside the Rakazo API and worker.";
+      : "Claude Code runs only inside the Superbot API and worker.";
     if (refusal) throw new Error(refusal);
   };
   const stream = (

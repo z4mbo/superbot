@@ -3,16 +3,7 @@ import { ChatMarkdown } from "@rakazo/chat-ui/web";
 import type { Bot, BotTemplateListing, ConnectionCatalogItem } from "@rakazo/contracts";
 import { isBotTemplateChanged } from "@rakazo/contracts";
 import { botTemplateApps, formatCron } from "@rakazo/core";
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  SectionHeading,
-  Spinner,
-} from "@rakazo/ui-web";
+import { Button, SectionHeading, Spinner } from "@rakazo/ui-web";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -27,7 +18,6 @@ import {
   ScrollText,
   Sun,
   Telescope,
-  X,
 } from "lucide-react";
 import { useId, useState } from "react";
 import { useSave, useSpaceQueries } from "../../lib/query/query";
@@ -67,13 +57,7 @@ function Sample({ text }: { text: string }) {
 }
 
 /** Ready-made bots. Creating one opens it; its routines stay paused until the user turns them on. */
-export function BotTemplatesDialog({
-  onClose,
-  onOpenBot,
-}: {
-  onClose: () => void;
-  onOpenBot: (bot: Bot) => void;
-}) {
+export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void }) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
   const copy = useBotTemplateCopy();
@@ -151,33 +135,7 @@ export function BotTemplatesDialog({
     );
   }
 
-  return (
-    <Dialog
-      open
-      onOpenChange={(next) => {
-        if (!next) onClose();
-      }}
-    >
-      <DialogContent
-        showCloseButton={false}
-        data-testid="bot-templates-dialog"
-        size="lg"
-        className="bg-card"
-      >
-        <DialogHeader className="flex-row items-start justify-between px-8 pt-7">
-          <DialogTitle className="text-heading2 text-foreground">
-            <Trans>Bot templates</Trans>
-          </DialogTitle>
-          <DialogClose
-            render={<Button variant="ghost" size="icon-sm" aria-label={t`Close bot templates`} />}
-          >
-            <X />
-          </DialogClose>
-        </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-8 pt-5 pb-8">{content()}</div>
-      </DialogContent>
-    </Dialog>
-  );
+  return <div data-testid="bot-templates">{content()}</div>;
 }
 
 function TemplateDetail({

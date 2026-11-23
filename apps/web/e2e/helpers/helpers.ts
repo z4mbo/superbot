@@ -34,7 +34,11 @@ export async function rpc<T>(page: Page, procedure: string, body: unknown): Prom
 }
 
 export async function completeOnboarding(page: Page, testInfo?: TestInfo) {
-  await page.waitForURL(/\/(onboarding|app)/, { timeout: 20_000 });
+  await page.waitForURL(/\/(workspaces|onboarding|app)/, { timeout: 20_000 });
+  if (new URL(page.url()).pathname === "/workspaces") {
+    if (testInfo) await captureScreenshot(page, testInfo, "02-workspaces");
+    await page.getByRole("button", { name: "Open Personal" }).click();
+  }
   // Optional Server integrations step (needsSetup). Skip when shown, then the
   // first bot is created automatically — land in Chief's chat with no form.
   const integrations = page.getByRole("heading", { name: "Server integrations", exact: true });
@@ -117,7 +121,7 @@ export async function refocus(page: Page) {
 
 /** Opens Integrations' add menu and picks one of its custom sources. */
 export async function openIntegrationsAdd(page: Page, item: string) {
-  const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Store", exact: true });
   await dialog.getByRole("button", { name: "Add custom", exact: true }).click();
   await page.getByRole("menuitem", { name: item, exact: true }).click();
 }
@@ -249,12 +253,20 @@ export async function openUserSettings(
 ) {
   // A reload keeps settings open because the URL holds them; closing clears the URL at once.
   if (!new URL(page.url()).searchParams.has("settings")) {
-    await page.getByTestId("user-menu-trigger").click();
-    // An open bot panel has its own Settings fold, so look only in the account menu.
-    await page
-      .locator('[data-slot="popover-content"]')
-      .getByRole("button", { name: "Settings", exact: true })
-      .click();
+    const footer = page.getByTestId("sidebar-footer");
+    const account = footer.getByTestId("user-menu-trigger");
+    const shortcut = footer.getByRole("button", { name: "Settings", exact: true });
+    await expect(account).toBeVisible();
+    if (await shortcut.isVisible()) {
+      await shortcut.click();
+    } else {
+      await account.click();
+      await page
+        .getByRole("dialog")
+        .filter({ has: page.getByTestId("account-menu-header") })
+        .getByRole("button", { name: "Settings", exact: true })
+        .click();
+    }
   }
   const settings = page.getByTestId("user-settings");
   await expect(settings).toBeVisible();

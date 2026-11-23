@@ -1,14 +1,21 @@
 import { readFileSync } from "node:fs";
+import type { Locator } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { completeOnboarding, signup } from "../helpers/helpers";
+import { captureScreenshot, completeOnboarding, signup } from "../helpers/helpers";
 
 // Cached public catalog artwork keeps visual coverage offline and repeatable.
-const apps = ["gmail", "notion", "github"];
 const catalogApps = ["gmail", "obscure-app", "notion", "github"];
 test.use({ deviceScaleFactor: 3 });
 
+async function expectLoadedLogo(logo: Locator) {
+  await logo.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => logo.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+}
+
 for (const theme of ["light", "dark"]) {
-  test(`familiar app suggestions share a plate and separating ring in ${theme}`, async ({
+  test(`opens the Store from the footer and renders catalog logos in ${theme}`, async ({
     page,
   }, testInfo) => {
     await page.addInitScript((theme) => localStorage.setItem("rakazo.uiAppearance", theme), theme);
@@ -32,7 +39,7 @@ for (const theme of ["light", "dark"]) {
             connectorId: "composio",
             slug,
             name: slug,
-            connected: false,
+            connected: slug === "github",
             noAuth: false,
             logo: `https://logos.composio.dev/api/${slug}`,
           })),
@@ -42,67 +49,41 @@ for (const theme of ["light", "dark"]) {
     await signup(page, `app-marks-${theme}-${Date.now()}@rakazo.test`, "password12", "Demo User");
     await completeOnboarding(page);
     const footer = page.getByTestId("sidebar-footer");
-    const pill = footer.getByRole("button", { name: "Connect apps", exact: true });
-    const tiles = pill.locator('span[aria-hidden="true"] > span');
-    await expect(tiles).toHaveCount(3);
-    const images = tiles.locator("img");
-    await expect(images).toHaveCount(apps.length);
-    for (const index of apps.keys()) {
-      await expect(images.nth(index)).toHaveAttribute(
-        "src",
-        `https://logos.composio.dev/api/${apps[index]}`,
-      );
-      await expect
-        .poll(() => images.nth(index).evaluate((el) => (el as HTMLImageElement).naturalWidth))
-        .toBeGreaterThan(0);
-    }
+    const store = footer.getByRole("button", { name: "Store", exact: true });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    await expect(store).toBeVisible();
+    await expect(footer.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
     for (const hover of [false, true]) {
-      if (hover) await pill.hover();
-      else await page.mouse.move(1000, 400);
-      // Button colors transition after pointer/theme changes; compare the settled surface.
-      await expect
-        .poll(() =>
-          pill.evaluate((el) => {
-            const tile = el.querySelector('span[aria-hidden="true"] > span')!;
-            return getComputedStyle(tile).boxShadow.includes(getComputedStyle(el).backgroundColor);
-          }),
-        )
-        .toBe(true);
-      const background = await pill.evaluate((el) => getComputedStyle(el).backgroundColor);
-      const boxes = await tiles.evaluateAll((els) =>
-        els.map((el) => {
-          const style = getComputedStyle(el);
-          const box = el.getBoundingClientRect();
-          return {
-            x: box.x,
-            y: box.y,
-            width: box.width,
-            height: box.height,
-            background: style.backgroundColor,
-            shadow: style.boxShadow,
-            padding: style.padding,
-            zIndex: style.zIndex,
-          };
-        }),
-      );
-      for (const [index, box] of boxes.entries()) {
-        expect(box).toMatchObject({
-          width: 24,
-          height: 24,
-          background: "rgb(255, 255, 255)",
-          padding: "4px",
-          zIndex: String(index),
-        });
-        expect(box.shadow).toContain(background);
-        expect(box.y).toBe(boxes[0]!.y);
-        if (index) expect(box.x - boxes[index - 1]!.x).toBe(22);
-      }
-      const path = testInfo.outputPath(`app-marks-${theme}${hover ? "-hover" : ""}.png`);
+      if (hover) await store.hover();
+      const name = `sidebar-footer-${theme}${hover ? "-hover" : ""}`;
+      const path = testInfo.outputPath(`${name}.png`);
       await footer.screenshot({ path, animations: "disabled" });
-      await testInfo.attach(`app-marks-${theme}${hover ? "-hover" : ""}`, {
-        path,
-        contentType: "image/png",
-      });
+      await testInfo.attach(name, { path, contentType: "image/png" });
     }
+
+    await store.click();
+    const dialog = page.getByRole("dialog", { name: "Store", exact: true });
+    await expect(dialog).toBeVisible();
+    const connected = dialog.getByRole("button", { name: "1 connected", exact: true });
+    await expectLoadedLogo(connected.locator('img[src="https://logos.composio.dev/api/github"]'));
+    const connectedLogo = dialog
+      .getByTestId("connected-now")
+      .getByRole("button", { name: "github", exact: true })
+      .locator("img");
+    await expect(connectedLogo).toHaveAttribute("src", "https://logos.composio.dev/api/github");
+    await expectLoadedLogo(connectedLogo);
+    await captureScreenshot(page, testInfo, `store-connected-app-marks-${theme}`);
+
+    const search = dialog.getByRole("textbox", { name: "Search apps", exact: true });
+    for (const app of ["gmail", "notion", "obscure-app"]) {
+      await search.fill(app);
+      await expectLoadedLogo(dialog.locator(`img[src="https://logos.composio.dev/api/${app}"]`));
+    }
+
+    await dialog.getByRole("button", { name: "Close store", exact: true }).click();
+    const composer = page.getByRole("combobox", { name: "Message Chief" });
+    await composer.fill("@gmail");
+    await page.getByRole("option", { name: "@gmail", exact: true }).click();
+    await expect(page.getByTestId("mention-chip").filter({ hasText: "@gmail" })).toBeVisible();
   });
 }

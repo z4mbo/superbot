@@ -641,7 +641,7 @@ export class StoredMcpOAuthProvider implements OAuthClientProvider {
       : registrationAuthMethod(this.material.oauth?.discoveryState);
     return {
       redirect_uris: [redirectUri],
-      client_name: "Rakazo",
+      client_name: "Superbot",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       ...(authMethod ? { token_endpoint_auth_method: authMethod } : {}),
@@ -1066,7 +1066,7 @@ async function startRemoteAuthorization(
     authProvider: provider,
     fetch: provider.wrapFetch(network.fetch),
   });
-  const client = new Client({ name: "rakazo-oauth", version: "0.1.0" });
+  const client = new Client({ name: "superbot-oauth", version: "0.1.0" });
   const signal = AbortSignal.timeout(15_000);
   try {
     await client.connect(transport, { signal, timeout: 15_000 });

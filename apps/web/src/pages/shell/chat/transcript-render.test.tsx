@@ -16,14 +16,20 @@ vi.mock("./message-view", async () => {
     MessageView: memo(function MessageView({
       message,
       separateAnswers,
+      joinAbove,
+      joinBelow,
     }: {
       message: { id: string };
       separateAnswers?: ReadonlySet<MessageBlock>;
+      joinAbove?: boolean;
+      joinBelow?: boolean;
     }) {
       messageRenders.set(message.id, (messageRenders.get(message.id) ?? 0) + 1);
       return createElement("div", {
         "data-testid": `message-${message.id}`,
         "data-separate-answer": separateAnswers ? "linked" : undefined,
+        "data-join-above": joinAbove ? "true" : undefined,
+        "data-join-below": joinBelow ? "true" : undefined,
       });
     }),
   };
@@ -69,7 +75,15 @@ function message(id: string, text: string): ThreadMessage {
   };
 }
 
-function Host({ messages }: { messages: ThreadMessage[] }) {
+function Host({
+  messages,
+  userBubble,
+  meId,
+}: {
+  messages: ThreadMessage[];
+  userBubble?: { background: string; foreground: string };
+  meId?: string;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const artifactTarget = useMemo(() => ({ botId: "bot" }), []);
   const none = useMemo(() => new Set<string>(), []);
@@ -94,6 +108,8 @@ function Host({ messages }: { messages: ThreadMessage[] }) {
         markerOf: new Map(),
         mergedInto: new Map(),
       }}
+      userBubble={userBubble}
+      meId={meId}
       showToolActivity={false}
       olderCursor={null}
       unreadAfterSeq={null}
@@ -124,6 +140,55 @@ function Host({ messages }: { messages: ThreadMessage[] }) {
     />
   );
 }
+
+it("uses the bot tint as the fallback for each transcript color", () => {
+  const userBubble = { background: "#9C47E9", foreground: "#FFFFFF" };
+  act(() => root.render(<Host messages={[message("bot", "Hello")]} userBubble={userBubble} />));
+  const scroll = container.querySelector<HTMLElement>(".rk-scroll");
+  expect(scroll?.style.getPropertyValue("--chat-user")).toBe(
+    "var(--chat-user-theme-background, #9C47E9)",
+  );
+  expect(scroll?.style.getPropertyValue("--chat-user-foreground")).toBe(
+    "var(--chat-user-theme-foreground, #FFFFFF)",
+  );
+});
+
+it("gives another member the start-side frame width and keeps my messages at the end", () => {
+  const own = { ...message("own", "My message"), role: "user" as const };
+  const other = { ...own, id: "other", author: { id: "member", name: "Ana" } };
+  act(() => root.render(<Host messages={[own, other]} meId="me" />));
+
+  const ownFrame = container.querySelector(
+    '[data-message-id="own"] [data-testid="message-bubble-frame"]',
+  );
+  const otherFrame = container.querySelector(
+    '[data-message-id="other"] [data-testid="message-bubble-frame"]',
+  );
+  expect(ownFrame?.parentElement?.classList).toContain("justify-end");
+  expect(ownFrame?.className).toContain("84%");
+  expect(otherFrame?.parentElement?.classList).toContain("justify-start");
+  expect(otherFrame?.className).toContain("88%");
+});
+
+it("joins consecutive bot rows and keeps the full gap on a sender change or time separator", () => {
+  const first = { ...message("first", "First"), botId: "helper" };
+  const middle = { ...first, id: "middle", seq: 2 };
+  const last = { ...first, id: "last", seq: 3 };
+  const own = { ...message("own", "My message"), role: "user" as const, seq: 4 };
+  const later = { ...first, id: "later", seq: 5 };
+  const nextDay = { ...later, id: "next-day", seq: 6, createdAt: "2026-10-31T12:00:00.000Z" };
+  act(() => root.render(<Host messages={[first, middle, last, own, later, nextDay]} />));
+
+  const row = (id: string) => container.querySelector(`[data-message-id="${id}"]`)!;
+  for (const id of ["middle", "last"]) expect(row(id).classList).toContain("-mt-3");
+  for (const id of ["first", "own", "later", "next-day"]) {
+    expect(row(id).classList).not.toContain("-mt-3");
+  }
+  expect(
+    row("middle").querySelector('[data-join-above="true"][data-join-below="true"]'),
+  ).not.toBeNull();
+  expect(row("later").querySelector("[data-join-below]")).toBeNull();
+});
 
 it.each([false, true])(
   "leaves an unchanged message unrendered when a later one updates (mentions: %s)",

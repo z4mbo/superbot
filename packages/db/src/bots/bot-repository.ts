@@ -82,6 +82,8 @@ function mapBot(
     instructionHistory?: unknown;
     color: string;
     avatarSet?: string;
+    lookShape?: string | null;
+    lookColor?: string | null;
     notifyOnFinish: boolean;
     pinned: boolean;
     sectionId: string | null;
@@ -126,6 +128,8 @@ function mapBot(
     instructionHistory: InstructionVersionSchema.array().parse(bot.instructionHistory ?? []),
     color: bot.color,
     avatarSet: resolveBotAvatarSet(bot.avatarSet),
+    lookShape: bot.lookShape ?? null,
+    lookColor: bot.lookColor ?? null,
     notifyOnFinish: bot.notifyOnFinish,
     pinned: bot.pinned,
     sectionId: bot.sectionId,
@@ -195,6 +199,8 @@ export function createRepos(
         name: true,
         color: true,
         avatarSet: true,
+        lookShape: true,
+        lookColor: true,
         notifyOnFinish: true,
         pinned: true,
         sectionId: true,
@@ -216,6 +222,8 @@ export function createRepos(
         title: "",
         color: bot.color,
         avatarSet: resolveBotAvatarSet(bot.avatarSet),
+        lookShape: bot.lookShape,
+        lookColor: bot.lookColor,
         notifyOnFinish: bot.notifyOnFinish,
         pinned: bot.pinned,
         sectionId: bot.sectionId,

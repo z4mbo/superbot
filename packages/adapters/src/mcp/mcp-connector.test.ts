@@ -2132,6 +2132,50 @@ describe("MCP connector session cache", () => {
     await connector.close();
   });
 
+  it("sends the signed-in OAuth token to an explicitly configured localhost HTTP server", async () => {
+    const state = { failNext: false, initializations: 0, headers: [] as Record<string, string>[] };
+    const localAssignment = {
+      ...ASSIGNMENT,
+      server: { ...SERVER, endpoint: "http://localhost:8123/api/mcp", secretId: "secret-1" },
+    };
+    vi.stubGlobal("fetch", mcpFetch(state, "http://localhost:8123/api/mcp"));
+    const prisma = {
+      mcpServer: NO_SHARED_SERVERS,
+      botMcpServer: { findMany: vi.fn().mockResolvedValue([localAssignment]) },
+      secret: { findFirst: vi.fn().mockResolvedValue({ id: "secret-1", ciphertext: "encrypted" }) },
+      deploymentSettings: { findUnique: vi.fn(async () => ({ ownerUserId: "u1" })) },
+    };
+    const oauth = {
+      providerFor: vi.fn(
+        async (_server: unknown, _context: unknown, loaded: { material: OAuthMaterial }) =>
+          new StoredMcpOAuthProvider("server-1", loaded.material, async () => undefined),
+      ),
+    };
+    const connector = new McpConnector(
+      prisma as never,
+      {
+        load: vi.fn().mockReturnValue(
+          JSON.stringify({
+            oauth: { tokens: { access_token: "local-oauth-token", token_type: "Bearer" } },
+          }),
+        ),
+      } as never,
+      { allowPrivateEndpoint: true },
+      oauth as unknown as McpOAuthBroker,
+    );
+
+    await connector.discoverTools({
+      spaceId: "w1",
+      userId: "u1",
+      botId: "bot-1",
+      signal: new AbortController().signal,
+    } as never);
+
+    expect(oauth.providerFor).toHaveBeenCalled();
+    expect(state.headers[0]?.authorization).toBe("Bearer local-oauth-token");
+    await connector.close();
+  });
+
   it("evicts a session after a failed call so the next call reconnects instead of reusing a dead session", async () => {
     const state = { failNext: false, initializations: 0 };
     vi.stubGlobal("fetch", mcpFetch(state));

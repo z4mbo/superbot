@@ -2,7 +2,7 @@ import { ph, t } from "@lingui/core/macro";
 import type { ComputerMode, ComputerStatus as ContractComputerStatus } from "@rakazo/contracts";
 import { isLocalhostOrLoopbackIp, isPrivateNetworkHost } from "@rakazo/contracts";
 import type { ScreenPageState } from "@rakazo/core";
-import { isRetryableError, SCREEN_PAGE_STATES } from "@rakazo/core";
+import { isRetryableError, SCREEN_PAGE_STATES, SCREEN_PROBE_PARAM } from "@rakazo/core";
 
 /**
  * Computer lifecycle calls create, start or stop a container (booting, switching between the
@@ -18,15 +18,21 @@ export const SCREEN_URL_RETRY_DELAY_MS = 400;
 export const SCREEN_URL_RENEW_MS = 50 * 60_000;
 
 export type ComputerStatus = ContractComputerStatus;
+export type ScreenLink = {
+  url: string;
+  nativeSession?: { credential: string; refreshAt: number };
+  controlLeaseId?: string;
+};
+const SCREEN_SESSION_REFRESH_MS = 110_000;
 
 export async function readScreenUrl(
-  request: () => Promise<{ url: string | null }>,
+  request: () => Promise<{ url: string | null; screenSession?: string }>,
   options: {
     attempts?: number;
     delayMs?: number;
     sleep?: (ms: number) => Promise<void>;
   } = {},
-): Promise<string | null> {
+): Promise<ScreenLink | null> {
   const attempts = Math.max(1, options.attempts ?? 1);
   const delayMs = options.delayMs ?? SCREEN_URL_RETRY_DELAY_MS;
   const sleep =
@@ -34,8 +40,19 @@ export async function readScreenUrl(
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
+      const requestedAt = Date.now();
       const screen = await request();
-      if (screen.url) return screen.url;
+      if (screen.url) {
+        return screen.screenSession
+          ? {
+              url: screen.url,
+              nativeSession: {
+                credential: screen.screenSession,
+                refreshAt: requestedAt + SCREEN_SESSION_REFRESH_MS,
+              },
+            }
+          : { url: screen.url };
+      }
       lastError = undefined;
     } catch (error) {
       // A refused read (403, 404, 426...) will not change on the next attempt.
@@ -46,6 +63,39 @@ export async function readScreenUrl(
   }
   if (lastError) throw lastError;
   return null;
+}
+
+export const SCREEN_SESSION_HEADER = "X-Rakazo-Screen-Session";
+
+export function isTrustedScreenDocument(url: string | null, apiBase: string): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return (
+      (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+      parsed.origin === new URL(apiBase).origin &&
+      !parsed.username &&
+      !parsed.password &&
+      /^\/novnc\/session\/(?:view|control)\/\d+\.[\w-]+\//.test(parsed.pathname) &&
+      !parsed.pathname.endsWith("/websockify") &&
+      !parsed.searchParams.has(SCREEN_PROBE_PARAM)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function embeddableScreenLink(
+  screen: ScreenLink | null,
+  apiBase: string,
+): ScreenLink | null {
+  const url = embeddableScreenUrl(screen?.url ?? null, apiBase);
+  if (!screen || !url) return null;
+  const nativeSession =
+    screen.nativeSession && isTrustedScreenDocument(screen.url, apiBase)
+      ? screen.nativeSession
+      : undefined;
+  return { ...screen, url, nativeSession };
 }
 
 /** Point a loopback noVNC URL at the same host the app uses for the API. */
@@ -155,19 +205,22 @@ export function retainScreenSource(held: string, next: string, now = Date.now())
 }
 
 /**
- * URL the screen WebView should keep. A visible page ignores a same-stream capability
- * refresh, so the keyboard bridge stays attached to the document that is already loaded.
- * A hidden screen forgets the held URL and the next open loads the current capability.
+ * Keep the credential paired with its document across incidental capability refreshes.
  */
-export function nextLoadedScreenUrl(
-  held: string | null,
-  next: string | null,
-  visible: boolean,
+export function retainScreenLink(
+  held: ScreenLink | null,
+  next: ScreenLink | null,
   now = Date.now(),
-): string | null {
-  if (!visible || !next) return null;
-  if (!held) return next;
-  return retainScreenSource(held, next, now);
+): ScreenLink | null {
+  if (
+    !held ||
+    !next ||
+    Boolean(held.nativeSession) !== Boolean(next.nativeSession) ||
+    (next.nativeSession && held.controlLeaseId !== next.controlLeaseId)
+  ) {
+    return next;
+  }
+  return retainScreenSource(held.url, next.url, now) === held.url ? held : next;
 }
 
 export function controlLabel(computer: ComputerStatus | null, name: string) {

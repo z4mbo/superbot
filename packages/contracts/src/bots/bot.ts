@@ -28,6 +28,9 @@ export const InstructionVersionSchema = z.object({
   createdAt: z.string(),
 });
 
+/** A pack's name for an avatar shape or colour. */
+export const BotLookName = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/);
+
 export const BotSchema = z.object({
   meetingsEnabled: z.boolean().optional(),
   id: Id,
@@ -40,6 +43,10 @@ export const BotSchema = z.object({
   instructionHistory: z.array(InstructionVersionSchema).optional(),
   color: z.string(),
   avatarSet: BotAvatarSetSchema.optional(),
+  /** Avatar shape and colour a person picked, by the names avatar packs use. A client draws a name
+   * its pack lacks as if nothing were picked. Older servers omit them. */
+  lookShape: z.string().nullable().optional(),
+  lookColor: z.string().nullable().optional(),
   notifyOnFinish: z.boolean(),
   pinned: z.boolean(),
   sectionId: Id.nullable(),
@@ -157,6 +164,10 @@ export const UpdateBotInput = z
     notifyOnFinish: z.boolean().optional(),
     color: BotAvatarValueSchema.optional(),
     avatarSet: BotAvatarSetSchema.optional(),
+    /** Avatar shape picked for this bot by its pack name; null clears the pick. */
+    lookShape: BotLookName.nullable().optional(),
+    /** Avatar colour picked for this bot by its pack name; null clears the pick. */
+    lookColor: BotLookName.nullable().optional(),
     pinned: z.boolean().optional(),
     memoryScope: MemoryScopeSchema.nullable().optional(),
     sectionId: Id.nullable().optional(),

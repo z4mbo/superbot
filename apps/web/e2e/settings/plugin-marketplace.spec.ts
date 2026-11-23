@@ -34,14 +34,16 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
     return route.fulfill({ status: 302, headers: { location: redirect.toString() } });
   });
 
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
+  await page.getByRole("button", { name: "Store", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Store", exact: true });
+  // Apps lists services; plugin packages are installed from Plugins.
+  await expect(dialog.getByText("Planning Notes", { exact: true })).toHaveCount(0);
+  await dialog.getByTestId("store-plugins").click();
   const section = dialog.getByTestId("plugin-section").filter({ hasText: "Productivity" });
   await expect(section.getByText("Planning Notes", { exact: true })).toBeVisible();
-  // A skill pack has nothing to connect, so it is offered under Skills instead.
-  await expect(dialog.getByText("Review Kit", { exact: true })).toHaveCount(0);
+  await expect(dialog.getByText("Review Kit", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "integrations-plugins");
-  await dialog.getByRole("textbox", { name: "Search apps", exact: true }).fill("planning");
+  await dialog.getByRole("textbox", { name: "Search plugins", exact: true }).fill("planning");
   const row = dialog.getByTestId("plugin-results").getByTestId("plugin-row");
   await expect(row).toHaveCount(1);
   await captureScreenshot(page, testInfo, "integrations-plugin-search");
@@ -103,9 +105,9 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
   );
   await captureScreenshot(page, testInfo, "integrations-plugin-connected");
 
-  await dialog.getByRole("button", { name: "Close integrations", exact: true }).click();
+  await dialog.getByRole("button", { name: "Close store", exact: true }).click();
   await page.reload();
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await dialog.getByRole("button", { name: /^\d+ connected$/ }).click();
   const apps = dialog.getByTestId("connected-apps").getByTestId("installed-plugin");
   await expect(apps).toContainText("Planning Notes");
@@ -136,7 +138,7 @@ test("shows directly registered MCP servers in Integrations without catalog conn
   await completeOnboarding(page);
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await openIntegrationsAdd(page, "Manage MCP servers");
   await expect(page.getByRole("textbox", { name: "Server name", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close MCP servers", exact: true }).click();
@@ -210,7 +212,7 @@ test("shows directly registered MCP servers in Integrations without catalog conn
     );
     await route.fulfill({ response, json: { ...body, json: [...body.json, ...plugins] } });
   });
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   // Of six saved servers and three plugins, only Dropbox is connected: Docs has a failing
   // server. The plugin rows show once installs have loaded, so the count is read after that.
   await page.getByRole("button", { name: /^\d+ connected$/ }).click();
@@ -263,14 +265,14 @@ test("shows directly registered MCP servers in Integrations without catalog conn
   phase = "all";
   await page.getByRole("button", { name: "Close MCP servers", exact: true }).click();
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await expect(page.getByRole("button", { name: "2 connected", exact: true })).toBeVisible();
   await expect(marks("2 connected")).toHaveText("D");
-  await page.getByRole("button", { name: "Close integrations", exact: true }).click();
+  await page.getByRole("button", { name: "Close store", exact: true }).click();
 
   // With nothing connected, the count still opens the saved apps.
   phase = "down";
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await expect(marks("0 connected")).toHaveText("");
   await page.getByRole("button", { name: "0 connected", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your apps", exact: true })).toBeVisible();
@@ -330,10 +332,12 @@ test("integration fallback icons preserve non-BMP initials", async ({ page }, te
   );
   await signup(page, `unicode-icons-${Date.now()}@rakazo.test`, "password12", "Unicode Icons");
   await completeOnboarding(page);
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
+  await page.getByRole("button", { name: "Store", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Store", exact: true });
+  await dialog.getByTestId("store-plugins").click();
   await expect(dialog.getByText("🦞", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "integrations-unicode-plugin");
+  await dialog.getByTestId("store-apps").click();
   const connected = dialog.getByRole("button", { name: /^\d+ connected$/ });
   await expect(connected.locator("span[aria-hidden] .place-items-center")).toHaveText("𠮷");
   await connected.click();
@@ -373,8 +377,8 @@ test("an app that is also a chat app here leads to messaging settings", async ({
   );
   await signup(page, `chat-app-hint-${Date.now()}@rakazo.test`, "password12", "Chat App Hint");
   await completeOnboarding(page);
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Integrations", exact: true });
+  await page.getByRole("button", { name: "Store", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Store", exact: true });
   const hint = dialog.getByTestId("chat-app-hint");
   await expect(hint).toHaveCount(1);
   await expect(hint).toHaveText("Tools for your bot.Chat from Chatty");

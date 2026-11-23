@@ -112,17 +112,25 @@ function rerenderComposer(overrides: Partial<ComponentProps<typeof Composer>>) {
   act(() => root?.render(<Composer {...composerProps} />));
 }
 
-it("colors the send button like the bot's user bubbles", () => {
+it("keeps the Send button tinted when the theme overrides transcript colors", () => {
   renderComposer(async () => true, {
     sendColors: { background: "#9C47E9", foreground: "#FFFFFF" },
   });
+  container?.style.setProperty("--chat-user-theme-background", "#5A5A5A");
+  container?.style.setProperty("--chat-user-theme-foreground", "#F5F5F5");
   const send = () => container?.querySelector<HTMLButtonElement>('button[aria-label="Send"]');
   expect(send()?.style.getPropertyValue("--chat-user")).toBe("#9C47E9");
+  expect(send()?.style.getPropertyValue("--chat-user-foreground")).toBe("#FFFFFF");
   expect(send()?.className).toContain("bg-chat-user");
 
   rerenderComposer({ sendColors: undefined });
   expect(send()?.style.getPropertyValue("--chat-user")).toBe("");
   expect(send()?.className).not.toContain("bg-chat-user");
+});
+
+it("uses the shared secondary text color for the empty composer placeholder", () => {
+  const textarea = renderComposer(async () => true);
+  expect(textarea.classList.contains("placeholder:text-muted-foreground")).toBe(true);
 });
 
 it("shows a readable run error with raw details, while preserving send errors", () => {

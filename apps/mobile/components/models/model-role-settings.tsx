@@ -162,7 +162,7 @@ export function ModelRoleSettings({
   /** The row's own connection, or the provider's newest for rows that name none. */
   const connectionFor = (choice: ModelRoleChoice) => connectionForModelChoice(credentials, choice);
   const connectionName = (choice: ModelRoleChoice) => {
-    if (choice.creditOfferingId) return t`Rakazo credits`;
+    if (choice.creditOfferingId) return t`Superbot credits`;
     const connection = choice.credentialId ? connectionFor(choice) : undefined;
     return connection
       ? connectionDisplayName(connection, providerName(choice))
@@ -286,10 +286,10 @@ export function ModelRoleSettings({
             key: modelRoleChoiceKey(option),
             label: withConnectionName(
               option.label,
-              option.creditOfferingId ? t`Rakazo credits` : option.connectionName,
+              option.creditOfferingId ? t`Superbot credits` : option.connectionName,
             ),
             modelLabel: option.label,
-            providerLabel: option.creditOfferingId ? t`Rakazo credits` : option.connectionName,
+            providerLabel: option.creditOfferingId ? t`Superbot credits` : option.connectionName,
             provider: option.provider,
             modelId: option.modelId,
           })),

@@ -11,7 +11,7 @@ import {
   isAttachmentArchiveMimeType,
   isAttachmentAudioMimeType,
   isStepScreenshotMimeType,
-  STEP_SCREENSHOT_MIME_TYPES,
+  MCP_APP_MIME_TYPE,
 } from "@rakazo/contracts";
 import {
   AttachmentValidationError,
@@ -30,6 +30,7 @@ import {
   HIDDEN_ARTIFACT_MIME_TYPES,
   IsolationError,
   isRecordNotFound,
+  LISTED_ARTIFACT,
   Prisma,
   withResolvedArtifactVersion,
 } from "@rakazo/db";
@@ -284,7 +285,7 @@ export async function getOwnedArtifact(
     artifacts: ArtifactStore;
   },
   actor: Actor,
-  input: { botId: string; artifactId: string },
+  input: { botId: string; artifactId: string; threadId?: string },
 ) {
   const row = await deps.prisma.artifact.findFirst({
     where: {
@@ -295,6 +296,9 @@ export async function getOwnedArtifact(
     },
   });
   if (!row) throw new IsolationError();
+  if (row.mimeType === MCP_APP_MIME_TYPE) {
+    await requireMcpAppCard(deps.prisma, actor, row.id, input.threadId);
+  }
   return readArtifact(deps.artifacts, actor, row, input.botId);
 }
 
@@ -304,7 +308,7 @@ export async function getSpaceArtifact(
     artifacts: ArtifactStore;
   },
   actor: Actor,
-  input: { artifactId: string; groupId: string; contextBotId: string },
+  input: { artifactId: string; groupId: string; contextBotId: string; threadId?: string },
 ) {
   const row = await deps.prisma.artifact.findFirst({
     where: {
@@ -314,7 +318,29 @@ export async function getSpaceArtifact(
     },
   });
   if (!row) throw new IsolationError();
+  if (row.mimeType === MCP_APP_MIME_TYPE) {
+    await requireMcpAppCard(deps.prisma, actor, row.id, input.threadId);
+  }
   return readArtifact(deps.artifacts, actor, row, input.contextBotId);
+}
+
+async function requireMcpAppCard(
+  prisma: PrismaClient,
+  actor: Actor,
+  artifactId: string,
+  threadId: string | undefined,
+) {
+  if (!threadId) throw new IsolationError();
+  const card = await prisma.message.findFirst({
+    where: {
+      threadId,
+      thread: { spaceId: actor.spaceId },
+      role: "bot",
+      blocks: { array_contains: [{ kind: "app", artifactId }] },
+    },
+    select: { id: true },
+  });
+  if (!card) throw new IsolationError();
 }
 
 // Trace with the row's own bot; space and user authorize the read.
@@ -330,6 +356,7 @@ export async function getSpaceArtifactById(
     where: {
       id: input.artifactId,
       spaceId: actor.spaceId,
+      ...LISTED_ARTIFACT,
     },
   });
   if (!row) throw new IsolationError();
@@ -540,16 +567,13 @@ export async function listSpaceArtifacts(
   };
 }
 
-const NOT_STEP_SCREENSHOT = { mimeType: { notIn: STEP_SCREENSHOT_MIME_TYPES } };
-
 export async function listArtifactVersions(
   deps: { prisma: Pick<PrismaClient, "artifact"> },
   actor: Actor,
   input: { familyId: string },
 ) {
   const anchor = await deps.prisma.artifact.findFirst({
-    // A reply's kept screenshot is the bot's own, not a file a person manages.
-    where: { id: input.familyId, spaceId: actor.spaceId, ...NOT_STEP_SCREENSHOT },
+    where: { id: input.familyId, spaceId: actor.spaceId, ...LISTED_ARTIFACT },
     select: { id: true, rootArtifactId: true },
   });
   if (!anchor) throw new IsolationError();
@@ -578,7 +602,7 @@ export async function deleteArtifactFamily(
   input: { familyId: string },
 ) {
   const anchor = await deps.prisma.artifact.findFirst({
-    where: { id: input.familyId, spaceId: actor.spaceId, ...NOT_STEP_SCREENSHOT },
+    where: { id: input.familyId, spaceId: actor.spaceId, ...LISTED_ARTIFACT },
     select: { id: true, rootArtifactId: true, botId: true },
   });
   if (!anchor) throw new IsolationError();
@@ -731,6 +755,7 @@ export async function resolveSendAttachments(
       botId,
       groupId: null,
       spaceId: actor.spaceId,
+      ...LISTED_ARTIFACT,
     },
   });
   return toAttachmentResolution(ids, rows);
@@ -750,6 +775,7 @@ export async function resolveGroupSendAttachments(
     where: {
       id: { in: ids },
       spaceId: actor.spaceId,
+      ...LISTED_ARTIFACT,
       OR: [
         { groupId },
         // Uploads from before group ownership was stored, still tied to a current member.

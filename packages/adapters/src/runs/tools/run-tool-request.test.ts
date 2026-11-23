@@ -17,7 +17,7 @@ function ownBotUpdateCall() {
         bot: {
           findUnique: async () => ({
             fleetManagement: true,
-            modelProvider: "openrouter",
+            modelProvider: "fixture-provider",
             modelId: "current-model",
           }),
           findUniqueOrThrow: async () => ({ instructions: "" }),
@@ -75,6 +75,52 @@ describe("prepareToolRequest: update_bot owner settings after outside content", 
     for (let index = 0; index < 3; index += 1) {
       await expect(prepareToolRequest(ctx as never, request())).resolves.toBeUndefined();
     }
+  });
+});
+
+describe("prepareToolRequest: spawn_bot", () => {
+  it.each([true, false])(
+    "rechecks fleet management on every call (owner run: %s)",
+    async (ownerStartedRun) => {
+      const { ctx: fixture, request } = ownBotUpdateCall();
+      const findUnique = vi.fn(async () => ({ fleetManagement: true }));
+      const ctx = {
+        ...fixture,
+        source: { ownerStartedRun },
+        deps: { prisma: { bot: { findUnique } } },
+      };
+      const spawn = () => ({ ...request(), name: "spawn_bot", args: { name: "Scout" } });
+      const allowed = spawn();
+      await expect(prepareToolRequest(ctx as never, allowed)).resolves.toBeUndefined();
+      expect(allowed.heldForApproval).toBe(false);
+      expect(allowed.fleetSummary).toBeUndefined();
+
+      findUnique.mockResolvedValueOnce({ fleetManagement: false });
+      await expect(prepareToolRequest(ctx as never, spawn())).resolves.toEqual({
+        error: "spawn_bot is turned off for this bot.",
+      });
+      expect(findUnique).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([
+    { trigger: "messaging", messagingChannelRun: true, claimed: false },
+    { trigger: "user", messagingChannelRun: false, claimed: true },
+  ])("requires approval for bot creation after channel content ($trigger)", async (source) => {
+    const { ctx, request } = ownBotUpdateCall();
+    const spawn = { ...request(), name: "spawn_bot", args: { name: "Scout" } };
+    await expect(
+      prepareToolRequest(
+        {
+          ...ctx,
+          run: { ...ctx.run, trigger: source.trigger },
+          source: { ...ctx.source, messagingChannelRun: source.messagingChannelRun },
+          trust: { ...ctx.trust, receivedOutsideMessage: async () => source.claimed },
+        } as never,
+        spawn,
+      ),
+    ).resolves.toBeUndefined();
+    expect(spawn).toMatchObject({ heldForApproval: true, ignoresAllowRules: true });
   });
 });
 

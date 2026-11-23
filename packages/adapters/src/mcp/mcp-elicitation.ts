@@ -425,7 +425,7 @@ export function mcpClientCapabilities(elicitation: boolean): ClientCapabilities 
 /** A client for a remote server: it shows apps, and with a router it may be asked questions. */
 export function newRemoteMcpClient(router?: McpElicitationRouter): Client {
   const client = createMcpClient(
-    { name: "rakazo", version: "0.1.0" },
+    { name: "superbot", version: "0.1.0" },
     { capabilities: mcpClientCapabilities(router !== undefined) },
   );
   router?.install(client);

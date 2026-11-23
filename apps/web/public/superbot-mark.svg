@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="t">
+  <!-- Adapted from OpenMausBot public/app-icon.svg. Copyright 2026 Milind Soni and OpenMausBot contributors. Apache License 2.0; see NOTICE.txt. -->
+  <title id="t">Superbot</title>
+  <defs>
+    <clipPath id="tile">
+      <path d="M69 0h118c46 0 69 23 69 69v118c0 46-23 69-69 69H69c-46 0-69-23-69-69V69C0 23 23 0 69 0Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="256" height="256"/>
+    <circle cx="128" cy="224" r="184" fill="#fff"/>
+    <rect x="81" y="96" width="30" height="64" rx="15"/>
+    <rect x="145" y="96" width="30" height="64" rx="15"/>
+  </g>
+</svg>

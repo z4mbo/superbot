@@ -58,7 +58,7 @@ export function InvitePage() {
 
   function openSpace(spaceId: string) {
     selectSpace(spaceId);
-    navigate("/app", { replace: true });
+    navigate("/workspaces", { replace: true, state: { joinedSpaceId: spaceId } });
   }
 
   async function join(event: React.FormEvent) {
@@ -97,11 +97,11 @@ export function InvitePage() {
         onSubmit={(event) => {
           event.preventDefault();
           if (state.kind === "error") setAttempt((value) => value + 1);
-          else navigate("/app", { replace: true });
+          else navigate("/workspaces", { replace: true });
         }}
       >
         <Button type="submit" size="xl" className={submitClass}>
-          {state.kind === "invalid" ? <Trans>Open Rakazo</Trans> : <Trans>Retry</Trans>}
+          {state.kind === "invalid" ? <Trans>Open workspaces</Trans> : <Trans>Retry</Trans>}
         </Button>
       </AuthFrame>
     );

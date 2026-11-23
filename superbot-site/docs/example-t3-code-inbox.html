@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Example: T3 Code inbox</title>
+  <meta name="description" content="Bots propose coding requests in two Superbot record apps; a person reviews each one and starts it as a Supervised thread in T3 Code.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">T3 Code inbox
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html" aria-current="page">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Examples</div>
+      <h1>Example: T3 Code inbox</h1>
+      <p class="lede">Bots write coding requests into a record app. You read each request, pick a T3 Code project and start it there yourself. Nothing reaches T3 Code until you choose to start it.</p>
+
+      <div class="note" role="note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <div><p>This example uses the same parts as any plugin: two record apps and a skill. The connection to T3 Code is not part of the plugin. It runs on your computer, in the desktop app or a command-line companion, after you approve it.</p></div>
+      </div>
+
+      <h2 id="what">What you'll learn</h2>
+      <ul>
+        <li>How several app parts and a skill split a job between bots and people.</li>
+        <li>Why a part a bot should never write stays ungranted.</li>
+        <li>How retries stay safe when a local program writes records through the <a href="api.html#records">registry API</a>.</li>
+      </ul>
+
+      <h2 id="requirements">Requirements</h2>
+      <ul>
+        <li>A Superbot server where the <b>T3 Code inbox</b> is in <b>Discover</b>. A server publishes the bundled inbox, slug <code>t3-code-inbox</code>, unless another publisher already holds that slug.</li>
+        <li>T3 Code on your computer or reachable over HTTPS, with its MCP address from <b>Use T3 Code in another app (MCP)</b>.</li>
+        <li>For the desktop path, the Superbot desktop app. For the terminal path, a Superbot checkout with Node.js and the workspace dependencies installed.</li>
+      </ul>
+
+      <h2 id="manifest">The manifest</h2>
+      <p>The repository keeps it in <code>examples/plugins/t3-coding/manifest.json</code>. It is the same manifest the server publishes.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Part</th><th scope="col">Kind</th><th scope="col">Fields or content</th><th scope="col">Who uses it</th></tr></thead>
+          <tbody>
+            <tr><td><code>requests</code></td><td class="muted">app</td><td class="muted"><code>title</code>, <code>brief</code> (text, required)</td><td class="muted">Bots propose; people read and add</td></tr>
+            <tr><td><code>dispatches</code></td><td class="muted">app</td><td class="muted"><code>request-id</code>, <code>thread-id</code>, <code>run-id</code>, <code>thread-link</code>, <code>status</code> (text, required)</td><td class="muted">Receipts written for the operator. Keep it ungranted</td></tr>
+            <tr><td><code>request-guide</code></td><td class="muted">skill</td><td class="muted">How to write a short title and a self-contained brief, with no credentials</td><td class="muted">Bots</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="install">Step 1: Install and grant</h2>
+      <ol class="steps">
+        <li>In <b>Store → Plugins → Discover</b>, install <b>T3 Code inbox</b> in the Space where bots should propose work.</li>
+        <li>On its page, grant <b>Requests</b> and <b>Request guide</b> to each bot that proposes requests. Leave <b>Dispatches</b> off for every bot, so only you write receipts.</li>
+        <li>Ask the bot to propose a coding request. Check the title and brief on the approval card and choose <b>Allow once</b>. You can also add a request yourself in the Requests app.</li>
+      </ol>
+
+      <h2 id="desktop">Step 2: Start a request from the desktop app</h2>
+      <ol class="steps">
+        <li>Open <b>Store → Plugins → Installed → T3 Code inbox</b>.</li>
+        <li>Paste T3's MCP address and choose <b>Connect T3</b>. It must be an <code>https://</code> address ending in <code>/mcp</code>, or <code>http://127.0.0.1:PORT/mcp</code> on this computer. In the T3 page that opens, check that the client is <b>Superbot T3 Code inbox</b> and that the callback is on <code>127.0.0.1</code>, choose <b>Supervised</b> and approve.</li>
+        <li>Under <b>Start in</b>, choose the T3 project. Open a request to read its full brief, choose <b>Start in T3</b>, check the project and choose <b>Start</b>.</li>
+        <li>The request shows <b>Started</b>. Use <b>Open in T3</b> to follow the thread and answer its approvals in T3 Code.</li>
+      </ol>
+      <p>T3 Code runs the thread in Supervised mode with the project's default model and workspace settings. Only the request's title and brief are sent. The T3 token stays in your system credential store, and <b>Disconnect</b> removes it from this computer.</p>
+      <p>The special view opens only for the bundled inbox, version <code>superbot-t3-code-inbox-v1</code>. A plugin you publish with the same name or slug opens as an ordinary record app and can't reach T3 Code.</p>
+
+      <h2 id="terminal">Step 2, in a terminal instead</h2>
+      <p>The companion in <code>examples/plugins/t3-coding</code> does the same from a Superbot checkout. Sign in to T3 once, then list, add and dispatch requests. Use your real addresses; the ones below are placeholders.</p>
+      <figure class="code">
+        <div class="code-head"><span>PowerShell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>$inbox = 'examples/plugins/t3-coding/companion.mjs'
+node $inbox login --t3 'http://127.0.0.1:3773/mcp'
+node $inbox projects
+
+$account = @('--server', 'https://superbot.example.com', '--email', 'operator@example.com')
+node $inbox spaces @account
+node $inbox installations @account --space SPACE_ID
+
+$scope = @($account + @('--space', 'SPACE_ID', '--installation', 'INSTALL_ID'))
+node $inbox list @scope
+node $inbox dispatch @scope --record REQUEST_ID --project PROJECT_ID
+node $inbox receipts @scope</code></pre>
+      </figure>
+      <p>The companion asks for your Superbot password and signs out when it exits. Add <code>--email-code</code> on a server that sends sign-in codes. Each <code>dispatch</code> is one approval by you. The companion is a one-shot command: it never dispatches in the background and offers no remote service.</p>
+
+      <h2 id="retries">Retries and receipts</h2>
+      <ul>
+        <li>Each start uses one T3 request ID, saved before T3 is called. If T3's reply is lost, start the same request again with the same connection and project. T3 returns the original thread instead of starting a second one.</li>
+        <li>A retry with another project, a changed brief or a different T3 connection is refused. Check T3 Code before doing anything else.</li>
+        <li>If T3 started the thread but the receipt couldn't be saved, the desktop offers <b>Save receipt</b> and the companion keeps the receipt locally until it can write it. Neither calls T3 again.</li>
+      </ul>
+
+      <h2 id="errors">When something fails</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Message</th><th scope="col">What it means</th><th scope="col">What to do</th></tr></thead>
+          <tbody>
+            <tr><td>Couldn't reach T3</td><td class="muted">T3 Code isn't running, or the address is wrong.</td><td class="muted">Start T3 Code and copy the MCP address again.</td></tr>
+            <tr><td>This address didn't ask for a T3 sign-in</td><td class="muted">The address isn't T3's MCP endpoint, or T3 Code needs an update.</td><td class="muted">Use the address from T3's MCP settings.</td></tr>
+            <tr><td>T3 no longer accepts this connection</td><td class="muted">The grant expired or was revoked.</td><td class="muted">Disconnect, then connect again.</td></tr>
+            <tr><td>T3 couldn't do t3_thread_launch</td><td class="muted">T3 rejected the start, for example because the project is gone.</td><td class="muted">Check the project in T3 Code.</td></tr>
+            <tr><td>T3 didn't answer</td><td class="muted">The reply was lost.</td><td class="muted">Start the request again. It reuses the same request ID.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="test">Test it locally</h2>
+      <p>The companion's tests run Superbot and T3 fixtures on fresh loopback ports with synthetic data and tokens:</p>
+      <figure class="code">
+        <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>node --test examples/plugins/t3-coding/companion.test.mjs</code></pre>
+      </figure>
+      <p>They check newest-first paging, account isolation, explicit record approval, the exact Supervised launch arguments, a lost reply and recovery from a failed receipt write.</p>
+
+      <h2 id="next">Next steps</h2>
+      <ul>
+        <li><a href="permissions.html">People, bots and permissions</a>: why <code>dispatches</code> stays ungranted.</li>
+        <li><a href="api.html#records">Registry API</a>: the record procedures the companion calls.</li>
+      </ul>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="example-calorie-diary.html"><small>Previous</small><span>Calorie diary</span></a>
+        <a class="next" href="manifest.html"><small>Next</small><span>Manifest</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#what">What you'll learn</a>
+      <a href="#requirements">Requirements</a>
+      <a href="#manifest">The manifest</a>
+      <a href="#install">Step 1: Install and grant</a>
+      <a href="#desktop">Step 2: Start a request from the desktop app</a>
+      <a href="#terminal">Step 2, in a terminal instead</a>
+      <a href="#retries">Retries and receipts</a>
+      <a href="#errors">When something fails</a>
+      <a href="#test">Test it locally</a>
+      <a href="#next">Next steps</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

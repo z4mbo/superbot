@@ -2,23 +2,13 @@ import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { CapabilityInstall, PluginMarketplaceEntry } from "@rakazo/contracts";
 import { PluginPreviewSchema } from "@rakazo/contracts";
 import { installedPluginParts, matchesPluginQuery } from "@rakazo/core";
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  Field,
-  FieldLabel,
-  Input,
-  SectionHeading,
-  Spinner,
-} from "@rakazo/ui-web";
+import { Button, Field, FieldLabel, Input, SectionHeading, Spinner } from "@rakazo/ui-web";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, LayoutTemplate, X } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useSpaceQueries } from "../../lib/query/query";
+import { CommunitySkillGrants } from "../../pages/plugins/community/community-skill-grants";
 import { AgentSkills } from "../../pages/space/KnowledgeSection";
 import type { PluginSelection } from "./plugin-marketplace";
 import {
@@ -39,12 +29,14 @@ function skillCount(install: CapabilityInstall) {
 }
 
 /** Your skills in this space, the skills plugins added, and skill packs to browse. */
-export function SkillsDialog({
-  onClose,
-  onOpenTemplates,
+export function SkillsPanel({
+  actions,
+  activeBotId,
 }: {
-  onClose: () => void;
-  onOpenTemplates?: () => void;
+  /** The agent whose community skills are shown first. */
+  activeBotId?: string;
+  /** Where the panel's own controls go in the Store's header; inline when absent. */
+  actions?: HTMLElement | null;
 }) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
@@ -159,6 +151,7 @@ export function SkillsDialog({
             <AgentSkills />
           </div>
         </section>
+        <CommunitySkillGrants activeBotId={activeBotId} />
         {skillSets.length ? (
           <section data-testid="plugin-skill-sets">
             <h3 className="mb-2 px-2.5 text-body font-medium text-muted-foreground">
@@ -238,44 +231,16 @@ export function SkillsDialog({
     );
   }
 
+  const toolbar =
+    !selection && !importing ? (
+      <Button variant="ghost" size="sm" onClick={() => setImporting(true)}>
+        <Trans>From GitHub</Trans>
+      </Button>
+    ) : null;
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent showCloseButton={false} size="xl" className="bg-card">
-        <DialogHeader className="flex-row items-start justify-between px-8 pt-7">
-          <DialogTitle className="text-heading2 text-foreground">
-            <Trans>Skills</Trans>
-          </DialogTitle>
-          <div className="flex items-center gap-2">
-            {!selection && !importing && onOpenTemplates ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                data-testid="open-bot-templates"
-                onClick={onOpenTemplates}
-              >
-                <LayoutTemplate />
-                <Trans>Templates</Trans>
-              </Button>
-            ) : null}
-            {!selection && !importing ? (
-              <Button variant="ghost" size="sm" onClick={() => setImporting(true)}>
-                <Trans>From GitHub</Trans>
-              </Button>
-            ) : null}
-            <DialogClose
-              render={<Button variant="ghost" size="icon-sm" aria-label={t`Close skills`} />}
-            >
-              <X />
-            </DialogClose>
-          </div>
-        </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-8 pt-5 pb-8">{content()}</div>
-      </DialogContent>
-    </Dialog>
+    <div data-testid="skills-panel">
+      {actions ? (toolbar ? createPortal(toolbar, actions) : null) : toolbar}
+      {content()}
+    </div>
   );
 }

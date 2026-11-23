@@ -7,7 +7,6 @@ import type {
   SpaceMemoryConfig,
 } from "@rakazo/contracts";
 import { parseLabs } from "@rakazo/contracts";
-import type { connectedAppMarks } from "@rakazo/core";
 import { writeSaved } from "@rakazo/core/query";
 import type { RefObject } from "react";
 import { lazyOverlay } from "../../components/ErrorBoundary";
@@ -18,6 +17,7 @@ import { queryClient } from "../../lib/query/query";
 import type { createSpaceRpc, RpcClient } from "../../lib/query/rpc";
 import { FALLBACK_BOT_COLOR } from "./chat/chat-shared";
 import type { ShellOverlay } from "./shell-overlay-url";
+import { storeOverlay, storeSection } from "./shell-overlay-url";
 
 const SettingsOverlay = lazyOverlay(() =>
   import("../settings/SettingsOverlay").then((module) => module.SettingsOverlay),
@@ -25,16 +25,8 @@ const SettingsOverlay = lazyOverlay(() =>
 const PeerMessagesOverlay = lazyOverlay(() =>
   import("../settings/PeerMessagesOverlay").then((module) => module.PeerMessagesOverlay),
 );
-const PluginsOverlay = lazyOverlay(() =>
-  import("../plugins/PluginsOverlay").then((module) => module.PluginsOverlay),
-);
-const SkillsDialog = lazyOverlay(() =>
-  import("../../components/integrations/skills-dialog").then((module) => module.SkillsDialog),
-);
-const BotTemplatesDialog = lazyOverlay(() =>
-  import("../../components/bot-templates/bot-templates-dialog").then(
-    (module) => module.BotTemplatesDialog,
-  ),
+const StoreDialog = lazyOverlay(() =>
+  import("../plugins/store-dialog").then((module) => module.StoreDialog),
 );
 const AgentImportDialog = lazyOverlay(() =>
   import("./bots/agent-import-dialog").then((module) => module.AgentImportDialog),
@@ -61,7 +53,6 @@ export function AppOverlays({
   activeBotId,
   stdioEnabled,
   messagingEnabled,
-  onConnectedAppsChange,
   onOpenBot,
 }: {
   overlay: ShellOverlay;
@@ -70,32 +61,23 @@ export function AppOverlays({
   stdioEnabled: boolean;
   /** Messaging settings can be opened; a link there is shown only then. */
   messagingEnabled: boolean;
-  onConnectedAppsChange: (apps: ReturnType<typeof connectedAppMarks>) => void;
   onOpenBot: (bot: Bot) => void;
 }) {
-  const openTemplates = () => setOverlay({ kind: "templates" });
+  const section = storeSection(overlay);
   return (
     <>
-      {overlay?.kind === "integrations" ? (
-        <PluginsOverlay
-          onConnectedAppsChange={onConnectedAppsChange}
-          activeBotId={activeBotId}
+      {section ? (
+        <StoreDialog
+          section={section}
+          onSectionChange={(next) => setOverlay(storeOverlay(next))}
           onClose={() => setOverlay(null)}
+          activeBotId={activeBotId}
           onOpenMcp={() => setOverlay({ kind: "mcp" })}
-          onOpenTemplates={openTemplates}
           onOpenMessaging={
             messagingEnabled
               ? () => setOverlay({ kind: "settings", section: "messaging", spaceId: null })
               : undefined
           }
-        />
-      ) : null}
-      {overlay?.kind === "skills" ? (
-        <SkillsDialog onClose={() => setOverlay(null)} onOpenTemplates={openTemplates} />
-      ) : null}
-      {overlay?.kind === "templates" ? (
-        <BotTemplatesDialog
-          onClose={() => setOverlay(null)}
           onOpenBot={(bot) => {
             setOverlay(null);
             onOpenBot(bot);

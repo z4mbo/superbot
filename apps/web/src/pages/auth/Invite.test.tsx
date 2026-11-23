@@ -65,7 +65,7 @@ async function render() {
       <MemoryRouter initialEntries={["/invite/token-1"]}>
         <Routes>
           <Route path="/invite/:token" element={<InvitePage />} />
-          <Route path="/app" element={<p>App</p>} />
+          <Route path="/workspaces" element={<p>Workspaces</p>} />
         </Routes>
       </MemoryRouter>,
     ),
@@ -94,7 +94,7 @@ it("joins the space and opens it", async () => {
   await submit();
   expect(accept).toHaveBeenCalledWith({ token: "token-1" }, { context: { spaceId: null } });
   expect(selectSpace).toHaveBeenCalledWith("space-shared");
-  expect(host.textContent).toBe("App");
+  expect(host.textContent).toBe("Workspaces");
 });
 
 it("opens the space straight away for someone already in it", async () => {
@@ -107,7 +107,7 @@ it("opens the space straight away for someone already in it", async () => {
   await render();
   expect(accept).not.toHaveBeenCalled();
   expect(selectSpace).toHaveBeenCalledWith("space-shared");
-  expect(host.textContent).toBe("App");
+  expect(host.textContent).toBe("Workspaces");
 });
 
 it("says a used or expired link is no longer valid", async () => {
@@ -116,7 +116,7 @@ it("says a used or expired link is no longer valid", async () => {
   expect(host.querySelector("h1")?.textContent).toBe("This invite link is no longer valid.");
   await submit();
   expect(selectSpace).not.toHaveBeenCalled();
-  expect(host.textContent).toBe("App");
+  expect(host.textContent).toBe("Workspaces");
 });
 
 it("offers a retry when the server cannot be reached", async () => {

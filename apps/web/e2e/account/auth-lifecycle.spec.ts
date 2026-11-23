@@ -4,6 +4,7 @@ import {
   captureScreenshot,
   completeOnboarding,
   openEmailSignIn,
+  openUserSettings,
   signup,
   signupThroughForm,
 } from "../helpers/helpers";
@@ -105,12 +106,12 @@ test(
     await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
     await captureScreenshot(page, testInfo, "signup-verification-required");
     await page.getByRole("link", { name: "Back to sign in" }).click();
-    await expect(page.getByRole("heading", { name: "Sign in to Rakazo" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to Superbot" })).toBeVisible();
   },
 );
 
 test(
-  "a new visitor opening the app lands on sign up, fits a narrow phone, and can switch to sign in",
+  "a new visitor can reach sign up from the welcome page on a narrow phone and switch to sign in",
   { tag: "@nightly" },
   async ({ page }, testInfo) => {
     await page.route("**/api/auth/get-session**", (route) => route.fulfill({ json: null }));
@@ -121,13 +122,15 @@ test(
     );
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto("/");
+    await expect(page).toHaveURL(/\/welcome\/$/);
+    await page.getByRole("link", { name: "Create an account", exact: true }).click();
     await expect(page).toHaveURL(/\/sign-up$/);
     await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
     await expect(page.locator("body")).toHaveJSProperty("scrollWidth", 320);
     await captureScreenshot(page, testInfo, "logged-out-sign-up-phone");
     await page.getByRole("link", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(/\/sign-in$/);
-    await expect(page.getByRole("heading", { name: "Sign in to Rakazo" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Sign in to Superbot" })).toBeVisible();
   },
 );
 
@@ -145,7 +148,8 @@ test("an unknown page offers a way home", async ({ page }, testInfo) => {
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
   await captureScreenshot(page, testInfo, "not-found");
   await page.getByRole("link", { name: "Go home" }).click();
-  await expect(page).toHaveURL(/\/sign-up$/);
+  await expect(page).toHaveURL(/\/welcome\/$/);
+  await expect(page.getByRole("link", { name: "Create an account", exact: true })).toBeVisible();
 });
 
 test("logout protects bot deep links and sign-in restores the session", async ({
@@ -173,7 +177,7 @@ test("logout protects bot deep links and sign-in restores the session", async ({
   await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
 
   await page.getByRole("button", { name: new RegExp(userName, "i") }).click();
-  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  await expect(page.getByTestId("account-menu-header")).toContainText(userName);
   await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
   await captureScreenshot(page, testInfo, "36-account-menu");
 
@@ -198,7 +202,7 @@ test("logout protects bot deep links and sign-in restores the session", async ({
   };
   page.on("request", trackRefresh);
   await page.getByRole("button", { name: "Log out" }).click();
-  await expect(page.getByRole("heading", { name: "Sign in to Rakazo" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to Superbot" })).toBeVisible();
   page.off("request", trackRefresh);
   await Promise.all(refreshes);
   await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 250)));
@@ -206,12 +210,12 @@ test("logout protects bot deep links and sign-in restores the session", async ({
   // Someone who has signed in here before reopens the app to sign in, not to a new account.
   await page.goto("/");
   await expect(page).toHaveURL(/\/sign-in$/);
-  await expect(page.getByRole("heading", { name: "Sign in to Rakazo" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to Superbot" })).toBeVisible();
   await captureScreenshot(page, testInfo, "37-logged-out-returning");
 
   await page.goto(protectedBotPath);
   await page.waitForURL((url) => url.pathname === "/sign-in");
-  await expect(page.getByRole("heading", { name: "Sign in to Rakazo" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to Superbot" })).toBeVisible();
   await expect(page.getByText("Chief", { exact: true })).toHaveCount(0);
   await expect(page.getByText(userName, { exact: true })).toHaveCount(0);
   await openEmailSignIn(page);
@@ -293,10 +297,7 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
     "sidebar-search",
   );
 
-  await page.getByTestId("user-menu-trigger").click();
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  const settings = page.getByTestId("user-settings");
-  await expect(settings).toBeVisible();
+  const settings = await openUserSettings(page);
   await expect(settings.getByLabel("Current password")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "general-settings");
   await settings.getByRole("button", { name: "Change password" }).click();
@@ -350,7 +351,7 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
       html: string;
     }>;
     return messages.filter(
-      (message) => message.to === email && message.subject === "Reset your Rakazo password",
+      (message) => message.to === email && message.subject === "Reset your Superbot password",
     );
   };
   await expect.poll(async () => (await sentToUser()).length).toBeGreaterThan(0);

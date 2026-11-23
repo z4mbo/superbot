@@ -9,7 +9,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import SearchSheet from "../../app/search";
 import { selectSpace } from "../api/api-server";
 import type { InboxSpace } from "../inbox/inbox-spaces";
-import { searchKindLabel } from "./search-sheet";
+import { searchKindLabel, searchSheetRows } from "./search-sheet";
 
 const state = vi.hoisted(() => ({
   search: vi.fn(),
@@ -590,3 +590,13 @@ it.each(["session", "server", "selection"])(
     expect(state.selectSpace).toHaveBeenCalledOnce();
   },
 );
+
+it("leaves out matches from a bot's additional conversations, which the app cannot open", () => {
+  const elsewhere = { ...message, messageId: "message-b", threadId: "thread-b" };
+  const messages = searchSheetRows(spaces, "matching", [message, elsewhere]).filter(
+    (row) => row.kind === "message",
+  );
+  expect(messages.map((row) => row.destination.params)).toEqual([
+    { botId: "bot-a", name: "Scout", messageId: "message-a" },
+  ]);
+});

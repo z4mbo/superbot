@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registry API</title>
+  <meta name="description" content="The pluginRegistry procedures of a Superbot server: inputs, results, paging and rules.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Registry API
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html" aria-current="page">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Reference</div>
+      <h1>Registry API</h1>
+      <p class="lede">The <code>pluginRegistry</code> namespace of the server's typed RPC. Every procedure needs a signed-in session and acts in the selected Space.</p>
+
+      <h2 id="procedures">Procedures</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Procedure</th><th scope="col">Input</th><th scope="col">Result</th></tr></thead>
+          <tbody>
+            <tr id="submit"><td><code>submit</code></td><td class="muted"><code>{ slug, version, manifest }</code></td><td class="muted">The version, status <code>pending</code></td></tr>
+            <tr><td><code>mine</code></td><td class="muted"><code>{ after?, limit? }</code></td><td class="muted">Your versions, any status</td></tr>
+            <tr><td><code>submissions</code></td><td class="muted"><code>{ status?, after?, limit? }</code></td><td class="muted">Review queue; status defaults to <code>pending</code>. Admins only</td></tr>
+            <tr><td><code>review</code></td><td class="muted"><code>{ versionId, decision: "approved" }</code> or <code>{ versionId, decision: "rejected", reason }</code></td><td class="muted">The decided version. Admins only</td></tr>
+            <tr><td><code>discover</code></td><td class="muted"><code>{ slug?, query?, after?, limit? }</code></td><td class="muted">Approved versions. Search by name, ID or description.</td></tr>
+            <tr><td><code>install</code></td><td class="muted"><code>{ versionId }</code></td><td class="muted">The installation, pinned to that version</td></tr>
+            <tr><td><code>switchVersion</code></td><td class="muted"><code>{ installationId, expectedVersionId, versionId }</code></td><td class="muted">Same installation with a new approved version and zero grants.</td></tr>
+            <tr><td><code>installations</code></td><td class="muted"><code>{ after?, limit? }</code></td><td class="muted">Your installations in the Space</td></tr>
+            <tr><td><code>setGrants</code></td><td class="muted"><code>{ installationId, botId, partIds }</code></td><td class="muted">The installation with its current grants</td></tr>
+            <tr><td><code>uninstall</code></td><td class="muted"><code>{ installationId }</code></td><td class="muted"><code>{ ok: true }</code>. Deletes the entries of any record app</td></tr>
+            <tr id="app-records"><td><code>appRecords</code></td><td class="muted"><code>{ installationId, partId, date?, after?, limit? }</code></td><td class="muted"><code>{ items, nextAfter, total }</code>, newest first</td></tr>
+            <tr><td><code>addAppRecord</code></td><td class="muted"><code>{ installationId, partId, operationId, values }</code></td><td class="muted">The saved entry</td></tr>
+            <tr><td><code>removeAppRecord</code></td><td class="muted"><code>{ installationId, partId, recordId }</code></td><td class="muted"><code>{ ok: true }</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="shapes">Objects</h2>
+      <figure class="code">
+        <div class="code-head"><span>version</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"id"</span>: <span class="tok-s">"…"</span>,
+  <span class="tok-k">"slug"</span>: <span class="tok-s">"release-notes"</span>,
+  <span class="tok-k">"version"</span>: <span class="tok-n">1</span>,
+  <span class="tok-k">"manifest"</span>: { <span class="tok-k">"schemaVersion"</span>: <span class="tok-n">1</span>, … },
+  <span class="tok-k">"status"</span>: <span class="tok-s">"pending"</span>,
+  <span class="tok-k">"reason"</span>: <span class="tok-n">null</span>,
+  <span class="tok-k">"createdAt"</span>: <span class="tok-s">"2026-11-19T10:00:00.000Z"</span>,
+  <span class="tok-k">"reviewedAt"</span>: <span class="tok-n">null</span>
+}</code></pre>
+      </figure>
+      <figure class="code">
+        <div class="code-head"><span>installation</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"id"</span>: <span class="tok-s">"…"</span>,
+  <span class="tok-k">"plugin"</span>: { <span class="tok-k">"id"</span>: <span class="tok-s">"…"</span>, <span class="tok-k">"slug"</span>: <span class="tok-s">"release-notes"</span>, <span class="tok-k">"version"</span>: <span class="tok-n">1</span>, … },
+  <span class="tok-k">"grants"</span>: [ { <span class="tok-k">"botId"</span>: <span class="tok-s">"…"</span>, <span class="tok-k">"partId"</span>: <span class="tok-s">"summary"</span> } ],
+  <span class="tok-k">"createdAt"</span>: <span class="tok-s">"2026-11-19T10:05:00.000Z"</span>
+}</code></pre>
+      </figure>
+      <figure class="code">
+        <div class="code-head"><span>record page</span><button class="copy" type="button" data-copy>Copy</button></div>
+<pre><code>{
+  <span class="tok-k">"items"</span>: [
+    {
+<span class="tok-k">"id"</span>: <span class="tok-s">"0b6f…"</span>,
+<span class="tok-k">"values"</span>: { <span class="tok-k">"date"</span>: <span class="tok-s">"2026-11-20"</span>, <span class="tok-k">"meal"</span>: <span class="tok-s">"Porridge"</span>, <span class="tok-k">"kcal"</span>: <span class="tok-n">480</span> },
+<span class="tok-k">"createdAt"</span>: <span class="tok-s">"2026-11-20T08:10:00.000Z"</span>
+    }
+  ],
+  <span class="tok-k">"nextAfter"</span>: <span class="tok-n">null</span>,
+  <span class="tok-k">"total"</span>: <span class="tok-n">480</span>
+}</code></pre>
+      </figure>
+
+      <h2 id="paging">Paging</h2>
+      <p>List procedures take <code>limit</code> from 1 to 50 (default 20) and an opaque <code>after</code> cursor, and return <code>{ items, nextAfter }</code>. <code>nextAfter</code> is <code>null</code> on the last page.</p>
+
+      <h2 id="rules">Rules</h2>
+      <ul>
+        <li><code>slug</code> and part ids: 1 to 64 characters matching <code>^[a-z0-9]+(?:-[a-z0-9]+)*$</code>. <code>version</code>: a whole number from 1.</li>
+        <li>The first submission reserves a slug for its publisher. Rejected versions keep it reserved. Each new version is a separate submission and review.</li>
+        <li>A version is decided once. Rejecting needs a <code>reason</code> of 1 to 2,000 characters.</li>
+        <li>Installing the same version again returns the existing installation. To change versions, pass its current <code>plugin.id</code> as <code>expectedVersionId</code> to <code>switchVersion</code>. A successful switch clears old grants. Repeating a completed switch preserves any new grants. On a conflict, read the current installation before retrying.</li>
+        <li>New installations have no grants. <code>setGrants</code> replaces one bot's parts; an empty <code>partIds</code> revokes them. <code>uninstall</code> removes every grant at once.</li>
+        <li>The registry never contacts tool servers or runs anything from a manifest.</li>
+      </ul>
+
+      <h2 id="records">Record app entries</h2>
+      <ul>
+        <li>These procedures act on your own installation in the selected Space. Other members can't read or change its entries.</li>
+        <li><code>appRecords</code> pages with an entry id as <code>after</code>. Keep the same <code>date</code> when following <code>nextAfter</code>. <code>date</code> matches the part's first date field and is refused when the part has none.</li>
+        <li><code>total</code> sums the <code>summaryField</code> over every entry that matches, not only the returned page. It is <code>0</code> when nothing matches and <code>null</code> when the part has no <code>summaryField</code>.</li>
+        <li><code>values</code> must name only declared fields, include every required one and match each field's type. See the <a href="manifest.html#app">record app part</a>.</li>
+        <li>Generate a new UUID as <code>operationId</code> for each entry and reuse it when retrying. The same id with the same values returns the saved entry. The same id with other values, or after that entry was removed, is a conflict.</li>
+        <li>There is no update. Remove the entry and add a corrected one. Removal erases its values. Removing an entry that is already gone still returns <code>{ ok: true }</code>.</li>
+        <li>Each version of an installation keeps its own entries. <code>uninstall</code> deletes the entries of every version.</li>
+      </ul>
+
+      <h2 id="errors">Errors</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Status</th><th scope="col">When</th></tr></thead>
+          <tbody>
+            <tr><td>401</td><td class="muted">No session, or it expired. Sign in again.</td></tr>
+            <tr><td>403</td><td class="muted"><code>review</code> or <code>submissions</code> from an account that isn't a deployment admin.</td></tr>
+            <tr><td>400</td><td class="muted">The input or manifest doesn't match the schema, or an entry's values don't match the app's fields.</td></tr>
+            <tr><td>404</td><td class="muted">The installation or record app part isn't yours in the selected Space.</td></tr>
+            <tr><td>409</td><td class="muted">A slug or version already reserved, a version already reviewed, a stale <code>expectedVersionId</code>, or an <code>operationId</code> reused with other values or after its entry was removed.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Every message, with its fix, is in <a href="errors.html#registry">Errors and fixes</a>. The exact schemas live in <code>packages/contracts/src/integrations/plugin-registry.ts</code> in the repository.</p>
+
+      <nav class="pager" aria-label="Pages">
+        <a href="cli.html"><small>Previous</small><span>superbot-plugin commands</span></a>
+        <a class="next" href="errors.html"><small>Next</small><span>Errors and fixes</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#procedures">Procedures</a>
+      <a href="#shapes">Objects</a>
+      <a href="#paging">Paging</a>
+      <a href="#rules">Rules</a>
+      <a href="#records">Record app entries</a>
+      <a href="#errors">Errors</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

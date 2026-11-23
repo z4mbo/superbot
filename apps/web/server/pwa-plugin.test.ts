@@ -22,6 +22,7 @@ describe("PWA build", () => {
       "sw.js": chunk("sw.js", [], [], true),
       "assets/index.css": { type: "asset", fileName: "assets/index.css" },
       "assets/geist.woff2": { type: "asset", fileName: "assets/geist.woff2" },
+      "welcome/assets/site.css": { type: "asset", fileName: "welcome/assets/site.css" },
       "index.html": { type: "asset", fileName: "index.html" },
     } as unknown as Rolldown.OutputBundle;
 

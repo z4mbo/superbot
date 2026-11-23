@@ -95,18 +95,15 @@ export function contentRoutes(ctx: RouterContext) {
             artifactId: input.artifactId,
             groupId: input.groupId,
             contextBotId,
+            threadId: group.thread?.id,
           });
         }
-        await repos.getBot(context.actor, input.botId!);
-        try {
-          return await getOwnedArtifact(deps, context.actor, {
-            botId: input.botId!,
-            artifactId: input.artifactId,
-          });
-        } catch (error) {
-          if (error instanceof IsolationError) throw error;
-          throw error;
-        }
+        const bot = await repos.getBot(context.actor, input.botId!);
+        return getOwnedArtifact(deps, context.actor, {
+          botId: bot.id,
+          artifactId: input.artifactId,
+          threadId: input.threadId ?? bot.thread?.id,
+        });
       }),
       getById: authed.artifacts.getById.handler(async ({ context, input }) => {
         return getSpaceArtifactById(deps, context.actor, input);

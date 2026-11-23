@@ -94,6 +94,52 @@ describePostgres("space search with CONTENT_ENCRYPTION on and off (PostgreSQL)",
       }
     }));
 
+  it("names the additional conversation a match is in, within the Space only", () =>
+    system(async () => {
+      const prisma = on.prisma;
+      const conversationId = `${threadId}-conversation`;
+      const elsewhere = `${spaceId}-elsewhere`;
+      await prisma.thread.create({
+        data: { id: conversationId, spaceId, userId, conversationBotId: botId },
+      });
+      await prisma.space.create({ data: { id: elsewhere, organizationId, name: "Other" } });
+      await prisma.bot.create({
+        data: { id: `${botId}-elsewhere`, spaceId: elsewhere, userId, name: "Ada", color: "ink" },
+      });
+      await prisma.thread.create({
+        data: {
+          id: `${threadId}-elsewhere`,
+          spaceId: elsewhere,
+          userId,
+          botId: `${botId}-elsewhere`,
+        },
+      });
+      const said = (thread: string, text: string) =>
+        createThreadMessage(prisma, {
+          threadId: thread,
+          role: "bot",
+          botId,
+          blocks: [{ kind: "text", text }],
+        });
+      const first = await said(threadId, "the okapi first chat");
+      const other = await said(conversationId, "the okapi other chat");
+      await said(`${threadId}-elsewhere`, "the okapi other space");
+
+      const hits = (await querySpaceSearch(prisma, actor, "okapi")).filter(
+        (hit) => hit.kind === "message",
+      );
+      expect(
+        hits
+          .map(({ messageId, botId, threadId }) => ({ messageId, botId, threadId }))
+          .sort((a, b) => a.messageId!.localeCompare(b.messageId!)),
+      ).toEqual(
+        [
+          { messageId: first.id, botId, threadId: undefined },
+          { messageId: other.id, botId, threadId: conversationId },
+        ].sort((a, b) => a.messageId.localeCompare(b.messageId)),
+      );
+    }));
+
   it("never returns a delivery, plaintext or encrypted", () =>
     system(async () => {
       for (const db of [off, on]) {

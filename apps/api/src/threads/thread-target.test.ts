@@ -186,7 +186,7 @@ describe("reaction messages", () => {
     expect(tx.run.create).not.toHaveBeenCalled();
     expect(tx.message.findFirst).toHaveBeenCalledWith({
       where: { id: "parent", threadId: "thread-1" },
-      select: { id: true, seq: true, role: true, botId: true, runId: true },
+      select: { id: true, seq: true, role: true, botId: true, runId: true, localOperationId: true },
     });
     tx.message.findFirst.mockResolvedValueOnce(null);
     await expect(

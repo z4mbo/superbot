@@ -31,6 +31,7 @@ import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   answerWaitingRunWithTextInTransaction,
   appendEventInTransaction,
+  assertOpenBotConversation,
   clearEndedRunState,
   createGroupRepos,
   createRepos,
@@ -63,6 +64,7 @@ export type ThreadTarget =
       kind: "bot";
       botId: string;
       threadId: string;
+      explicitConversation?: true;
       bot: Awaited<ReturnType<ReturnType<typeof createRepos>["getBot"]>>;
     }
   | {
@@ -375,18 +377,32 @@ export function sendTargetBotIds(
 export async function resolveThreadTarget(
   prisma: PrismaClient,
   actor: Actor,
-  input: { botId?: string; groupId?: string },
-  options: { includeArchived?: boolean } = {},
+  input: { botId?: string; groupId?: string; threadId?: string },
+  options: { includeArchived?: boolean; includeArchivedConversation?: boolean } = {},
 ): Promise<ThreadTarget> {
   const repos = createRepos(prisma);
   const groupRepos = createGroupRepos(prisma);
   if (input.botId) {
     const bot = await repos.getBot(actor, input.botId, options);
-    if (!bot.thread) throw new IsolationError();
+    const thread = input.threadId
+      ? await prisma.thread.findFirst({
+          where: {
+            id: input.threadId,
+            spaceId: actor.spaceId,
+            conversationBotId: bot.id,
+            ...(!options.includeArchived && !options.includeArchivedConversation
+              ? { conversationArchivedAt: null }
+              : {}),
+          },
+          select: { id: true },
+        })
+      : bot.thread;
+    if (!thread) throw new IsolationError();
     return {
       kind: "bot",
       botId: bot.id,
-      threadId: bot.thread.id,
+      threadId: thread.id,
+      explicitConversation: input.threadId ? true : undefined,
       bot,
     };
   }
@@ -641,7 +657,11 @@ export async function sendThreadMessage(
           mentionTargets.connectorMentionIds,
         );
         // Match message counter locking before inspecting runs, without changing counters on rejection.
-        await tx.$queryRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR UPDATE`;
+        if (target.explicitConversation) {
+          await assertOpenBotConversation(tx, { ...target, spaceId: actor.spaceId });
+        } else {
+          await tx.$queryRaw`SELECT id FROM threads WHERE id = ${target.threadId} FOR UPDATE`;
+        }
         routineRuns = (await startRoutines?.(tx)) ?? [];
         const activeRuns = await tx.run.findMany({
           where: {

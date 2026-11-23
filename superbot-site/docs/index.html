@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Superbot developer docs</title>
+  <meta name="description" content="Build Superbot plugins: record apps, skills and MCP tools in one reviewed manifest, granted to bots part by part.">
+  <link rel="icon" href="../assets/logo.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/base.css">
+  <link rel="stylesheet" href="../assets/site.css">
+  <script src="../assets/site.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../assets/logo.svg" alt="" width="28" height="28">Superbot</a>
+      <nav class="nav" aria-label="Main">
+        <a href="../#get" class="hide-sm">Get Superbot</a>
+        <a href="../#status" class="hide-sm">Status</a>
+        <a href="./" aria-current="page">Docs</a>
+        <a class="btn btn-quiet" href="/sign-in">Sign in</a>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12v12z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="docs">
+    <nav class="docs-nav" aria-label="Docs">
+      <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav-links">Overview
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="docs-nav-links" class="docs-nav-links">
+        <h4>Get started</h4>
+        <a href="./" aria-current="page">Overview</a>
+        <a href="quickstart.html">Quickstart: a record app</a>
+        <a href="local-development.html">Local development and testing</a>
+        <h4>Build</h4>
+        <a href="record-apps.html">Record apps</a>
+        <a href="tools.html">Tools and MCP views</a>
+        <a href="permissions.html">People, bots and permissions</a>
+        <h4>Publish</h4>
+        <a href="publishing.html">Review, install and versions</a>
+        <h4>Examples</h4>
+        <a href="example-calorie-diary.html">Calorie diary</a>
+        <a href="example-t3-code-inbox.html">T3 Code inbox</a>
+        <h4>Reference</h4>
+        <a href="manifest.html">Manifest</a>
+        <a href="cli.html">superbot-plugin commands</a>
+        <a href="api.html">Registry API</a>
+        <a href="errors.html">Errors and fixes</a>
+      </div>
+    </nav>
+
+    <main id="main" class="prose">
+      <div class="crumb">Get started</div>
+      <h1>Build for Superbot</h1>
+      <p class="lede">A Superbot plugin is one JSON manifest. It can give bots instructions, connect them to your service, or add a record app that people and their bots keep together. A reviewer approves each version, and people choose which bot gets which part.</p>
+
+      <h2 id="start">Start here</h2>
+      <div class="cards">
+        <a class="card-link" href="quickstart.html">
+          <b>Quickstart</b>
+          <span>Run a server on your machine and ship a record app to a bot.</span>
+        </a>
+        <a class="card-link" href="example-calorie-diary.html">
+          <b>Calorie diary</b>
+          <span>The bundled record app, from install to daily totals.</span>
+        </a>
+        <a class="card-link" href="example-t3-code-inbox.html">
+          <b>T3 Code inbox</b>
+          <span>Bots propose coding work; you start it in T3 Code.</span>
+        </a>
+        <a class="card-link" href="manifest.html">
+          <b>Manifest reference</b>
+          <span>Every field and limit of schema version 1.</span>
+        </a>
+      </div>
+
+      <h2 id="parts">What a plugin can add</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Part</th><th scope="col">What you write</th><th scope="col">What runs</th><th scope="col">What a granted bot gets</th></tr></thead>
+          <tbody>
+            <tr><td><a href="record-apps.html">Record app</a></td><td class="muted">A list of fields and an optional total</td><td class="muted">Superbot stores the entries and draws the form</td><td class="muted">List entries; add one after a person approves</td></tr>
+            <tr><td><a href="manifest.html#skill">Skill</a></td><td class="muted">Markdown instructions, up to 16,000 characters</td><td class="muted">Nothing</td><td class="muted">Instructions to read, as untrusted input</td></tr>
+            <tr><td><a href="tools.html">Tool</a></td><td class="muted">The address of an MCP server you host</td><td class="muted">Your server, over public HTTPS</td><td class="muted">Your tools, each call approved by a person, with an optional view in chat</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>A plugin has 1 to 16 parts in any mix. The <a href="example-t3-code-inbox.html">T3 Code inbox</a>, for example, has two record apps and a skill.</p>
+
+      <h2 id="lifecycle">How a plugin reaches a bot</h2>
+      <ol class="steps">
+        <li><b>Write</b> the manifest with <code>superbot-plugin init</code> or <b>Create plugin</b> in the store, and check it with <code>superbot-plugin validate</code>.</li>
+        <li><b>Publish</b> a version under a slug. Your first submission reserves the slug on that server.</li>
+        <li><b>Review.</b> A deployment admin approves or rejects the exact version. Approved versions never change.</li>
+        <li><b>Install.</b> Anyone on the server can install an approved version for their own account in a Space. It adds nothing to any bot yet.</li>
+        <li><b>Grant.</b> The installer turns on parts for each bot, one bot at a time.</li>
+        <li><b>Use.</b> Bots read skills and list entries freely. Every tool call and every entry they add waits for <b>Allow once</b>.</li>
+      </ol>
+      <p><a href="permissions.html">People, bots and permissions</a> covers each rule.</p>
+
+      <h2 id="ways">Ways to build</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Tool</th><th scope="col">Good for</th></tr></thead>
+          <tbody>
+            <tr><td><b>Create plugin</b> in the store</td><td class="muted">Writing a record app, skill or tool part with a form and submitting it. Open <b>Store → Plugins → Create plugin</b> on web or desktop</td></tr>
+            <tr><td><a href="cli.html"><code>superbot-plugin</code></a></td><td class="muted">Starters, local validation, publishing, review and grants from a terminal, on Windows, macOS or Linux</td></tr>
+            <tr><td><a href="api.html">Registry API</a></td><td class="muted">Programs that publish, install or read and write record app entries</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>All three use the same manifest, so a <code>plugin.json</code> moves freely between them.</p>
+
+      <h2 id="safety">What a plugin can't do</h2>
+      <ul>
+        <li>Carry credentials, HTTP headers, commands, packages, scripts or install hooks. The server stores the manifest and never runs code from it.</li>
+        <li>Reach a bot that nobody granted it to, or write without a person's approval.</li>
+        <li>Bring its own pages into Superbot. Record apps use Superbot's form and list; a tool's view runs in a sandbox with no access to the app.</li>
+        <li>Reach private or local network addresses. Tool servers must be public HTTPS.</li>
+      </ul>
+      <p>The server Superbot builds on can also add plugins from a public GitHub repository, in a different <code>plugin.json</code> and <code>mcp.json</code> format. These docs cover the reviewed Superbot store.</p>
+
+      <nav class="pager" aria-label="Pages">
+        <a class="next" href="quickstart.html"><small>Next</small><span>Quickstart: a record app</span></a>
+      </nav>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <h4>On this page</h4>
+      <a href="#start">Start here</a>
+      <a href="#parts">What a plugin can add</a>
+      <a href="#lifecycle">How a plugin reaches a bot</a>
+      <a href="#ways">Ways to build</a>
+      <a href="#safety">What a plugin can't do</a>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <div class="bar">
+      <span>Superbot. Open source.</span>
+      <nav aria-label="Footer"><a href="../">Home</a><a href="./">Docs</a><a href="errors.html">Errors</a><a href="../NOTICE.txt">Notices</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

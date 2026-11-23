@@ -321,12 +321,14 @@ export async function querySpaceSearch(
           blocks: Prisma.JsonValue;
           botId: string;
           botName: string;
+          conversation: boolean;
         }>
       >`
-      SELECT m.id, m."threadId", m.seq, m.blocks, b.id AS "botId", b.name AS "botName"
+      SELECT m.id, m."threadId", m.seq, m.blocks, b.id AS "botId", b.name AS "botName",
+        t."conversationBotId" IS NOT NULL AS conversation
       FROM messages m
       INNER JOIN threads t ON t.id = m."threadId"
-      INNER JOIN bots b ON b.id = t."botId"
+      INNER JOIN bots b ON b.id = COALESCE(t."botId", t."conversationBotId")
       WHERE t."spaceId" = ${actor.spaceId}
         AND b."archivedAt" IS NULL
         AND ${match.sql}
@@ -339,6 +341,7 @@ export async function querySpaceSearch(
       pushMessageHits(storedMessageBlocks(row), {
         botId: row.botId,
         botName: row.botName,
+        threadId: row.conversation ? row.threadId : undefined,
         messageId: row.id,
         seq: row.seq,
         query,
@@ -395,6 +398,7 @@ function pushMessageHits(
   ctx: {
     botId?: string;
     botName?: string;
+    threadId?: string;
     groupId?: string;
     groupName?: string;
     messageId: string;
@@ -406,7 +410,11 @@ function pushMessageHits(
   // Discriminate on groupId (not name): empty group names must still target the group.
   const destination = ctx.groupId
     ? { groupId: ctx.groupId, groupName: ctx.groupName ?? "" }
-    : { botId: ctx.botId!, botName: ctx.botName! };
+    : {
+        botId: ctx.botId!,
+        botName: ctx.botName!,
+        ...(ctx.threadId ? { threadId: ctx.threadId } : {}),
+      };
   const title = ctx.groupId ? (ctx.groupName ?? "") : (ctx.botName ?? "");
   let messageHit = false;
   for (const block of blocks) {

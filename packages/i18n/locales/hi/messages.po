@@ -1441,8 +1441,8 @@ msgid "Allow once"
 msgstr "एक बार अनुमति दें"
 
 #: apps/web/src/lib/calls/dictation.ts
-msgid "Allow Rakazo to use Speech Recognition and the microphone in System Settings."
-msgstr "सिस्टम सेटिंग्स में Rakazo को स्पीच रिकग्निशन और माइक्रोफ़ोन उपयोग करने की अनुमति दें।"
+msgid "Allow Superbot to use Speech Recognition and the microphone in System Settings."
+msgstr "सिस्टम सेटिंग्स में Superbot को स्पीच रिकग्निशन और माइक्रोफ़ोन उपयोग करने की अनुमति दें।"
 
 #: apps/mobile/lib/calls/call-session.ts
 #: apps/mobile/lib/composer/composer-dictation.ts
@@ -2569,8 +2569,8 @@ msgstr "फ़ोल्डर चुनें"
 
 #: apps/web/src/components/billing/ModelCredits.tsx
 #: apps/web/src/components/billing/SubscriptionGate.tsx
-msgid "Choose how to use Rakazo"
-msgstr "चुनें कि Rakazo का उपयोग कैसे करें"
+msgid "Choose how to use Superbot"
+msgstr "चुनें कि Superbot का उपयोग कैसे करें"
 
 #: apps/web/src/pages/shell/bots/agent-import.tsx
 msgid "Choose your {home} folder, or a backup of it."
@@ -3049,8 +3049,8 @@ msgstr "अपना AI कनेक्ट करें"
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts
-msgid "Connect your own API key in Models or choose Rakazo credits in Billing."
-msgstr "मॉडल्स में अपनी API कुंजी कनेक्ट करें या बिलिंग में Rakazo क्रेडिट चुनें।"
+msgid "Connect your own API key in Models or choose Superbot credits in Billing."
+msgstr "मॉडल्स में अपनी API कुंजी कनेक्ट करें या बिलिंग में Superbot क्रेडिट चुनें।"
 
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/computers.tsx
@@ -5381,8 +5381,8 @@ msgid "Ends {day}"
 msgstr "{day} को समाप्त"
 
 #: apps/web/src/pages/shell/composer/github-star-prompt.tsx
-msgid "Enjoying Rakazo?"
-msgstr "Rakazo पसंद आ रहा है?"
+msgid "Enjoying Superbot?"
+msgstr "Superbot पसंद आ रहा है?"
 
 #: apps/mobile/lib/api/user-error.ts
 #: apps/web/src/lib/query/user-error.ts
@@ -6153,8 +6153,8 @@ msgstr "जांच कैसे करें"
 
 #: apps/mobile/app/(settings)/signup-survey.tsx
 #: apps/web/src/components/account/SignupSurvey.tsx
-msgid "How will you use Rakazo?"
-msgstr "आप Rakazo का उपयोग कैसे करेंगे?"
+msgid "How will you use Superbot?"
+msgstr "आप Superbot का उपयोग कैसे करेंगे?"
 
 #: apps/mobile/components/models/compatible-endpoint-form.tsx
 msgid "http://127.0.0.1:8000/v1"
@@ -7887,8 +7887,8 @@ msgid "Not in {organizationName}. They'll only see this Space."
 msgstr "{organizationName} में नहीं हैं। वे सिर्फ़ यही कार्यस्थान देखेंगे।"
 
 #: apps/web/src/pages/shell/bots/import-status.ts
-msgid "Not in Rakazo's catalog"
-msgstr "Rakazo के कैटलॉग में नहीं"
+msgid "Not in Superbot's catalog"
+msgstr "Superbot के कैटलॉग में नहीं"
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/pages/plugins/plugin-browse.tsx
@@ -7937,12 +7937,12 @@ msgstr "नहीं भेजा गया। फिर कोशिश कर�
 
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
 #: apps/web/src/pages/shell/bots/import-status.ts
-msgid "Not supported in Rakazo"
-msgstr "Rakazo में समर्थित नहीं"
+msgid "Not supported in Superbot"
+msgstr "Superbot में समर्थित नहीं"
 
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
-msgid "Not used by Rakazo"
-msgstr "Rakazo इसका उपयोग नहीं करता"
+msgid "Not used by Superbot"
+msgstr "Superbot इसका उपयोग नहीं करता"
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/components/integrations/McpServerHealthLine.tsx
@@ -8172,8 +8172,8 @@ msgstr "नेविगेशन खोलें"
 #: apps/web/src/pages/auth/Invite.tsx
 #: apps/web/src/pages/auth/JoinOrganization.tsx
 #: apps/web/src/pages/SharedPage.tsx
-msgid "Open Rakazo"
-msgstr "Rakazo खोलें"
+msgid "Open Superbot"
+msgstr "Superbot खोलें"
 
 #: apps/mobile/lib/composer/composer-dictation.ts
 #: apps/mobile/lib/thread/thread-voice.ts
@@ -8752,19 +8752,19 @@ msgstr "चयन उद्धृत करें"
 #: apps/mobile/app/bot-settings.tsx
 #: apps/web/src/pages/settings/AccountSettingsOverlay.tsx
 #: apps/web/src/pages/shell/bots/avatar-studio-popover.tsx
-msgid "Rakazo"
-msgstr "Rakazo"
+msgid "Superbot"
+msgstr "Superbot"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/mobile/components/models/model-role-settings.tsx
 #: apps/web/src/pages/model-settings/ModelRoleSettings.tsx
 #: apps/web/src/pages/onboarding/use-onboarding-model.ts
-msgid "Rakazo credits"
-msgstr "Rakazo क्रेडिट"
+msgid "Superbot credits"
+msgstr "Superbot क्रेडिट"
 
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
-msgid "rakazo-shared and IDs starting with bot- are reserved for Rakazo."
-msgstr "rakazo-shared और bot- से शुरू होने वाली ID, Rakazo के लिए आरक्षित हैं।"
+msgid "This peer ID is reserved. Choose a different ID."
+msgstr "यह पीयर आईडी आरक्षित है। कोई दूसरी आईडी चुनें।"
 
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/web/src/pages/shell/chat/message-hover-actions.tsx
@@ -8810,8 +8810,8 @@ msgid "Recall from banks"
 msgstr "इन बैंक से याद करें"
 
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
-msgid "Recall from this peer; save to Rakazo’s own peers."
-msgstr "इस पीयर से याद करें; Rakazo के अपने पीयर में सहेजें।"
+msgid "Recall from this peer; save to Superbot’s own peers."
+msgstr "इस पीयर से याद करें; Superbot के अपने पीयर में सहेजें।"
 
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Recall only"
@@ -9445,8 +9445,8 @@ msgstr "इनबॉक्स पर लौटें"
 
 #: apps/web/src/pages/integrations/McpOAuthCallback.tsx
 #: apps/web/src/pages/integrations/SlackInstallCallback.tsx
-msgid "Return to Rakazo"
-msgstr "Rakazo पर लौटें"
+msgid "Return to Superbot"
+msgstr "Superbot पर लौटें"
 
 #: apps/mobile/lib/bots/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
@@ -10246,8 +10246,8 @@ msgstr "<0>{0}</0> पर साइन इन करें, फिर कोड 
 
 #: apps/mobile/app/sign-in.tsx
 #: apps/web/src/pages/auth/Auth.tsx
-msgid "Sign in to Rakazo"
-msgstr "Rakazo में साइन इन करें"
+msgid "Sign in to Superbot"
+msgstr "Superbot में साइन इन करें"
 
 #: apps/mobile/lib/api/user-error.ts
 #: apps/web/src/lib/query/user-error.ts
@@ -10278,8 +10278,8 @@ msgid "Sign up"
 msgstr "साइन अप करें"
 
 #: apps/mobile/app/sign-in.tsx
-msgid "Sign up for Rakazo"
-msgstr "Rakazo के लिए साइन अप करें"
+msgid "Sign up for Superbot"
+msgstr "Superbot के लिए साइन अप करें"
 
 #: apps/web/src/pages/plugins/PluginsOverlay.tsx
 msgid "Sign-in cancelled. Retry in Manage MCP servers."
@@ -10622,8 +10622,8 @@ msgid "Start recording"
 msgstr "रिकॉर्डिंग शुरू करें"
 
 #: apps/mobile/app/paywall.tsx
-msgid "Start using Rakazo"
-msgstr "Rakazo का उपयोग शुरू करें"
+msgid "Start using Superbot"
+msgstr "Superbot का उपयोग शुरू करें"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/billing/ModelCredits.tsx
@@ -10951,8 +10951,8 @@ msgid "That isn't a Grok Bot export. Paste the Bot's whole reply."
 msgstr "यह Grok बॉट एक्सपोर्ट नहीं है। बॉट का पूरा जवाब पेस्ट करें।"
 
 #: apps/mobile/lib/api/endpoint.ts
-msgid "That URL did not look like a Rakazo server"
-msgstr "वह URL Rakazo सर्वर जैसा नहीं दिखा"
+msgid "That URL did not look like a Superbot server"
+msgstr "वह URL Superbot सर्वर जैसा नहीं दिखा"
 
 #: apps/mobile/lib/api/endpoint.ts
 msgid "That URL is missing a host"
@@ -11088,8 +11088,8 @@ msgstr "शेयर किया गया लिंक काम करना 
 
 #: apps/mobile/app/meeting-transcript.tsx
 #: apps/web/src/pages/shell/meetings/meeting-transcript.tsx
-msgid "The transcript will be removed from Rakazo."
-msgstr "ट्रांसक्रिप्ट Rakazo से हटा दिया जाएगा।"
+msgid "The transcript will be removed from Superbot."
+msgstr "ट्रांसक्रिप्ट Superbot से हटा दिया जाएगा।"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/billing/ModelCredits.tsx
@@ -11248,8 +11248,8 @@ msgid "This device"
 msgstr "यह डिवाइस"
 
 #: apps/web/src/lib/bots/agent-import-errors.ts
-msgid "This export is newer than Rakazo can read. Update Rakazo and try again."
-msgstr "यह एक्सपोर्ट इतना नया है कि Rakazo इसे पढ़ नहीं सकता। Rakazo अपडेट करें और फिर से कोशिश करें।"
+msgid "This export is newer than Superbot can read. Update Superbot and try again."
+msgstr "यह एक्सपोर्ट इतना नया है कि Superbot इसे पढ़ नहीं सकता। Superbot अपडेट करें और फिर से कोशिश करें।"
 
 #: apps/web/src/lib/bots/agent-import-errors.ts
 msgid "This export is too large to import."
@@ -11420,8 +11420,8 @@ msgstr "इस कार्यस्थान का अपना वॉल्�
 
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
-msgid "This subscription sign-in is not available in Rakazo yet. Use a deployment credential or choose another provider."
-msgstr "यह सब्सक्रिप्शन साइन-इन अभी Rakazo में उपलब्ध नहीं है। किसी डिप्लॉयमेंट क्रेडेंशियल का उपयोग करें या दूसरा प्रोवाइडर चुनें।"
+msgid "This subscription sign-in is not available in Superbot yet. Use a deployment credential or choose another provider."
+msgstr "यह सब्सक्रिप्शन साइन-इन अभी Superbot में उपलब्ध नहीं है। किसी डिप्लॉयमेंट क्रेडेंशियल का उपयोग करें या दूसरा प्रोवाइडर चुनें।"
 
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
@@ -11853,8 +11853,8 @@ msgid "Update progress"
 msgstr "अपडेट की प्रगति"
 
 #: apps/web/src/lib/integrations/meeting-calendar-connect.ts
-msgid "Update Rakazo to connect your calendar from the desktop app."
-msgstr "डेस्कटॉप ऐप से अपना कैलेंडर कनेक्ट करने के लिए Rakazo अपडेट करें।"
+msgid "Update Superbot to connect your calendar from the desktop app."
+msgstr "डेस्कटॉप ऐप से अपना कैलेंडर कनेक्ट करने के लिए Superbot अपडेट करें।"
 
 #: apps/mobile/lib/api/client-update.ts
 #: apps/web/src/lib/platform/client-update.ts
@@ -12021,8 +12021,8 @@ msgstr "पासवर्ड के लिए सुरक्षित इन�
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/billing/ModelCredits.tsx
-msgid "Use Rakazo credits"
-msgstr "Rakazo क्रेडिट उपयोग करें"
+msgid "Use Superbot credits"
+msgstr "Superbot क्रेडिट उपयोग करें"
 
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "Use space default"
@@ -12269,8 +12269,8 @@ msgstr "फिर से स्वागत है"
 #: apps/mobile/app/(settings)/_layout.tsx
 #: apps/mobile/app/sign-in.tsx
 #: apps/web/src/components/account/SignupSurvey.tsx
-msgid "Welcome to Rakazo"
-msgstr "Rakazo में आपका स्वागत है"
+msgid "Welcome to Superbot"
+msgstr "Superbot में आपका स्वागत है"
 
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
 msgid "What about its memories?"
@@ -12282,8 +12282,8 @@ msgstr "यह स्पेस क्या उपयोग कर सकता 
 
 #: apps/mobile/app/(settings)/signup-survey.tsx
 #: apps/web/src/components/account/SignupSurvey.tsx
-msgid "What do you most want Rakazo to help with?"
-msgstr "आप Rakazo से सबसे ज़्यादा किसमें मदद चाहते हैं?"
+msgid "What do you most want Superbot to help with?"
+msgstr "आप Superbot से सबसे ज़्यादा किसमें मदद चाहते हैं?"
 
 #: apps/web/src/pages/shell/chat/message-cards.tsx
 msgid "What do you want me on first?"
@@ -12684,6 +12684,21 @@ msgstr "आपके आवाज़ प्रोवाइडर ने कु�
 #: apps/web/src/pages/model-settings/connection-controls.tsx
 msgid "Zero data retention"
 msgstr "ज़ीरो डेटा रिटेंशन"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "GitHub issue watcher"
+msgstr "GitHub इश्यू मॉनिटर"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "Reports new issues and lets you choose who handles them"
+msgstr "नए इश्यू की सूचना देता है। आप चुनते हैं कि उन्हें कौन संभालेगा"
+
+#: apps/mobile/lib/bots/bot-template-copy.ts
+#: apps/web/src/components/bot-templates/bot-template-copy.ts
+msgid "New issue in example/project: #42, Export skips empty rows. Who should take it?"
+msgstr "example/project में नया इश्यू: #42, एक्सपोर्ट में खाली पंक्तियाँ छूट जाती हैं। इसे कौन संभालेगा?"
 
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx

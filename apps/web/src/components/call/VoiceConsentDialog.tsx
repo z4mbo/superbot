@@ -1,11 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { AI_PRIVACY_URL } from "@rakazo/contracts";
 import type { VoiceConsentRequest } from "../../lib/calls/voice-consent";
 import { ConfirmDialog } from "../ConfirmDialog";
 
 export function VoiceConsentDialog({ request }: { request: VoiceConsentRequest }) {
   const { t } = useLingui();
   const name = request.recipient.name;
+  const privacyUrl = request.recipient.privacyUrl ?? request.privacyUrl;
   return (
     <ConfirmDialog
       title={t`Share voice data with ${name}?`}
@@ -25,14 +25,16 @@ export function VoiceConsentDialog({ request }: { request: VoiceConsentRequest }
       onConfirm={() => request.finish(true)}
       onCancel={() => request.finish(false)}
     >
-      <a
-        className="text-body text-muted-foreground underline underline-offset-4"
-        href={request.recipient.privacyUrl ?? request.privacyUrl ?? AI_PRIVACY_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <Trans>Privacy policy</Trans>
-      </a>
+      {privacyUrl ? (
+        <a
+          className="text-body text-muted-foreground underline underline-offset-4"
+          href={privacyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Trans>Privacy policy</Trans>
+        </a>
+      ) : null}
     </ConfirmDialog>
   );
 }

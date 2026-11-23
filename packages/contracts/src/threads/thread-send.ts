@@ -8,10 +8,14 @@ export const threadTarget = z
   .object({
     botId: Id.optional(),
     groupId: Id.optional(),
+    threadId: Id.optional(),
   })
   .superRefine((input, ctx) => {
     const hasBot = Boolean(input.botId);
     const hasGroup = Boolean(input.groupId);
+    if (input.threadId && !hasBot) {
+      ctx.addIssue({ code: "custom", message: "threadId requires botId", path: ["threadId"] });
+    }
     if (hasBot === hasGroup) {
       ctx.addIssue({
         code: "custom",
@@ -20,6 +24,23 @@ export const threadTarget = z
       });
     }
   });
+
+const localHistoryText = z
+  .string()
+  .trim()
+  .min(1)
+  .max(THREAD_MESSAGE_TEXT_MAX_LENGTH)
+  .refine((text) => !text.includes("\0") && !/[\uD800-\uDFFF]/u.test(text), "Invalid text");
+
+export const appendLocalHistoryInput = threadTarget
+  .safeExtend({
+    operationId: z.uuid().transform((id) => id.toLowerCase()),
+    text: localHistoryText,
+    reply: localHistoryText.optional(),
+  })
+  .strict();
+
+export type AppendLocalHistoryInput = z.infer<typeof appendLocalHistoryInput>;
 
 const structuredMentionTarget = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("bot"), id: Id }),

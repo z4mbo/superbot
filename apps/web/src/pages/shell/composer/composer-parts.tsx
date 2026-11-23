@@ -217,14 +217,14 @@ export function ComposerActions({
   talkDisabled: boolean;
   sendDisabled: boolean | undefined;
   stopDisabled: boolean;
-  /** The bot's color, as your messages to it wear it; the send button matches them. */
+  /** The bot's color, which the send button wears in a one-bot chat. */
   sendColors?: { background: string; foreground: string };
   modelPicker?: ReactNode;
   onSend: () => void;
   onStop: () => void;
 }) {
   const { t } = useLingui();
-  // The same chat-user colors your bubbles in this chat wear (set the same way in the transcript).
+  // The bot's colors, set through the chat-user variables the send button reads.
   const sendStyle = sendColors
     ? ({
         "--chat-user": sendColors.background,
@@ -247,7 +247,7 @@ export function ComposerActions({
         <>
           {showTalk ? <HoldToTalkControls talk={talk} disabled={talkDisabled} /> : null}
           <Button
-            size="icon"
+            size="icon-sm"
             aria-label={t`Send`}
             disabled={sendDisabled}
             onClick={onSend}
@@ -258,7 +258,7 @@ export function ComposerActions({
           </Button>
           <Button
             variant="outline"
-            size="icon"
+            size="icon-sm"
             aria-label={t`Stop`}
             disabled={stopDisabled}
             onClick={onStop}
@@ -271,7 +271,7 @@ export function ComposerActions({
         <>
           {showTalk ? <HoldToTalkControls talk={talk} disabled={talkDisabled} /> : null}
           <Button
-            size="icon"
+            size="icon-sm"
             aria-label={t`Send`}
             disabled={sendDisabled}
             onClick={onSend}

@@ -73,6 +73,7 @@ function applyThreadEvent(
 
 /** Loads the open chat, keeps it live, and pages in its older history. */
 export function useThreadSync({
+  threadId,
   rpc,
   queries,
   thread,
@@ -92,6 +93,7 @@ export function useThreadSync({
   markGroupReadOnReply,
   meId,
 }: {
+  threadId?: string;
   rpc: ReturnType<typeof createSpaceRpc>;
   queries: SpaceQueries;
   thread: ThreadState;
@@ -112,6 +114,7 @@ export function useThreadSync({
   /** The signed-in person: another member's message is new to them, their own is not. */
   meId: string | undefined;
 }) {
+  const conversation = threadId === undefined ? {} : { threadId };
   const {
     snapshot,
     snapshotRef,
@@ -177,7 +180,7 @@ export function useThreadSync({
    * Each chat's last snapshot, so reopening it paints at once. The live load and
    * subscription still run and replace it, so it is only ever a first frame.
    */
-  function cachedThreadKey(target: { botId: string } | { groupId: string }) {
+  function cachedThreadKey(target: { botId: string; threadId?: string } | { groupId: string }) {
     return queries.threads.get.queryKey({ input: target });
   }
 
@@ -262,7 +265,10 @@ export function useThreadSync({
     const request = ++threadRefreshEpoch.current;
     // Apply threads.get as soon as it returns so stop/takeover status is not held behind
     // routines/skills/screen fetches (progress can advance the cursor meanwhile).
-    const snap = await rpc.threads.get({ botId: id }, signal ? { signal } : undefined);
+    const snap = await rpc.threads.get(
+      { botId: id, ...conversation },
+      signal ? { signal } : undefined,
+    );
     markOnce("rk:renderer:thread-response");
     if (
       activeBotId.current !== id ||
@@ -360,7 +366,7 @@ export function useThreadSync({
     setLoadingOlder(true);
     try {
       const page = await rpc.threads.messages({
-        ...(targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId! }),
+        ...(targetGroupId ? { groupId: targetGroupId } : { botId: targetBotId!, ...conversation }),
         before,
       });
       if (
@@ -393,15 +399,17 @@ export function useThreadSync({
     showCachedComputer(active.id);
     expandedHistoryThread.current = null;
     historyEpoch.current += 1;
-    const threadKey = cachedThreadKey({ botId: active.id });
+    const target = { botId: active.id, ...conversation };
+    const threadKey = cachedThreadKey(target);
     const cachedThread = pendingJump
       ? undefined
       : (queryClient.getQueryData(threadKey) ??
-        (seed?.thread?.botId === active.id ? seed.thread : undefined));
+        (threadId === undefined && seed?.thread?.botId === active.id ? seed.thread : undefined));
     if (
       cachedThread &&
       snapshotRef.current?.botId !== active.id &&
-      (active.threadStatus === undefined ||
+      (threadId !== undefined ||
+        active.threadStatus === undefined ||
         activeThreadRuns(cachedThread).some((run) => isRunWorking(run.status)) ===
           isRunWorking(active.threadStatus))
     )
@@ -416,19 +424,18 @@ export function useThreadSync({
         const primed = bootstrappedThread.current;
         bootstrappedThread.current = null;
         // Pending search jumps load the around-page separately; avoid replacing it with latest.
-        return primed?.botId === active.id
+        return threadId === undefined && primed?.botId === active.id
           ? primed
           : pendingJump
-            ? rpc.threads.get({ botId: active.id }, { signal: threadSnapshotSignal(abort.signal) })
+            ? rpc.threads.get(target, { signal: threadSnapshotSignal(abort.signal) })
             : refreshThread(active.id, threadSnapshotSignal(abort.signal));
       },
-      loadHead: () =>
-        rpc.threads.head({ botId: active.id }, { signal: threadSnapshotSignal(abort.signal) }),
+      loadHead: () => rpc.threads.head(target, { signal: threadSnapshotSignal(abort.signal) }),
       refresh: () => refreshThread(active.id, threadSnapshotSignal(abort.signal)),
       currentSnapshot: () => snapshotRef.current,
       subscribe: (cursor, signal) =>
         openLogoAvatarActivityFeed(avatarSource, snapshotRef.current, cursor, signal, () =>
-          rpc.threads.subscribe({ botId: active.id, cursor }, { signal }),
+          rpc.threads.subscribe({ ...target, cursor }, { signal }),
         ),
       beforeEvent: (event) => {
         webLogoAvatarActivity.apply(avatarSource, event);
@@ -500,7 +507,7 @@ export function useThreadSync({
       const left = snapshotRef.current;
       if (left?.botId === active.id && !left.groupId) queryClient.setQueryData(threadKey, left);
     };
-  }, [active?.id, markBotReadIfVisible, notifyBrowserForEvent, meId]);
+  }, [active?.id, markBotReadIfVisible, notifyBrowserForEvent, meId, threadId]);
 
   useEffect(() => {
     if (!groupId || !activeGroup) return;

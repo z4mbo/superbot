@@ -197,11 +197,10 @@ link-local destinations remain blocked. This applies to discovery and model requ
 HTTPS still validates the hostname's certificate. Like private IP endpoints, trusted hostnames
 also permit HTTP with API keys; use HTTPS unless the network is trusted. Only allow hosts you
 control. Private endpoints require `MCP_ALLOW_PRIVATE_ENDPOINT=true` for the deployment; no app account bypasses that policy.
-If that endpoint's model
-accepts images, enable **Supports images** under **Advanced** when connecting so attachments and
-screenshot computer tools stay available. Existing connections default to disabled. For centrally
-managed endpoints, the deployment-wide fallback remains
-`RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS=gpt4o-vision,llava`.
+If that endpoint's model accepts images, open the model's menu in **Settings → Models** on the web.
+Choose **Manage model**, turn on **Supports images**, then choose **Save** so attachments and
+screenshot computer tools stay available. For centrally managed endpoints, the deployment-wide
+fallback remains `RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS=gpt4o-vision,llava`.
 
 ## Limiting model providers
 
@@ -221,8 +220,9 @@ want to keep. Leaving out a preset id hides it and removes its host exemption.
 
 ## Thinking
 
-For servers that accept standard `reasoning_effort`, enable **Supports thinking** under
-**Advanced** when connecting. The setting is saved on the connection (no env var or restart).
+For servers that accept standard `reasoning_effort`, open the model's menu in **Settings → Models**
+on the web, choose **Manage model**, turn on **Supports thinking**, then choose **Save**. The
+setting is saved for that model (no env var or restart).
 Existing connections default to disabled. Deployment-local models opt in through
 `RAKAZO_LOCAL_REASONING_MODELS`; reconnect through **Settings → Models** only to move to a personal
 connection.

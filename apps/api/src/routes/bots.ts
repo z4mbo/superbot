@@ -475,6 +475,8 @@ export function botsRoutes(ctx: RouterContext) {
             notifyOnFinish: input.notifyOnFinish,
             color: input.color,
             avatarSet: input.avatarSet,
+            lookShape: input.lookShape,
+            lookColor: input.lookColor,
             avatarSetPinned,
             pinned: input.pinned,
             memoryScope: input.memoryScope,

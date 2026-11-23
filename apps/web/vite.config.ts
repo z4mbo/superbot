@@ -23,6 +23,7 @@ import {
   webServerSettings,
 } from "./server/preview-middleware.js";
 import { rakazoPwa } from "./server/pwa-plugin.js";
+import { welcomeSite } from "./server/welcome.js";
 
 export default defineConfig(({ command, mode }) => {
   // Names this build in every API request; the dev server has none, so the handshake stays off.
@@ -55,6 +56,7 @@ export default defineConfig(({ command, mode }) => {
     },
     define: { "import.meta.env.RAKAZO_BUILD": JSON.stringify(buildId) },
     plugins: [
+      welcomeSite(path.resolve(import.meta.dirname, "../../superbot-site")),
       {
         // The API reads this to name the deployed build, and a tab fetches it to confirm the
         // server already serves a newer build before it reloads.

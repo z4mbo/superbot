@@ -6,13 +6,13 @@ export const meetingPage = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rakazo</title>
+<title>Superbot</title>
 <link rel="stylesheet" href="${MEETING_MEDIA_PATH}/tile.css">
 <script src="${MEETING_MEDIA_PATH}/bridge.js" defer></script>
 </head>
 <body>
 <main>
-  <img src="${MEETING_MEDIA_PATH}/mark.webp" alt="Rakazo" width="96" height="96">
+  <img src="${MEETING_MEDIA_PATH}/mark.webp" alt="Superbot" width="96" height="96">
   <h1></h1>
 </main>
 </body>
@@ -171,7 +171,7 @@ async function start() {
   const response = await fetch(base + "/session", { headers, credentials: "omit" });
   if (!response.ok || closed) return;
   const session = await response.json();
-  document.querySelector("h1").textContent = session.botName + " · Rakazo";
+  document.querySelector("h1").textContent = session.botName + " · Superbot";
   if (!session.voice) return;
 
   microphone = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });

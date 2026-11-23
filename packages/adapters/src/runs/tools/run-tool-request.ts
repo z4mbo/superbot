@@ -3,6 +3,7 @@ import { BOT_INSTRUCTIONS_MAX_LENGTH, BotSecretAuth, OneTimeCodeTarget } from "@
 import { redactSecrets } from "@rakazo/core";
 import { runLoginKind } from "@rakazo/db";
 import type { FleetCardSummary } from "../../approvals/approval-ask.js";
+import { MAX_APPROVAL_DETAIL_LENGTH } from "../../approvals/approval-ask.js";
 import type { TerminatingToolResult } from "../../approvals/approval-effect.js";
 import {
   approvalReplayPathError,
@@ -21,6 +22,11 @@ import { prepareAgentConnectionResponse } from "../../bots/agent-connections.js"
 import { argumentGiven, dropUnchangedOwnBotArgs } from "../../bots/update-bot-patch.js";
 import { validCloudAgentArgs } from "../../cloud-agents/cloud-agent-tools.js";
 import { sanitizeConnectorError } from "../../integrations/connector-safety.js";
+import {
+  MARKETPLACE_UNAVAILABLE,
+  marketplaceRoute,
+  marketplaceToolName,
+} from "../../integrations/marketplace-runtime.js";
 import { paidRequestEffect, restorePaidRequest } from "../../payments/paid-request.js";
 import type { PurchaseApproval, UncheckedPress } from "../../payments/purchase-gate.js";
 import {
@@ -41,7 +47,11 @@ import {
   vaultLoginUseOf,
 } from "../../secrets/vault/vault-card-use.js";
 import { isFleetApprovalTool, modelLabel, prepareFleetRequest } from "../../tools/fleet-tools.js";
-import { assertConnectorToolArgs, CATALOG_EXECUTE } from "../../tools/lazy-tool-catalog.js";
+import {
+  assertConnectorToolArgs,
+  CATALOG_EXECUTE,
+  parseConnectorToolArgs,
+} from "../../tools/lazy-tool-catalog.js";
 import { SCHEDULE_TOOL_NAMES } from "../../tools/schedule-tools.js";
 import { SKILL_TOOL_NAMES } from "../../tools/skill-tools.js";
 import type { RunContext } from "../assembly/run-context.js";
@@ -58,6 +68,7 @@ import {
 import { fleetPrepareDeps } from "../turn/run-model.js";
 import { refusal } from "../turn/tool-refusal.js";
 import { BUILTIN_AGENT_TOOL_NAMES, FLEET_WRITE_TOOL_NAMES_SET } from "./run-tool-selection.js";
+import { disabledBuiltinToolUnavailableReason } from "./run-tool-selection.prompt.js";
 import { holdSharedPageSave } from "./run-tools-pages.js";
 import { scheduleCreateRefusal } from "./run-tools-tasks.js";
 import { USER_COMPUTER_TOOLS } from "./run-tools-user-computer.js";
@@ -137,7 +148,11 @@ export async function resolveToolRequest(
     );
   }
   let effectRequest: unknown = name === "paid_request" ? paidRequestEffect(args) : args;
-  if (connectorCall.route && deps.connector?.resolveCall) {
+  if (
+    connectorCall.route &&
+    !marketplaceRoute(connectorCall.route) &&
+    deps.connector?.resolveCall
+  ) {
     try {
       const resolved = await deps.connector.resolveCall(connectorCall, context);
       if (resolved) {
@@ -391,6 +406,28 @@ export async function prepareToolRequest(
   const { deps, run, bot } = ctx;
   const { name, executionId, nextApprovedTool } = request;
   let { args } = request;
+  if (marketplaceToolName(name)) {
+    const { route } = request.connectorCall;
+    if (!marketplaceRoute(route))
+      return refusal("marketplace_tool_unavailable", MARKETPLACE_UNAVAILABLE);
+    try {
+      const tool = ctx.tools.connector.get(name);
+      if (!tool) return refusal("marketplace_tool_unavailable", MARKETPLACE_UNAVAILABLE);
+      args = parseConnectorToolArgs(tool.inputSchema, args);
+      request.effectRequest = boundDirectApprovalRequest(route, args, CATALOG_APPROVAL_TOOL);
+      if (tool.readOnly !== true) {
+        const lines = [tool.label ?? name, JSON.stringify(args)];
+        if (lines.join("\n").length > MAX_APPROVAL_DETAIL_LENGTH)
+          return refusal(
+            "marketplace_tool_arguments_too_long",
+            "The marketplace call is too long to review.",
+          );
+        request.fleetSummary = { title: "Run a marketplace tool?", lines };
+      }
+    } catch (error) {
+      return refusal("marketplace_tool_arguments_invalid", sanitizeConnectorError(error));
+    }
+  }
   if (
     (SCHEDULE_TOOL_NAMES.has(name) || SKILL_TOOL_NAMES.has(name)) &&
     (ctx.source.messagingChannelRun ||
@@ -449,21 +486,33 @@ export async function prepareToolRequest(
     FLEET_WRITE_TOOL_NAMES_SET.has(name) ||
     name === "archive_bot" ||
     (name === "update_bot" && argumentGiven(args.bot_id));
-  if (fleetWrite || name === "list_fleet") {
+  const managesExistingBots = fleetWrite || name === "list_fleet";
+  const createsBot = name === "spawn_bot";
+  if (managesExistingBots || createsBot) {
     if (isSubagentToolExecution(executionId))
       return refusal("helper_bot_management", "Helpers cannot use bot management tools.");
-    // The run-start snapshot is not enough: the owner can turn the switch off mid-run.
-    const live = await deps.prisma.bot.findUnique({
-      where: { id: bot.id },
-      select: { fleetManagement: true },
-    });
-    if (!live?.fleetManagement)
-      return refusal("tool_disabled", "This tool is disabled for this bot.");
-    if (!ctx.source.ownerStartedRun)
+    // Approved creation replays settle through the handler, which checks inside the write.
+    // A new request also checks here to keep a revoked tool from asking for approval.
+    if (!(createsBot && nextApprovedTool === name)) {
+      const live = await deps.prisma.bot.findUnique({
+        where: { id: bot.id },
+        select: { fleetManagement: true },
+      });
+      if (!live?.fleetManagement)
+        return refusal(
+          "tool_disabled",
+          createsBot
+            ? disabledBuiltinToolUnavailableReason(name)
+            : "This tool is disabled for this bot.",
+        );
+    }
+    if (managesExistingBots && !ctx.source.ownerStartedRun)
       return refusal("run_not_owner_started", "Bot management tools need a run you started.");
-    // Text from a channel or webhook may have asked for it, so it goes through the approval mode,
-    // and an Always allow rule saved for calls the owner asked for does not skip it.
-    if (fleetWrite && (await ctx.trust.receivedOutsideMessage())) {
+    // Outside text may have asked for the change. A saved allow rule cannot skip its approval.
+    if (
+      (createsBot && (run.trigger === "webhook" || ctx.source.messagingChannelRun)) ||
+      ((fleetWrite || createsBot) && (await ctx.trust.receivedOutsideMessage()))
+    ) {
       request.heldForApproval = true;
       request.ignoresAllowRules = true;
     }

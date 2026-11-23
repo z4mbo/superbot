@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { CONNECTION_LABEL_MAX_LENGTH } from "@rakazo/contracts";
+import { MCP_SOURCE_PRESETS } from "@rakazo/core";
 import {
   activeBotId,
   captureScreenshot,
@@ -127,7 +128,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
     await catalogGate;
     await route.continue();
   });
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   const catalogSpinner = page.getByRole("status", { name: "Loading integrations…" });
   const featured = page.getByTestId("featured-connectors");
   try {
@@ -155,11 +156,14 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
     .getByText("Gmail", { exact: true })
     .locator("xpath=ancestor::*[.//button][1]");
   await gmailRow.getByRole("button", { name: "Add Gmail", exact: true }).click();
-  await expect(gmailRow.getByRole("button", { name: "Added", exact: true })).toBeVisible();
-  await expect(page.getByTestId("connection-tile-gmail")).toBeVisible();
+  // Once added, Gmail leaves Featured and leads the page under Connected.
+  const connectedNow = page.getByTestId("connected-now");
+  const gmailTile = connectedNow.getByTestId("connection-tile-gmail");
+  await expect(gmailTile.getByRole("button", { name: "Added", exact: true })).toBeVisible();
+  await expect(featured.getByText("Gmail", { exact: true })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "11a-connected-plugins");
 
-  await gmailRow.getByRole("button", { name: "Added", exact: true }).click();
+  await gmailTile.getByRole("button", { name: "Added", exact: true }).click();
   const detail = page.getByTestId("connection-detail");
   await expect(detail).toBeVisible();
   await expect(page.getByTestId("connection-accounts")).toBeVisible();
@@ -199,8 +203,8 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await expect(detail.getByText("Send email", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "11a3-plugin-tools");
 
-  await page.getByRole("button", { name: "Close integrations" }).click();
-  await page.getByRole("button", { name: "Connect apps", exact: true }).click();
+  await page.getByRole("button", { name: "Close store" }).click();
+  await page.getByRole("button", { name: "Store", exact: true }).click();
   await expect(page.getByPlaceholder("Search apps")).toBeVisible();
   const gmailTileAgain = page.getByTestId("connection-tile-gmail");
   await expect(gmailTileAgain.getByRole("button", { name: "Added", exact: true })).toBeVisible();
@@ -227,15 +231,21 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await linearRow.getByRole("button", { name: "Add Linear", exact: true }).click();
   const popup = await connectPopup;
   await popup.close();
-  await expect(linearRow.getByRole("button", { name: "Added", exact: true })).toBeVisible();
-  await linearRow.getByRole("button", { name: "Added", exact: true }).click();
+  // Added apps lead under Connected (More apps still lists them too).
+  const linearAdded = connectedNow
+    .getByText("Linear", { exact: true })
+    .locator("xpath=ancestor::*[.//button][1]")
+    .getByRole("button", { name: "Added", exact: true });
+  await expect(linearAdded).toBeVisible();
+  await linearAdded.click();
   const linearDetail = page.getByTestId("connection-detail");
   await expect(linearDetail).toBeVisible();
   await linearDetail.getByRole("button", { name: "Uninstall", exact: true }).click();
   await expect(page.getByTestId("connection-detail")).toHaveCount(0);
   await expect(linearRow.getByRole("button", { name: "Add Linear", exact: true })).toBeVisible();
 
-  // Custom sources live behind one menu: GitHub, then MCP → OpenAPI → GraphQL → Executor.
+  // Custom sources live behind one menu: GitHub, then MCP → OpenAPI → GraphQL → the server's
+  // MCP service presets, in the order it sends them.
   await page.getByRole("button", { name: "Add custom", exact: true }).click();
   const addItems = page.getByRole("menuitem");
   await expect(addItems).toHaveText([
@@ -243,7 +253,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
     "MCP server",
     "OpenAPI",
     "GraphQL",
-    "Executor",
+    ...MCP_SOURCE_PRESETS.map((preset) => preset.name),
     "Browse MCP servers",
     "Search by domain",
     "Manage MCP servers",
@@ -334,7 +344,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   ).toHaveAccessibleDescription("Browser API");
   await captureScreenshot(page, testInfo, "02-graphql-installed");
 
-  await page.getByRole("button", { name: "Close integrations" }).click();
+  await page.getByRole("button", { name: "Close store" }).click();
 
   await page.getByText("Chief").first().click();
   await openBotPanel(page);

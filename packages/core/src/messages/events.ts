@@ -75,7 +75,8 @@ export function projectMessages(
     const createdAt =
       typeof event.createdAt === "string" ? event.createdAt : event.createdAt.toISOString();
     if (event.type === "thread.message.created") {
-      clearLive(event);
+      const origin = payload.origin === "local_cli" ? payload.origin : undefined;
+      if (!origin) clearLive(event);
       const role = (payload.role as ThreadMessage["role"]) ?? "bot";
       const blocks = (payload.blocks as MessageBlock[]) ?? [];
       for (const block of blocks) {
@@ -87,10 +88,11 @@ export function projectMessages(
       messages.push({
         id: (payload.messageId as string) ?? event.id,
         threadId: event.threadId,
-        seq: event.seq,
+        seq: origin && typeof payload.seq === "number" ? payload.seq : event.seq,
         role,
         blocks,
-        botId: event.botId ?? undefined,
+        origin,
+        botId: origin ? undefined : (event.botId ?? undefined),
         ...payloadAuthor(payload),
         runId: event.runId ?? undefined,
         createdAt,

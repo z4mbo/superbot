@@ -105,7 +105,8 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
 
   await page.getByTestId("user-menu-trigger").click();
   const menu = page.locator('[data-slot="popover-content"]');
-  await expect(menu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  await expect(menu.getByTestId("account-menu-header")).toContainText(userName);
+  await expect(menu.getByRole("button", { name: "Settings", exact: true })).toHaveCount(0);
   await expect(menu.getByRole("button", { name: "Usage", exact: true })).toHaveCount(0);
   await expect(menu.getByRole("button", { name: "Log out", exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "settings-account-menu-lean");
@@ -190,6 +191,8 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   await page.getByRole("button", { name: "Close voice settings" }).click();
   await expect(page.getByTestId("user-settings")).toHaveCount(0);
 
+  await page.getByTestId("minimize-bots-sidebar").click();
+  await expect(page.getByTestId("bots-sidebar")).toHaveAttribute("data-collapsed", "true");
   await openUserSettings(page, "usage");
   await expect(page.getByTestId("user-settings")).toHaveAttribute("data-settings-section", "usage");
   await expect(page.getByTestId("usage-settings")).toBeVisible();
@@ -221,18 +224,16 @@ test("Honcho memory settings empty and filled", async ({ page }, testInfo) => {
   const userPeer = memory.getByLabel("User peer", { exact: true });
   await userPeer.fill("bot-123");
   await expect(userPeer).toHaveAttribute("aria-invalid", "true");
-  await expect(
-    memory.getByText("rakazo-shared and IDs starting with bot- are reserved for Rakazo."),
-  ).toBeVisible();
+  await expect(memory.getByText("This peer ID is reserved. Choose a different ID.")).toBeVisible();
   await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeDisabled();
   await captureScreenshot(page, testInfo, "memory-honcho-user-peer-reserved");
   await userPeer.fill("user-alex");
   await expect(
-    memory.getByText("Recall from this peer; save to Rakazo’s own peers."),
+    memory.getByText("Recall from this peer; save to Superbot’s own peers."),
   ).toBeVisible();
   await expect(memory.getByRole("button", { name: "Connect", exact: true })).toBeEnabled();
   await memory
-    .getByText("Recall from this peer; save to Rakazo’s own peers.")
+    .getByText("Recall from this peer; save to Superbot’s own peers.")
     .evaluate((element) => element.scrollIntoView({ block: "center" }));
   await captureScreenshot(page, testInfo, "memory-honcho-filled");
   await memory.getByRole("button", { name: "Self-hosted", exact: true }).click();

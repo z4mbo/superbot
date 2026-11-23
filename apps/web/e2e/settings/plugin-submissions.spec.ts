@@ -89,7 +89,11 @@ test("an admin reviews plugin submissions from the emailed admin link", async ({
   await expect(rows).toHaveCount(3);
   await expect(rows.first()).toContainText("github.com/example/planning-notes");
   const claim = panel.getByRole("listitem", { name: "Acme Tickets" });
-  await expect(claim).toContainText("rakazo.com/integrations/acme-tickets");
+  // A claim links only to the claimed app's site and its owner.
+  const claimLinks = claim.getByRole("link");
+  await expect(claimLinks).toHaveCount(2);
+  await expect(claimLinks.first()).toHaveAttribute("href", "https://acme.example.test");
+  await expect(claimLinks.last()).toHaveAttribute("href", "mailto:owner@acme.example.test");
   await expect(claim.getByRole("button", { name: "Testing" })).toHaveCount(0);
   await expect(rows.first()).toContainText("maker@example.test");
   await rows.first().getByRole("button", { name: "Testing" }).click();

@@ -71,7 +71,8 @@ export const MessageView = memo(function MessageView({
   onOpenBot,
   onOpenPeerMessages,
   peerExchange,
-  hideSenderLabel,
+  joinAbove,
+  joinBelow,
   speakerName,
   memberName,
   peerBot,
@@ -118,7 +119,8 @@ export const MessageView = memo(function MessageView({
   onOpenPeerMessages: (peer: { peerBotId: string; peerBotName: string }) => void;
   /** The adjacent receipts represented by this peer line. */
   peerExchange?: PeerExchange;
-  hideSenderLabel?: boolean;
+  joinAbove?: boolean;
+  joinBelow?: boolean;
   speakerName?: string;
   memberName?: (botId: string | undefined) => string | undefined;
   peerBot: (
@@ -150,7 +152,9 @@ export const MessageView = memo(function MessageView({
   onReact: (message: ThreadMessage, reaction: MessageReaction) => Promise<void>;
 }) {
   const { t } = useLingui();
+  const localReply = message.origin === "local_cli" && message.role === "bot";
   const isNarration =
+    !localReply &&
     message.role === "bot" &&
     message.blocks.length > 0 &&
     message.blocks.every(
@@ -199,55 +203,74 @@ export const MessageView = memo(function MessageView({
   );
   const speak = () => onSpeak(message);
   const replyBotId = message.replyPreview?.botId ?? replyParent?.botId;
-  const author = message.role === "user" ? otherAuthor(message.author, meId) : undefined;
+  const mine = message.role === "user" && !otherAuthor(message.author, meId);
+  const topCorner = mine ? "rounded-se-[6px]" : "rounded-ss-[6px]";
+  const bottomCorner = mine ? "rounded-ee-[6px]" : "rounded-es-[6px]";
   const replyAuthor = otherAuthor(message.replyPreview?.author ?? replyParent?.author, meId);
   const speakerBot = message.botId ? peerBot?.(message.botId) : undefined;
   const speakerColorDef = useMemo(
     () => resolvePersonaColorDef(message.botId ?? "bot", speakerBot?.color),
     [message.botId, speakerBot?.color],
   );
+  const humanSpeaker = message.role === "user";
+  const replyLine = (
+    <ReplyLine
+      target={artifactTarget}
+      message={message}
+      alignEnd={mine}
+      fallbackText={replyParent ? previewMessageText(replyParent) : undefined}
+      author={
+        (message.replyPreview?.role ?? replyParent?.role) === "user"
+          ? (replyAuthor?.name ?? t`You`)
+          : ((replyBotId ? peerBot(replyBotId)?.name : undefined) ??
+            memberName?.(replyBotId) ??
+            t`Bot`)
+      }
+      onJump={onJumpToMessage}
+    />
+  );
   const messageContext = (
     <>
-      {hideSenderLabel ? null : speakerName ? (
-        <div
-          className="mb-1.5 flex items-center gap-2 text-body-sm font-semibold tracking-tight"
-          dir="auto"
-          style={{ color: speakerColorDef.hex }}
-        >
-          <BotAvatar
-            color={speakerBot?.color ?? FALLBACK_BOT_COLOR}
-            avatarSet={speakerBot?.avatarSet}
-            identity={message.botId}
-            size={22}
-          />
-          {speakerName}
+      {/* Keep a member's label next to their bubble even when the message quotes a reply. */}
+      {humanSpeaker ? replyLine : null}
+      {localReply ? (
+        <div className="mb-1.5 text-body-sm font-semibold text-muted-foreground" dir="auto">
+          {message.author ? t`Local CLI used by ${message.author.name}` : t`Local CLI`}
         </div>
-      ) : author ? (
+      ) : joinAbove ? null : speakerName ? (
         <div
-          className="mb-1.5 text-end text-body-sm font-semibold tracking-tight text-muted-foreground"
-          dir="auto"
+          data-testid="message-sender-label"
+          className={cn(
+            "text-body-sm font-semibold",
+            humanSpeaker
+              ? "mb-1 px-3 text-muted-foreground"
+              : "mb-1.5 flex items-center gap-2 tracking-tight",
+          )}
+          dir={humanSpeaker ? undefined : "auto"}
+          style={humanSpeaker ? undefined : { color: speakerColorDef.hex }}
         >
-          {author.name}
+          {humanSpeaker ? (
+            <bdi>{speakerName}</bdi>
+          ) : (
+            <>
+              <BotAvatar
+                color={speakerBot?.color ?? FALLBACK_BOT_COLOR}
+                avatarSet={speakerBot?.avatarSet}
+                identity={message.botId}
+                size={22}
+              />
+              {speakerName}
+            </>
+          )}
         </div>
       ) : null}
-      <ReplyLine
-        target={artifactTarget}
-        message={message}
-        fallbackText={replyParent ? previewMessageText(replyParent) : undefined}
-        author={
-          (message.replyPreview?.role ?? replyParent?.role) === "user"
-            ? (replyAuthor?.name ?? t`You`)
-            : ((replyBotId ? peerBot(replyBotId)?.name : undefined) ??
-              memberName?.(replyBotId) ??
-              t`Bot`)
-        }
-        onJump={onJumpToMessage}
-      />
+      {humanSpeaker ? null : replyLine}
     </>
   );
   // Anchored below the speaker and reply line so the rail centers on the bubble itself.
   // A message with text and attachments anchors it on its first text bubble.
   const textAnchorIndex = message.blocks.findIndex((block) => block.kind === "text");
+  const lastTextIndex = joinBelow ? blocks.findLastIndex((block) => block.kind === "text") : -1;
   const hoverAnchorIndex =
     textAnchorIndex === -1
       ? message.blocks.findIndex((block) => block.kind === "ask")
@@ -256,7 +279,7 @@ export const MessageView = memo(function MessageView({
   const hoverActions = peerReceipt ? null : (
     <MessageHoverActions
       message={message}
-      side={message.role === "user" ? "start" : "end"}
+      side={mine ? "start" : "end"}
       onReply={onReply}
       onMarkUnread={onMarkUnread}
       markedUnread={markedUnread}
@@ -283,8 +306,11 @@ export const MessageView = memo(function MessageView({
           <div className="flex w-fit max-w-full justify-start [@media(hover:none)]:w-full">
             <div
               data-testid="message-bot-bubble"
-              className="max-w-full space-y-2.5 rounded-2xl bg-muted px-4 py-2.5 text-body-lg text-foreground"
-              dir="auto"
+              className={cn(
+                "max-w-full space-y-2.5 rounded-[18px] bg-card px-3 py-[7px] text-body-lg text-foreground",
+                joinAbove && topCorner,
+                joinBelow && bottomCorner,
+              )}
             >
               {visibleNarrationBlocks.map((block, i) => {
                 if (block.kind === "steps") {
@@ -307,6 +333,7 @@ export const MessageView = memo(function MessageView({
                   return (
                     <div
                       key={i}
+                      dir="auto"
                       data-quote-message-id={block.kind === "text" ? quoteMessageId : undefined}
                     >
                       <ChatMarkdown
@@ -345,12 +372,7 @@ export const MessageView = memo(function MessageView({
   return (
     <>
       {messageContext}
-      <div
-        className={cn(
-          "relative flex flex-col gap-2",
-          message.role === "user" && !peerReceipt && "items-end",
-        )}
-      >
+      <div className={cn("relative flex flex-col gap-2", mine && !peerReceipt && "items-end")}>
         {blocks.map((block, i) => {
           if (block.kind === "steps" && shouldRenderToolCard(block, showToolActivity)) {
             return (
@@ -444,7 +466,7 @@ export const MessageView = memo(function MessageView({
               >
                 <div
                   data-testid="message-bot-bubble"
-                  className="max-w-full rounded-2xl bg-muted px-4 py-2.5 text-body-lg text-foreground"
+                  className="max-w-full rounded-[18px] bg-card px-3 py-[7px] text-body-lg text-foreground"
                   dir="auto"
                 >
                   <ChatMarkdown streaming renderMention={renderMention} onOpenPage={openPage}>
@@ -459,7 +481,14 @@ export const MessageView = memo(function MessageView({
             // A saved running card is a background helper's; a live one belongs to this turn.
             const onStop =
               botId && !message.id.startsWith("subagent:")
-                ? () => rpc.threads.stopHelper({ botId, messageId: message.id })
+                ? () =>
+                    rpc.threads.stopHelper({
+                      botId,
+                      ...("botId" in artifactTarget && artifactTarget.threadId
+                        ? { threadId: artifactTarget.threadId }
+                        : {}),
+                      messageId: message.id,
+                    })
                 : undefined;
             return <SubagentCard key={i} block={block} onStop={onStop} />;
           }
@@ -556,10 +585,7 @@ export const MessageView = memo(function MessageView({
           }
           if (block.kind === "image") {
             return (
-              <div
-                key={i}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+              <div key={i} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <ArtifactImage
                   target={artifactTarget}
                   artifactId={block.artifactId}
@@ -570,10 +596,7 @@ export const MessageView = memo(function MessageView({
           }
           if (block.kind === "file") {
             return (
-              <div
-                key={i}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+              <div key={i} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <ArtifactFileCard
                   target={artifactTarget}
                   artifactId={block.artifactId}
@@ -591,20 +614,21 @@ export const MessageView = memo(function MessageView({
             return (
               <div
                 key={i}
-                className="relative flex w-fit max-w-full justify-end [@media(hover:none)]:w-full [@media(hover:none)]:flex-wrap"
+                className={`relative flex w-fit max-w-full ${mine ? "justify-end" : "justify-start"} [@media(hover:none)]:w-full [@media(hover:none)]:flex-wrap`}
               >
                 <div
                   data-testid="message-user-bubble"
                   data-quote-message-id={quoteMessageId}
                   className={cn(
-                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-2xl px-4 py-2.5 text-body-lg",
-                    author
-                      ? "bg-muted text-foreground/90"
-                      : "bg-chat-user text-chat-user-foreground",
+                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-[18px] px-3 py-[7px] text-body-lg",
+                    mine ? "bg-chat-user text-chat-user-foreground" : "bg-card text-foreground",
+                    joinAbove && i === textAnchorIndex && topCorner,
+                    i === lastTextIndex && bottomCorner,
                   )}
-                  dir="auto"
                 >
-                  <LinkifiedText onOpenPage={openPage}>{block.text}</LinkifiedText>
+                  <div dir="auto">
+                    <LinkifiedText onOpenPage={openPage}>{block.text}</LinkifiedText>
+                  </div>
                 </div>
                 {i === hoverAnchorIndex ? hoverActions : null}
               </div>
@@ -618,13 +642,20 @@ export const MessageView = memo(function MessageView({
               >
                 <div
                   data-testid="message-bot-bubble"
-                  className="max-w-full rounded-2xl bg-muted px-4 py-2.5 text-body-lg text-foreground"
-                  dir="auto"
+                  className={cn(
+                    "max-w-full rounded-[18px] bg-card px-3 py-[7px] text-body-lg text-foreground",
+                    joinAbove && i === textAnchorIndex && topCorner,
+                    i === lastTextIndex && bottomCorner,
+                  )}
                 >
-                  <div data-quote-message-id={quoteMessageId}>
-                    <ChatMarkdown renderMention={renderMention} onOpenPage={openPage}>
-                      {block.text}
-                    </ChatMarkdown>
+                  <div data-quote-message-id={quoteMessageId} dir="auto">
+                    {localReply ? (
+                      <div className="whitespace-pre-wrap wrap-anywhere">{block.text}</div>
+                    ) : (
+                      <ChatMarkdown renderMention={renderMention} onOpenPage={openPage}>
+                        {block.text}
+                      </ChatMarkdown>
+                    )}
                   </div>
                   {voiceReady ? (
                     <Button

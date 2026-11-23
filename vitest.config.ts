@@ -27,6 +27,7 @@ const mutatesSharedState =
 const root = path.dirname(fileURLToPath(import.meta.url));
 const isolated = include
   .flatMap((pattern) => globSync(pattern, { cwd: root }))
+  .map((file) => file.split(path.sep).join("/"))
   .filter(
     (file) =>
       process.env.COPY_TEST_DATABASE ||
@@ -73,7 +74,8 @@ export default defineConfig({
       // source; stub them out in tests (they never render anyway).
       ...["react-native-fit-image", "@react-native-vector-icons/material-design-icons"].map(
         (dep) => ({
-          find: new RegExp(`^${dep.replace(/[/]/g, "\\/")}$`),
+          // Escape every metacharacter, backslash included, so the name matches only itself.
+          find: new RegExp(`^${dep.replace(/[\\^$.*+?()[\]{}|/-]/g, "\\$&")}$`),
           replacement: fileURLToPath(
             new URL("./packages/chat-ui/src/native-test-stubs.tsx", import.meta.url),
           ),

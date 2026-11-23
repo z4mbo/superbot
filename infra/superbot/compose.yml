@@ -1,0 +1,53 @@
+services:
+  data-init:
+    volumes:
+      - appdata:/data
+
+  api:
+    restart: unless-stopped
+    environment:
+      SANDBOX_PROVIDER: none
+      API_PORT: "3100"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3100/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+    ports: !reset []
+    volumes:
+      - appdata:/data
+
+  worker:
+    restart: unless-stopped
+    environment:
+      SANDBOX_PROVIDER: none
+      API_URL: http://api:3100
+    volumes:
+      - appdata:/data
+
+  postgres:
+    restart: unless-stopped
+
+  web:
+    restart: unless-stopped
+    environment:
+      RAKAZO_THEME: ${RAKAZO_THEME:-/app/infra/superbot/theme/theme.json}
+    ports: !override
+      - "127.0.0.1:${SUPERBOT_PORT:-5173}:5173"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:5173/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  appdata:
