@@ -24,6 +24,7 @@ The spec then sends a message and checks that the run starts on the picked model
 | File | What it shows |
 | --- | --- |
 | `linux-test-results.png` | The new unit tests (25), the Postgres integration test and the web e2e spec, all passing on this Linux host. |
+| `ci-unit-tests-three-os.png` | Both new unit files passing on ubuntu, windows and macos in the cross-platform workflow ([run 45184455851](https://github.com/z4mbo/superbot/actions/runs/45184455851)). |
 
 ## What ran where
 
@@ -31,8 +32,11 @@ The spec then sends a message and checks that the run starts on the picked model
   (`pnpm test:integration -- --spec=bot-model-pick`) and the web e2e spec
   (`pnpm test:e2e -- --spec=bot-model-pick`, scripted runtime, Chromium). All passed.
 - **In CI on ubuntu, windows and macos:** the two new unit files are added to the
-  cross-platform workflow's unit list (`.github/workflows/cross-platform.yml`). The run linked
-  in the pull request is the evidence for Windows and macOS.
+  cross-platform workflow's unit list (`.github/workflows/cross-platform.yml`). They passed on
+  all three in [run 45184455851](https://github.com/z4mbo/superbot/actions/runs/45184455851)
+  (job "Unit tests"). That run's other failures are not from this branch: the temporary
+  "Whole unit suite on Windows" inventory jobs are expected to fail, and "Desktop
+  (macos-latest)" was cancelled before it ran a step.
 
 ## Gaps
 
