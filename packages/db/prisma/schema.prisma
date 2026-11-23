@@ -2149,6 +2149,10 @@ model Page {
   shareSecret    Secret?       @relation(fields: [shareSecretId], references: [id], onDelete: SetNull)
   pinnedAt       DateTime?
   currentVersion Int           @default(1)
+  /// An app page's stored state, changed only by its declared actions; null for a plain page.
+  appState       Json?
+  /// Counts changes to appState, so a stale write fails and viewers drop late answers.
+  appRevision    Int           @default(0)
   createdAt      DateTime      @default(now())
   /// Set when the page's content or title changes; pinning or sharing it is not an update.
   updatedAt      DateTime      @default(now())
@@ -2169,6 +2173,8 @@ model PageVersion {
   source    String
   /// The source compiled for the viewer when it was saved, so reads never run the compiler.
   code      String
+  /// The app manifest when this version is an app (permissions, initial state, actions).
+  app       Json?
   createdAt DateTime @default(now())
 
   @@unique([pageId, version])

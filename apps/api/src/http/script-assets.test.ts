@@ -1,11 +1,11 @@
 import { PAGE_RUNTIME_PATH } from "@rakazo/core";
-import { buildPageRuntime } from "@rakazo/page-kit/runtime-build";
+import { buildAppRuntime } from "@rakazo/plugin-sdk/runtime-build";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import { DIAGRAM_SCRIPT_PATH, mountScriptAssets } from "./script-assets.js";
 
-vi.mock(import("@rakazo/page-kit/runtime-build"), async (actual) => ({
-  buildPageRuntime: vi.fn((await actual()).buildPageRuntime),
+vi.mock(import("@rakazo/plugin-sdk/runtime-build"), async (actual) => ({
+  buildAppRuntime: vi.fn((await actual()).buildAppRuntime),
 }));
 
 const app = new Hono();
@@ -14,11 +14,11 @@ mountScriptAssets(app);
 describe("script asset routes", () => {
   // First, while nothing is cached: a failed build must not stay cached.
   it("builds the page runtime again after a failed build", async () => {
-    vi.mocked(buildPageRuntime).mockRejectedValueOnce(new Error("esbuild crashed"));
+    vi.mocked(buildAppRuntime).mockRejectedValueOnce(new Error("esbuild crashed"));
     expect((await app.request(PAGE_RUNTIME_PATH)).status).toBe(500);
     expect((await app.request(PAGE_RUNTIME_PATH)).status).toBe(200);
     expect((await app.request(PAGE_RUNTIME_PATH)).status).toBe(200);
-    expect(buildPageRuntime).toHaveBeenCalledTimes(2);
+    expect(buildAppRuntime).toHaveBeenCalledTimes(2);
   });
 
   it.each([

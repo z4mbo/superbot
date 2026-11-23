@@ -329,3 +329,59 @@ describe("saving a page shared by link", () => {
     expect(result).toMatchObject({ version: 2, sharedByLink: true });
   });
 });
+
+describe("save_page with an app", () => {
+  beforeEach(() => publishMessage.mockReset());
+
+  const app = {
+    id: "counter",
+    name: "Counter",
+    version: "1.0.0",
+    description: "Counts.",
+    permissions: ["state"],
+    actions: [{ name: "bump", description: "Add one.", effects: [{ op: "increment", path: "n" }] }],
+  };
+  const appSource =
+    'export default function Counter() {\n  const state = useAppState();\n  return <Page title="Counter"><ActionButton action="bump" label={String(state.n ?? 0)} /></Page>;\n}\n';
+
+  it("stores the checked manifest with the version", async () => {
+    const tx = { page: { create: vi.fn(async () => ({ id: "page-1", title: "Counter" })) } };
+    const result = (await pageTools.save_page!(
+      context(tx),
+      call({ title: "Counter", source: appSource, app }),
+    )) as Record<string, unknown>;
+    expect(result).toMatchObject({ pageId: "page-1", version: 1 });
+    const created = (
+      tx.page.create.mock.calls[0] as unknown as [
+        { data: { versions: { create: { app: unknown; code: string } } } },
+      ]
+    )[0];
+    expect(created.data.versions.create.app).toMatchObject({ id: "counter", entry: "app.jsx" });
+    expect(created.data.versions.create.code).toContain("globalThis.__rakazoApp=");
+  });
+
+  it("refuses app code without a manifest, and a manifest the code contradicts", async () => {
+    const tx = { page: { create: vi.fn() } };
+    const plain = (await pageTools.save_page!(
+      context(tx),
+      call({ title: "Counter", source: appSource }),
+    )) as { problems?: string[] };
+    expect(plain.problems?.join("\n")).toContain("<ActionButton> is not a kit component");
+    const wrong = (await pageTools.save_page!(
+      context(tx),
+      call({ title: "Counter", source: appSource.replace('"bump"', '"wipe"'), app }),
+    )) as { problems?: string[] };
+    expect(wrong.problems).toContain(
+      'The code runs "wipe", which app.json does not declare in actions.',
+    );
+    expect(tx.page.create).not.toHaveBeenCalled();
+  });
+
+  it("returns the app guide with the kit guide when asked", async () => {
+    const result = (await pageTools.save_page!(context({}), call({ help: true, app: {} }))) as {
+      guide: string;
+    };
+    expect(result.guide).toContain("# Pages");
+    expect(result.guide).toContain("# Apps");
+  });
+});

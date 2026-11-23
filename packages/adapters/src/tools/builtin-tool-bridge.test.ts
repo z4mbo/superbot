@@ -61,8 +61,8 @@ describe("built-in tool bridge", () => {
     // most used deferred tool, and a lookup before each message cost a step; schedule_create says
     // whether a routine runs in its chat, and takes the events (webhook, Git, chat, email) a
     // routine can start on, saying a Git event needs no connected app; remember can log to
-    // today's daily note.
-    expect(definitionBytes(listed)).toBeLessThanOrEqual(35_701);
+    // today's daily note; the media area names the two app tools.
+    expect(definitionBytes(listed)).toBeLessThanOrEqual(35_733);
     expect(deferred.map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["render_plot", "create_space", "generate_secret", "scratchpad_add"]),
     );

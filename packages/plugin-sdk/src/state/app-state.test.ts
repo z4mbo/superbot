@@ -1,6 +1,7 @@
 import type { AppManifestInput } from "@rakazo/contracts";
 import { APP_STATE_MAX_BYTES, appManifestSchema } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
+import type { AppState } from "./app-state.js";
 import { applyAppAction, parseActionInput } from "./app-state.js";
 
 function manifest(actions: AppManifestInput["actions"], permissions = ["state"] as const) {
@@ -64,7 +65,7 @@ const tasks = manifest([
 describe("applyAppAction", () => {
   it("runs each kind of effect", () => {
     ids = 0;
-    let state: Record<string, unknown> = {};
+    let state: AppState = {};
     const run = (name: string, input?: unknown) => {
       const outcome = applyAppAction(tasks, state, name, input, options);
       if (!outcome.ok) throw new Error(outcome.error);
@@ -95,7 +96,7 @@ describe("applyAppAction", () => {
   });
 
   it("keeps only the newest items past max", () => {
-    let state: Record<string, unknown> = {};
+    let state: AppState = {};
     for (const title of ["a", "b", "c", "d"]) {
       const outcome = applyAppAction(tasks, state, "add", { title }, options);
       if (outcome.ok) state = outcome.state;
@@ -105,7 +106,13 @@ describe("applyAppAction", () => {
 
   it("never changes the state it was given", () => {
     const state = Object.freeze({ tasks: Object.freeze([]) });
-    const outcome = applyAppAction(tasks, state, "add", { title: "x" }, options);
+    const outcome = applyAppAction(
+      tasks,
+      state as unknown as AppState,
+      "add",
+      { title: "x" },
+      options,
+    );
     expect(outcome.ok).toBe(true);
     expect(state.tasks).toEqual([]);
   });
@@ -182,7 +189,7 @@ describe("applyAppAction", () => {
         effects: [{ op: "append", path: "log", from: "text" }],
       },
     ]);
-    let state: Record<string, unknown> = {};
+    let state: AppState = {};
     let outcome = applyAppAction(big, state, "grow", { text: "x".repeat(4000) }, options);
     while (outcome.ok) {
       state = outcome.state;

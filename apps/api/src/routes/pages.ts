@@ -1,3 +1,4 @@
+import { pageAppView, runPageAppAction } from "../content/page-apps.js";
 import {
   getPage,
   listPages,
@@ -39,6 +40,21 @@ export function pagesRoutes(ctx: RouterContext) {
       ),
       remove: authed.pages.remove.handler(({ context, input }) =>
         removePage(pageDeps(), context.actor, input.pageId),
+      ),
+      appState: authed.pages.appState.handler(({ context, input }) =>
+        pageAppView(deps.prisma, context.actor, input.pageId),
+      ),
+      runAction: authed.pages.runAction.handler(({ context, input }) =>
+        runPageAppAction(
+          {
+            prisma: deps.prisma,
+            publishSpaceChange: async (spaceId, kind) => {
+              await deps.events?.publishSpaceChange?.(spaceId, kind);
+            },
+          },
+          context.actor,
+          input,
+        ),
       ),
     },
   };

@@ -13,6 +13,7 @@ export * from "./approvals/auto-review-factory.js";
 export * from "./approvals/decision-models.js";
 export * from "./approvals/http-decisions.js";
 export * from "./approvals/scripted-auto-review.js";
+export * from "./apps/app-pages.js";
 export * from "./billing/billing-emulator.js";
 export * from "./billing/plan-limits.js";
 export * from "./bots/agent-connections.js";
