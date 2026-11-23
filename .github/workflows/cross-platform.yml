@@ -132,3 +132,32 @@ jobs:
           path: apps/desktop/e2e/test-results
           if-no-files-found: ignore
           retention-days: 14
+
+  # TEMPORARY (removed in the next commit): one inventory run of the whole unit suite on Windows.
+  whole-unit-windows:
+    name: Whole unit suite on Windows (${{ matrix.shard }}/4)
+    runs-on: windows-latest
+    continue-on-error: true
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
+      - run: pnpm db:generate
+        env:
+          DATABASE_URL: postgres://rakazo:rakazo@127.0.0.1:5433/rakazo
+      - name: Whole unit suite
+        shell: bash
+        run: pnpm exec vitest run --shard=${{ matrix.shard }}/4 --reporter=default --reporter=junit --outputFile.junit=unit-junit.xml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: whole-unit-windows-${{ matrix.shard }}
+          path: unit-junit.xml
+          if-no-files-found: ignore
+          retention-days: 7
