@@ -10,6 +10,8 @@ export * from "./account/signup-attribution.js";
 export * from "./account/space-availability.js";
 export * from "./account/user-devices.js";
 export * from "./apps/app-manifest.js";
+export * from "./apps/app-store.js";
+export * from "./apps/app-store-rpc.js";
 export * from "./artifacts/artifacts.js";
 export * from "./artifacts/board.js";
 export * from "./artifacts/pages.js";
