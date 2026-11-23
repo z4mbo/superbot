@@ -11,6 +11,7 @@ import {
 } from "./avatar-shape.js";
 import { botEyeInk, resolvePersonaColorDef } from "./bot-avatar-colors.js";
 import {
+  SHIPPED_BOT_AVATAR_EYE_SLANT,
   SHIPPED_BOT_AVATAR_EYES,
   SHIPPED_BOT_AVATAR_VIEWBOX,
   shippedBotAvatarShapePath,
@@ -43,7 +44,7 @@ export function notificationAvatarSource(bot: {
   let body: string;
   if (parsed?.kind === "shape") {
     viewBox = SHIPPED_BOT_AVATAR_VIEWBOX;
-    body = `<path d="${shippedBotAvatarShapePath(parsed.shapeIndex)}" fill="${color}"/>${barEyes(SHIPPED_BOT_AVATAR_EYES, botEyeInk(color, lightTokens))}`;
+    body = `<path d="${shippedBotAvatarShapePath(parsed.shapeIndex)}" fill="${color}"/>${barEyes(SHIPPED_BOT_AVATAR_EYES, botEyeInk(color, lightTokens), SHIPPED_BOT_AVATAR_EYE_SLANT)}`;
   } else if (bot.avatarSet === "rakazo") {
     const fill = logoAvatarTraits(bot.id, color).color;
     const { width, height, leftCx, rightCx, cy } = LOGO_AVATAR_EYES;
@@ -60,12 +61,12 @@ export function notificationAvatarSource(bot: {
   return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="${viewBox}">${body}</svg>`)}`;
 }
 
-function barEyes(eyes: AvatarEyes, fill: string): string {
+function barEyes(eyes: AvatarEyes, fill: string, slant = 0): string {
   const rects = avatarEyeRects(eyes)
-    .map(
-      ({ x, y, width, height, rx }) =>
-        `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${rx}"/>`,
-    )
+    .map(({ x, y, width, height, rx }) => {
+      const lean = slant ? ` transform="rotate(${slant} ${x + width / 2} ${y + height / 2})"` : "";
+      return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="${rx}"${lean}/>`;
+    })
     .join("");
   return `<g fill="${fill}">${rects}</g>`;
 }
