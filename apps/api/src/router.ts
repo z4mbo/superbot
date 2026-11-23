@@ -49,6 +49,7 @@ import { accountRoutes } from "./routes/account.js";
 import { availabilityRoutes } from "./routes/availability.js";
 import { boardsRoutes } from "./routes/boards.js";
 import { botsRoutes } from "./routes/bots.js";
+import { appStoreRoutes } from "./routes/app-store.js";
 import { capabilitiesRoutes } from "./routes/capabilities.js";
 import { computerRoutes } from "./routes/computer.js";
 import { computerProviderRoutes } from "./routes/computer-provider.js";
@@ -199,6 +200,7 @@ export function createRouter(deps: RouterDeps) {
     ...capabilitiesRoutes(ctx),
     ...pluginRegistryRoutes(ctx),
     ...localAppRecordsRoutes(ctx),
+    ...appStoreRoutes(ctx),
     ...mcpRoutes(ctx),
     ...onboardingRoutes(ctx),
     ...availabilityRoutes(ctx),

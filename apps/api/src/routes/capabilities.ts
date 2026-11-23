@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { ORPCError } from "@orpc/server";
 import {
+  APP_INSTALL_KIND,
   applyMcpSourcePreset,
   createPluginMarketplace,
   isTransientFetchError,
@@ -100,7 +101,8 @@ export function capabilitiesRoutes(ctx: RouterContext) {
     capabilities: {
       list: authed.capabilities.list.handler(async ({ context }) => {
         const rows = await deps.prisma.capabilityInstall.findMany({
-          where: availableInSpace(context.actor),
+          // Apps have their own list, which older clients would not know how to show here.
+          where: { ...availableInSpace(context.actor), kind: { not: APP_INSTALL_KIND } },
           include: { availableIn: AVAILABILITY_SELECT },
         });
         return rows.map((row) => ({

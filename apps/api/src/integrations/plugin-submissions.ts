@@ -17,6 +17,7 @@ import type {
   PluginSubmissionStatus,
 } from "@rakazo/contracts";
 import {
+  appPermissionSchema,
   INTEGRATION_CLAIM_CONFIRM_PATH,
   INTEGRATION_CLAIMS_PATH,
   IntegrationClaimInputSchema,
@@ -24,9 +25,12 @@ import {
   PluginSubmissionInputSchema,
 } from "@rakazo/contracts";
 import { ClientError, pluginCategory } from "@rakazo/core";
-import type { PluginSubmission as PluginSubmissionRow, PrismaClient } from "@rakazo/db";
+import type { Prisma, PluginSubmission as PluginSubmissionRow, PrismaClient } from "@rakazo/db";
+import { readJsonColumn } from "@rakazo/db";
 import type { Context } from "hono";
 import { Hono } from "hono";
+import * as z from "zod";
+import { assertAppReleaseListable } from "../app-store/app-store.js";
 import { readBoundedBody } from "../http/http-body.js";
 import { throttleKey, windowCounter } from "../http/window-counter.js";
 import type { RouterDeps } from "../router.js";
@@ -73,8 +77,37 @@ function emailMatchesWebsite(email: string, website: string): boolean {
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
-function pluginSubmissionDto(row: PluginSubmissionRow): PluginSubmission {
+const AppManifestPermissionsSchema = z.object({ permissions: z.array(appPermissionSchema) });
+
+/** What the review list shows of an app version: enough to see what it asks for. */
+const APP_RELEASE_SELECT = {
+  select: { id: true, appId: true, version: true, manifest: true },
+} satisfies Prisma.PluginSubmission$appReleaseArgs;
+
+type AppReleaseSummary = {
+  id: string;
+  appId: string;
+  version: string;
+  manifest: unknown;
+} | null;
+
+function appSummary(release: AppReleaseSummary): PluginSubmission["app"] {
+  if (!release) return null;
+  // Only shown to an admin, so a manifest that no longer reads shows no permissions.
+  const { permissions } = readJsonColumn(
+    AppManifestPermissionsSchema,
+    release.manifest,
+    { table: "app_releases", column: "manifest", id: release.id },
+    { fallback: { permissions: [] } },
+  );
+  return { appId: release.appId, version: release.version, permissions };
+}
+
+function pluginSubmissionDto(
+  row: PluginSubmissionRow & { appRelease?: AppReleaseSummary },
+): PluginSubmission {
   return {
+    app: appSummary(row.appRelease ?? null),
     id: row.id,
     email: row.email,
     name: row.name,
@@ -254,6 +287,7 @@ export async function listPluginSubmissions(
     where: { status },
     orderBy: { createdAt: status === "pending" ? "asc" : "desc" },
     take: 200,
+    include: { appRelease: APP_RELEASE_SELECT },
   });
   return rows.map(pluginSubmissionDto);
 }
@@ -267,6 +301,9 @@ export async function reviewPluginSubmission(
   if (!row) throw new ORPCError("NOT_FOUND", { message: "Submission not found" });
   if (row.status !== "pending") throw new ORPCError("CONFLICT", { message: "Already reviewed" });
   let listing = {};
+  // An app version is checked again from what is stored before it is listed.
+  if (input.decision === "approve" && row.appReleaseId)
+    await assertAppReleaseListable(deps.prisma, row.appReleaseId);
   // A claim only changes how its page reads, so there is no plugin to check.
   if (input.decision === "approve" && row.source) {
     // Approval lists the commit that was checked, the same way the other registries pin theirs.
@@ -318,7 +355,10 @@ export async function reviewPluginSubmission(
       ),
   );
   return pluginSubmissionDto(
-    await deps.prisma.pluginSubmission.findUniqueOrThrow({ where: { id: row.id } }),
+    await deps.prisma.pluginSubmission.findUniqueOrThrow({
+      where: { id: row.id },
+      include: { appRelease: APP_RELEASE_SELECT },
+    }),
   );
 }
 
