@@ -150,7 +150,9 @@ afterEach(() => {
 /** The settings row for `app`, or the one also naming `detail`. */
 function appRow(app: string, detail = "") {
   const rows = [
-    ...container.querySelectorAll<HTMLElement>('[data-testid="messaging-chat-apps"] .px-4'),
+    ...container.querySelectorAll<HTMLElement>(
+      '[data-testid="messaging-chat-apps"] [data-slot="settings-row"]',
+    ),
   ];
   const row = rows.find(
     (candidate) =>
@@ -555,7 +557,9 @@ it("lets a member choose which bot their DMs link to in a teammate's workspace",
   ]);
   await renderOverlay();
   // Its own row beside Connect, so each row keeps one control.
-  const slackRows = [...container.querySelectorAll('[data-testid="messaging-chat-apps"] .px-4')];
+  const slackRows = [
+    ...container.querySelectorAll('[data-testid="messaging-chat-apps"] [data-slot="settings-row"]'),
+  ];
   expect(slackRows.map((row) => row.querySelectorAll(":scope button").length)).toEqual([1, 3]);
   const team = [...slackRows[1]!.querySelectorAll("button")].find((b) => b.textContent === "Team");
   await act(async () => team!.click());

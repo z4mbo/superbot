@@ -3,7 +3,11 @@
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { readBotsSidebarWidth } from "../../../lib/preferences/bots-sidebar-pref";
+import {
+  BOTS_SIDEBAR_DEFAULT_WIDTH,
+  readBotsSidebarWidth,
+  writeBotsSidebarWidth,
+} from "../../../lib/preferences/bots-sidebar-pref";
 import { useSidebarResize } from "./use-sidebar-resize";
 
 let root: ReturnType<typeof createRoot>;
@@ -29,6 +33,8 @@ function Harness({ userId = "user" }: { userId?: string }) {
 
 beforeEach(async () => {
   localStorage.clear();
+  // The gestures below start from a saved 316px sidebar; the default has its own test.
+  writeBotsSidebarWidth("user", 316);
   commitCollapsed.mockClear();
   vi.stubGlobal("innerWidth", 1200);
   host = document.createElement("div");
@@ -57,6 +63,12 @@ async function key(value: string) {
       .dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: value })),
   );
 }
+
+it("opens at the default width before anything is saved", async () => {
+  localStorage.clear();
+  await act(async () => root.render(<Harness userId="fresh" />));
+  expect(current.width).toBe(BOTS_SIDEBAR_DEFAULT_WIDTH);
+});
 
 it("previews every drag position, commits an expanded width, and remembers it through mini mode", async () => {
   await pointer("pointerdown", 316);
@@ -123,7 +135,7 @@ it("limits the sidebar on viewport resize without discarding the preferred width
   await act(async () => window.dispatchEvent(new Event("resize")));
   expect(current.width).toBe(480);
   await act(async () => root.render(<Harness userId="another-user" />));
-  expect(current.width).toBe(316);
+  expect(current.width).toBe(BOTS_SIDEBAR_DEFAULT_WIDTH);
 });
 
 it("re-renders on viewport resize only when the sidebar's limit changes", async () => {
