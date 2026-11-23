@@ -15,6 +15,7 @@ mod terminal;
 #[cfg(all(test, target_os = "linux"))]
 mod test_support;
 mod theme;
+mod theme_tokens;
 mod transcript;
 mod ui;
 mod web;

@@ -1,15 +1,15 @@
-//! The built-in sphere. All geometry is relative to the diameter of the avatar slot.
+//! The built-in bot mark: one flat body with two eyes cut out of it, drawn with the even-odd
+//! rule (see `mark.rs`). All geometry is relative to the diameter of the avatar slot.
 
-use gpui_kit::{
-    black, canvas, div, fill, linear_color_stop, linear_gradient, point, px, size, white, Background, Bounds,
-    BoxShadow, Corners, Div, Hsla, ParentElement, PathBuilder, Pixels, Point, Rgba, Styled, Window,
-};
+use crate::mark::{self, Shape};
+use gpui_kit::{canvas, div, point, px, Bounds, Div, Hsla, ParentElement, PathBuilder, Pixels, Point, Styled, Window};
 
 #[derive(Clone, Copy)]
 pub struct FacePaint {
     pub body: Hsla,
     pub eyes: Hsla,
     pub dark: bool,
+    pub shape: Shape,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,60 +49,10 @@ impl Default for Pose {
     }
 }
 
-fn mix(base: Hsla, over: Hsla, amount: f32) -> Hsla {
-    let (base, over) = (base.to_rgb(), over.to_rgb());
-    let blend = |from: f32, to: f32| from + (to - from) * amount;
-    Rgba { r: blend(base.r, over.r), g: blend(base.g, over.g), b: blend(base.b, over.b), a: base.a }.into()
-}
-
-fn gradient(angle: f32, high: Hsla, low: Hsla) -> Background {
-    linear_gradient(angle, linear_color_stop(high, 0.), linear_color_stop(low, 1.))
-}
-
-fn body_stops(body: Hsla) -> (Hsla, Hsla) {
-    (mix(body, white(), 0.16), mix(body, black(), 0.22))
-}
-
-fn gleam_alpha(paint: FacePaint) -> f32 {
-    let rgb = paint.body.to_rgb();
-    let linear = |c: f32| if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) };
-    let luminance = 0.2126 * linear(rgb.r) + 0.7152 * linear(rgb.g) + 0.0722 * linear(rgb.b);
-    let alpha = if paint.dark { 0.30 } else { 0.36 };
-    if luminance > 0.6 {
-        alpha / 2.
-    } else {
-        alpha
-    }
-}
-
-fn shadow(color: Hsla, y: Pixels, blur_radius: Pixels, spread_radius: Pixels, inset: bool) -> BoxShadow {
-    BoxShadow { color, offset: point(px(0.), y), blur_radius, spread_radius, inset }
-}
-
-fn gleam(bounds: Bounds<Pixels>, d: Pixels, paint: FacePaint, pose: Pose, window: &mut Window) {
-    let radii = point(d * 0.20, d * 0.12);
-    let center = bounds.origin + point(d * (0.36 + pose.shine_dx), d * (0.22 + pose.shine_dy));
-    let left = center - point(radii.x, px(0.));
-    let right = center + point(radii.x, px(0.));
-    let mut path = PathBuilder::fill();
-    path.move_to(left);
-    path.arc_to(radii, px(0.), false, true, right);
-    path.arc_to(radii, px(0.), false, true, left);
-    path.close();
-    if let Ok(path) = path.build() {
-        window.paint_path(path, gradient(180., white().opacity(gleam_alpha(paint)), white().opacity(0.)));
-    }
-}
-
 pub fn face(d: Pixels, paint: FacePaint, pose: Pose) -> Div {
     div().size(d).flex_shrink_0().child(
         canvas(|_, _, _| (), move |bounds, (), window, _| draw(bounds, d, paint, pose, true, window)).size_full(),
     )
-}
-
-fn pill(bounds: Bounds<Pixels>, color: impl Into<Background>, window: &mut Window) {
-    let radius = bounds.size.width.min(bounds.size.height) / 2.;
-    window.paint_quad(fill(bounds, color).corner_radii(Corners::all(radius)));
 }
 
 pub(crate) fn draw(
@@ -110,49 +60,57 @@ pub(crate) fn draw(
     d: Pixels,
     paint: FacePaint,
     pose: Pose,
-    contact: bool,
+    _contact: bool,
     window: &mut Window,
 ) {
-    let tier = Tier::of(d);
-    let corners = Corners::all(d / 2.);
-    if contact && tier == Tier::Large {
-        let alpha = if paint.dark { 0.40 } else { 0.14 };
-        let contact = shadow(black().opacity(alpha), d * 0.05, d * 0.10, d * -0.06, false);
-        window.paint_drop_shadows(bounds, corners, &[contact]);
+    let frame = mark_frame(pose);
+    let radius = f32::from(d) * mark::BODY_FILL / 2.;
+    let center = bounds.center();
+    let mut path = PathBuilder::fill();
+    for outline in mark::outlines(paint.shape, &frame) {
+        let mut points = outline.into_iter().map(|(x, y)| center + point(px(x * radius), px(y * radius)));
+        let Some(first) = points.next() else { continue };
+        path.move_to(first);
+        for next in points {
+            path.line_to(next);
+        }
+        path.close();
     }
-    let (high, low) = body_stops(paint.body);
-    pill(bounds, gradient(150., high, low), window);
-    if tier != Tier::Small {
-        let shade = if paint.dark { 0.22 } else { 0.16 };
-        let light = if paint.dark { 0.18 } else { 0.30 };
-        window.paint_inset_shadows(
-            bounds,
-            corners,
-            &[
-                shadow(black().opacity(shade), d * -0.04, d * 0.10, px(0.), true),
-                shadow(white().opacity(light), d * 0.03, d * 0.05, px(0.), true),
-            ],
-        );
-        gleam(bounds, d, paint, pose, window);
+    if let Ok(path) = path.build() {
+        window.paint_path(path, paint.body);
     }
-    for eye in eyes(d, pose) {
-        pill(eye + bounds.origin, paint.eyes, window);
+}
+
+/// The mark's look for a face pose: the pose's eye offset turns the face, its eye size scales the
+/// eyes. A face looking nowhere in particular glances up and aside with short tilted eyes.
+pub(crate) fn mark_frame(pose: Pose) -> mark::Frame {
+    let gaze = (pose.eye_dx / 0.09 * 0.5, pose.eye_dy / 0.07 * 0.5);
+    let idle = gaze.0.abs() < 0.02 && gaze.1.abs() < 0.02;
+    let eye = |base: mark::Eye| mark::Eye { w: base.w * pose.eye_w, h: base.h * pose.eye_h, tilt: 0. };
+    if idle && (pose.eye_y - 0.47).abs() < 1e-3 {
+        let comma = eye(mark::Eye { w: 0.23, h: 0.52, tilt: 0. });
+        let resting = (0.32, -0.44);
+        return mark::Frame {
+            gaze: resting,
+            left: comma,
+            right: comma,
+            roll: f32::atan2(resting.1, resting.0) * 0.66,
+            ..mark::Frame::default()
+        };
+    }
+    mark::Frame {
+        gaze,
+        left: eye(mark::REST_EYE),
+        right: eye(mark::REST_EYE),
+        lift: -0.05 + (pose.eye_y - 0.47) * 2.,
+        spread: 0.305 * pose.spread,
+        ..mark::Frame::default()
     }
 }
 
 fn eye_dimensions(d: Pixels) -> (Pixels, Pixels) {
     let snap = |length: Pixels| if d < px(24.) { px(f32::from(length).round()) } else { length };
     (snap(d * 0.14), snap(d * 0.21))
-}
-
-fn eyes(d: Pixels, pose: Pose) -> [Bounds<Pixels>; 2] {
-    let (w, h) = eye_dimensions(d);
-    let (w, h) = (w * pose.eye_w, h * pose.eye_h);
-    [-1., 1.].map(|side| {
-        let x = d * (0.5 + pose.eye_dx + side * 0.15 * pose.spread);
-        let y = d * (pose.eye_y + pose.eye_dy);
-        Bounds { origin: point(x - w / 2., y - h / 2.), size: size(w, h) }
-    })
 }
 
 pub(crate) fn aim(bounds: Bounds<Pixels>, pointer: Point<Pixels>) -> (f32, f32) {
@@ -261,7 +219,7 @@ pub fn pose(state: FaceState, gaze: ((f32, f32), f32), press: f32, blink: f32, w
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui_kit::rgb;
+    use gpui_kit::{point, size};
 
     #[test]
     fn pointer_is_normalized_about_the_slot_center_and_clamped() {
@@ -273,46 +231,15 @@ mod tests {
     }
 
     #[test]
-    fn eyes_move_and_foreshorten_on_the_sphere_and_press_recenters_them() {
-        let d = px(42.);
-        let looking = pose(FaceState::Rest, ((1., -0.5), 1.), 0., 1., 0., 0);
-        let [left, right] = eyes(d, looking);
-        let close = |actual: Pixels, expected: f32| assert!((f32::from(actual) - expected).abs() < 1e-4);
-        close(left.center().x, 42. * (0.59 - 0.135));
-        close(right.center().x, 42. * (0.59 + 0.135));
-        close(right.center().y, 42. * (0.47 + 0.035));
-        close(right.size.width, 42. * 0.14 * 0.8);
-        assert!(f32::from(right.right()) < 42. * 0.81);
-        assert_eq!(looking.shine_dx, -0.03);
-        let pressed = pose(FaceState::Rest, ((1., -0.5), 1.), 1., 1., 0., 0);
-        assert_eq!((pressed.eye_dx, pressed.eye_dy), (0., 0.));
-        assert!((pressed.eye_h - 0.82).abs() < 1e-6);
-        assert_eq!(pressed.eye_w, 1.06);
-    }
-
-    #[test]
-    fn the_22_pixel_slot_starts_with_whole_pixel_eyes() {
-        let [eye, _] = eyes(px(22.), Pose::default());
-        assert_eq!(eye.size, size(px(3.), px(5.)));
-    }
-
-    #[test]
-    fn body_stops_mix_in_srgb() {
-        let (high, low) = body_stops(rgb(0x009957).into());
-        for (actual, expected) in [(high, 0x29a972), (low, 0x007744)] {
-            let (actual, expected) = (actual.to_rgb(), rgb(expected));
-            for (a, b) in [(actual.r, expected.r), (actual.g, expected.g), (actual.b, expected.b)] {
-                assert!((a - b).abs() <= 0.5 / 255.);
-            }
-        }
-    }
-
-    #[test]
-    fn gleam_uses_skin_strength_and_halves_it_for_light_bodies() {
-        for (dark, alpha) in [(true, 0.30), (false, 0.36)] {
-            assert_eq!(gleam_alpha(FacePaint { body: black(), eyes: white(), dark }), alpha);
-            assert_eq!(gleam_alpha(FacePaint { body: white(), eyes: black(), dark }), alpha / 2.);
-        }
+    fn a_face_looking_nowhere_glances_up_and_aside_and_a_turned_face_follows_its_pose() {
+        let resting = mark_frame(Pose::default());
+        assert!(resting.gaze.0 > 0. && resting.gaze.1 < 0.);
+        assert!(resting.roll < 0.);
+        let looking = mark_frame(pose(FaceState::Rest, ((1., 0.), 1.), 0., 1., 0., 0));
+        assert!(looking.gaze.0 > 0.4);
+        assert_eq!(looking.roll, 0.);
+        let blinking = mark_frame(pose(FaceState::Rest, ((1., 0.), 1.), 0., 0.1, 0., 0));
+        assert!(blinking.left.h < looking.left.h);
     }
 
     #[test]
@@ -336,7 +263,7 @@ mod tests {
         let asleep = pose(FaceState::Asleep, gaze, 1., 0.12, 1., 1);
         assert_eq!(asleep, FaceState::Asleep.still());
         assert_eq!(asleep.eye_y, 0.52);
-        let [eye, _] = eyes(px(22.), FaceState::Asleep.still_at(px(22.)));
-        assert_eq!(eye.size.height, px(1.5));
+        let asleep_frame = mark_frame(FaceState::Asleep.still_at(px(22.)));
+        assert!(asleep_frame.left.h < 0.2);
     }
 }

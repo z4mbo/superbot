@@ -52,6 +52,7 @@ impl Render for Sheet {
                     body: rgb(if self.dark { dark } else { light }).into(),
                     eyes: if name == "Staff White" { rgb(app).into() } else { white() },
                     dark: self.dark,
+                    shape: superbot_avatars::mark::Shape::Circle,
                 };
                 div()
                     .flex()

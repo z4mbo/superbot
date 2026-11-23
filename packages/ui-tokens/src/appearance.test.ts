@@ -9,6 +9,7 @@ import {
   lightTokens,
   normalizeAppearancePreference,
   persistAppearancePreference,
+  renderRustTokens,
   renderTokensCss,
   resolveAppearance,
   resolveAppearancePreference,
@@ -235,6 +236,15 @@ describe("tokens.css", () => {
   it("is generated from the TS palette", () => {
     const onDisk = readFileSync(fileURLToPath(new URL("./tokens.css", import.meta.url)), "utf8");
     expect(onDisk).toBe(renderTokensCss());
+  });
+
+  it("gives the native desktop app the same palettes", () => {
+    const rust = readFileSync(
+      fileURLToPath(new URL("../../../native/desktop/src/theme_tokens.rs", import.meta.url)),
+      "utf8",
+    );
+    expect(rust).toBe(renderRustTokens());
+    expect(rust).toContain(`background: 0x${webDarkTokens.background.slice(1).toLowerCase()}ff,`);
   });
 
   it("scopes light and dark under data-theme", () => {

@@ -697,7 +697,9 @@ export function botMarkPath(shape: BotMarkShape, frame: BotMarkFrame): string {
   };
   let gaze = clampGaze(frame.gaze);
   let eyes: Point[][] = [];
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    // The last try looks straight ahead, which fits every body.
+    if (attempt === 4) gaze = [0, 0];
     const rotate = faceRotation(gaze);
     eyes = [
       eyeOutline(-1, frame.left, frame, rotate),

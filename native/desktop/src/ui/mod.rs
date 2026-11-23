@@ -29,6 +29,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use superbot_avatars::face::{face, FacePaint, FaceState, Pose};
+use superbot_avatars::mark::{self, Shape};
 use superbot_avatars::{Bot, ChatTone, Face, FaceTiming, Mark, Paint};
 
 use crate::api::{AgentSummary, Target};
@@ -139,7 +140,7 @@ pub fn agent_face(color: Hsla, size: Pixels, theme: &Theme) -> Div {
 }
 
 fn agent_face_with_eyes(body: Hsla, eyes: Hsla, size: Pixels, theme: &Theme) -> Div {
-    face(size, FacePaint { body, eyes, dark: theme.is_dark() }, Pose::default())
+    face(size, FacePaint { body, eyes, dark: theme.is_dark(), shape: Shape::Circle }, Pose::default())
 }
 
 /// A bot's avatar in a slot of `size`. The local pack's mark takes precedence.
@@ -182,7 +183,14 @@ pub(crate) fn bot_avatar_with(
     }
     let region = slot.watch.as_deref().unwrap_or("static");
     let id = SharedString::from(format!("face-{}-{region}-{}", bot.id, f32::from(size)));
-    let (body, eyes) = theme.identity_paint(bot.color);
+    let (_, eyes) = theme.identity_paint(bot.color);
+    // Bots wear the shared mark inks; a neutral one is black on light and white on dark.
+    let body: Hsla = match mark::ink(bot.picked.color, bot.color) {
+        Some(value) => gpui_kit::rgb(value).into(),
+        None if theme.is_dark() => gpui_kit::white(),
+        None => gpui_kit::black(),
+    };
+    let shape = Shape::for_bot(bot.id, bot.picked.shape);
     let timing = FaceTiming {
         standard: |progress| motion::STANDARD.sample(progress),
         emphasis: |progress| motion::EMPHASIS.sample(progress),
@@ -190,7 +198,7 @@ pub(crate) fn bot_avatar_with(
         state: motion::STATE,
         ease_in: motion::EASE_IN,
     };
-    Face::new(id, bot.id, size, FacePaint { body, eyes, dark: theme.is_dark() }, timing)
+    Face::new(id, bot.id, size, FacePaint { body, eyes, dark: theme.is_dark(), shape }, timing)
         .state(slot.presence)
         .blink_in(slot.blink)
         .watch(slot.watch)
