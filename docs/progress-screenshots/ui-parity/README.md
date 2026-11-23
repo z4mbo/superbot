@@ -125,7 +125,11 @@ Photo avatars and the optional "Rakazo" avatar style are unchanged.
 | `after-group-avatar-active.png` | group-chats e2e: group avatar with one working member |
 | `before-gallery-{conversation,approvals,working,routines}-light.png` | chat gallery fixture (these screens are unchanged by phase 1) |
 
-`linux-desktop/`, `windows-desktop/`, `macos-desktop/`: see the cross-platform section.
+`web/ci-<os>-chromium-bot-avatar-states.png`: the same e2e capture taken by CI in Chromium on that OS.
+
+`evidence/local-test-results.png`: the local test runs listed below, rendered as an image.
+
+`linux-desktop/`, `windows-desktop/`, `macos-desktop/`: `ci-electron-bot-avatar-states.png` is the avatar fixture opened inside the Electron desktop window by `apps/desktop/e2e/bot-avatar.spec.ts` (live frames, so avatars are caught mid-turn), and `ci-electron-bot-avatar-states-reduced-motion.png` the same window with reduced motion (all flat). Taken in CI, see below.
 
 ## Gaps, per surface, ranked by visual impact
 
@@ -202,7 +206,8 @@ On this host (NixOS, headless Chrome):
 - Web e2e through the harness (`pnpm test:e2e`): `bot-avatar-states`, `avatar-motion`,
   `group-chats`, `gallery` and the new `bot-chat-surface` spec. 22 passed, 1 failed:
   `gallery › tool's question as plain text with its form`, whose `getByText("This call")`
-  matches two elements of the approvals card; phase 1 does not touch that card.
+  matches two elements of the approvals card; phase 1 does not touch that card, and the test
+  also fails with the base versions of every file this change touches restored.
 - Typecheck of core, ui-web, web and desktop; Biome; `pnpm checks`; web build and the startup
   bundle budget (884.1 of 900 kB).
 - Linux desktop: not run on this host; covered in CI below.
