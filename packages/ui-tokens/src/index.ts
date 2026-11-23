@@ -178,90 +178,123 @@ export const lightTokens = {
   pageTileLine: "#A1A1A6",
 } as const satisfies ColorTokens;
 
-/** Web and Electron only: the primary fill's hover and disabled states. Mobile has no hover. */
+/** Web and Electron only: hover and disabled states, and the surfaces only the desktop layout draws. Mobile has no hover. */
 export type WebColorTokens = ColorTokens & {
   primaryHover: string;
   primaryDisabled: string;
+  /** Side panels and the panes a dialog lays over the window ground (`background`). */
+  pane: string;
+  /** Floating controls on the window ground: the chat capsule, Search, New Bot, the composer shell. */
+  elevated: string;
+  elevatedHover: string;
+  /** The hairline around a floating control or a card: lighter than `border`. */
+  hairline: string;
+  /** Placeholders and other fourth-level text. */
+  placeholder: string;
+  /** The bot's own bubbles: a translucent wash, so the window ground shows through. */
+  chatAgent: string;
+  /** The one filled blue: switches that are on and the rare accent button. */
+  accentFill: string;
+  accentFillHover: string;
 };
 
 /**
  * Web and Electron values for the tokens they draw differently from the palettes above, which
  * follow the iOS system design for mobile. Mobile reads `darkTokens` / `lightTokens`; web reads
  * `tokens.css`, rendered from these merged palettes. Surfaces are opaque; text, borders, hover
- * and selection are the ink at an opacity, so they read the same on every surface.
+ * and selection are the ink at an opacity, so they read the same on every surface. Values follow
+ * the desktop reference measured at DPR 1 (window ground, sidebar, panes, four text levels).
  */
 export const webDarkOverrides = {
-  background: "#0A0A0A",
-  dialog: "#161616",
+  background: "#121212",
+  dialog: "#121212",
   foreground: "#F5F5F5",
-  card: "#232323",
+  card: "#1F1F1F",
   cardForeground: "#F5F5F5",
-  popover: "#232323",
+  popover: "#1F1F1F",
   popoverForeground: "#F5F5F5",
   primary: "#F5F5F5",
   primaryHover: "#DBDBDB",
   primaryDisabled: "#F5F5F521",
   primaryForeground: "#121212",
-  secondary: "#F5F5F50A",
+  secondary: "#FFFFFF0A",
   secondaryForeground: "#F5F5F5",
-  chatUser: "#3E3E3E",
+  chatUser: "#F4F4F42E",
   chatUserForeground: "#F5F5F5",
-  muted: "#232323",
-  mutedForeground: "#F5F5F5A8",
-  faintForeground: "#F5F5F58A",
-  accent: "#F5F5F51A",
+  chatAgent: "#FFFFFF0A",
+  muted: "#1F1F1F",
+  mutedForeground: "#F4F4F4A8",
+  faintForeground: "#F6F6F68A",
+  placeholder: "#F4F4F461",
+  accent: "#EEEEEE0F",
   accentForeground: "#F5F5F5",
+  accentFill: "#116DD2",
+  accentFillHover: "#1680F3",
   destructive: "#FF6463",
   destructiveFill: "#CF2B35",
   border: "#F5F5F51A",
-  input: "#F5F5F538",
+  hairline: "#EEEEEE0F",
+  input: "#F6F6F638",
   ring: "#1884FC",
-  sidebar: "#0A0A0A",
+  pane: "#161616",
+  elevated: "#1F1F1F",
+  elevatedHover: "#282828",
+  sidebar: "#0E0E0E",
   sidebarForeground: "#F5F5F5",
-  sidebarBorder: "#F5F5F50F",
-  sidebarAccent: "#F5F5F514",
+  sidebarBorder: "#1B1B1B",
+  sidebarAccent: "#F2F2F214",
   sidebarAccentForeground: "#F5F5F5",
   link: "#4D9BFF",
-  success: "#00BA69",
-  warning: "#E28600",
+  success: "#10AB61",
+  warning: "#DA830E",
   statusWorking: "#4D9BFF",
   unread: "#4D9BFF",
-  workingDot: "#0E9F5A",
+  workingDot: "#10AB61",
   overlay: "#000000B2",
   scrollbar: "#F5F5F538",
   scrollbarHover: "#F5F5F580",
 } as const satisfies Partial<WebColorTokens>;
 
 export const webLightOverrides = {
-  background: "#FFFFFF",
+  background: "#FCFCFC",
+  dialog: "#FCFCFC",
   foreground: "#1C1C1C",
-  card: "#F2F2F2",
+  card: "#FFFFFF",
   cardForeground: "#1C1C1C",
+  popover: "#FFFFFF",
   popoverForeground: "#1C1C1C",
   primary: "#1C1C1C",
   primaryHover: "#363636",
   primaryDisabled: "#1C1C1C26",
   primaryForeground: "#FCFCFC",
-  secondary: "#1C1C1C0F",
+  secondary: "#2222220F",
   secondaryForeground: "#1C1C1C",
   chatUser: "#1C1C1C",
-  muted: "#F2F2F2",
+  chatAgent: "#2222220F",
+  muted: "#F1F1F1",
   mutedForeground: "#1C1C1CAD",
-  faintForeground: "#1C1C1C8F",
-  accent: "#1C1C1C0F",
+  faintForeground: "#1D1D1D8F",
+  placeholder: "#1B1B1B66",
+  accent: "#2222220F",
   accentForeground: "#1C1C1C",
+  accentFill: "#1680F3",
+  accentFillHover: "#126FD4",
   destructive: "#CD2834",
   destructiveFill: "#E72E3B",
-  border: "#1C1C1C1F",
-  input: "#1C1C1C3D",
+  border: "#1919191F",
+  hairline: "#1A1A1A14",
+  input: "#1919191F",
   ring: "#1E86FC",
+  pane: "#FFFFFF",
+  elevated: "#FFFFFF",
+  elevatedHover: "#F1F1F1",
   sidebar: "#F5F5F5",
   sidebarForeground: "#1C1C1C",
-  sidebarBorder: "#1C1C1C1F",
-  sidebarAccent: "#1C1C1C14",
+  sidebarBorder: "#E3E3E3",
+  sidebarAccent: "#1A1A1A14",
   sidebarAccentForeground: "#1C1C1C",
   link: "#0B6DD3",
-  success: "#00854A",
+  success: "#10AB61",
   warning: "#AA6300",
   statusWorking: "#0B6DD3",
   unread: "#0B6DD3",
@@ -408,6 +441,25 @@ export const pageKitPalette = {
 
 /** The ink of a drawn bot's eyes, the same on every body colour and in both themes. */
 export const botEyeColor = "#101014";
+
+/**
+ * The inks a drawn bot's body takes, by the names avatar packs and `Bot.lookColor` use. A bot
+ * with no ink is neutral: black on light, white on dark; a sleeping bot turns `gray`.
+ */
+export const botInks = {
+  blue: "#1E86FC",
+  cyan: "#13B7A2",
+  green: "#14C16F",
+  magenta: "#F93498",
+  orange: "#FD690F",
+  purple: "#8F59F9",
+  red: "#FB2B3E",
+  yellow: "#F59312",
+  brown: "#A06B39",
+  gray: "#9A9A9A",
+} as const;
+
+export type BotInk = keyof typeof botInks;
 
 export const botColors = [
   "#3EC5A8",
