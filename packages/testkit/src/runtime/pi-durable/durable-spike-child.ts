@@ -46,7 +46,11 @@ async function main() {
   const root = await harness.root(context, { agent: { model: config.model } });
   // Continue whatever the last process left unfinished, before anything new is admitted.
   harness.resume();
-  emit({ event: "ready" });
+  emit({
+    event: "ready",
+    node: process.versions.node,
+    ...(process.versions.electron ? { electron: process.versions.electron } : {}),
+  });
   const submission = await root.submit(
     { type: "input", content: config.prompt, requestId: config.requestId },
     context,

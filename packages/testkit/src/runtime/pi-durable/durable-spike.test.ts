@@ -7,11 +7,18 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { Harness, MemoryStorage } from "@earendil-works/pi-durable";
+import type { Api, Model, Models } from "@earendil-works/pi-ai";
+import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
+import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { deferred } from "@rakazo/core/test-async";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  resolveRuntimeModel,
+  withOutputBudget,
+} from "../../../../adapters/src/runtime/pi/pi-runtime-models.js";
 import type { ModelEmulatorRequest, ModelEmulatorStep } from "../../model-emulator.js";
 import { startModelEmulator } from "../../model-emulator.js";
 import type { SpikeChildConfig, SpikeEndpoint, SpikeEvent } from "./durable-spike-fixture.js";
@@ -272,6 +279,8 @@ describe("pi-durable spike: SQLite storage, killed child process", () => {
       requestId: "sqlite-charge-1",
     };
     const first = startChild({ ...config, hang: ["charge_card"] });
+    const ready = await first.waitFor((event) => event.event === "ready");
+    console.info(`child runtime: ${JSON.stringify(ready)}`);
     await first.waitFor((event) => event.event === "tool-hang" && event.tool === "charge_card");
     await killHard(first);
     expect(logLines(workdir.effects)).toEqual(["charged 500"]);
@@ -434,5 +443,252 @@ describe("pi-durable spike: SQLite storage, killed child process", () => {
       { role: "user", text: "Where is order 7?" },
       { role: "assistant", text: "Order 7 has shipped." },
     ]);
+  });
+});
+
+describe("pi-durable spike: two processes on one SQLite file", () => {
+  it("has no cross-process lock: a second process takes over a run the first is still running", async () => {
+    const { workdir, root, storagePath } = await scenario();
+    const { server, endpoint } = await emulator([
+      {
+        expect: anyRequest,
+        response: {
+          type: "tool",
+          id: "call-lookup",
+          name: "slow_lookup",
+          arguments: { order: "9" },
+        },
+      },
+      { expect: anyRequest, response: { type: "text", text: "answer from the second process" } },
+      { expect: anyRequest, response: { type: "text", text: "answer from the first process" } },
+    ]);
+    const config: SpikeChildConfig = {
+      storagePath,
+      workdir: root,
+      endpoints: [endpoint],
+      model: { provider: endpoint.provider, modelId: endpoint.modelId },
+      prompt: "Where is order 9?",
+      requestId: "sqlite-two-writers-1",
+    };
+    const first = startChild({ ...config, hang: ["slow_lookup"] });
+    await first.waitFor((event) => event.event === "tool-hang");
+    // The first process is alive and mid-tool. A second one opens the same file.
+    const second = startChild(config);
+    const secondDone = await second.waitFor(settled);
+    expect(await second.exited).toBe(0);
+    expect(first.process.exitCode).toBeNull();
+    // Opening recovered the first process's live tool call as if that process had died, and ran
+    // it again beside it: nothing in the storage tells a live writer from a dead one.
+    expect(logLines(workdir.reads)).toEqual(["slow_lookup 9", "slow_lookup 9"]);
+    expect(secondDone).toMatchObject({ status: "done" });
+    expect(settledTranscript(secondDone).at(-1)).toEqual({
+      role: "assistant",
+      text: "answer from the second process",
+    });
+    // Now the first process goes on with its stale picture of the run.
+    first.process.stdin.write("release\n");
+    const firstEnd = await first.waitFor(
+      (event) => event.event === "settled" || event.event === "error",
+    );
+    const firstExit = await first.exited;
+    // Its next commit collides with what the second process stored, which fails its whole
+    // Session. SQLite's own locking kept the file consistent: the second process's run stands.
+    expect(firstEnd).toEqual({
+      event: "error",
+      message: expect.stringMatching(/^storage_failed: Error: ID \d+ already belongs to entry$/),
+    });
+    expect(firstExit).toBe(1);
+    expect(server.requests).toHaveLength(2);
+    expect((await readTranscript(storagePath, endpoint)).slice(1)).toEqual([
+      { role: "user", text: "Where is order 9?" },
+      { role: "assistant", toolCalls: ["slow_lookup"] },
+      { role: "toolResult", toolName: "slow_lookup", isError: false, text: "order 9: shipped" },
+      { role: "assistant", text: "answer from the second process" },
+    ]);
+  });
+});
+
+/** Opens the file read-only, as a viewer beside a writer would, and returns the active transcript. */
+async function readTranscript(storagePath: string, endpoint: SpikeEndpoint) {
+  const storage = await openNodeSqliteStorage(storagePath);
+  const viewer = await Harness.open(
+    storage,
+    { models: spikeModels([endpoint]), registry: createRegistry(), readOnly: true },
+    context,
+  );
+  try {
+    const conversation = await viewer.root(context);
+    return summarizeTranscript((await conversation.context(context)).messages);
+  } finally {
+    await viewer.close(context);
+  }
+}
+
+describe("pi-durable spike: changing a conversation's model", () => {
+  it("switches models between turns and mid-run, and keeps the choice across a reopen", async () => {
+    const { workdir } = await scenario();
+    const a = await emulator(
+      [
+        { expect: anyRequest, response: { type: "text", text: "first answer, from model A" } },
+        {
+          expect(request) {
+            // Model A picks up a run model B started, with B's tool call and its result.
+            expect(request.messages.at(-2)?.tool_calls?.[0]?.function.name).toBe("slow_lookup");
+            expect(toolMessages(request)).toEqual([
+              { id: "call-lookup", text: "order 5: shipped" },
+            ]);
+          },
+          response: { type: "text", text: "third answer, from model A" },
+        },
+      ],
+      "model-a",
+    );
+    const b = await emulator(
+      [
+        {
+          expect(request) {
+            expect(request.messages.map((message) => message.role)).toEqual([
+              "user",
+              "assistant",
+              "user",
+            ]);
+          },
+          response: {
+            type: "tool",
+            id: "call-lookup",
+            name: "slow_lookup",
+            arguments: { order: "5" },
+          },
+        },
+      ],
+      "model-b",
+    );
+    const modelA = { provider: a.endpoint.provider, modelId: a.endpoint.modelId };
+    const modelB = { provider: b.endpoint.provider, modelId: b.endpoint.modelId };
+    const memory = new MemoryStorage();
+    const release = deferred<void>();
+    const hung = deferred<void>();
+    const options = {
+      models: spikeModels([a.endpoint, b.endpoint]),
+      registry: spikeRegistry({
+        workdir,
+        hang: ["slow_lookup"],
+        release: release.promise,
+        onEvent: (event) => {
+          if (event.event === "tool-hang") hung.resolve();
+        },
+      }),
+      settings: SPIKE_SETTINGS,
+    };
+    const harness = await Harness.open(crashableStorage(memory).storage, options, context);
+    const conversation = await harness.root(context, { agent: { model: modelA } });
+    const firstTurn = await conversation.submit({ type: "input", content: "Hello." }, context);
+    expect(await firstTurn.wait(context)).toMatchObject({ status: "done" });
+
+    // Between turns, as the Model Picker does.
+    await conversation.configure({ model: modelB }, context);
+    expect((await conversation.agent(context)).model).toEqual(modelB);
+    const secondTurn = await conversation.submit(
+      { type: "input", content: "Where is order 5?" },
+      context,
+    );
+    const secondWait = secondTurn.wait(context);
+    // Mid-run, while model B's tool call runs, as a steering pin does.
+    await hung.promise;
+    await conversation.configure({ model: modelA }, context);
+    release.resolve();
+    expect(await secondWait).toMatchObject({ status: "done" });
+    a.server.assertComplete();
+    b.server.assertComplete();
+    expect(a.server.requests).toHaveLength(2);
+    expect(b.server.requests).toHaveLength(1);
+    await harness.close(context);
+
+    // The choice lives in the conversation's pi.agent document, so it survives a restart.
+    const reopened = await Harness.open(
+      memory,
+      { ...options, registry: createRegistry() },
+      context,
+    );
+    cleanups.push(() => reopened.close(context));
+    expect((await (await reopened.root(context)).agent(context)).model).toEqual(modelA);
+  });
+});
+
+/**
+ * Durable looks models up by provider and id. Superbot resolves one per run with its connection's
+ * limits applied to the model object, so the runtime hands Durable a view that returns that object.
+ */
+function pinnedModels(models: Models, model: Model<Api>): Models {
+  return new Proxy(models, {
+    get(target, property, receiver) {
+      if (property === "getModel") {
+        return (provider: string, modelId: string) =>
+          provider === model.provider && modelId === model.id
+            ? model
+            : target.getModel(provider, modelId);
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
+describe("pi-durable spike: the model Superbot resolves", () => {
+  it("runs on what resolveRuntimeModel returns, with a per-run output budget pinned", async () => {
+    const server = await startModelEmulator({
+      steps: [{ expect: anyRequest, response: { type: "text", text: "Resolved by Superbot." } }],
+    });
+    cleanups.push(() => server.close());
+    const config = { ...server.model, maxTokens: 777 };
+    const resolved = resolveRuntimeModel(config);
+    if (!resolved.model) throw new Error("expected a resolved model");
+    // A per-run change Superbot makes after resolving, as overflow recovery does.
+    const target = withOutputBudget(
+      { config, models: resolved.models, model: resolved.model },
+      555,
+    );
+    const harness = await Harness.open(
+      new MemoryStorage(),
+      {
+        models: pinnedModels(target.models, target.model),
+        registry: createRegistry(),
+        settings: SPIKE_SETTINGS,
+      },
+      context,
+    );
+    cleanups.push(() => harness.close(context));
+    const conversation = await harness.root(context, {
+      agent: { model: { provider: resolved.provider, modelId: resolved.modelId } },
+    });
+    const turn = await conversation.submit({ type: "input", content: "Hello." }, context);
+    expect(await turn.wait(context)).toMatchObject({ status: "done" });
+    server.assertComplete();
+    const body = server.requests[0] as unknown as Record<string, unknown>;
+    expect(body.max_completion_tokens ?? body.max_tokens).toBe(555);
+    // Looked up by id alone, the registry has the connection's limit, not the run's.
+    expect(resolved.models.getModel(resolved.provider, resolved.modelId)?.maxTokens).toBe(777);
+  });
+});
+
+describe("pi-durable spike: storage format", () => {
+  it("refuses a database written by a newer harness, so a downgrade cannot reopen it", async () => {
+    const { storagePath } = await scenario();
+    const storage = await openNodeSqliteStorage(storagePath);
+    await storage.close(context);
+    const database = new DatabaseSync(storagePath);
+    try {
+      const { version } = database.prepare("SELECT version FROM durable_schema").get() as {
+        version: number;
+      };
+      expect(version).toBe(2);
+      // What a later pi-durable release would leave behind after migrating the file.
+      database.prepare("UPDATE durable_schema SET version = ?").run(version + 1);
+    } finally {
+      database.close();
+    }
+    await expect(openNodeSqliteStorage(storagePath)).rejects.toThrow(
+      "SQLite schema version 3 is newer than supported version 2",
+    );
   });
 });
