@@ -298,6 +298,19 @@ const RAW_BODIES: Record<BotMarkShape, () => Point[]> = {
     ),
 };
 
+/** A body's area relative to the disc, where the reference's differs from 1 (measured at 36px). */
+const BODY_AREA: Partial<Record<BotMarkShape, number>> = {
+  wedge: 1.09,
+  teardrop: 0.97,
+  capsule: 0.95,
+};
+
+/** Where the reference sits a lopsided body in its slot, off the centre of its outline. */
+const BODY_SHIFT: Partial<Record<BotMarkShape, Point>> = {
+  wedge: [0.24, 0.24],
+  teardrop: [0.09, 0.06],
+};
+
 const bodies = new Map<BotMarkShape, Point[]>();
 
 /** A body outline in body units (radius-1 disc for the circle), centred and evened out in size. */
@@ -317,12 +330,14 @@ export function botMarkBody(shape: BotMarkShape): readonly Point[] {
     maxY = Math.max(maxY, ay);
   }
   // Same visual weight as the disc: scale toward its area, but never past 1.12 of its span.
-  const areaScale = Math.sqrt((Math.PI * 0.94) / Math.abs(area / 2));
+  // Each body covers about as much as the disc; the reference draws a few a little larger.
+  const areaScale = Math.sqrt((Math.PI * (BODY_AREA[shape] ?? 1)) / Math.abs(area / 2));
   const span = Math.max(maxX - minX, maxY - minY) / 2;
-  const scale = shape === "circle" ? 1 : Math.min(areaScale, 1.12 / span);
+  const scale = shape === "circle" ? 1 : Math.min(areaScale, 1.3 / span);
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
-  const body = raw.map(([x, y]) => [(x - cx) * scale, (y - cy) * scale] as const);
+  const [shiftX, shiftY] = BODY_SHIFT[shape] ?? [0, 0];
+  const body = raw.map(([x, y]) => [(x - cx) * scale + shiftX, (y - cy) * scale + shiftY] as const);
   bodies.set(shape, body);
   return body;
 }
@@ -353,7 +368,7 @@ export type BotMarkFrame = {
 
 export const REST_EYE: BotMarkEye = { w: 0.255, h: 0.56 };
 const DOT: BotMarkEye = { w: 0.22, h: 0.22 };
-const COMMA_EYE: BotMarkEye = { w: 0.23, h: 0.52 };
+const COMMA_EYE: BotMarkEye = { w: 0.25, h: 0.56 };
 const OVAL: BotMarkEye = { w: 0.36, h: 0.2 };
 const SLIT: BotMarkEye = { w: 0.38, h: 0.07 };
 const SHUT: BotMarkEye = { w: 0.32, h: 0 };

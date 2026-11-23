@@ -107,7 +107,7 @@ export function SidebarHeader({
               aria-pressed={activityMode}
               data-activity-mode={activityMode ? "on" : "off"}
               onClick={toggleActivityMode}
-              className={`app-no-drag ${activityMode ? "" : "opacity-0 transition-opacity group-hover/sidebar-header:opacity-100 focus-visible:opacity-100"}`}
+              className={`app-no-drag ${activityMode ? "" : "absolute end-full me-2 opacity-0 transition-opacity group-hover/sidebar-header:opacity-100 focus-visible:opacity-100"}`}
             >
               {/* A filled bell marks Activity on, so on and hovered never look alike. */}
               <Bell

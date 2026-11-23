@@ -88,7 +88,7 @@ pub(crate) fn mark_frame(pose: Pose) -> mark::Frame {
     let idle = gaze.0.abs() < 0.02 && gaze.1.abs() < 0.02;
     let eye = |base: mark::Eye| mark::Eye { w: base.w * pose.eye_w, h: base.h * pose.eye_h, tilt: 0. };
     if idle && (pose.eye_y - 0.47).abs() < 1e-3 {
-        let comma = eye(mark::Eye { w: 0.23, h: 0.52, tilt: 0. });
+        let comma = eye(mark::Eye { w: 0.25, h: 0.56, tilt: 0. });
         let resting = (0.32, -0.44);
         return mark::Frame {
             gaze: resting,

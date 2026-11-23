@@ -194,11 +194,24 @@ fn normalised(shape: Shape) -> Vec<Point> {
         max_x = max_x.max(a.0);
         max_y = max_y.max(a.1);
     }
-    let area_scale = (PI * 0.94 / (area / 2.).abs()).sqrt();
+    // Each body covers about as much as the disc; the reference draws a few a little larger.
+    let relative = match shape {
+        Shape::Wedge => 1.09,
+        Shape::Teardrop => 0.97,
+        Shape::Capsule => 0.95,
+        _ => 1.,
+    };
+    let area_scale = (PI * relative / (area / 2.).abs()).sqrt();
     let span = (max_x - min_x).max(max_y - min_y) / 2.;
-    let scale = if shape == Shape::Circle { 1. } else { area_scale.min(1.12 / span) };
+    let scale = if shape == Shape::Circle { 1. } else { area_scale.min(1.3 / span) };
     let (cx, cy) = ((min_x + max_x) / 2., (min_y + max_y) / 2.);
-    raw.into_iter().map(|(x, y)| ((x - cx) * scale, (y - cy) * scale)).collect()
+    // Where the reference sits a lopsided body in its slot, off the centre of its outline.
+    let (shift_x, shift_y) = match shape {
+        Shape::Wedge => (0.24, 0.24),
+        Shape::Teardrop => (0.09, 0.06),
+        _ => (0., 0.),
+    };
+    raw.into_iter().map(|(x, y)| ((x - cx) * scale + shift_x, (y - cy) * scale + shift_y)).collect()
 }
 
 /// One eye's look on the face, in body radii.

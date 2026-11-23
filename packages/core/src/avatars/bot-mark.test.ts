@@ -51,11 +51,12 @@ describe("bot mark", () => {
     }
   });
 
-  it("turns the face toward the pointer and narrows the eyes when it is far", () => {
+  it("turns the face toward the pointer and lays the eyes along the rim when it is far", () => {
     const near = botMarkFrame({ state: "idle", time: 2000, seed: 1, pointer: [0.2, 0] });
     const far = botMarkFrame({ state: "idle", time: 2000, seed: 1, pointer: [12, 0] });
     expect(far.gaze[0]).toBeGreaterThan(near.gaze[0]);
-    expect(far.left.h).toBeLessThan(near.left.h);
+    expect(far.left.w).toBeLessThan(near.left.w);
+    expect(near.roll ?? 0).toBeCloseTo(0, 1);
   });
 
   it("changes a working bot's eyes and sways its body over time", () => {
