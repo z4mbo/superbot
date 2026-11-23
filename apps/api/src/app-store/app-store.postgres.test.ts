@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createRouterClient } from "@orpc/server";
+import { findInstalledApps } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { createDb, runAsSystem, runAsTenant } from "@rakazo/db";
@@ -82,7 +83,13 @@ describe.skipIf(!enabled)("app store lifecycle (PostgreSQL)", () => {
           data: { id: userId, name: role, email, emailVerified: true },
         });
         await prisma.space.create({
-          data: { id: spaceId, organizationId, name: "General", isDefault: true, createdByUserId: userId },
+          data: {
+            id: spaceId,
+            organizationId,
+            name: "General",
+            isDefault: true,
+            createdByUserId: userId,
+          },
         });
         actors.push({ spaceId, userId, email, isDeploymentOwner: false });
       }
@@ -156,7 +163,11 @@ describe.skipIf(!enabled)("app store lifecycle (PostgreSQL)", () => {
         message: "Allow every permission this app asks for to install it.",
       });
       await expect(
-        rpc.apps.install({ ...base, digest: `sha256:${"0".repeat(64)}`, grant: listing.permissions }),
+        rpc.apps.install({
+          ...base,
+          digest: `sha256:${"0".repeat(64)}`,
+          grant: listing.permissions,
+        }),
       ).rejects.toMatchObject({ kind: "CONFLICT" });
       expect(await rpc.apps.installed()).toEqual([]);
     });
@@ -182,7 +193,9 @@ describe.skipIf(!enabled)("app store lifecycle (PostgreSQL)", () => {
       client(other()).apps.install({ ...listing, grant: listing.permissions }),
     );
     await runAsSystem("tamper with a stored app version", async () => {
-      const release = await prisma.appRelease.findUniqueOrThrow({ where: { id: listing.releaseId } });
+      const release = await prisma.appRelease.findUniqueOrThrow({
+        where: { id: listing.releaseId },
+      });
       await prisma.appRelease.update({
         where: { id: release.id },
         data: {
@@ -253,7 +266,10 @@ describe.skipIf(!enabled)("app store lifecycle (PostgreSQL)", () => {
           ...input,
           manifest: { ...input.manifest, version: "2.0.0" },
         }),
-      ).rejects.toMatchObject({ kind: "CONFLICT", message: expect.stringContaining("Another author") });
+      ).rejects.toMatchObject({
+        kind: "CONFLICT",
+        message: expect.stringContaining("Another author"),
+      });
     });
   });
 
@@ -268,5 +284,39 @@ describe.skipIf(!enabled)("app store lifecycle (PostgreSQL)", () => {
       );
       expect(stored).toBe(0);
     });
+  });
+
+  it("lets a bot find installed apps, with actions only where bots may run them", async () => {
+    const actions = [
+      {
+        name: "addTask",
+        description: "Add a task.",
+        input: { title: { type: "string", required: true } },
+        effects: [{ op: "append", path: "tasks", assignId: true }],
+      },
+    ];
+    const runnable = await publish(
+      bundle({ name: "Runnable", permissions: ["state", "agent:actions"], actions }),
+    );
+    const privateApp = await publish(
+      bundle({ name: "Private", permissions: ["state"], actions, initialState: { tasks: [] } }),
+    );
+    const changed = await publish(bundle({ name: "Changed", permissions: [] }));
+    await runAsTenant(other(), async () => {
+      for (const listing of [runnable, privateApp, changed])
+        await client(other()).apps.install({ ...listing, grant: listing.permissions });
+    });
+    await runAsSystem("tamper with a stored app version", () =>
+      prisma.appRelease.update({ where: { id: changed.releaseId }, data: { source: "changed" } }),
+    );
+    const found = await runAsTenant(other(), () => findInstalledApps(prisma, other(), undefined));
+    // Earlier tests installed other apps in the same Space.
+    const named = found.apps.filter((app) => ["Runnable", "Private", "Changed"].includes(app.name));
+    expect(named.map((app) => [app.name, app.actions?.map((action) => action.name)])).toEqual([
+      ["Runnable", ["addTask"]],
+      ["Private", undefined],
+    ]);
+    const none = await runAsTenant(author(), () => findInstalledApps(prisma, author(), "timer"));
+    expect(none).toMatchObject({ apps: [], note: expect.stringContaining("No installed app") });
   });
 });

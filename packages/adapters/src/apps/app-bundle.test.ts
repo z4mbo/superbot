@@ -66,9 +66,7 @@ describe("checkAppBundle", () => {
       manifest,
       files: [entry, { path: "SRC/App.jsx", content: source, encoding: "utf8" }],
     });
-    expect(errors).toEqual([
-      "SRC/App.jsx: another file has the same name on Windows and macOS.",
-    ]);
+    expect(errors).toEqual(["SRC/App.jsx: another file has the same name on Windows and macOS."]);
   });
 
   it("refuses files the manifest does not use", () => {
