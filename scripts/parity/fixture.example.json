@@ -1,0 +1,257 @@
+{
+  "user": {
+    "name": "Sam Rivera",
+    "email": "parity@example.test",
+    "password": "parity-fixture-pass-1"
+  },
+  "sections": [
+    "Work",
+    "Projects"
+  ],
+  "bots": [
+    {
+      "key": "main",
+      "main": true,
+      "pinned": true,
+      "name": "Superbot",
+      "messages": [
+        {
+          "role": "user",
+          "at": "-1d 18:00",
+          "text": "Can you check the open issues on the tracker and tell me which ones need me? (0)"
+        },
+        {
+          "role": "bot",
+          "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet."
+        },
+        {
+          "role": "bot",
+          "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet."
+        },
+        {
+          "role": "bot",
+          "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet."
+        },
+        {
+          "role": "user",
+          "at": "today 13:31",
+          "text": "Can you check the open issues on the tracker and tell me which ones need me? (4)"
+        },
+        {
+          "role": "bot",
+          "at": "today 13:31",
+          "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet."
+        },
+        {
+          "role": "bot",
+          "at": "today 13:32",
+          "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet."
+        }
+      ]
+    },
+    {
+      "key": "whatsnew",
+      "name": "What's New",
+      "shape": "teardrop",
+      "color": "red",
+      "preview": "Here is the latest summary from What's New, saved to the shared folder."
+    },
+    {
+      "key": "biondan",
+      "name": "Ledger",
+      "section": "Work",
+      "shape": "circle",
+      "color": "yellow",
+      "preview": "Here is the latest summary from Ledger, saved to the shared folder."
+    },
+    {
+      "key": "bertelli",
+      "name": "Atlas",
+      "section": "Work",
+      "shape": "circle",
+      "color": "green",
+      "preview": "Here is the latest summary from Atlas, saved to the shared folder."
+    },
+    {
+      "key": "superbot",
+      "name": "Launch Plan",
+      "section": "Projects",
+      "shape": "circle",
+      "messages": [
+        {
+          "role": "user",
+          "text": "Can you check the open issues on the tracker and tell me which ones need me? (0)",
+          "key": "install"
+        },
+        {
+          "role": "user",
+          "text": "Can you check the open issues on the tracker and tell me which ones need me? (1)",
+          "key": "font"
+        },
+        {
+          "role": "bot",
+          "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet."
+        },
+        {
+          "role": "user",
+          "text": "Can you check the open issues on the tracker and tell me which ones need me? (3)",
+          "key": "grok",
+          "replyTo": "font",
+          "quote": "Can you check the open issues on the tracker?"
+        },
+        {
+          "role": "bot",
+          "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet.",
+          "replyTo": "grok",
+          "quote": "Can you check the open issues on the tracker?"
+        },
+        {
+          "role": "user",
+          "text": "Can you check the open issues on the tracker and tell me which ones need me? (5)",
+          "key": "auth",
+          "replyTo": "install",
+          "quote": "Can you check the open issues on the tracker?"
+        },
+        {
+          "role": "bot",
+          "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet.",
+          "replyTo": "auth",
+          "quote": "Can you check the open issues on the tracker?"
+        },
+        {
+          "role": "bot",
+          "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet."
+        }
+      ],
+      "working": true
+    },
+    {
+      "key": "pulse",
+      "name": "Quill",
+      "section": "Projects",
+      "shape": "egg",
+      "color": "brown",
+      "preview": "Here is the latest summary from Quill, saved to the shared folder."
+    },
+    {
+      "key": "molly",
+      "name": "Nimbus",
+      "section": "Projects",
+      "shape": "cloud",
+      "color": "purple",
+      "preview": "Here is the latest summary from Nimbus, saved to the shared folder."
+    },
+    {
+      "key": "terraviva",
+      "name": "Fern",
+      "section": "Projects",
+      "shape": "circle",
+      "color": "green",
+      "preview": "Here is the latest summary from Fern, saved to the shared folder."
+    },
+    {
+      "key": "isometric",
+      "name": "Pixel",
+      "section": "Projects",
+      "shape": "circle",
+      "color": "magenta",
+      "preview": "Here is the latest summary from Pixel, saved to the shared folder."
+    },
+    {
+      "key": "config",
+      "name": "Sunny",
+      "section": "Projects",
+      "shape": "dome",
+      "color": "orange",
+      "preview": "Here is the latest summary from Sunny, saved to the shared folder."
+    },
+    {
+      "key": "outfit",
+      "name": "Tango",
+      "section": "Projects",
+      "shape": "clover",
+      "color": "red",
+      "preview": "Here is the latest summary from Tango, saved to the shared folder."
+    },
+    {
+      "key": "polimetro",
+      "name": "Orchid",
+      "section": "Projects",
+      "shape": "capsule",
+      "color": "magenta",
+      "preview": "Here is the latest summary from Orchid, saved to the shared folder."
+    },
+    {
+      "key": "projectz",
+      "name": "Basil",
+      "section": "Projects",
+      "shape": "tablet",
+      "color": "gray",
+      "preview": "Here is the latest summary from Basil, saved to the shared folder."
+    },
+    {
+      "key": "orbit",
+      "name": "Orbit",
+      "section": "Projects",
+      "shape": "pebble",
+      "color": "brown",
+      "preview": "Here is the latest summary from Orbit, saved to the shared folder."
+    },
+    {
+      "key": "zengine",
+      "name": "Comet",
+      "section": "Projects",
+      "shape": "capsule",
+      "color": "purple",
+      "preview": "Here is the latest summary from Comet, saved to the shared folder."
+    },
+    {
+      "key": "vape",
+      "name": "Juniper",
+      "section": "Projects",
+      "shape": "wedge",
+      "color": "brown",
+      "preview": "Here is the latest summary from Juniper, saved to the shared folder."
+    },
+    {
+      "key": "visitaly",
+      "name": "Maple",
+      "section": "Projects",
+      "shape": "clover",
+      "color": "magenta",
+      "preview": "Here is the latest summary from Maple, saved to the shared folder."
+    },
+    {
+      "key": "mevio",
+      "name": "Echo",
+      "section": "Projects",
+      "shape": "wedge",
+      "color": "magenta",
+      "preview": "Here is the latest summary from Echo, saved to the shared folder."
+    },
+    {
+      "key": "steplock",
+      "name": "Willow",
+      "section": "Projects",
+      "shape": "egg",
+      "color": "orange",
+      "preview": "Here is the latest summary from Willow, saved to the shared folder."
+    },
+    {
+      "key": "lifestats",
+      "name": "Summit",
+      "section": "Projects",
+      "shape": "teardrop",
+      "color": "red",
+      "preview": "Here is the latest summary from Summit, saved to the shared folder."
+    },
+    {
+      "key": "origin",
+      "name": "Origin",
+      "section": "Projects",
+      "shape": "circle",
+      "color": "magenta",
+      "preview": "Here is the latest summary from Origin, saved to the shared folder."
+    }
+  ]
+}
