@@ -103,6 +103,15 @@ const shots = {
     if (box) await page.mouse.move(box.x + 26, box.y + box.height / 2 - 4, { steps: 8 });
     await page.waitForTimeout(600);
   },
+  async studio(page) {
+    await page.goto(`/app/${await botId(page, "main")}`);
+    await page.getByTestId("composer-bar").waitFor({ timeout: 30_000 });
+    await settle(page);
+    await page.getByTestId("bot-settings-trigger").click();
+    await page.getByTestId("avatar-studio-trigger").click();
+    await page.getByTestId("avatar-studio-shapes").waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(600);
+  },
   async "model-menu"(page) {
     await page.goto(`/app/${await botId(page, "main")}`);
     await page.getByTestId("composer-bar").waitFor({ timeout: 30_000 });
