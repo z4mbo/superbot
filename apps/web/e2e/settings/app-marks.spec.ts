@@ -52,7 +52,8 @@ for (const theme of ["light", "dark"]) {
     const store = footer.getByRole("button", { name: "Store", exact: true });
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await expect(store).toBeVisible();
-    await expect(footer.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+    // Settings lives in the account menu; the footer keeps the account and the Store.
+    await expect(footer.getByRole("button", { name: "Settings", exact: true })).toHaveCount(0);
     for (const hover of [false, true]) {
       if (hover) await store.hover();
       const name = `sidebar-footer-${theme}${hover ? "-hover" : ""}`;

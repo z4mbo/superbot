@@ -149,7 +149,9 @@ test("sidebar Working and Recent surface active and terminal runs", async ({ pag
   await expect(activityRow(page, "Chief")).toBeVisible();
 
   await page.getByRole("button", { name: "Stop", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Send" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /^(Send|Start voice chat)$/ })).toBeVisible({
+    timeout: 30_000,
+  });
 
   await page.reload();
   await expect(activityToggle).toHaveAttribute("aria-pressed", "true");

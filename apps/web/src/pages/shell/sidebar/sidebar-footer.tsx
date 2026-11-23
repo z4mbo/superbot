@@ -2,7 +2,6 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import type { NavLink } from "@rakazo/contracts";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web";
 import {
-  Bell,
   Building2,
   Check,
   ChevronRight,
@@ -40,8 +39,6 @@ type Props = {
   onLink?: (link: NavLink) => void;
   onArtifacts: () => void;
   onSettings: () => void;
-  /** Shows the runs list in place of the roster. */
-  onActivity?: () => void;
   /** How much of the member's allowance is used; the Usage row shows only with one. */
   usage?: string | null;
   onUsage?: () => void;
@@ -71,7 +68,6 @@ export function SidebarFooter({
   onLink,
   onArtifacts,
   onSettings,
-  onActivity,
   usage,
   onUsage,
   onInvite,
@@ -194,17 +190,7 @@ export function SidebarFooter({
               <Settings className="text-muted-foreground" strokeWidth={1.75} />
               <Trans>Settings</Trans>
             </Button>
-            {onActivity && !mini ? (
-              <Button
-                variant="ghost"
-                size="lg"
-                className="w-full justify-start gap-2.5 font-normal"
-                onClick={onActivity}
-              >
-                <Bell className="text-muted-foreground" strokeWidth={1.75} />
-                <Trans>Activity</Trans>
-              </Button>
-            ) : null}
+
             <Button
               variant="ghost"
               size="lg"

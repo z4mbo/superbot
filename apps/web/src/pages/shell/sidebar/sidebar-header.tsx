@@ -58,7 +58,7 @@ export function SidebarHeader({
       <Button
         variant="ghost"
         size="icon"
-        className={`app-no-drag hidden text-muted-foreground md:inline-flex ${railTile}`}
+        className={`app-no-drag hidden text-muted-foreground md:inline-flex ${mini ? railTile : "opacity-0 transition-opacity group-hover/sidebar-header:opacity-100 focus-visible:opacity-100"}`}
         aria-label={toggleLabel}
         data-testid={mini ? "restore-bots-sidebar" : "minimize-bots-sidebar"}
         onClick={() => setBotsSidebarCollapsedPref(!mini)}
@@ -73,12 +73,12 @@ export function SidebarHeader({
   );
   return (
     <div
-      className={`app-drag flex items-center ${mini ? `flex-col gap-1 px-0 pb-3 ${hasWindowChrome && !rail ? "pt-4" : "pt-2"}` : "h-15 shrink-0 justify-between px-4 py-3"}`}
+      className={`group/sidebar-header app-drag flex items-center ${mini ? `flex-col gap-1 px-0 pb-3 ${hasWindowChrome && !rail ? "pt-4" : "pt-2"}` : "h-15 shrink-0 justify-between px-4 py-3"}`}
     >
       <div className={`flex items-center ${mini ? "flex-col gap-2" : "gap-2"}`}>
         {hasWindowChrome ? <WindowChrome className={rail ? "md:hidden" : undefined} /> : null}
-        {/* Expanded, the sidebar folds with Ctrl+B or by dragging its edge; only the rail shows the button. */}
-        {mini ? toggle : null}
+        {/* Expanded, the fold button stays out of sight until the header is hovered or focused. */}
+        {toggle}
       </div>
       {/* Fits beside the macOS window controls at the narrowest sidebar width. */}
       <div className={`relative flex items-center ${mini ? "flex-col gap-1" : "gap-2"}`}>
@@ -97,8 +97,8 @@ export function SidebarHeader({
             </Button>
           </IconTooltip>
         ) : null}
-        {/* Activity opens from the account menu; while it is on, the bell here turns it off. */}
-        {mini || !activityMode ? null : (
+        {/* Activity stays out of sight until the header is hovered or focused, or while it is on. */}
+        {mini ? null : (
           <IconTooltip label={t`Activity`} side={labelSide}>
             <Button
               variant="floating"
@@ -107,7 +107,7 @@ export function SidebarHeader({
               aria-pressed={activityMode}
               data-activity-mode={activityMode ? "on" : "off"}
               onClick={toggleActivityMode}
-              className="app-no-drag"
+              className={`app-no-drag ${activityMode ? "" : "opacity-0 transition-opacity group-hover/sidebar-header:opacity-100 focus-visible:opacity-100"}`}
             >
               {/* A filled bell marks Activity on, so on and hovered never look alike. */}
               <Bell

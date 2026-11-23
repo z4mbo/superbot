@@ -315,7 +315,6 @@ export function ShellSidebar({
           openIntegrations={openIntegrations}
           openSkills={openSkills}
           openSpaceChat={openSpaceChat}
-          openActivity={toggleActivityMode}
         />
       </Sidebar>
     </>
@@ -333,7 +332,6 @@ function ShellSidebarFooter({
   openIntegrations,
   openSkills,
   openSpaceChat,
-  openActivity,
 }: {
   mini: boolean;
   user: User | undefined;
@@ -345,7 +343,6 @@ function ShellSidebarFooter({
   openIntegrations: () => void;
   openSkills: () => void;
   openSpaceChat: (spaceId: string, path: string) => void;
-  openActivity: () => void;
 }) {
   const { t, i18n } = useLingui();
   const userId = useQueryUserId();
@@ -426,10 +423,6 @@ function ShellSidebarFooter({
         onSettings={() => {
           setMenuOpen(false);
           openSettings("general");
-        }}
-        onActivity={() => {
-          setMenuOpen(false);
-          openActivity();
         }}
         usage={usage}
         onUsage={() => {

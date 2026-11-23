@@ -28,10 +28,9 @@ test("user bubbles stay close to the avatar color with white text in both themes
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await expect(bubble).toHaveCSS("color", "rgb(255, 255, 255)");
     await expect(bubble).toHaveCSS("background-color", "rgb(241, 107, 0)");
-    // The send button stays quiet on an empty draft...
+    // An empty draft offers a voice chat instead of Send...
+    await expect(page.getByRole("button", { name: "Start voice chat", exact: true })).toBeVisible();
     const send = page.getByRole("button", { name: "Send", exact: true });
-    await expect(send).toBeDisabled();
-    await expect(send).not.toHaveCSS("background-color", "rgb(241, 107, 0)");
     await captureScreenshot(page, testInfo, `chat-bubble-avatar-color-${theme}`);
     // ...and wears the bubble's color once there is something to send.
     await composer.fill("And the week after.");
