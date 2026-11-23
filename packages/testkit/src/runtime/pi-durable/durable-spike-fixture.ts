@@ -118,7 +118,7 @@ export type SpikeEvent =
   | { event: "tool-start"; tool: string }
   | { event: "tool-hang"; tool: string }
   | { event: "settled"; status: string; transcript: TranscriptLine[]; reason?: string }
-  | { event: "ready" }
+  | { event: "ready"; node: string; electron?: string }
   | { event: "interrupted"; tool: string }
   | { event: "error"; message: string };
 
