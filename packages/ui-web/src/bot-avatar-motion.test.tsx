@@ -84,6 +84,8 @@ describe("BotAvatar motion", () => {
       html.indexOf("rakazo-mascot-avatar-face"),
     );
     expect(html).toMatch(/--rakazo-mascot-depth:[\d.]+px/);
+    // Reduced motion pins each body to this outline.
+    expect(html).toContain("--rakazo-mascot-path:path(");
     // Flat: no drop shadow or glow on the body.
     expect(html).not.toContain("drop-shadow");
   });
