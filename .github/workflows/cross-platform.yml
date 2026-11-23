@@ -39,6 +39,8 @@ env:
     packages/plugin-sdk/src/bridge/bridge.test.ts
     packages/plugin-sdk/src/check/check-app.test.ts
     packages/plugin-sdk/src/runtime/app-runtime.test.tsx
+    packages/adapters/src/apps/app-bundle.test.ts
+    apps/web/src/components/pages/PageFrame.test.tsx
     packages/adapters/src/storage/file-handle-path.test.ts
     packages/adapters/src/storage/home-races.test.ts
     packages/adapters/src/runtime/pi/pi-session.test.ts
@@ -54,6 +56,7 @@ env:
     setup.spec.ts
     window-drag.spec.ts
     app-sdk.spec.ts
+    app-sandbox.spec.ts
 
 jobs:
   unit:

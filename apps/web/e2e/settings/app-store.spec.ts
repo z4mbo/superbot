@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { AppInstall, AppListing, AppSubmissionInput } from "@rakazo/contracts";
-import { pageViewerCode } from "../../../../packages/page-kit/src/compile";
+import { pageViewerCode } from "@rakazo/page-kit/compile";
 import { captureScreenshot, completeOnboarding, rpc, signup } from "../helpers/helpers";
 
 const source = `export default function FocusTimer() {

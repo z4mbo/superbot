@@ -704,6 +704,9 @@ importers:
       '@rakazo/api':
         specifier: workspace:*
         version: link:../api
+      '@rakazo/page-kit':
+        specifier: workspace:*
+        version: link:../../packages/page-kit
       '@types/babel__core':
         specifier: 7.20.5
         version: 7.20.5
