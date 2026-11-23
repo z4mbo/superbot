@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { pageMutationOptions } from "../../lib/pages/page-actions";
+import { usePageAppBridge } from "../../lib/pages/page-app-bridge";
 import type { PageSession } from "../../lib/pages/pages";
 import { PAGE_PARAM, useMedia, usePageDocument, usePageSession } from "../../lib/pages/pages";
 import { useSpaceQueries } from "../../lib/query/query";
@@ -55,11 +56,25 @@ function OpenPage({
     ...queries.pages.get.queryOptions({ input: { pageId: shownId } }),
     enabled: pageId !== null,
   });
+  // An app opens with the state it has now; newer state reaches it through the bridge, so the
+  // document (and what the person has typed into it) stays as it is.
+  const appView = useQuery({
+    ...queries.pages.appState.queryOptions({ input: { pageId: shownId } }),
+    enabled: pageId !== null,
+  });
+  const app = appView.data?.app ?? null;
+  const [openedWith, setOpenedWith] = useState<{
+    state: Record<string, unknown>;
+    revision: number;
+  } | null>(null);
+  if (app && !openedWith) setOpenedWith({ state: app.state, revision: app.revision });
+  const bridge = usePageAppBridge(pageId, app);
   const viewer = usePageDocument(
-    page.data?.code,
+    appView.isPending ? undefined : page.data?.code,
     sheet ? "background" : "card",
     true,
     DOCK_CLEARANCE,
+    openedWith ?? undefined,
   );
   const [shareOpen, setShareOpen] = useState(false);
   const link = useQuery({
@@ -147,6 +162,7 @@ function OpenPage({
       }
       composer={<div ref={setDockNode} />}
       onReply={session.offerReply}
+      app={bridge}
       share={
         data ? (
           <SharePopover

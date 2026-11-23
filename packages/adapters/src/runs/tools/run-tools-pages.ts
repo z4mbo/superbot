@@ -1,8 +1,10 @@
-import type { MessageBlock } from "@rakazo/contracts";
-import { PAGE_TITLE_MAX_LENGTH, PageTitleSchema } from "@rakazo/contracts";
+import type { AppManifest, MessageBlock } from "@rakazo/contracts";
+import { appManifestSchema, PAGE_TITLE_MAX_LENGTH, PageTitleSchema } from "@rakazo/contracts";
 import { CARD_TITLE_ESCAPED_CHARACTERS, containsSecret, redactSecrets } from "@rakazo/core";
-import { isUniqueViolation } from "@rakazo/db";
+import type { Prisma } from "@rakazo/db";
+import { isUniqueViolation, readJsonColumn } from "@rakazo/db";
 import { checkPageSource, PAGE_KIT_GUIDE } from "@rakazo/page-kit/validate";
+import { APP_GUIDE, checkApp } from "@rakazo/plugin-sdk";
 import { MAX_APPROVAL_DETAIL_LENGTH } from "../../approvals/approval-ask.js";
 import { argumentGiven } from "../../bots/update-bot-patch.js";
 import type { RunContext } from "../assembly/run-context.js";
@@ -55,7 +57,7 @@ function parseEdits(value: unknown): PageEdit[] | string {
  * A bot reaches its own pages and its group's pages, from any of its chats or routines; another
  * bot's page answers as if it did not exist, since its source may hold that chat's text.
  */
-function reachablePage(ctx: RunContext, pageId: string) {
+export function reachablePage(ctx: RunContext, pageId: string) {
   const { run, bot, thread } = ctx;
   return {
     id: pageId,
@@ -80,6 +82,47 @@ function proposedSource(
   const edits = parseEdits(args.edits);
   return typeof edits === "string" ? { ok: false, error: edits } : applyPageEdits(current, edits);
 }
+
+type SaveCheck =
+  | { ok: true; code: string; warnings?: string[]; app: AppManifest | null }
+  | { ok: false; errors: string[] };
+
+/** The stored manifest of the version a save builds on; null for a plain page. */
+function storedApp(version: { id?: string; app?: Prisma.JsonValue | null } | undefined) {
+  if (version?.app === null || version?.app === undefined) return null;
+  return readJsonColumn(
+    appManifestSchema,
+    version.app,
+    { table: "page_versions", column: "app", id: version.id ?? "" },
+    "reject",
+  );
+}
+
+/**
+ * A save is checked as an app when it sends a manifest or the page already is one; an inline app
+ * has no folder, so its entry defaults to app.json's sibling. An app stays an app.
+ */
+function checkSave(source: string, args: Record<string, unknown>, current: AppManifest | null) {
+  if (argumentGiven(args.app)) {
+    const given = args.app;
+    if (!given || typeof given !== "object" || Array.isArray(given))
+      return { ok: false, errors: ["app must be the app manifest object."] } satisfies SaveCheck;
+    const result = checkApp({ manifest: { entry: "app.jsx", ...given }, source });
+    return result.ok ? ({ ...result, app: result.manifest } satisfies SaveCheck) : result;
+  }
+  if (current) {
+    const result = checkApp({ manifest: current, source });
+    return result.ok ? ({ ...result, app: result.manifest } satisfies SaveCheck) : result;
+  }
+  const result = checkPageSource(source);
+  return result.ok ? ({ ...result, app: null } satisfies SaveCheck) : result;
+}
+
+const versionSelect = {
+  orderBy: { version: "desc" },
+  take: 1,
+  select: { id: true, source: true, app: true },
+} as const;
 
 /** Text kept on each side of a change inside a line, so the card shows where it is. */
 const CHANGE_CONTEXT = 40;
@@ -147,7 +190,8 @@ export async function holdSharedPageSave(
   request.effectRequest = args;
   if (args.help === true || !argumentGiven(args.pageId)) return undefined;
   const hasTitle = argumentGiven(args.title);
-  if (!argumentGiven(args.source) && !editsGiven(args) && !hasTitle) return undefined;
+  if (!argumentGiven(args.source) && !editsGiven(args) && !hasTitle && !argumentGiven(args.app))
+    return undefined;
   if (argumentGiven(args.source) && editsGiven(args)) return undefined;
   if (await neverAsks(ctx)) return undefined;
   const page = await ctx.deps.prisma.page.findFirst({
@@ -156,7 +200,7 @@ export async function holdSharedPageSave(
       title: true,
       visibility: true,
       currentVersion: true,
-      versions: { orderBy: { version: "desc" }, take: 1, select: { source: true } },
+      versions: versionSelect,
     },
   });
   if (page?.visibility !== "link") return undefined;
@@ -165,7 +209,7 @@ export async function holdSharedPageSave(
   const current = page.versions[0]?.source ?? "";
   const proposed = proposedSource(current, args);
   if (!proposed.ok) return undefined;
-  const check = checkPageSource(proposed.source);
+  const check = checkSave(proposed.source, args, storedApp(page.versions[0]));
   if (!check.ok || containsSecret([proposed.source, check.code], ctx.secrets)) return undefined;
   const lines = [
     // The title as it would be stored.
@@ -173,6 +217,8 @@ export async function holdSharedPageSave(
       ? [`Title: ${redactSecrets(parsedTitle.data, ctx.secrets).slice(0, PAGE_TITLE_MAX_LENGTH)}`]
       : []),
     ...changedLines(current, proposed.source),
+    // A shared app shows its manifest's initial state, so a manifest change is shown too.
+    ...(argumentGiven(args.app) ? [`App: ${JSON.stringify(check.app)}`] : []),
   ];
   // Measured as the card shows it, redacted, so nothing an approval covers is cut off.
   if (redactSecrets(lines.join("\n"), ctx.secrets).length > MAX_APPROVAL_DETAIL_LENGTH)
@@ -191,7 +237,10 @@ export async function holdSharedPageSave(
 async function savePage(ctx: RunContext, call: ToolCall) {
   const { deps, run, bot, thread } = ctx;
   const { args } = call;
-  if (args.help === true) return { guide: PAGE_KIT_GUIDE };
+  if (args.help === true)
+    return {
+      guide: argumentGiven(args.app) ? `${PAGE_KIT_GUIDE}\n\n${APP_GUIDE}` : PAGE_KIT_GUIDE,
+    };
   const pageId = argumentGiven(args.pageId) ? String(args.pageId) : undefined;
   const hasSource = argumentGiven(args.source);
   const hasEdits = editsGiven(args);
@@ -211,23 +260,25 @@ async function savePage(ctx: RunContext, call: ToolCall) {
           title: true,
           visibility: true,
           currentVersion: true,
-          versions: { orderBy: { version: "desc" }, take: 1, select: { source: true } },
+          versions: versionSelect,
         },
       })
     : null;
   if (pageId && !page) return { error: "No page with that pageId belongs to this bot or chat." };
   const current = page?.versions[0]?.source ?? "";
 
-  if (page && !hasSource && !hasEdits && !title) {
+  if (page && !hasSource && !hasEdits && !title && !argumentGiven(args.app)) {
     // The stored source may hold outside text an earlier run put in the page, so reading it
     // taints this run like any other outside content; saves only confirm this run's own write.
     await markReadOutsideContent(ctx, current);
+    const app = storedApp(page.versions[0]);
     return {
       pageId: page.id,
       version: page.currentVersion,
       title: page.title,
       ...(page.visibility === "link" ? { sharedByLink: true } : {}),
       source: current,
+      ...(app ? { app } : {}),
     };
   }
   if (!page && hasEdits) return { error: "edits need the pageId of the page to change." };
@@ -240,7 +291,7 @@ async function savePage(ctx: RunContext, call: ToolCall) {
   const proposed = proposedSource(current, args);
   if (!proposed.ok) return { error: proposed.error, unchanged: true };
   const { source } = proposed;
-  const check = checkPageSource(source);
+  const check = checkSave(source, args, storedApp(page?.versions[0]));
   if (!check.ok) {
     return { error: "The page has problems; nothing was saved.", problems: check.errors };
   }
@@ -268,7 +319,15 @@ async function savePage(ctx: RunContext, call: ToolCall) {
             botId: bot.id,
             groupId: thread.groupId,
             title: title!,
-            versions: { create: { version: 1, title: title!, source, code: check.code } },
+            versions: {
+              create: {
+                version: 1,
+                title: title!,
+                source,
+                code: check.code,
+                app: appJson(check.app),
+              },
+            },
           },
         });
         return { pageId: created.id, version: 1, title: created.title };
@@ -298,7 +357,14 @@ async function savePage(ctx: RunContext, call: ToolCall) {
         await tx.page.update({ where: { id: page.id }, data: { title: kept } });
       }
       await tx.pageVersion.create({
-        data: { pageId: page.id, version, title: nextTitle, source, code: check.code },
+        data: {
+          pageId: page.id,
+          version,
+          title: nextTitle,
+          source,
+          code: check.code,
+          app: appJson(check.app),
+        },
       });
       return { pageId: page.id, version, title: nextTitle };
     });
@@ -332,6 +398,10 @@ async function savePage(ctx: RunContext, call: ToolCall) {
 }
 
 class PageChangedError extends Error {}
+
+function appJson(app: AppManifest | null) {
+  return app ? (app as Prisma.InputJsonObject) : undefined;
+}
 
 export const pageTools: ToolHandlers = {
   async save_page(ctx, call) {

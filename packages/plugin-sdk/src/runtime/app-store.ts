@@ -40,9 +40,13 @@ function current(): Snapshot {
   return snapshot;
 }
 
+const READY_MESSAGE = "rakazo-app:ready";
+
+/** Starts listening and asks the host for the current state, which may be newer than the boot's. */
 function listen() {
   if (listening || typeof window === "undefined") return;
   listening = true;
+  queueMicrotask(() => window.parent?.postMessage({ type: READY_MESSAGE }, "*"));
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent) return;
     const data = event.data as Record<string, unknown> | null;

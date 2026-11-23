@@ -16,6 +16,7 @@ import { HEADER_CONTROL_SIZE } from "../lib/native/native-controls";
 import { PageLoadFailure } from "../lib/pages/page-load-failure";
 import {
   getLatestPage,
+  getPageAppState,
   offerPageReply,
   pageActionAllowed,
   pageChat,
@@ -53,12 +54,13 @@ export default function PageScreen() {
     setLoaded({ status: "loading" });
     void getLatestPage(pageId, { refresh: true })
       .then(async (page) => {
+        const appState = await getPageAppState(page.id);
         const document = await pageDocument(
           currentApiBase(),
           page.code,
           theme,
           t`This page couldn't be shown.`,
-          { reply: pageChat(page) !== null },
+          { reply: pageChat(page) !== null, ...(appState ? { appState } : {}) },
         );
         if (!active) return;
         setLoaded({ status: "ready", page, document });

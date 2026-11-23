@@ -1,5 +1,6 @@
 import type { PageDetail, PageVisibility } from "@rakazo/contracts";
 import { isServerUnreachable, pageViewerDocument } from "@rakazo/core";
+import { bestEffort } from "@rakazo/logging/best-effort";
 import { rpc } from "../api/api";
 import { registerSessionDiskCache } from "../api/session";
 import { getActiveUiLocale } from "../i18n/i18n";
@@ -237,12 +238,25 @@ export function removePage(pageId: string) {
     .finally(() => pageReads.delete(pageId));
 }
 
+/**
+ * The app on a page as the server stores it, or null for a plain page. Mobile shows an app's
+ * state but runs no actions yet; a failed read shows the app as its manifest starts it.
+ */
+export async function getPageAppState(pageId: string) {
+  const read = await bestEffort("app state", rpc("pages/appState", { pageId }));
+  return read?.app ? { state: read.app.state, revision: read.app.revision } : undefined;
+}
+
 export async function pageDocument(
   apiBase: string,
   code: string,
   theme: "light" | "dark",
   errorTitle: string,
-  options: { reply?: boolean } = {},
+  options: {
+    reply?: boolean;
+    /** An app's stored state; mobile shows it read-only, so the app's controls stay off. */
+    appState?: { state: Record<string, unknown>; revision: number };
+  } = {},
 ): Promise<string> {
   const runtime = await loadPageRuntime(apiBase);
   return pageViewerDocument({

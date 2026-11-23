@@ -17,7 +17,8 @@ function guard() {
 }
 addEventListener("message", (event) => {
   const preview = document.getElementById("preview");
-  // A page asks the app to open a link, offer a reply, copy text or make room for its height; only those pass up.
+  // A page asks the app to open a link, offer a reply, copy text or make room for its height, and an
+  // app also for its state or an action; only those pass up.
   if (event.source === preview.contentWindow && parent !== window) {
     const data = event.data;
     // A click or key in the page also activates this shell, which the page cannot fake; the guard
@@ -39,6 +40,12 @@ addEventListener("message", (event) => {
       parent.postMessage({ type: data.type, id: data.id, text: data.text, gesture: fresh }, "*");
     } else if (data && data.type === "rakazo-page:height" && Number.isFinite(data.height)) {
       parent.postMessage({ type: data.type, height: data.height }, "*");
+    } else if (data && data.type === "rakazo-app:ready") {
+      // An app asks for its current state once it is listening; it needs no click.
+      parent.postMessage({ type: data.type }, "*");
+    } else if (data && data.type === "rakazo-app:action" && typeof data.id === "string" && typeof data.name === "string") {
+      // An app asks the app to run one of its declared actions; the app checks the input.
+      parent.postMessage({ type: data.type, id: data.id.slice(0, 64), name: data.name.slice(0, 64), input: data.input, gesture: fresh }, "*");
     }
     return;
   }
@@ -46,6 +53,15 @@ addEventListener("message", (event) => {
   // The app's answer to a copy: only whether it worked comes back down, never clipboard contents.
   if (event.data && event.data.type === "rakazo-page:copied") {
     preview.contentWindow.postMessage({ type: event.data.type, id: String(event.data.id), ok: event.data.ok === true }, "*");
+    return;
+  }
+  // An app's new state and the outcome of an action it asked for.
+  if (event.data && event.data.type === "rakazo-app:state") {
+    preview.contentWindow.postMessage({ type: event.data.type, state: event.data.state, revision: Number(event.data.revision) }, "*");
+    return;
+  }
+  if (event.data && event.data.type === "rakazo-app:result") {
+    preview.contentWindow.postMessage({ type: event.data.type, id: String(event.data.id), ok: event.data.ok === true, error: typeof event.data.error === "string" ? event.data.error : undefined }, "*");
     return;
   }
   if (typeof event.data !== "string") return;

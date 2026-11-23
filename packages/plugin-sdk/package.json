@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./bridge": "./src/bridge/bridge.ts",
     "./node": "./src/node/app-folder.ts",
     "./runtime": "./src/runtime/app-runtime.tsx",
     "./runtime-build": "./src/runtime-build.ts"
@@ -18,7 +19,8 @@
     "@rakazo/page-kit": "workspace:*",
     "esbuild": "0.28.2",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@rakazo/core": "workspace:*",

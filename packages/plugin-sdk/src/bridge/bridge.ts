@@ -1,4 +1,4 @@
-import type { AppManifest, AppPermission } from "@rakazo/contracts";
+import type { AppPermission } from "@rakazo/contracts";
 import { findAction } from "../manifest/manifest.js";
 
 /**
@@ -28,13 +28,19 @@ const REFUSED: Record<string, string> = {
   clipboard: "This app cannot copy text.",
 };
 
-function needs(manifest: Pick<AppManifest, "permissions">, ...permissions: AppPermission[]) {
+/** What the bridge decides on: the declared permissions and action names. */
+export type AppBridgeSurface = {
+  permissions: readonly AppPermission[];
+  actions: readonly { name: string }[];
+};
+
+function needs(manifest: Pick<AppBridgeSurface, "permissions">, ...permissions: AppPermission[]) {
   const missing = permissions.find((permission) => !manifest.permissions.includes(permission));
   return missing ? { ok: false as const, error: REFUSED[missing]! } : { ok: true as const };
 }
 
 export function appBridgeAllows(
-  manifest: Pick<AppManifest, "permissions" | "actions">,
+  manifest: AppBridgeSurface,
   request: AppBridgeRequest,
 ): BridgeDecision {
   if (request.by === "agent" && request.kind === "read")

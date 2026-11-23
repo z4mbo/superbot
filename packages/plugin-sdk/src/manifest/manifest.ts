@@ -39,10 +39,10 @@ export function hasPermission(
   return manifest.permissions.includes(permission);
 }
 
-export function findAction(
-  manifest: Pick<AppManifest, "actions">,
+export function findAction<Action extends { name: string }>(
+  manifest: { actions: readonly Action[] },
   name: unknown,
-): AppAction | undefined {
+): Action | undefined {
   return typeof name === "string"
     ? manifest.actions.find((action) => action.name === name)
     : undefined;

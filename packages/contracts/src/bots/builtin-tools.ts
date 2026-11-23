@@ -48,6 +48,8 @@ export const BUILTIN_TOOL_NAMES = [
   "forget_secret",
   "render_plot",
   "save_page",
+  "read_app_state",
+  "run_app_action",
   "generate_image",
   "generate_video",
   "add_mcp_server",

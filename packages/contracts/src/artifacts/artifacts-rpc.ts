@@ -1,5 +1,6 @@
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
+import { appActionRunSchema, appViewSchema } from "../apps/app-view.js";
 import { Id } from "../ids.js";
 import { botId } from "../rpc/inputs.js";
 import {
@@ -124,5 +125,19 @@ export const artifactsRpc = {
       ),
     pin: oc.input(z.strictObject({ pageId: Id, pinned: z.boolean() })).output(PageSummarySchema),
     remove: oc.input(z.strictObject({ pageId: Id })).output(z.object({ ok: z.literal(true) })),
+    /** The app on a page, for its viewer; null for a plain page. */
+    appState: oc
+      .input(z.strictObject({ pageId: Id }))
+      .output(z.strictObject({ app: appViewSchema.nullable() })),
+    /** Runs one of the app's declared actions for the person, as its controls ask. */
+    runAction: oc
+      .input(
+        z.strictObject({
+          pageId: Id,
+          action: z.string().min(1).max(64),
+          input: z.record(z.string(), z.json()).optional(),
+        }),
+      )
+      .output(appActionRunSchema),
   },
 };

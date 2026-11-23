@@ -1,4 +1,4 @@
-export type { AppBridgeRequest, BridgeDecision } from "./bridge/bridge.js";
+export type { AppBridgeRequest, AppBridgeSurface, BridgeDecision } from "./bridge/bridge.js";
 export {
   APP_ACTION_MESSAGE,
   APP_RESULT_MESSAGE,

@@ -1,9 +1,16 @@
-import type { AppAction, AppActionEffect, AppActionInput, AppManifest } from "@rakazo/contracts";
+import type {
+  AppAction,
+  AppActionEffect,
+  AppActionInput,
+  AppManifest,
+  appStateSchema,
+} from "@rakazo/contracts";
 import { APP_STATE_MAX_BYTES } from "@rakazo/contracts";
+import type * as z from "zod";
 import { findAction } from "../manifest/manifest.js";
 
 /** An app's state: a JSON object the host stores and only declared actions change. */
-export type AppState = Record<string, unknown>;
+export type AppState = z.infer<typeof appStateSchema>;
 
 export type ActionOutcome = { ok: true; state: AppState } | { ok: false; error: string };
 export type InputParse =
