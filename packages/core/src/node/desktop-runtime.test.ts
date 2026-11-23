@@ -947,7 +947,7 @@ describe("shared Linux desktop lifecycle", () => {
             : "python3() { return 1; }; kill() { return 0; }; sleep() { :; }";
         const result = spawnSync(
           "bash",
-          ["-eu", "-c", `${close}\n${stopBrowserProfileCommand(profile, shellQuote(pidFile))}`],
+          ["-eu", "-c", `${close}\n${stopBrowserProfileCommand(profile, pidFile)}`],
           { encoding: "utf8", timeout: 20_000 },
         );
         expect(result.status, result.stderr).toBe(BROWSER_STILL_RUNNING_EXIT);
@@ -970,6 +970,45 @@ describe("shared Linux desktop lifecycle", () => {
           // The close command may fail before starting a replacement.
         }
       }
+    },
+  );
+
+  it.skipIf(process.platform !== "linux")(
+    "reads shell syntax in profile and pid paths literally",
+    () => {
+      const root = mkdtempSync(path.join(tmpdir(), "desktop-stop-literal-"));
+      roots.push(root);
+      // Each injected command would create this file in the working directory.
+      const marker = path.join(root, "ran");
+      const hostile = [
+        `; touch ran;`,
+        `& touch ran &`,
+        `| touch ran |`,
+        `$(touch ran)`,
+        `\`touch ran\``,
+        `' ; touch ran ; '`,
+        `" ; touch ran ; "`,
+        "two words",
+      ].join(" ");
+      const profile = path.join(root, `profile ${hostile}`);
+      const pidFile = path.join(root, `pid ${hostile}`);
+      mkdirSync(profile);
+      const locks = ["SingletonLock", "SingletonCookie", "SingletonSocket"];
+      for (const lock of locks) writeFileSync(path.join(profile, lock), "stale");
+      writeFileSync(pidFile, "0");
+
+      const result = spawnSync("bash", ["-eu", "-c", stopBrowserProfileCommand(profile, pidFile)], {
+        cwd: root,
+        encoding: "utf8",
+        timeout: 20_000,
+      });
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(existsSync(marker)).toBe(false);
+      // No browser holds the profile, so its lock state and pid file are cleared at those paths.
+      expect(existsSync(pidFile)).toBe(false);
+      for (const lock of locks) expect(existsSync(path.join(profile, lock))).toBe(false);
+      expect(existsSync(profile)).toBe(true);
     },
   );
 
