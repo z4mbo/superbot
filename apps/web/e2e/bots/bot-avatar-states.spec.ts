@@ -62,6 +62,8 @@ test("reduced motion keeps every avatar flat and facing forward", async ({ page 
     await expect(avatar).toHaveCSS("animation-name", "none");
     await expect(avatar.locator(".rakazo-mascot-avatar-solid")).toHaveCSS("animation-name", "none");
     expect(await faceScale(avatar)).toBe(1);
+    // The still body keeps its outline when its motion is switched off.
+    await expect(avatar.locator(".rakazo-mascot-avatar-body-idle")).not.toHaveCSS("d", "none");
   }
   const idle = page.locator('[data-state="idle"] .avatar-shape-0');
   await idle.hover();

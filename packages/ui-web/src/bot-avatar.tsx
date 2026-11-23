@@ -340,6 +340,7 @@ function MascotAvatar({
               className={`rakazo-mascot-avatar-body rakazo-mascot-avatar-body-${mode}`}
               d={body}
               fill={color}
+              style={{ "--rakazo-mascot-path": `path("${body}")` } as CSSProperties}
             >
               {/* Only a working body morphs. A late <animate> joins the svg clock mid-loop. */}
               {mode === "working" ? morphAnimation : null}
