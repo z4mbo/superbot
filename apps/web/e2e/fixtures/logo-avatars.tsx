@@ -354,9 +354,12 @@ function Study() {
             <p className="text-caption text-muted-foreground">Static state pose</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        {/* Drawn marks run their own clock, so only the study that shows them renders them. */}
+        <div className="flex items-center gap-2" hidden={params.get("custom") !== "1"}>
           <BotAvatar color={portrait} avatarSet="rakazo" size={38} />
-          <BotAvatar color="#8B5CF6::shape_3" avatarSet="rakazo" size={38} />
+          {params.get("custom") === "1" ? (
+            <BotAvatar color="#8B5CF6::shape_3" avatarSet="rakazo" size={38} />
+          ) : null}
           <span className="text-caption text-muted-foreground">
             Custom avatars
             <br />

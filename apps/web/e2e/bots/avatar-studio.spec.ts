@@ -20,45 +20,29 @@ test("bot settings open Avatar Studio on the Bot tab", async ({ page }, testInfo
   await expect(studio.getByRole("tab", { name: "Upload", exact: true })).toBeVisible();
   await expect(studio.getByTestId("avatar-studio-bot-tab")).toBeVisible();
 
-  await expect(studio.getByRole("tab", { name: "Original", exact: true })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  const defaultLook = studio.getByTestId("avatar-studio-default");
-  const wedge = studio.getByRole("button", { name: "wedge", exact: true });
-  await expect(defaultLook).toHaveAttribute("aria-pressed", "true");
-  await expect(wedge).toHaveAttribute("aria-pressed", "false");
-
-  await wedge.click();
-  await expect(wedge).toHaveAttribute("aria-pressed", "true");
-  await expect(defaultLook).toHaveAttribute("aria-pressed", "false");
-  await expect(studio.locator(".rakazo-organic-avatar")).toHaveCount(0);
-
-  await defaultLook.click();
-  await expect(defaultLook).toHaveAttribute("aria-pressed", "true");
-  await expect(wedge).toHaveAttribute("aria-pressed", "false");
-  await expect(studio.locator(".rakazo-organic-avatar")).toHaveCount(1);
-  await expect(studio.locator(".rakazo-mascot-avatar-eyes").first()).toBeVisible();
-
-  await studio.getByRole("button", { name: "Color #FFAF38" }).click();
-  await expect(defaultLook).toHaveAttribute("aria-pressed", "true");
-  await expect(wedge).toHaveAttribute("aria-pressed", "false");
-
-  await wedge.click();
-  await studio.getByRole("button", { name: "Reset", exact: true }).click();
-  await expect(defaultLook).toHaveAttribute("aria-pressed", "true");
-  await expect(wedge).toHaveAttribute("aria-pressed", "false");
-  await expect(studio.locator(".rakazo-organic-avatar")).toHaveCount(1);
-
+  // Every mark shape and ink; a pick is the bot's look and survives a reload.
+  await expect(studio.getByTestId("avatar-studio-shapes").getByRole("button")).toHaveCount(27);
+  await expect(studio.getByTestId("avatar-studio-inks").getByRole("button")).toHaveCount(10);
+  const cloud = studio.getByRole("button", { name: "cloud", exact: true });
+  const green = studio.getByRole("button", { name: "green", exact: true });
+  await cloud.click();
+  await green.click();
+  await expect(cloud).toHaveAttribute("aria-pressed", "true");
+  await expect(green).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    studio.locator('svg[data-bot-mark="cloud"][data-bot-mark-ink="green"]').first(),
+  ).toBeVisible();
   await captureScreenshot(page, testInfo, "avatar-studio-bot-tab");
-  await studio.getByRole("tab", { name: "Superbot", exact: true }).click();
-  await expect(studio.locator(".rakazo-logo-avatar").first()).toBeVisible();
   await studio.getByRole("button", { name: "Done", exact: true }).click();
+
   await page.reload();
   await openBotPanel(page);
   await page.getByTestId("bot-settings").getByTestId("avatar-studio-trigger").click();
-  await expect(
-    page.getByTestId("avatar-studio").getByRole("tab", { name: "Superbot", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
-  await captureScreenshot(page, testInfo, "avatar-studio-rakazo-set");
+  await expect(cloud).toHaveAttribute("aria-pressed", "true");
+  await expect(green).toHaveAttribute("aria-pressed", "true");
+  // Reset returns to the shape and ink the bot's identity and colour choose.
+  await studio.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(studio.locator('svg[data-bot-mark="cloud"][data-bot-mark-ink="green"]')).toHaveCount(
+    0,
+  );
 });

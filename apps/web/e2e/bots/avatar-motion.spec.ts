@@ -1,3 +1,4 @@
+import type { Locator } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { captureScreenshot } from "../helpers/helpers";
 
@@ -76,101 +77,49 @@ test("photo avatar animations stay still when reduced motion is enabled", async 
   expect(second).toEqual(first);
 });
 
-test("working studio shapes move their body like organic avatars, with no ring", async ({
-  page,
-}) => {
+/** The outline a mark shows: the shared source path its <use> points at. */
+function outline(avatar: Locator) {
+  return avatar.evaluate((svg) => {
+    const href = svg.querySelector("use")?.getAttribute("href") ?? "";
+    return document.querySelector(href)?.getAttribute("d") ?? "";
+  });
+}
+
+test("working marks redraw their shared outline frame by frame, with no ring", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/e2e/fixtures/avatar-motion.html");
   const shape = page.locator(".avatar-shape-working");
-  await expect(shape).toHaveAttribute("data-working", "true");
+  await expect(shape).toHaveAttribute("data-bot-mark-state", "working");
+  // Only the working photo wears a ring; marks show their work in the drawing itself.
   await expect(page.locator(".rakazo-bot-avatar-ring")).toHaveCount(1);
-  await expect(shape.locator(".rakazo-mascot-avatar-body-working")).toHaveCSS("opacity", "1");
-  await expect(shape.locator(".rakazo-mascot-avatar-body-working")).toHaveCSS(
-    "animation-name",
-    /rakazo-mascot-/,
-  );
+  const first = await outline(shape);
+  await expect.poll(() => outline(shape)).not.toBe(first);
+  await expect(shape.locator("use")).toHaveCount(1);
 });
 
-test("organic avatars hold still while idle and stop working motion while offscreen or hidden", async ({
+test("a mark starts working in place and stops drawing while offscreen or hidden", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/e2e/fixtures/avatar-motion.html");
   const avatar = page.locator(".avatar-organic");
-  await expect(avatar).toBeVisible();
-  const motion = () =>
-    avatar.evaluate((svg: SVGSVGElement) => {
-      const states = (mode: string) =>
-        [
-          ...svg.querySelectorAll(
-            `.rakazo-mascot-avatar-body-${mode}, .rakazo-mascot-avatar-eyes-${mode}`,
-          ),
-        ].flatMap((element) =>
-          element
-            .getAnimations()
-            .filter((track) => track instanceof CSSAnimation)
-            .map((track) => track.playState),
-        );
-      return {
-        clockPaused: svg.animationsPaused(),
-        morphing: ["idle", "working"].filter((mode) =>
-          svg.querySelector(`.rakazo-mascot-avatar-body-${mode} animate`),
-        ),
-        idle: [...new Set(states("idle"))],
-        working: [...new Set(states("working"))],
-      };
-    });
-  // Idle avatars draw no frames: SVG motion repaints on the main thread.
-  expect(await motion()).toEqual({
-    clockPaused: false,
-    morphing: [],
-    idle: [],
-    working: ["paused"],
-  });
-  const clock = await avatar.evaluate((svg: SVGSVGElement) => svg.getCurrentTime());
-  await page.waitForTimeout(400);
-  expect(await avatar.evaluate((svg: SVGSVGElement) => svg.getCurrentTime())).toBeGreaterThan(
-    clock,
-  );
+  await expect(avatar).toHaveAttribute("data-bot-mark-state", "idle");
+  await expect(avatar).toHaveAttribute("data-paused", "false");
+  await avatar.locator("xpath=..").getByRole("button").click();
+  await expect(avatar).toHaveAttribute("data-bot-mark-state", "working");
+  const working = await outline(avatar);
+  await expect.poll(() => outline(avatar)).not.toBe(working);
 
-  // The working morph joins the running svg clock instead of restarting it, and fades in.
-  const handoff = await avatar.evaluate(async (svg: SVGSVGElement) => {
-    const body = (mode: string) =>
-      svg.querySelector<SVGPathElement>(`.rakazo-mascot-avatar-body-${mode}`)!;
-    const before = svg.getCurrentTime();
-    svg.parentElement!.querySelector("button")!.click();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    return {
-      before,
-      time: svg.getCurrentTime(),
-      start: body("working").querySelector("animate")?.getStartTime(),
-      fading: body("working")
-        .getAnimations()
-        .some((track) => track instanceof CSSTransition && track.transitionProperty === "opacity"),
-    };
-  });
-  expect(handoff.time).toBeGreaterThanOrEqual(handoff.before);
-  expect(handoff.start).toBeLessThan(handoff.before);
-  expect(handoff.fading).toBe(true);
-  await expect(avatar).toHaveAttribute("data-working", "true");
-  expect(await motion()).toEqual({
-    clockPaused: false,
-    morphing: ["working"],
-    idle: [],
-    working: ["running"],
-  });
-
-  const stopped = {
-    clockPaused: true,
-    morphing: ["working"],
-    idle: [],
-    working: ["paused"],
+  const still = async () => {
+    const before = await outline(avatar);
+    await page.waitForTimeout(400);
+    expect(await outline(avatar)).toBe(before);
   };
   await avatar.evaluate((svg) => {
     svg.closest<HTMLElement>(".avatar-example")!.style.marginTop = "2200px";
   });
   await expect(avatar).toHaveAttribute("data-paused", "true");
-  expect(await motion()).toEqual(stopped);
+  await still();
   await avatar.evaluate((svg) => {
     svg.closest<HTMLElement>(".avatar-example")!.style.marginTop = "0";
   });
@@ -183,8 +132,8 @@ test("organic avatars hold still while idle and stop working motion while offscr
     }, hidden);
   await setHidden(true);
   await expect(avatar).toHaveAttribute("data-paused", "true");
-  expect(await motion()).toEqual(stopped);
   await setHidden(false);
   await expect(avatar).toHaveAttribute("data-paused", "false");
-  expect((await motion()).clockPaused).toBe(false);
+  const resumed = await outline(avatar);
+  await expect.poll(() => outline(avatar)).not.toBe(resumed);
 });

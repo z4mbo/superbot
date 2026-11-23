@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { BOT_COLORS } from "@rakazo/contracts";
 import { captureScreenshot } from "../helpers/helpers";
 
 test.use({ viewport: { width: 1260, height: 1000 } });
@@ -15,7 +14,7 @@ test("renders the real logo in every requested pose in both themes", async ({ pa
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   for (const theme of ["dark", "light"]) {
-    await page.goto(`/e2e/fixtures/logo-avatars.html?theme=${theme}`);
+    await page.goto(`/e2e/fixtures/logo-avatars.html?theme=${theme}&custom=1`);
     await expect(page.getByRole("img", { name: "Official Rakazo logo" })).toBeVisible();
     const cards = page.getByRole("region", { name: "Requested expressions" });
     for (const label of ["Idle", "Reading", "Writing", "Thinking", "Computer use"]) {
@@ -34,7 +33,7 @@ test("renders the real logo in every requested pose in both themes", async ({ pa
       );
     expect(smallAnimations).toEqual([]);
     await expect(page.locator(".rakazo-bot-avatar-picture img")).toBeVisible();
-    await expect(page.locator(".rakazo-shape-avatar")).toBeVisible();
+    await expect(page.locator("svg[data-bot-mark]")).toBeVisible();
     await captureScreenshot(page, testInfo, `logo-avatar-study-${theme}`);
   }
   expect(errors).toEqual([]);
@@ -801,26 +800,26 @@ test("seed colours persist through rerenders and reloads at actual avatar sizes"
 }, testInfo) => {
   for (const theme of ["light", "dark"]) {
     await page.goto(`/e2e/fixtures/logo-avatars.html?seeded=1&count=18&theme=${theme}`);
-    const avatars = page.getByTestId("seeded-fleet").locator(".rakazo-logo-avatar");
+    const avatars = page.getByTestId("seeded-fleet").locator("svg[data-bot-mark]");
     await expect(avatars).toHaveCount(72);
-    const before = await avatars.evaluateAll((nodes) =>
-      nodes.map((node) => node.getAttribute("data-color")),
-    );
-    // Seeds pick from the shared palette, so 18 bots can share colours but never all one.
-    for (const color of before) expect(BOT_COLORS).toContain(color);
+    const looks = () =>
+      avatars.evaluateAll((nodes) =>
+        nodes.map(
+          (node) =>
+            `${node.getAttribute("data-bot-mark")}/${node.getAttribute("data-bot-mark-ink")}`,
+        ),
+      );
+    const before = await looks();
+    // Each bot draws one shape in one ink at every size; 18 bots never all share one.
     expect(new Set(before).size).toBeGreaterThan(1);
     for (let index = 0; index < 18; index++)
       expect(new Set(before.slice(index * 4, index * 4 + 4)).size).toBe(1);
     await page.getByRole("button", { name: "Rerender fleet" }).click();
     await expect(page.locator("main")).toHaveAttribute("data-renders", "1");
-    expect(
-      await avatars.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-color"))),
-    ).toEqual(before);
+    expect(await looks()).toEqual(before);
     await page.reload();
     await expect(avatars).toHaveCount(72);
-    expect(
-      await avatars.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-color"))),
-    ).toEqual(before);
+    expect(await looks()).toEqual(before);
     await captureScreenshot(page, testInfo, `seeded-avatar-colours-${theme}`);
   }
 });
