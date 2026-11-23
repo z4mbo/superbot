@@ -13,12 +13,9 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Api, Model, Models } from "@earendil-works/pi-ai";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
+import { resolveRuntimeModel, withOutputBudget } from "@rakazo/adapters";
 import { deferred } from "@rakazo/core/test-async";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  resolveRuntimeModel,
-  withOutputBudget,
-} from "../../../../adapters/src/runtime/pi/pi-runtime-models.js";
 import type { ModelEmulatorRequest, ModelEmulatorStep } from "../../model-emulator.js";
 import { startModelEmulator } from "../../model-emulator.js";
 import type { SpikeChildConfig, SpikeEndpoint, SpikeEvent } from "./durable-spike-fixture.js";

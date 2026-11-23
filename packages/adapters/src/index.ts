@@ -237,6 +237,7 @@ export type {
 export * from "./runtime/pi/models/pi-openai-compatible-provider.js";
 export * from "./runtime/pi/pi-runtime.js";
 export { TOOL_RESULT_TEXT_LIMIT } from "./runtime/pi/pi-runtime-limits.js";
+export { resolveRuntimeModel, withOutputBudget } from "./runtime/pi/pi-runtime-models.js";
 export * from "./runtime/pi/pi-session.js";
 export { serializeToolResult } from "./runtime/pi/tools/pi-runtime-tools.js";
 export { shutdownPiTelemetry } from "./runtime/pi/usage/pi-telemetry.js";
