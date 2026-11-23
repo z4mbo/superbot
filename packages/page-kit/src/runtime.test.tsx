@@ -50,3 +50,10 @@ it("runs a saved page that declares its own component under a kit component's na
   });
   expect(document.body.textContent).toBe("Own steps");
 });
+
+it("lets an extension add names to a page's scope but never replace the kit's", async () => {
+  const { extendPageGlobals } = await import("./runtime.js");
+  expect(() => extendPageGlobals({ Table: () => null })).toThrow();
+  expect(() => extendPageGlobals({ "bad name": 1 })).toThrow();
+  expect(() => extendPageGlobals({ useExtension: () => 1 })).not.toThrow();
+});

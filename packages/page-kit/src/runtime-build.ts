@@ -5,11 +5,14 @@ const require = createRequire(import.meta.url);
 
 /**
  * The page runtime (React and the kit) as one classic script. The viewer's
- * policy allows only inline scripts, so hosts fetch this text and inline it into the page.
+ * policy allows only inline scripts, so hosts fetch this text and inline it into the page. An
+ * extension built on the kit passes its own entry, which imports this runtime and adds to it.
  */
-export async function buildPageRuntime(): Promise<string> {
+export async function buildPageRuntime(
+  entry = require.resolve("@rakazo/page-kit/runtime"),
+): Promise<string> {
   const result = await build({
-    entryPoints: [require.resolve("@rakazo/page-kit/runtime")],
+    entryPoints: [entry],
     bundle: true,
     write: false,
     format: "iife",

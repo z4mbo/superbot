@@ -34,10 +34,13 @@ export function declaredSources(source: string): string {
  * The page as the viewer runs it, compiled here so the viewer ships without the compiler. Its
  * sources are declared on the first line, so error line numbers still match the source, and a
  * page that cannot compile becomes code that throws, which the viewer shows as the page's error.
+ * A `prelude` (one line, no line breaks) runs first, inside strict mode, for what a host or an
+ * extension declares beside the page.
  */
-export function pageViewerCode(source: string, compiled?: string): string {
+export function pageViewerCode(source: string, compiled?: string, prelude = ""): string {
+  if (/[\r\n\u2028\u2029]/.test(prelude)) throw new Error("A page prelude must be one line.");
   try {
-    return `"use strict";${declaredSources(source)}${compiled ?? compilePageSource(source)}`;
+    return `"use strict";${prelude}${declaredSources(source)}${compiled ?? compilePageSource(source)}`;
   } catch (error) {
     return `throw new Error(${JSON.stringify(error instanceof Error ? error.message : String(error))});`;
   }

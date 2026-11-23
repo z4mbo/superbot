@@ -1,0 +1,57 @@
+{
+  "id": "team-dashboard",
+  "name": "Team dashboard",
+  "version": "1.0.0",
+  "description": "Open tasks, shipped work and the team's status, kept by people and bots together.",
+  "entry": "src/app.jsx",
+  "permissions": ["state", "agent:read", "agent:actions"],
+  "initialState": {
+    "status": "On track",
+    "shipped": 0,
+    "tasks": [
+      { "id": "t1", "title": "Draft the launch notes", "owner": "Sam", "done": false },
+      { "id": "t2", "title": "Review the onboarding flow", "owner": "Riley", "done": true }
+    ]
+  },
+  "actions": [
+    {
+      "name": "addTask",
+      "description": "Add an open task with an optional owner.",
+      "input": {
+        "title": { "type": "string", "description": "Task", "required": true, "maxLength": 120 },
+        "owner": { "type": "string", "description": "Owner", "maxLength": 40 }
+      },
+      "effects": [{ "op": "append", "path": "tasks", "assignId": true, "max": 200 }]
+    },
+    {
+      "name": "toggleTask",
+      "description": "Mark a task done, or open again, by its id.",
+      "input": { "id": { "type": "string", "required": true, "maxLength": 64 } },
+      "effects": [{ "op": "toggle", "path": "tasks", "field": "done" }]
+    },
+    {
+      "name": "removeTask",
+      "description": "Remove a task by its id.",
+      "input": { "id": { "type": "string", "required": true, "maxLength": 64 } },
+      "effects": [{ "op": "remove", "path": "tasks" }]
+    },
+    {
+      "name": "recordShipped",
+      "description": "Count shipped changes; count defaults to 1.",
+      "input": { "count": { "type": "number", "integer": true, "min": 1, "max": 100 } },
+      "effects": [{ "op": "increment", "path": "shipped", "from": "count", "by": 1 }]
+    },
+    {
+      "name": "setStatus",
+      "description": "Set the team's status.",
+      "input": {
+        "status": {
+          "type": "string",
+          "required": true,
+          "enum": ["On track", "At risk", "Blocked"]
+        }
+      },
+      "effects": [{ "op": "set", "path": "status", "from": "status" }]
+    }
+  ]
+}

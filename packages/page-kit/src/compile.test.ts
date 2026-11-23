@@ -38,3 +38,9 @@ describe("pageViewerCode", () => {
     expect(() => run(badSyntax)).toThrow(/Unexpected token/);
   });
 });
+
+it("runs an extension's one-line prelude inside strict mode, before the page", () => {
+  const code = pageViewerCode("export default () => null;\n", undefined, "globalThis.x=1;");
+  expect(code.startsWith('"use strict";globalThis.x=1;')).toBe(true);
+  expect(() => pageViewerCode("export default () => null;\n", undefined, "a=1;\nb=2;")).toThrow();
+});
