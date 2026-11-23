@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { CONNECTION_LABEL_MAX_LENGTH } from "@rakazo/contracts";
+import { MCP_SOURCE_PRESETS } from "@rakazo/core";
 import {
   activeBotId,
   captureScreenshot,
@@ -243,7 +244,8 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await expect(page.getByTestId("connection-detail")).toHaveCount(0);
   await expect(linearRow.getByRole("button", { name: "Add Linear", exact: true })).toBeVisible();
 
-  // Custom sources live behind one menu: GitHub, then MCP → OpenAPI → GraphQL → Executor.
+  // Custom sources live behind one menu: GitHub, then MCP → OpenAPI → GraphQL → the server's
+  // MCP service presets, in the order it sends them.
   await page.getByRole("button", { name: "Add custom", exact: true }).click();
   const addItems = page.getByRole("menuitem");
   await expect(addItems).toHaveText([
@@ -251,7 +253,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
     "MCP server",
     "OpenAPI",
     "GraphQL",
-    "Executor",
+    ...MCP_SOURCE_PRESETS.map((preset) => preset.name),
     "Browse MCP servers",
     "Search by domain",
     "Manage MCP servers",
