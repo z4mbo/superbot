@@ -54,6 +54,7 @@ export const DOCS_NAV = [
     pages: [
       { slug: "fleet-management", label: "Bots that manage bots" },
       { slug: "build-a-plugin", label: "Build a plugin" },
+      { slug: "plugin-sdk", label: "Build an app" },
       { slug: "board", label: "Ticket board" },
     ],
   },

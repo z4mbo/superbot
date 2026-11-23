@@ -52,6 +52,7 @@ const OUTSIDE_RUN_SAFE_BUILTIN_TOOLS = new Set([
   "list_secrets",
   "message_user",
   "purchase_status",
+  "read_app_state",
   "read_email",
   "read_file",
   "read_history",
