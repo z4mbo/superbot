@@ -112,17 +112,27 @@ export function AppDetail({ listing, onBack }: { listing: AppListing; onBack: ()
     if (confirmRemove)
       return (
         <>
-          <Button variant="ghost" disabled={busy} onClick={() => setConfirmRemove(false)}>
+          <Button variant="ghost" size="lg" disabled={busy} onClick={() => setConfirmRemove(false)}>
             <Trans>Cancel</Trans>
           </Button>
-          <Button variant="destructive" disabled={busy} onClick={() => remove.run(install.id)}>
+          <Button
+            variant="destructive"
+            size="lg"
+            disabled={busy}
+            onClick={() => remove.run(install.id)}
+          >
             {remove.pending ? <Trans>Removing…</Trans> : <Trans>Confirm removal</Trans>}
           </Button>
         </>
       );
     return (
       <>
-        <Button variant="secondary" disabled={busy} onClick={() => setConfirmRemove(true)}>
+        <Button
+          variant="secondary"
+          size="lg"
+          disabled={busy}
+          onClick={() => setConfirmRemove(true)}
+        >
           <Trans>Remove</Trans>
         </Button>
         <Button size="lg" className="px-5" disabled={busy} onClick={() => setOpen(!open)}>
@@ -147,9 +157,8 @@ export function AppDetail({ listing, onBack }: { listing: AppListing; onBack: ()
           <ChevronLeft />
         </Button>
         <PluginLogo name={name} logo={install?.icon ?? listing.icon} large />
-        <div className="min-w-0 flex-1 pt-1">
+        <div className="min-w-0 flex-1 pt-3">
           <h2 className="truncate text-heading2 font-semibold text-foreground">{name}</h2>
-          <p className="text-body text-muted-foreground">{install?.version ?? listing.version}</p>
         </div>
         <div className="flex shrink-0 gap-2 pt-2">{headerAction()}</div>
       </div>

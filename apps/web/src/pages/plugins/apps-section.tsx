@@ -530,35 +530,33 @@ export function AppsSection({
             />
           </div>
         ) : (
-          <>
-            <AppSection query={query} onOpen={setAppListing} />
-            <PluginBrowse
-              browse={browse}
-              state={state}
-              tileContext={tileContext}
-              onOpenPlugin={openPlugin}
-              onConnectPreset={(preset) => beginSource("mcp", preset)}
-              onManageConnections={() => openAddView("manage")}
-              connectedPlugins={readyInstalls.map(installedSelection)}
-              plugins={
-                query.trim() ? (
-                  <PluginPicks
-                    query={query}
-                    packages={catalogEntries.filter(
-                      (entry) => entry.hasConnector && !managedAppFor(entry, catalog),
-                    )}
-                    installs={pluginInstalls}
-                    onOpen={onOpenPlugins}
-                    onViewAll={() => onOpenPlugins()}
-                  />
-                ) : null
-              }
-              onSearchPublic={(publicQuery) => {
-                setPublicCatalogQuery(publicQuery);
-                openAddView("browseMcp");
-              }}
-            />
-          </>
+          <PluginBrowse
+            browse={browse}
+            state={state}
+            tileContext={tileContext}
+            onOpenPlugin={openPlugin}
+            onConnectPreset={(preset) => beginSource("mcp", preset)}
+            onManageConnections={() => openAddView("manage")}
+            connectedPlugins={readyInstalls.map(installedSelection)}
+            plugins={
+              query.trim() ? (
+                <PluginPicks
+                  query={query}
+                  packages={catalogEntries.filter(
+                    (entry) => entry.hasConnector && !managedAppFor(entry, catalog),
+                  )}
+                  installs={pluginInstalls}
+                  onOpen={onOpenPlugins}
+                  onViewAll={() => onOpenPlugins()}
+                />
+              ) : null
+            }
+            onSearchPublic={(publicQuery) => {
+              setPublicCatalogQuery(publicQuery);
+              openAddView("browseMcp");
+            }}
+            apps={<AppSection query={query} onOpen={setAppListing} />}
+          />
         )}
       </div>
     </div>
