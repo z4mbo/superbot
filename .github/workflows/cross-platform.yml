@@ -39,6 +39,8 @@ env:
     packages/adapters/src/providers/computer/desktop/desktop-sandbox-paths.test.ts
     packages/adapters/src/providers/computer/desktop/desktop-workspace-cleanup.test.ts
     packages/testkit/src/runtime/pi-offline.test.ts
+    packages/testkit/src/runtime/runtime-model-wiring.test.ts
+    packages/adapters/src/runs/turn/run-model-wiring.test.ts
   # ── Extension point 2: desktop Playwright specs run on every OS (file names in apps/desktop/e2e). ──
   DESKTOP_SPECS: >-
     smoke.spec.ts
