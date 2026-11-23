@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn shared_avatar_colors_follow_the_skin_palette() {
-        let fonts = Fonts { sans: "Inter".into(), mono: "Geist Mono".into() };
+        let fonts = Fonts { sans: "Inter Variable".into(), mono: "Geist Mono".into() };
         let midnight = Theme::of(Skin::Midnight, &fonts);
         let daylight = Theme::of(Skin::Daylight, &fonts);
         let cases: [(&[&str], u32, u32); 11] = [
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn named_colors_and_the_original_hash_palette_still_work() {
-        let fonts = Fonts { sans: "Inter".into(), mono: "Geist Mono".into() };
+        let fonts = Fonts { sans: "Inter Variable".into(), mono: "Geist Mono".into() };
         let theme = Theme::of(Skin::Midnight, &fonts);
         assert_eq!(theme.identity_for("green"), rgb(0x009957).into());
         assert_eq!(theme.identity_for("cyan"), rgb(0x0ea5c6).into());

@@ -59,7 +59,7 @@ impl Desktop {
         let rows = div()
             .flex()
             .flex_col()
-            .gap_0p5()
+            .gap_1()
             .pb_2()
             .when(tiles.is_none(), |rows| rows.pt_2())
             .children(listed.into_iter().map(|agent| self.render_agent_row(agent, open.as_ref(), &theme, cx)))
@@ -112,7 +112,7 @@ impl Desktop {
             !cfg!(target_os = "macos") || !self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::Spaces);
         let left = traffic_lights_reserve(window).max(px(8.));
         drag_region(div(), "sidebar-drag", window, cx)
-            .h(px(56.))
+            .h(px(60.))
             .flex_shrink_0()
             .flex()
             .items_start()
@@ -391,7 +391,7 @@ impl Desktop {
                 .child(
                     div()
                         .relative()
-                        .child(bot_avatar_with(agent.avatar(), px(56.), agent.working(), slot, theme, cx))
+                        .child(bot_avatar_with(agent.avatar(), px(60.), agent.working(), slot, theme, cx))
                         .children(
                             status_dot(&agent, fill, theme).map(|dot| dot.absolute().top(px(-2.)).right(px(-2.))),
                         ),
@@ -437,7 +437,7 @@ impl Desktop {
         };
         let face = div()
             .relative()
-            .child(bot_avatar_with(agent.avatar(), px(42.), agent.working(), slot, theme, cx))
+            .child(bot_avatar_with(agent.avatar(), px(36.), agent.working(), slot, theme, cx))
             .children(status_dot(&agent, fill, theme).map(|dot| dot.absolute().bottom(px(-1.)).right(px(-1.))));
         let element = superbot_avatars::watch_region(
             row(
@@ -599,10 +599,10 @@ fn row(
         .items_center()
         .gap_2p5()
         .px_2()
-        .rounded(radius::FIELD)
+        .rounded(radius::CARD)
         .cursor_pointer()
         .when(selected, |row| row.bg(theme.raised))
-        .child(face.m(px(-3.)))
+        .child(face)
         .child(div().flex_1().min_w_0().child(div().name().truncate().child(name)).when(!preview.is_empty(), |text| {
             text.pt(px(1.)).child(div().mt(px(2.)).body().text_color(preview_ink).truncate().child(preview))
         }))

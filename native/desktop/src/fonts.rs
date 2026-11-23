@@ -5,7 +5,7 @@ use gpui_kit::component::Theme as KitTheme;
 use gpui_kit::{App, Result, SharedString, TextSystem};
 use serde::Deserialize;
 
-const SANS: &str = "Inter";
+const SANS: &str = "Inter Variable";
 const MONO: &str = "Geist Mono";
 const BUNDLED: &[&[u8]] = &[
     include_bytes!("../assets/fonts/InterVariable.ttf"),
