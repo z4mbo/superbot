@@ -198,16 +198,18 @@ export function inferScript(
   // keyword by chance ("crm" inside a cuid), so the branches key on the words alone.
   const words = peerMessage(prompt)?.text ?? prompt.replace(REPLY_CONTEXT, "");
   const lower = words.toLowerCase();
-  // In a group the words open with the mention that picked this bot.
-  const page = /^(?:@\S+\s+)?call save_page with (.+?)(?:\nthen say ([\s\S]+))?$/s.exec(
-    words.trim(),
-  );
-  const pageArgs = page ? jsonObject(page[1]!) : undefined;
+  // In a group the words open with the mention that picked this bot. Pages and the apps built
+  // on them take the same scripted call.
+  const page =
+    /^(?:@\S+\s+)?call (save_page|read_app_state|run_app_action) with (.+?)(?:\nthen say ([\s\S]+))?$/s.exec(
+      words.trim(),
+    );
+  const pageArgs = page ? jsonObject(page[2]!) : undefined;
   if (page && pageArgs) {
     return [
       {
-        assistant: page[2],
-        toolCalls: [{ name: "save_page", args: pageArgs }],
+        assistant: page[3],
+        toolCalls: [{ name: page[1]!, args: pageArgs }],
         complete: true,
       },
     ];

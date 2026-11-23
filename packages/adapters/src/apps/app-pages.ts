@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { AppManifest } from "@rakazo/contracts";
 import { appManifestSchema } from "@rakazo/contracts";
+import { retry } from "@rakazo/core";
 import type { Prisma, PrismaClient } from "@rakazo/db";
 import { readJsonColumn } from "@rakazo/db";
 import type { AppBridgeRequest, AppState } from "@rakazo/plugin-sdk";
@@ -83,7 +84,10 @@ export type AppActionRun =
   | { ok: true; pageId: string; spaceId: string; state: AppState; revision: number }
   | AppActionFailure;
 
-/** Another write landing between the read and the write; past these the caller is told to retry. */
+/** Another write landed between the read and the write; the action runs again on a fresh read. */
+class RevisionMovedError extends Error {}
+
+/** Tries in total before the caller is told to try again. */
 const WRITE_ATTEMPTS = 3;
 
 /**
@@ -97,7 +101,7 @@ export async function runAppPageAction(
   request: { by: AppBridgeRequest["by"]; action: string; input: unknown },
   options: { newId?: () => string } = {},
 ): Promise<AppActionRun> {
-  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+  const once = async (): Promise<AppActionRun> => {
     const app = await readAppPage(prisma, where);
     if (!app) return { ok: false, reason: "not_found", error: "No app with that pageId here." };
     const allowed = appBridgeAllows(app.manifest, {
@@ -112,18 +116,27 @@ export async function runAppPageAction(
     if (!outcome.ok) return { ok: false, reason: "invalid", error: outcome.error };
     const moved = await prisma.page.updateMany({
       where: { id: app.pageId, appRevision: app.revision },
-      data: { appState: outcome.state as Prisma.InputJsonObject, appRevision: app.revision + 1 },
+      data: { appState: outcome.state, appRevision: app.revision + 1 },
     });
-    if (moved.count === 1)
-      return {
-        ok: true,
-        pageId: app.pageId,
-        spaceId: app.spaceId,
-        state: outcome.state,
-        revision: app.revision + 1,
-      };
+    if (moved.count !== 1) throw new RevisionMovedError();
+    return {
+      ok: true,
+      pageId: app.pageId,
+      spaceId: app.spaceId,
+      state: outcome.state,
+      revision: app.revision + 1,
+    };
+  };
+  try {
+    return await retry(once, {
+      attempts: WRITE_ATTEMPTS,
+      delayMs: 0,
+      retryable: (error) => error instanceof RevisionMovedError,
+    });
+  } catch (error) {
+    if (!(error instanceof RevisionMovedError)) throw error;
+    return { ok: false, reason: "conflict", error: "The app changed at the same time; try again." };
   }
-  return { ok: false, reason: "conflict", error: "The app changed at the same time; try again." };
 }
 
 /** What a bot reads of an app: its name, state and, when allowed, the actions it can run. */

@@ -30,3 +30,8 @@ Pages are private at first. To share one, choose **Share**, set it to **Anyone w
 **Only you** to turn the link off.
 
 On web and desktop, **Download PDF** saves a copy through your browser's print dialog.
+
+## Apps
+
+A page can also be an app, with stored state and buttons that you and the bot both use. See
+[Build an app](./plugin-sdk.md).
