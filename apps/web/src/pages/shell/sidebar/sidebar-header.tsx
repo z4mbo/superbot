@@ -73,14 +73,15 @@ export function SidebarHeader({
   );
   return (
     <div
-      className={`app-drag flex items-center ${mini ? `flex-col gap-1 px-0 pb-3 ${hasWindowChrome && !rail ? "pt-4" : "pt-2"}` : "justify-between px-3 pb-3 pt-[14px]"}`}
+      className={`app-drag flex items-center ${mini ? `flex-col gap-1 px-0 pb-3 ${hasWindowChrome && !rail ? "pt-4" : "pt-2"}` : "h-15 shrink-0 justify-between px-4 py-3"}`}
     >
       <div className={`flex items-center ${mini ? "flex-col gap-2" : "gap-2"}`}>
         {hasWindowChrome ? <WindowChrome className={rail ? "md:hidden" : undefined} /> : null}
-        {toggle}
+        {/* Expanded, the sidebar folds with Ctrl+B or by dragging its edge; only the rail shows the button. */}
+        {mini ? toggle : null}
       </div>
       {/* Fits beside the macOS window controls at the narrowest sidebar width. */}
-      <div className={`relative flex items-center ${mini ? "flex-col" : ""} gap-1`}>
+      <div className={`relative flex items-center ${mini ? "flex-col gap-1" : "gap-2"}`}>
         {onSearch && !mini ? (
           <IconTooltip label={t`Search`} side={labelSide}>
             <Button
@@ -96,7 +97,8 @@ export function SidebarHeader({
             </Button>
           </IconTooltip>
         ) : null}
-        {mini ? null : (
+        {/* Activity opens from the account menu; while it is on, the bell here turns it off. */}
+        {mini || !activityMode ? null : (
           <IconTooltip label={t`Activity`} side={labelSide}>
             <Button
               variant="floating"

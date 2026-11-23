@@ -31,6 +31,8 @@ export const SpaceBotSchema = BotSchema.pick({
   threadStatus: true,
   runErrorId: true,
   updatedAt: true,
+  /** Marks the account's first bot, which the roster shows with a star. */
+  spawnKey: true,
 });
 export type SpaceBot = z.infer<typeof SpaceBotSchema>;
 
