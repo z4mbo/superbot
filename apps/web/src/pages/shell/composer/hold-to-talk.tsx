@@ -271,20 +271,20 @@ export function HoldToTalkControls({
       ) : null}
       <IconTooltip label={t`Hold to talk, release to send`}>
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon-sm"
           aria-label={t`Hold to talk`}
           disabled={disabled}
           {...talk.buttonProps}
           className={cn(
-            "shrink-0 touch-none select-none rounded-full text-foreground/75 [-webkit-touch-callout:none]",
+            "shrink-0 touch-none select-none rounded-full bg-secondary text-faint-foreground ring-[0.5px] ring-hairline ring-inset hover:bg-accent hover:text-foreground [-webkit-touch-callout:none]",
             // The pointer is over the button while holding, so the outline variant's hover
             // colours (a grey fill in dark, dark text) must not win over the recording red.
             recording &&
               "scale-125 border-destructive-fill bg-destructive-fill text-destructive-foreground hover:bg-destructive-fill hover:text-destructive-foreground dark:hover:bg-destructive-fill",
           )}
         >
-          <Mic size={16} strokeWidth={1.8} />
+          <Mic size={16} strokeWidth={1.75} />
         </Button>
       </IconTooltip>
     </span>

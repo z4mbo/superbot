@@ -68,7 +68,7 @@ export function TimeSeparator({ createdAt, locale }: { createdAt: string; locale
   return (
     <h3
       data-testid="time-separator"
-      className="mt-5 select-none text-center text-label font-normal text-muted-foreground"
+      className="select-none py-1.5 text-center text-label font-normal text-muted-foreground"
     >
       {formatTimeSeparator(createdAt, locale, { today: t`Today`, yesterday: t`Yesterday` })}
     </h3>
@@ -194,15 +194,15 @@ export function ReplyLine({
         onClick={() => {
           if (message.replyToMessageId) onJump?.(message.replyToMessageId);
         }}
-        className="mb-1 flex min-w-0 max-w-full items-center gap-1 text-start text-label text-muted-foreground hover:text-foreground"
+        className="mb-1 flex h-7 min-w-0 max-w-[min(100%,250px)] items-center gap-1 rounded-full px-2.5 text-start text-label text-muted-foreground ring-1 ring-border ring-inset hover:text-foreground"
         dir="auto"
       >
-        <span aria-hidden="true">↩ </span>
         {attachment?.kind === "image" && target ? (
           <ReplyThumbnail attachment={attachment} target={target} lazy />
         ) : null}
         <span className="min-w-0 truncate">
-          {author}: <bdi>{text}</bdi>
+          <span className="sr-only">{author}: </span>
+          <bdi>{text}</bdi>
         </span>
       </button>
     </div>

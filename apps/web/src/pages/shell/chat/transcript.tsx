@@ -1,6 +1,6 @@
 import { i18n } from "@lingui/core";
 import { useLingui } from "@lingui/react/macro";
-import { useTimeout } from "@rakazo/chat-ui/hooks";
+import { useNow, useTimeout } from "@rakazo/chat-ui/hooks";
 import type {
   BotAvatarSet,
   ComputerReleaseReason,
@@ -68,9 +68,12 @@ import { useReplyAnnouncement } from "./use-reply-announcement";
 /** Bubbles stop at a readable line length instead of stretching with wide windows. */
 export function bubbleFrameWidth(role: ThreadMessage["role"]) {
   return role === "user"
-    ? "max-w-[min(84%,calc(100%_-_8rem),39rem)] [@media(hover:none)]:max-w-[min(84%,39rem)]"
-    : "max-w-[min(88%,calc(100%_-_8rem),39rem)] [@media(hover:none)]:max-w-[min(88%,39rem)]";
+    ? "max-w-[min(84%,calc(100%_-_8rem),35rem)] [@media(hover:none)]:max-w-[min(84%,35rem)]"
+    : "max-w-[min(88%,calc(100%_-_8rem),35rem)] [@media(hover:none)]:max-w-[min(88%,35rem)]";
 }
+
+/** How long each working phrase stays before the next one. */
+const WORKING_PHRASE_MS = 4000;
 
 /** Rows drawn in the frame a chat opens; the rest mount right after without blocking input. */
 const FIRST_FRAME_ROWS = 20;
@@ -289,8 +292,20 @@ export const Transcript = memo(function Transcript({
   );
   const shownItems = showTail ? items.slice(-FIRST_FRAME_ROWS) : items;
   const continuedSenderIds = continuedSenderMessageIds(shownItems, separatorIds, unreadDividerId);
+  // With nothing more specific to show, the line turns over a few short phrases while the bot works.
+  const workingPhrases = [
+    t`Getting it done`,
+    t`Making progress`,
+    t`Chipping away`,
+    t`Working on it`,
+  ];
+  const phraseClock = useNow(running ? WORKING_PHRASE_MS : null);
   const workingLabel =
-    liveActivityLine(messages) ?? (workingRoutine ? t`Running ${workingRoutine}…` : t`Working…`);
+    liveActivityLine(messages) ??
+    (workingRoutine
+      ? t`Running ${workingRoutine}…`
+      : (workingPhrases[Math.floor(phraseClock / WORKING_PHRASE_MS) % workingPhrases.length] ??
+        t`Working…`));
   const [quoteDraft, setQuoteDraft] = useState<{
     message: ThreadMessage;
     text: string;
@@ -627,7 +642,7 @@ export const Transcript = memo(function Transcript({
             following.current = false;
           }
         }}
-        className={`rk-scroll isolate flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto scroll-pt-16 scroll-pb-7 pt-20 pb-12 md:pt-[84px] md:pb-13 ${TRANSCRIPT_CONTENT_PADDING}`}
+        className={`rk-scroll isolate flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto scroll-pt-16 scroll-pb-7 pt-20 pb-8.5 md:pt-[84px] md:pb-9.5 ${TRANSCRIPT_CONTENT_PADDING}`}
         style={
           userBubble
             ? ({
@@ -801,11 +816,17 @@ export const Transcript = memo(function Transcript({
             </Fragment>
           );
         })}
+        {/* The working line has a slot of its own below the last message, so the transcript
+            does not move when a run starts or ends. */}
         {running &&
         !messages.some(
           (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
         ) ? (
-          <ActiveBotGlyph bots={workingBots} label={workingLabel} />
+          <div className="-mt-3">
+            <ActiveBotGlyph bots={workingBots} label={workingLabel} />
+          </div>
+        ) : shownItems.length > 0 ? (
+          <div aria-hidden="true" className="-mt-3 min-h-10" />
         ) : null}
       </div>
       <span role="status" data-testid="reply-announcement" className="sr-only">

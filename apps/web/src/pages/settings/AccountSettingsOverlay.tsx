@@ -426,7 +426,7 @@ export function GeneralSettingsPanels({
       <SettingsGroup title={<Trans>Chat</Trans>}>
         <SettingsRow
           label={
-            <Label htmlFor={enterToSendId} className="text-body font-normal text-foreground">
+            <Label htmlFor={enterToSendId} className="text-body-sm font-normal text-foreground">
               <Trans>Send with Enter</Trans>
             </Label>
           }
@@ -441,7 +441,7 @@ export function GeneralSettingsPanels({
         />
         <SettingsRow
           label={
-            <Label htmlFor={composerModelId} className="text-body font-normal text-foreground">
+            <Label htmlFor={composerModelId} className="text-body-sm font-normal text-foreground">
               <Trans>Model picker in chat</Trans>
             </Label>
           }
@@ -456,7 +456,7 @@ export function GeneralSettingsPanels({
         />
         <SettingsRow
           label={
-            <Label htmlFor={streamRepliesId} className="text-body font-normal text-foreground">
+            <Label htmlFor={streamRepliesId} className="text-body-sm font-normal text-foreground">
               <Trans>Stream replies</Trans>
             </Label>
           }
@@ -471,7 +471,10 @@ export function GeneralSettingsPanels({
         />
         <SettingsRow
           label={
-            <Label htmlFor={showToolActivityId} className="text-body font-normal text-foreground">
+            <Label
+              htmlFor={showToolActivityId}
+              className="text-body-sm font-normal text-foreground"
+            >
               <Trans>Show tool activity</Trans>
             </Label>
           }
@@ -486,7 +489,10 @@ export function GeneralSettingsPanels({
         />
         <SettingsRow
           label={
-            <Label htmlFor={loadRemoteImagesId} className="text-body font-normal text-foreground">
+            <Label
+              htmlFor={loadRemoteImagesId}
+              className="text-body-sm font-normal text-foreground"
+            >
               <Trans>Load web images automatically</Trans>
             </Label>
           }

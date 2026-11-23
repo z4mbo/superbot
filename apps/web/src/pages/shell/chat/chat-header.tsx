@@ -2,7 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { Bot, Group, ThreadSnapshot } from "@rakazo/contracts";
 import { MEETING_CALENDAR_RETURN_PARAM } from "@rakazo/contracts";
 import { BotAvatar, Button, GroupAvatar } from "@rakazo/ui-web";
-import { Gift, Menu, Phone, Video } from "lucide-react";
+import { Gift, Menu, Video } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useBilling } from "../../../components/billing/SubscriptionGate";
@@ -13,41 +13,32 @@ import { desktopBridge, windowChromeKind } from "../../../lib/platform/desktop";
 
 const MeetingsDialog = lazy(() => import("../meetings/meetings-dialog"));
 
-/** The floating header over the transcript: navigation, the chat's name, call and invite. */
+/** The floating header over the transcript: navigation, the chat's name and invite. */
 export function ChatHeader({
   inGroup,
   active,
   activeGroup,
   activeSnapshot,
-  phoneCallsEnabled,
   meetingsEnabled,
-  voiceReady,
-  inCall,
   panelOpen,
   onOpenNavigation,
   onTogglePanel,
-  onCall,
 }: {
   inGroup: boolean;
   active: Bot | undefined;
   activeGroup: Group | undefined;
   activeSnapshot: ThreadSnapshot | null;
-  phoneCallsEnabled: boolean;
   meetingsEnabled?: boolean;
-  /** False while the voice status loads or no voice is connected; the button then opens voice settings. */
-  voiceReady: boolean;
-  inCall: boolean;
   panelOpen: boolean;
   onOpenNavigation: () => void;
   onTogglePanel: () => void;
-  onCall: (bot: Bot) => void;
 }) {
   const { t } = useLingui();
   const referral = useBilling().status?.referral;
   const [inviteOpen, setInviteOpen] = useState(false);
   const macChrome = windowChromeKind(desktopBridge()) === "darwin";
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 px-3 py-3 md:px-[22px] [&_button]:pointer-events-auto">
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 px-3 py-2.5 md:px-[22px] [&_button]:pointer-events-auto">
       <div className="flex items-center">
         {macChrome ? <WindowChrome className="md:hidden" /> : null}
         <Button
@@ -67,19 +58,19 @@ export function ChatHeader({
           data-testid="bot-settings-trigger"
           aria-expanded={panelOpen}
           onClick={onTogglePanel}
-          className="app-no-drag h-auto min-w-0 gap-2 py-[8.5px] ps-2.5 pe-3"
+          className="app-no-drag h-auto min-w-0 gap-2 py-[7.5px] ps-[7.5px] pe-[13.5px]"
         >
           {inGroup ? (
             <GroupAvatar
               members={activeSnapshot?.members ?? activeGroup?.members ?? []}
-              size={22}
+              size={24}
             />
           ) : active ? (
             <BotAvatar
               avatarSet={active.avatarSet}
               color={active.color}
               identity={active.id}
-              size={22}
+              size={24}
               status={active.status}
             />
           ) : null}
@@ -95,22 +86,6 @@ export function ChatHeader({
         <div />
       )}
       <div className="flex items-center justify-self-end gap-2">
-        {phoneCallsEnabled && !inGroup && active ? (
-          <IconTooltip label={inCall ? t`Open call` : t`Call`}>
-            <Button
-              variant="floating"
-              size="icon-lg"
-              data-testid="call-button"
-              aria-label={inCall ? t`Open call` : t`Call`}
-              onClick={() => onCall(active)}
-              data-active={inCall ? "" : undefined}
-              data-voice-ready={voiceReady ? "" : undefined}
-              className="app-no-drag"
-            >
-              <Phone strokeWidth={1.75} className="size-4.5" />
-            </Button>
-          </IconTooltip>
-        ) : null}
         {meetingsEnabled && !inGroup && active ? (
           <MeetingsControl key={active.id} botId={active.id} />
         ) : null}
