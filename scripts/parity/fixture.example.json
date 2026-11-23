@@ -47,7 +47,12 @@
           "at": "today 13:32",
           "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet."
         }
-      ]
+      ],
+      "model": {
+        "provider": "local",
+        "id": "anthropic/offline-fixture",
+        "thinking": "high"
+      }
     },
     {
       "key": "whatsnew",
@@ -123,7 +128,12 @@
           "text": "I checked the tracker. Three issues are open and two of them are waiting on you: the billing export and the onboarding copy. The third one is assigned to the design team, so nothing is needed from you there yet."
         }
       ],
-      "working": true
+      "working": true,
+      "model": {
+        "provider": "local",
+        "id": "anthropic/offline-fixture",
+        "thinking": "high"
+      }
     },
     {
       "key": "pulse",

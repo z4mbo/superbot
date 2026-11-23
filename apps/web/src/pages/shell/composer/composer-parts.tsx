@@ -205,7 +205,6 @@ export function ComposerActions({
   sendDisabled,
   stopDisabled,
   sendColors,
-  modelPicker,
   onVoiceChat,
   voiceReady,
   onSend,
@@ -222,7 +221,6 @@ export function ComposerActions({
   stopDisabled: boolean;
   /** The bot's color, which the send button wears in a one-bot chat. */
   sendColors?: { background: string; foreground: string };
-  modelPicker?: ReactNode;
   /** Starts a voice chat with the bot; while the draft is empty it takes Send's place. */
   onVoiceChat?: () => void;
   /** False while the voice status loads or no voice is connected. */
@@ -277,7 +275,6 @@ export function ComposerActions({
         expanded ? "row-start-2" : ""
       }`}
     >
-      {talk.recording?.locked ? null : modelPicker}
       {talk.recording?.locked ? (
         <HoldToTalkControls talk={talk} />
       ) : running ? (

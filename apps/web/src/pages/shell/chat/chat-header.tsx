@@ -3,6 +3,7 @@ import type { Bot, Group, ThreadSnapshot } from "@rakazo/contracts";
 import { MEETING_CALENDAR_RETURN_PARAM } from "@rakazo/contracts";
 import { BotAvatar, Button, GroupAvatar } from "@rakazo/ui-web";
 import { Gift, Menu, Video } from "lucide-react";
+import type { ReactNode } from "react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useBilling } from "../../../components/billing/SubscriptionGate";
@@ -23,6 +24,8 @@ export function ChatHeader({
   panelOpen,
   onOpenNavigation,
   onTogglePanel,
+  modelPicker,
+  workspacePicker,
 }: {
   inGroup: boolean;
   active: Bot | undefined;
@@ -32,6 +35,10 @@ export function ChatHeader({
   panelOpen: boolean;
   onOpenNavigation: () => void;
   onTogglePanel: () => void;
+  /** The bot's model, shown inside the capsule beside its name. */
+  modelPicker?: ReactNode;
+  /** The chat's workspace, shown inside the capsule after the model. */
+  workspacePicker?: ReactNode;
 }) {
   const { t } = useLingui();
   const referral = useBilling().status?.referral;
@@ -53,35 +60,47 @@ export function ChatHeader({
       </div>
       {/* With no bot or group the chip has nothing to open, so it is left out. */}
       {inGroup || active ? (
-        <Button
-          variant="floating"
-          data-testid="bot-settings-trigger"
-          aria-expanded={panelOpen}
-          onClick={onTogglePanel}
-          className="app-no-drag h-auto min-w-0 gap-2 py-[7.5px] ps-[7.5px] pe-[13.5px]"
+        // The chat's capsule: its name opens the details, and beside the name sit the bot's
+        // model and the workspace the chat lives in.
+        <div
+          data-testid="chat-capsule"
+          className="app-no-drag pointer-events-auto flex h-[41px] min-w-0 items-center gap-0.5 rounded-full border border-hairline bg-elevated pe-[5.5px] shadow-floating"
         >
-          {inGroup ? (
-            <GroupAvatar
-              members={activeSnapshot?.members ?? activeGroup?.members ?? []}
-              size={24}
-            />
-          ) : active ? (
-            <BotAvatar
-              avatarSet={active.avatarSet}
-              color={active.color}
-              identity={active.id}
-              size={24}
-              status={active.status}
-            />
-          ) : null}
-          <span className="min-w-0">
-            <span className="block truncate text-body font-medium text-foreground" dir="auto">
+          <button
+            type="button"
+            data-testid="bot-settings-trigger"
+            aria-expanded={panelOpen}
+            onClick={onTogglePanel}
+            className={`flex h-full min-w-0 items-center gap-2 rounded-full ps-[7.5px] outline-none transition-colors hover:bg-elevated-hover focus-visible:ring-2 focus-visible:ring-ring ${
+              modelPicker || workspacePicker ? "pe-2" : "-me-[5.5px] pe-[13.5px]"
+            }`}
+          >
+            {inGroup ? (
+              <GroupAvatar
+                members={activeSnapshot?.members ?? activeGroup?.members ?? []}
+                size={24}
+              />
+            ) : active ? (
+              <BotAvatar
+                avatarSet={active.avatarSet}
+                color={active.color}
+                identity={active.id}
+                size={24}
+                status={active.status}
+              />
+            ) : null}
+            <span
+              className="block min-w-0 truncate text-body font-medium text-foreground"
+              dir="auto"
+            >
               {inGroup
                 ? (activeGroup?.name ?? activeSnapshot?.groupName ?? t`Group`)
                 : active?.name}
             </span>
-          </span>
-        </Button>
+          </button>
+          {modelPicker}
+          {workspacePicker}
+        </div>
       ) : (
         <div />
       )}

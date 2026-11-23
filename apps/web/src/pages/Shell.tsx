@@ -77,6 +77,7 @@ import { routineNeedsOneShotArm } from "../lib/routines/routine-draft";
 import type { CreateBotDialogInput } from "./shell/bots/create-bot-dialog";
 import type { ImportSetupTarget } from "./shell/bots/import-setup-card";
 import { useTeaching } from "./shell/bots/use-teaching";
+import { CapsuleWorkspacePicker } from "./shell/chat/capsule-workspace-picker";
 import type { ChatMenuState, ChatMenuTarget } from "./shell/chat/chat-context-menu";
 import { ChatContextMenu } from "./shell/chat/chat-context-menu";
 import { ChatFindBar } from "./shell/chat/chat-find-bar";
@@ -1206,6 +1207,32 @@ function SpaceShell({ threadId }: { threadId?: string }) {
             panelOpen={chatPanelOpen}
             onOpenNavigation={() => setMobileSidebarOpen(true)}
             onTogglePanel={toggleChatPanel}
+            modelPicker={
+              showComposerModel && active && !inGroup ? (
+                <ComposerModelPicker
+                  placement="capsule"
+                  bot={active}
+                  disabled={Boolean(recordingSkill)}
+                  {...modelShortcuts.pickerProps}
+                  onConnect={() => openSettings("models")}
+                  onSaved={(updated) =>
+                    setBots((current) =>
+                      current.map((bot) => (bot.id === updated.id ? updated : bot)),
+                    )
+                  }
+                />
+              ) : undefined
+            }
+            workspacePicker={
+              threadId === undefined ? (
+                <CapsuleWorkspacePicker
+                  spaces={sidebarSpaces}
+                  currentSpaceId={bootstrapMe?.spaceId}
+                  onSwitch={openSpaceChat}
+                  onInvite={openSpaceSettings}
+                />
+              ) : undefined
+            }
           />
           {linkedChatUnavailable ? (
             <div className="grid flex-1 place-items-center" role="status">
@@ -1289,21 +1316,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
               }
               enterToSend={enterToSend}
               sendColors={userBubble}
-              modelPicker={
-                showComposerModel && active && !inGroup ? (
-                  <ComposerModelPicker
-                    bot={active}
-                    disabled={Boolean(recordingSkill)}
-                    {...modelShortcuts.pickerProps}
-                    onConnect={() => openSettings("models")}
-                    onSaved={(updated) =>
-                      setBots((current) =>
-                        current.map((bot) => (bot.id === updated.id ? updated : bot)),
-                      )
-                    }
-                  />
-                ) : undefined
-              }
               activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
               running={composerRunning}
               disabled={Boolean(recordingSkill)}
