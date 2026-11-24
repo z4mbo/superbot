@@ -1,3 +1,4 @@
+import { allowsE2ePluginEndpoint } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
 import { ClientError, escapeSearchWildcards } from "@rakazo/core";
 import type { Prisma, RegistryPluginVersion } from "@rakazo/db";
@@ -134,7 +135,13 @@ export function pluginRegistryRoutes({ deps, authed }: RouterContext) {
                 case "mcp":
                   return assertMcpRemoteEndpoint(part.endpoint, {
                     remoteConnectors: deps.remoteConnectors,
-                    env: { ...deps.env, mcpAllowPrivateEndpoint: false },
+                    env: {
+                      ...deps.env,
+                      mcpAllowPrivateEndpoint: allowsE2ePluginEndpoint(
+                        part.endpoint,
+                        deps.env.e2ePluginHosts,
+                      ),
+                    },
                   });
                 case "skill":
                 case "app":

@@ -31,6 +31,7 @@ import { reconcileCloudAgents } from "../../cloud-agents/cloud-agent-service.js"
 import { createIdleComputerSweeper } from "../../computers/computer-idle.js";
 import { reconcileComputerUpdates } from "../../computers/computer-update.js";
 import { createConnectorStack } from "../../integrations/connector-registry.js";
+import { e2ePluginHostsFromEnv } from "../../integrations/e2e-plugin-hosts.js";
 import type { RemoteConnectorDependencies } from "../../integrations/installed-connectors.js";
 import { InstalledConnectorProvider } from "../../integrations/installed-connectors.js";
 import { IntegrationProviderSettings } from "../../integrations/integration-provider-settings.js";
@@ -93,6 +94,8 @@ export interface RunRuntimeEnv extends PipedreamEnvironmentValues {
   mcpStdioAllowedCommands: string[];
   mcpStdio: ReturnType<typeof mcpStdioOptionsFromEnv>;
   mcpAllowPrivateEndpoint: boolean;
+  /** TEST ONLY: see `e2ePluginHostsFromEnv`. */
+  e2ePluginHosts: string[];
   deploymentLabs: LabFeature[];
   phoneCallsEnabled: boolean;
   phoneCallRingSeconds: number;
@@ -126,6 +129,7 @@ export function runRuntimeEnvFromProcess(source: NodeJS.ProcessEnv): RunRuntimeE
       .filter(Boolean),
     mcpStdio: mcpStdioOptionsFromEnv(source),
     mcpAllowPrivateEndpoint: source.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
+    e2ePluginHosts: e2ePluginHostsFromEnv(source),
     pipedreamClientId: source.PIPEDREAM_CLIENT_ID,
     pipedreamClientSecret: source.PIPEDREAM_CLIENT_SECRET,
     pipedreamProjectId: source.PIPEDREAM_PROJECT_ID,
@@ -223,6 +227,7 @@ type SetByRunRuntime =
   | "listConnectedPlugins"
   | "secrets"
   | "mcpAllowPrivateEndpoint"
+  | "e2ePluginHosts"
   | "deploymentModelKey"
   | "deploymentModelConfigured"
   | "dataDir"
@@ -309,6 +314,7 @@ export function createRunRuntime(
       process.env.TYPESAFE_API_KEY ?? "",
     ].filter(Boolean),
     mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
+    e2ePluginHosts: env.e2ePluginHosts,
     deploymentModelKey: env.deploymentModelKey,
     deploymentModelConfigured: env.deploymentModelConfigured,
     dataDir: env.dataDir,

@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createHmac } from "node:crypto";
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import type {
@@ -193,6 +192,7 @@ import { startMessagingRuntime } from "./messaging/messaging-runtime.js";
 import { settleWithTimeout } from "./messaging/team-chat-startup.js";
 import { recordSignInEnded } from "./models/model-connect-analytics.js";
 import { createRouter } from "./router.js";
+import { routerEnv } from "./router-env.js";
 import {
   DATABASE_RETRY_AFTER_SECONDS,
   failedOnDatabaseOutage,
@@ -917,38 +917,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       resolveAddresses: messaging?.resolveAddresses?.bind(messaging),
       openSignup: env.messagingOpenSignup,
     },
-    env: {
-      inboundEmailDomain: env.inboundEmail?.domain,
-      deploymentLabs: env.deploymentLabs,
-      deploymentVoice: env.deploymentVoice,
-      phoneCallsEnabled: env.phoneCallsEnabled,
-      phoneCallRingSeconds: env.phoneCallRingSeconds,
-      navLinks: env.navLinks,
-      adminEmails: env.adminEmails,
-      maxUploadSizeBytes: env.maxUploadSizeBytes,
-      maxAttachmentsPerMessage: env.maxAttachmentsPerMessage,
-      agentRuntime: env.agentRuntime,
-      defaultProvider: env.defaultProvider,
-      defaultModel: env.defaultModel,
-      teamChatJudgeProvider: env.teamChatJudgeProvider,
-      teamChatJudgeModel: env.teamChatJudgeModel,
-      deploymentModelConfigured: env.deploymentModelConfigured,
-      deploymentModelHostCredentials: env.deploymentModelHostCredentials,
-      webOrigin: env.webOrigin,
-      privacyPolicyUrl: env.privacyPolicyUrl,
-      screenProxySecret: env.screenProxySecret,
-      invitationRecipientKey: createHmac("sha256", env.authSecret)
-        .update("organization-invitation-recipient")
-        .digest("hex"),
-      sandboxProvider: env.sandboxProvider,
-      gitSha: env.gitSha,
-      integrationsCatalogUrl: env.integrationsCatalogUrl,
-      mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
-      desktopHostChoiceEnabled: Boolean(env.desktopStackToken),
-      computerSettingsEnabled: env.computerSettingsEnabled,
-      mcpStdioEnabled: env.mcpStdioEnabled,
-      mcpStdioAllowedCommands: env.mcpStdioAllowedCommands,
-    },
+    env: routerEnv(env),
   });
   const rpc = new RPCHandler(router, {
     clientInterceptors: [onError((error, { path, signal }) => handleRpcError(error, path, signal))],

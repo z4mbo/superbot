@@ -484,6 +484,56 @@ describe.skipIf(!enabled)("Plugin registry (PostgreSQL)", () => {
     expect((await client(installer).discover({ slug: privateSlug })).items).toEqual([]);
   });
 
+  it("approves a loopback MCP endpoint only on a host the test-only allowlist names", async () => {
+    const testRouter = createRouter({
+      prisma: db.prisma,
+      remoteConnectors: { resolveHostname },
+      env: { adminEmails: [admin.email], e2ePluginHosts: ["127.0.0.1"] },
+    } as unknown as RouterDeps);
+    const testClient = (actor: Actor) =>
+      createRouterClient(testRouter, {
+        context: { actor },
+        interceptors: [onError((error, { path }) => handleRpcError(error, path))],
+      }).pluginRegistry;
+    const submitMcp = (suffix: string, endpoint: string) =>
+      testClient(publisher).submit({
+        slug: `${slug}-e2e-${suffix}`,
+        version: 1,
+        manifest: {
+          ...manifest,
+          parts: [{ id: "fake-tools", kind: "mcp", transport: "streamable_http", endpoint }],
+        },
+      });
+
+    // Plain HTTP never passes the manifest, allowlist or not.
+    await expect(submitMcp("http", "http://127.0.0.1:56140/mcp")).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    const unlisted = await submitMcp("unlisted", "https://10.0.0.5:56140/mcp");
+    await expect(
+      testClient(admin).review({ versionId: unlisted.id, decision: "approved" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    const listed = await submitMcp("listed", "https://127.0.0.1:56140/mcp");
+    const approved = await testClient(admin).review({ versionId: listed.id, decision: "approved" });
+    expect(approved.status).toBe("approved");
+    const installation = await testClient(publisher).install({ versionId: approved.id });
+    const granted = await testClient(publisher).setGrants({
+      installationId: installation.id,
+      botId: botId(publisher),
+      partIds: ["fake-tools"],
+    });
+    expect(granted.grants.map(({ partId }) => partId)).toEqual(["fake-tools"]);
+    const grants = await resolvePluginGrants(db.prisma, {
+      userId: publisher.userId,
+      spaceId,
+      botId: botId(publisher),
+    });
+    expect(grants.map(({ part }) => part)).toContainEqual(
+      expect.objectContaining({ kind: "mcp", endpoint: "https://127.0.0.1:56140/mcp" }),
+    );
+  });
+
   it("validates app values and pages live records with an account- and Space-scoped aggregate", async () => {
     const release = await publishApp("data");
     const registry = client(installer);

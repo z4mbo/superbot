@@ -171,6 +171,8 @@ export interface RouterDeps {
     gitSha?: string;
     integrationsCatalogUrl?: string;
     mcpAllowPrivateEndpoint?: boolean;
+    /** TEST ONLY: see `e2ePluginHostsFromEnv` in @rakazo/adapters. */
+    e2ePluginHosts?: readonly string[];
     desktopHostChoiceEnabled?: boolean;
     computerSettingsEnabled?: boolean;
     mcpStdioEnabled?: boolean;

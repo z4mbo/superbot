@@ -26,6 +26,7 @@ import {
   SELECTED_SCHEMA_MAX_BYTES,
 } from "../tools/lazy-tool-catalog.js";
 import { sanitizeConnectorError } from "./connector-safety.js";
+import { allowsE2ePluginEndpoint } from "./e2e-plugin-hosts.js";
 import {
   ADD_APP_RECORD,
   LIST_APP_RECORDS,
@@ -42,7 +43,14 @@ export const MARKETPLACE_UNAVAILABLE = "This marketplace plugin tool is unavaila
 
 type Scope = Parameters<typeof resolvePluginGrants>[1];
 type Grant = Awaited<ReturnType<typeof resolvePluginGrants>>[number];
-type Runtime = { prisma: PrismaClient; scope: Scope; signal: AbortSignal; appAllowed: boolean };
+type Runtime = {
+  prisma: PrismaClient;
+  scope: Scope;
+  signal: AbortSignal;
+  appAllowed: boolean;
+  /** TEST ONLY: see `e2ePluginHostsFromEnv`. */
+  e2ePluginHosts?: readonly string[];
+};
 type MarketplaceRoute = ConnectorRoute & { resourceId: string; resourceRevision: string };
 
 export function marketplaceScope(
@@ -179,6 +187,7 @@ async function discoverGrantTools(runtime: Runtime, grant: Grant): Promise<Conne
   try {
     const tools = await listRemoteMcpTools({
       endpoint: grant.part.endpoint,
+      allowPrivateEndpoint: allowsE2ePluginEndpoint(grant.part.endpoint, runtime.e2ePluginHosts),
       signal: deadlineSignal(20_000, runtime.signal),
     });
     const unique = new Map<string, ConnectorTool>();
@@ -300,6 +309,7 @@ export async function executeMarketplaceTool(
     return await callRemoteMcpTool(
       {
         endpoint: grant.part.endpoint,
+        allowPrivateEndpoint: allowsE2ePluginEndpoint(grant.part.endpoint, runtime.e2ePluginHosts),
         signal: runtime.signal,
         authorizeTool: (liveTool) => {
           if (

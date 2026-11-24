@@ -1,6 +1,7 @@
 import { phoneCallSettings, uploadSizeFromEnv } from "@rakazo/core";
 import { resolveEncryptionKey } from "@rakazo/core/node/secrets-guard";
 import { describe, expect, it } from "vitest";
+import { e2ePluginHostsFromEnv } from "../../integrations/e2e-plugin-hosts.js";
 import { mcpStdioOptionsFromEnv } from "../../mcp/mcp-connector.js";
 import { resolveDeploymentModel } from "../../models/deployment-model.js";
 import { workspaceSaveLimits } from "../../storage/workspace-save-policy.js";
@@ -29,6 +30,7 @@ function previousWorkerValues(source: NodeJS.ProcessEnv) {
       .filter(Boolean),
     mcpStdio: mcpStdioOptionsFromEnv(source),
     mcpAllowPrivateEndpoint: source.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
+    e2ePluginHosts: e2ePluginHostsFromEnv(source),
     pipedreamClientId: source.PIPEDREAM_CLIENT_ID,
     pipedreamClientSecret: source.PIPEDREAM_CLIENT_SECRET,
     pipedreamProjectId: source.PIPEDREAM_PROJECT_ID,
@@ -80,5 +82,18 @@ describe("runRuntimeEnvFromProcess", () => {
     expect(env("20").workspaceSaveLimits.maxBytes).toBe(20 * 1024 ** 3);
     expect(env().workspaceSaveLimits.maxBytes).toBe(5 * 1024 ** 3);
     expect(() => env("0")).toThrow("WORKSPACE_SAVE_MAX_GB");
+  });
+
+  it("reads the test plugin hosts outside production only", () => {
+    const source = {
+      SUPERBOT_E2E_ALLOW_PLUGIN_HOSTS: "127.0.0.1",
+      ENCRYPTION_KEY: "offline-encryption-key-at-least-32-chars",
+    };
+    expect(runRuntimeEnvFromProcess({ ...source, NODE_ENV: "test" }).e2ePluginHosts).toEqual([
+      "127.0.0.1",
+    ]);
+    expect(runRuntimeEnvFromProcess({ ...source, NODE_ENV: "production" }).e2ePluginHosts).toEqual(
+      [],
+    );
   });
 });
