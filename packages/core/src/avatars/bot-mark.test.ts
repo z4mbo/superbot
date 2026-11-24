@@ -25,7 +25,7 @@ function points(d: string, index: number) {
   return out;
 }
 
-const centre = (d: string, index: number) => {
+const centre = (d: string, index: number): [number, number] => {
   const p = points(d, index);
   return [
     p.reduce((sum, [x]) => sum + x, 0) / p.length,
