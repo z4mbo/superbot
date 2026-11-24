@@ -258,6 +258,7 @@ export const MessageView = memo(function MessageView({
                 avatarSet={speakerBot?.avatarSet}
                 identity={message.botId}
                 size={22}
+                pokeable
               />
               {speakerName}
             </>

@@ -478,6 +478,12 @@ export const botInksDark = {
   neutral: "#FFFFFF",
 } as const satisfies Record<BotInk, string>;
 
+/** The pumpkin's stem: the whole stem, and its lighter cut end. The same on either theme. */
+export const botStemColors = {
+  stem: "#3D3D3D",
+  cap: "#525252",
+} as const;
+
 export const botColors = [
   "#3EC5A8",
   "#F5A03C",
@@ -589,6 +595,7 @@ export function renderTokensCss(): string {
     renderBlock('[data-theme="light"]', "light", webLightTokens),
     renderInkBlock(':root,\n[data-theme="dark"]', botInksDark),
     renderInkBlock('[data-theme="light"]', botInks),
+    `:root {\n  --bot-stem: ${botStemColors.stem.toLowerCase()};\n  --bot-stem-cap: ${botStemColors.cap.toLowerCase()};\n}`,
   ].join("\n\n")}\n`;
 }
 

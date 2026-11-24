@@ -102,6 +102,8 @@ export interface BotAvatarProps {
   lookColor?: string | null;
   /** A state the run status cannot say, such as a sleeping computer (`asleep`). */
   state?: BotMarkState;
+  /** A click plays a spin, a bounce or a nod, as on the mark beside a bot's message. */
+  pokeable?: boolean;
   className?: string;
 }
 
@@ -114,6 +116,7 @@ export const BotAvatar = memo(function BotAvatar({
   lookShape,
   lookColor,
   state,
+  pokeable,
   className,
 }: BotAvatarProps) {
   const isWorking = isRunWorking(status);
@@ -191,6 +194,7 @@ export const BotAvatar = memo(function BotAvatar({
         state={shown}
         activity={activity}
         size={size}
+        pokeable={pokeable}
         className={className}
       />
     );
@@ -202,6 +206,7 @@ export const BotAvatar = memo(function BotAvatar({
       ink={ink}
       status={status}
       size={size}
+      pokeable={pokeable}
       className={className}
     />
   );

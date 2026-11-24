@@ -7,20 +7,24 @@ import type {
   BotMarkState,
 } from "@rakazo/core";
 import {
+  BOT_MARK_BOX,
   BOT_MARK_VIEWBOX,
+  BOT_MARK_ZOOM_ORIGIN,
   botMarkBlend,
+  botMarkDrawing,
   botMarkFrame,
-  botMarkPath,
   botMarkSeed,
   botMarkShowcaseEmotion,
+  botMarkZoom,
 } from "@rakazo/core";
 import type { CSSProperties, ReactNode } from "react";
 import { memo, useEffect, useId, useLayoutEffect, useRef } from "react";
 import { cn } from "./lib/utils.js";
 
 /**
- * One drawing per bot, reused everywhere it appears. Each source is a single even-odd path in a
- * hidden 8px layer; its outline is rebuilt once per animation frame while it moves, and every
+ * One drawing per bot, reused everywhere it appears. Each source is a group in a hidden 8px
+ * layer: the body in its ink with the eyes cut out by a mask, the pumpkin's stem over it, and the
+ * dots of a morph behind it. It is rebuilt once per animation frame while it moves, and every
  * visible avatar of that bot shows it through `<use>`. A source with no avatar on screen, or one
  * resting with nothing to follow, stops being drawn.
  */
@@ -30,11 +34,22 @@ type Instance = {
   visible: boolean;
   /** The row or control around the avatar; the pointer over it turns the face. */
   region: Element;
+  /** The avatar's size in pixels: small avatars grow while their bot is morphed. */
+  size: number;
+};
+
+type Parts = {
+  group: SVGGElement;
+  holes: SVGPathElement;
+  dots: SVGGElement;
+  body: SVGGElement;
+  outline: SVGPathElement;
+  stem: SVGGElement;
 };
 
 type Source = {
   id: string;
-  path: SVGPathElement;
+  parts: Parts;
   shape: BotMarkShape;
   state: BotMarkState;
   /** When the current state began, and the frame it took over from. */
@@ -47,7 +62,10 @@ type Source = {
   gaze: { x: number; y: number; hold: number };
   frame: BotMarkFrame | null;
   drawnAt: number;
-  d: string;
+  /** Everything last written to the drawing, so an unchanged frame writes nothing. */
+  drawn: string;
+  /** Clicks so far: each one plays the next of a spin, a bounce and a nod. */
+  clicks: number;
 };
 
 const sources = new Map<string, Source>();
@@ -107,16 +125,13 @@ function sourceFor(
 ) {
   const existing = sources.get(key);
   if (existing) return existing;
-  const path = document.createElementNS(SVG, "path");
   const id = `bot-mark-${sources.size}-${botMarkSeed(key).toString(36)}`;
-  path.id = id;
-  path.setAttribute("fill", "currentColor");
-  path.setAttribute("fill-rule", "evenodd");
-  ensureLayer().firstChild?.appendChild(path);
+  const parts = createParts(id);
+  ensureLayer().firstChild?.appendChild(parts.group);
   const now = performance.now();
   const source: Source = {
     id,
-    path,
+    parts,
     shape,
     state,
     stateSince: now,
@@ -128,11 +143,94 @@ function sourceFor(
     gaze: { x: 0, y: 0, hold: 0 },
     frame: null,
     drawnAt: now,
-    d: "",
+    drawn: "",
+    clicks: 0,
   };
   sources.set(key, source);
   draw(source, now);
   return source;
+}
+
+function element<K extends keyof SVGElementTagNameMap>(
+  tag: K,
+  attributes: Record<string, string> = {},
+): SVGElementTagNameMap[K] {
+  const node = document.createElementNS(SVG, tag);
+  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+  return node;
+}
+
+/** A source's drawing: the dots behind, then the body with its eyes masked out and the stem. */
+function createParts(id: string): Parts {
+  const box = String(BOT_MARK_BOX * 2);
+  const area = {
+    maskUnits: "userSpaceOnUse",
+    x: String(-BOT_MARK_BOX / 2),
+    y: String(-BOT_MARK_BOX / 2),
+    width: box,
+    height: box,
+  };
+  const group = element("g", { id });
+  const mask = element("mask", { id: `${id}-holes`, ...area });
+  const holes = element("path", { fill: "black" });
+  mask.append(
+    element("rect", { x: area.x, y: area.y, width: box, height: box, fill: "white" }),
+    holes,
+  );
+  const dots = element("g", { fill: "currentColor" });
+  const body = element("g");
+  const outline = element("path", { fill: "currentColor", mask: `url(#${id}-holes)` });
+  const stem = element("g");
+  body.append(outline, stem);
+  group.append(mask, dots, body);
+  return { group, holes, dots, body, outline, stem };
+}
+
+const STEM_FILL = { stem: "var(--bot-stem)", cap: "var(--bot-stem-cap)" } as const;
+
+/** Writes a frame's drawing into a source, touching only what changed. */
+function paint(source: Source, shape: BotMarkShape, frame: BotMarkFrame) {
+  const drawing = botMarkDrawing(shape, frame);
+  const signature = JSON.stringify(drawing);
+  if (signature === source.drawn) return;
+  source.drawn = signature;
+  const { parts } = source;
+  parts.outline.setAttribute("d", drawing.body);
+  parts.holes.setAttribute("d", drawing.eyes);
+  if (drawing.opacity < 1) parts.body.setAttribute("opacity", drawing.opacity.toFixed(3));
+  else parts.body.removeAttribute("opacity");
+  parts.stem.replaceChildren(
+    ...drawing.stem.map(({ d, tone }) => element("path", { d, fill: STEM_FILL[tone] })),
+  );
+  if (drawing.stemOpacity < 1) parts.stem.setAttribute("opacity", drawing.stemOpacity.toFixed(3));
+  else parts.stem.removeAttribute("opacity");
+  parts.dots.replaceChildren(
+    ...drawing.dots.map(({ cx, cy, r, opacity }) =>
+      element("circle", {
+        cx: cx.toFixed(2),
+        cy: cy.toFixed(2),
+        r: r.toFixed(2),
+        ...(opacity < 1 ? { opacity: opacity.toFixed(3) } : {}),
+      }),
+    ),
+  );
+}
+
+/** Grows a small avatar while its bot is morphed, so the dots stay legible. */
+function zoomInstances(source: Source) {
+  const frame = source.frame;
+  const origin = BOT_MARK_ZOOM_ORIGIN.toFixed(3);
+  for (const instance of source.instances) {
+    const use = instance.element.firstElementChild;
+    if (!use) continue;
+    const zoom = frame ? botMarkZoom(frame, instance.size) : 1;
+    if (zoom === 1) use.removeAttribute("transform");
+    else
+      use.setAttribute(
+        "transform",
+        `translate(${origin} ${origin}) scale(${zoom.toFixed(4)}) translate(-${origin} -${origin})`,
+      );
+  }
 }
 
 /** Where the pointer is as gaze for an avatar whose row it is over: x right, y up, ±1. */
@@ -197,11 +295,8 @@ function draw(source: Source, now: number) {
     else frame = botMarkBlend(source.previous, frame, progress);
   }
   source.frame = frame;
-  const d = botMarkPath(source.shape, frame);
-  if (d !== source.d) {
-    source.d = d;
-    source.path.setAttribute("d", d);
-  }
+  paint(source, source.shape, frame);
+  zoomInstances(source);
 }
 
 function tick(now: number) {
@@ -209,7 +304,7 @@ function tick(now: number) {
   let active = false;
   for (const source of sources.values()) {
     const shown = [...source.instances].some((instance) => instance.visible);
-    source.path.dataset.paused = shown ? "false" : "true";
+    source.parts.group.dataset.paused = shown ? "false" : "true";
     if (!shown) continue;
     const wasMoving = moving(source, now);
     draw(source, now);
@@ -235,11 +330,14 @@ function setState(source: Source, state: BotMarkState) {
 function release(key: string, source: Source, instance: Instance) {
   source.instances.delete(instance);
   if (source.instances.size > 0) return;
-  source.path.remove();
+  source.parts.group.remove();
   sources.delete(key);
 }
 
 const instances = new Set<Instance>();
+
+/** What successive clicks play. */
+const POKES = ["spin", "bounce", "nod"] as const;
 
 /** Marks an avatar that is off screen or in a hidden tab, where its drawing stops. */
 function markPaused(instance: Instance) {
@@ -278,6 +376,8 @@ export type BotMarkProps = {
   showcase?: boolean;
   /** The live activity behind the state, kept on the element for tests and styling. */
   activity?: string;
+  /** A click plays a spin, then a bounce, then a nod, as on the mark beside a bot's activity. */
+  pokeable?: boolean;
   className?: string;
 };
 
@@ -290,6 +390,7 @@ export const BotMark = memo(function BotMark({
   size,
   showcase = false,
   activity,
+  pokeable = false,
   className,
 }: BotMarkProps) {
   const ref = useRef<SVGSVGElement>(null);
@@ -302,7 +403,7 @@ export const BotMark = memo(function BotMark({
     if (!element) return;
     const source = sourceFor(key, shape, state, who, showcase);
     sourceRef.current = source;
-    const instance: Instance = { element, visible: true, region: hoverRegion(element) };
+    const instance: Instance = { element, visible: true, region: hoverRegion(element), size };
     source.instances.add(instance);
     instances.add(instance);
     markPaused(instance);
@@ -323,7 +424,7 @@ export const BotMark = memo(function BotMark({
       release(key, source, instance);
       sourceRef.current = null;
     };
-  }, [key, shape, state, who, showcase]);
+  }, [key, shape, state, who, showcase, size]);
   useEffect(() => {
     if (sourceRef.current) setState(sourceRef.current, state);
   }, [state]);
@@ -341,11 +442,18 @@ export const BotMark = memo(function BotMark({
       style={
         { width: size, height: size, flex: "none", color: `var(--bot-ink-${ink})` } as CSSProperties
       }
-      onClick={() => {
-        if (!sourceRef.current || reducedMotion) return;
-        sourceRef.current.pokes.push({ kind: "spin", at: performance.now() });
-        schedule();
-      }}
+      onClick={
+        pokeable
+          ? () => {
+              const source = sourceRef.current;
+              if (!source || reducedMotion) return;
+              const kind = POKES[source.clicks % POKES.length]!;
+              source.clicks += 1;
+              source.pokes.push({ kind, at: performance.now() });
+              schedule();
+            }
+          : undefined
+      }
     >
       <use />
     </svg>

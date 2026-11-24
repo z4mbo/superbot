@@ -4,8 +4,8 @@ import { BOT_MARK_SHAPES, BOT_MARK_STATES } from "@rakazo/core";
 import { BotMark, BotMarkSleep } from "@rakazo/ui-web";
 import { createRoot } from "react-dom/client";
 
-// Every body resting and asleep, then every state on a few bodies, in the inks and sizes the app
-// uses (24 capsule, 28 working line, 36 roster row, 60 pinned tile and details).
+// Every body resting and asleep, then every state on every body, and each state in the sizes the
+// app uses (24 capsule, 28 working line, 36 roster row, 60 pinned tile and details).
 const params = new URLSearchParams(window.location.search);
 document.documentElement.dataset.theme = params.get("theme") === "dark" ? "dark" : "light";
 const inks: BotMarkInk[] = [
@@ -54,14 +54,14 @@ createRoot(document.getElementById("root")!).render(
     {BOT_MARK_STATES.map((state) => (
       <div key={state} className="row" data-state={state}>
         <span>{state}</span>
-        {(["blob", "teardrop", "cloud", "wedge"] as const).map((shape, index) => (
+        {BOT_MARK_SHAPES.map((shape, index) => (
           <BotMark
             key={shape}
             identity={`${state}-${shape}`}
             shape={shape}
-            ink={state === "asleep" ? "gray" : inks[index * 2]!}
+            ink={state === "asleep" ? "gray" : inks[index % inks.length]!}
             state={state}
-            size={48}
+            size={36}
           />
         ))}
         {[24, 28, 36, 60].map((size) => (

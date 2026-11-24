@@ -157,3 +157,8 @@
   --bot-ink-gray: #959595;
   --bot-ink-neutral: #000000;
 }
+
+:root {
+  --bot-stem: #3d3d3d;
+  --bot-stem-cap: #525252;
+}
