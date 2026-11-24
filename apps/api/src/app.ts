@@ -1145,6 +1145,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       requireMembership(
         prisma,
         session.user,
+        // Named before the Superbot rename; kept so existing web, desktop and mobile clients work.
         request.headers.get("x-rakazo-space-id"),
         session.session,
       ),

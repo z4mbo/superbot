@@ -58,7 +58,10 @@ export function clearSpaceSelection(): void {
   }
 }
 
-/** Adds `x-rakazo-space-id` when a space is selected. */
+/**
+ * Adds `x-rakazo-space-id` when a space is selected. The header keeps its pre-Superbot name: servers
+ * and clients of either name must keep understanding each other.
+ */
 export function withSpaceHeaders(
   init?: HeadersInit,
   spaceId: string | null = selectedSpaceId(),

@@ -3,7 +3,7 @@ export const TH_MESSAGES: Record<string, string> = {
   "Check for Updates…": "ตรวจสอบการอัปเดต…",
   "Computer Access…": "การเข้าถึงคอมพิวเตอร์…",
   "Revoke Local Computer Access": "ยกเลิกการเข้าถึงคอมพิวเตอร์ในเครื่อง",
-  "Change Rakazo Server…": "เปลี่ยนเซิร์ฟเวอร์ Rakazo…",
+  "Change Superbot Server…": "เปลี่ยนเซิร์ฟเวอร์ Superbot…",
   "Hide {name}": "ซ่อน {name}",
   "Hide Others": "ซ่อนอื่น ๆ",
   "Show All": "แสดงทั้งหมด",
@@ -38,22 +38,22 @@ export const TH_MESSAGES: Record<string, string> = {
   "Checking for Updates…": "กำลังตรวจสอบการอัปเดต…",
   "Downloading Update…": "กำลังดาวน์โหลดการอัปเดต…",
   "Restart to Update…": "เริ่มใหม่เพื่ออัปเดต…",
-  "Downloading Rakazo {version}…": "กำลังดาวน์โหลด Rakazo {version}…",
-  "Rakazo {version} is ready to install.": "Rakazo {version} พร้อมติดตั้งแล้ว",
+  "Downloading Superbot {version}…": "กำลังดาวน์โหลด Superbot {version}…",
+  "Superbot {version} is ready to install.": "Superbot {version} พร้อมติดตั้งแล้ว",
   Restart: "เริ่มใหม่",
   Later: "ภายหลัง",
   "Could not install the update.": "ติดตั้งการอัปเดตไม่สำเร็จ",
   "Could not check for updates.": "ตรวจสอบการอัปเดตไม่สำเร็จ",
-  "Rakazo is up to date.": "Rakazo เป็นเวอร์ชันล่าสุดแล้ว",
+  "Superbot is up to date.": "Superbot เป็นเวอร์ชันล่าสุดแล้ว",
   "Version {version}": "เวอร์ชัน {version}",
   "Automatic updates are turned off for this install.": "การอัปเดตอัตโนมัติปิดอยู่สำหรับการติดตั้งนี้",
   "Automatic updates only run in an installed build.": "การอัปเดตอัตโนมัติทำงานเฉพาะในบิลด์ที่ติดตั้งแล้ว",
   "No desktop releases are published for this build yet.": "ยังไม่มีรุ่นเดสก์ท็อปเผยแพร่สำหรับบิลด์นี้",
-  "Move Rakazo to Applications to install updates.":
-    "ย้าย Rakazo ไปที่โฟลเดอร์ Applications เพื่อติดตั้งการอัปเดต",
+  "Move Superbot to Applications to install updates.":
+    "ย้าย Superbot ไปที่โฟลเดอร์ Applications เพื่อติดตั้งการอัปเดต",
   "Free up disk space to install updates.": "เพิ่มพื้นที่ว่างในดิสก์เพื่อติดตั้งการอัปเดต",
-  "This update could not be verified. Reinstall Rakazo from a trusted download.":
-    "ตรวจสอบการอัปเดตนี้ไม่สำเร็จ โปรดติดตั้ง Rakazo ใหม่จากแหล่งดาวน์โหลดที่เชื่อถือได้",
+  "This update could not be verified. Reinstall Superbot from a trusted download.":
+    "ตรวจสอบการอัปเดตนี้ไม่สำเร็จ โปรดติดตั้ง Superbot ใหม่จากแหล่งดาวน์โหลดที่เชื่อถือได้",
   "The update could not be completed. Try again later.": "ทำการอัปเดตไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
   "Could not reach the update server.": "เข้าถึงเซิร์ฟเวอร์อัปเดตไม่สำเร็จ",
   "Allow local computer access?": "อนุญาตให้เข้าถึงคอมพิวเตอร์ในเครื่องไหม",
@@ -71,16 +71,16 @@ export const TH_MESSAGES: Record<string, string> = {
     "มีการเข้าสู่ระบบอยู่แล้ว ให้ยกเลิกแล้วลองอีกครั้ง",
   "Could not open browser sign-in. Close other sign-in attempts and retry.":
     "เปิดการเข้าสู่ระบบผ่านเบราว์เซอร์ไม่สำเร็จ ปิดการเข้าสู่ระบบอื่นแล้วลองอีกครั้ง",
-  "Sign-in callback rejected. Return to Rakazo to retry.":
-    "คำตอบกลับของการเข้าสู่ระบบถูกปฏิเสธ กลับไปที่ Rakazo เพื่อลองอีกครั้ง",
-  "You can close this tab and return to Rakazo.": "ปิดแท็บนี้และกลับไปที่ Rakazo ได้เลย",
-  "Set up Rakazo": "ตั้งค่า Rakazo",
-  "Quit Rakazo": "ออกจาก Rakazo",
-  "Welcome to Rakazo": "ยินดีต้อนรับสู่ Rakazo",
-  "Choose where Rakazo runs.": "เลือกว่าจะให้ Rakazo ทำงานที่ใด",
+  "Sign-in callback rejected. Return to Superbot to retry.":
+    "คำตอบกลับของการเข้าสู่ระบบถูกปฏิเสธ กลับไปที่ Superbot เพื่อลองอีกครั้ง",
+  "You can close this tab and return to Superbot.": "ปิดแท็บนี้และกลับไปที่ Superbot ได้เลย",
+  "Set up Superbot": "ตั้งค่า Superbot",
+  "Quit Superbot": "ออกจาก Superbot",
+  "Welcome to Superbot": "ยินดีต้อนรับสู่ Superbot",
+  "Choose where Superbot runs.": "เลือกว่าจะให้ Superbot ทำงานที่ใด",
   Instance: "อินสแตนซ์",
   "This computer": "คอมพิวเตอร์เครื่องนี้",
-  "Existing instance": "อินสแตนซ์ที่มีอยู่",
+  "Superbot server": "เซิร์ฟเวอร์ Superbot",
   "Technical details": "รายละเอียดเทคนิค",
   "Setup progress": "ความคืบหน้าของการตั้งค่า",
   "Server address": "ที่อยู่เซิร์ฟเวอร์",
@@ -90,14 +90,14 @@ export const TH_MESSAGES: Record<string, string> = {
   Continue: "ดำเนินการต่อ",
   Retry: "ลองอีกครั้ง",
   "Getting ready…": "กำลังเตรียมพร้อม…",
-  "Downloading Rakazo…": "กำลังดาวน์โหลด Rakazo…",
-  "Starting Rakazo…": "กำลังเริ่ม Rakazo…",
+  "Downloading Superbot…": "กำลังดาวน์โหลด Superbot…",
+  "Starting Superbot…": "กำลังเริ่ม Superbot…",
   "Almost ready…": "เกือบเสร็จแล้ว…",
-  "Rakazo is ready.": "Rakazo พร้อมใช้งานแล้ว",
+  "Superbot is ready.": "Superbot พร้อมใช้งานแล้ว",
   "{size} downloaded": "ดาวน์โหลดแล้ว {size}",
   "Connecting…": "กำลังเชื่อมต่อ…",
   "Checking…": "กำลังตรวจสอบ…",
-  "Rakazo answered at {url}.": "Rakazo ตอบกลับที่ {url}",
+  "Superbot answered at {url}.": "Superbot ตอบกลับที่ {url}",
   "Enter a server address first.": "กรอกที่อยู่เซิร์ฟเวอร์ก่อน",
   "Could not save that address.": "บันทึกที่อยู่นั้นไม่สำเร็จ",
   "Could not save that address. Try again.": "บันทึกที่อยู่นั้นไม่สำเร็จ ลองอีกครั้ง",
@@ -105,16 +105,16 @@ export const TH_MESSAGES: Record<string, string> = {
   "Could not start the local stack. Try again.": "เริ่มสแตกในเครื่องไม่สำเร็จ ลองอีกครั้ง",
   "Could not run the connection check. Try again.": "ตรวจสอบการเชื่อมต่อไม่สำเร็จ ลองอีกครั้ง",
   "Setup bridge unavailable.": "ใช้งานบริดจ์สำหรับการตั้งค่าไม่ได้",
-  "Setup could not start. Quit Rakazo and try again.":
-    "เริ่มการตั้งค่าไม่สำเร็จ ออกจาก Rakazo แล้วลองอีกครั้ง",
+  "Setup could not start. Quit Superbot and try again.":
+    "เริ่มการตั้งค่าไม่สำเร็จ ออกจาก Superbot แล้วลองอีกครั้ง",
   "Enter a server address.": "กรอกที่อยู่เซิร์ฟเวอร์",
   "Enter a valid http:// or https:// address.": "กรอกที่อยู่ http:// หรือ https:// ที่ถูกต้อง",
   "Enter a valid server address. Public servers require HTTPS; a new local instance must use localhost.":
     "กรอกที่อยู่เซิร์ฟเวอร์ที่ถูกต้อง เซิร์ฟเวอร์สาธารณะต้องใช้ HTTPS ส่วนอินสแตนซ์ในเครื่องใหม่ต้องใช้ localhost",
   "Invalid custom headers": "ส่วนหัวแบบกำหนดเองไม่ถูกต้อง",
-  "That address redirects elsewhere. Enter the final Rakazo server address.":
-    "ที่อยู่นี้เปลี่ยนเส้นทางไปที่อื่น ให้กรอกที่อยู่เซิร์ฟเวอร์ Rakazo ปลายทาง",
-  "That address did not respond like a Rakazo server.": "ที่อยู่นี้ไม่ตอบกลับเหมือนเซิร์ฟเวอร์ Rakazo",
+  "That address redirects elsewhere. Enter the final Superbot server address.":
+    "ที่อยู่นี้เปลี่ยนเส้นทางไปที่อื่น ให้กรอกที่อยู่เซิร์ฟเวอร์ Superbot ปลายทาง",
+  "That address did not respond like a Superbot server.": "ที่อยู่นี้ไม่ตอบกลับเหมือนเซิร์ฟเวอร์ Superbot",
   "The server answered with HTTP {status}.": "เซิร์ฟเวอร์ตอบกลับด้วย HTTP {status}",
   "Timed out reaching that address.": "หมดเวลาการเชื่อมต่อไปยังที่อยู่นั้น",
   "Nothing is listening at that address yet.": "ยังไม่มีบริการรอการเชื่อมต่อที่ที่อยู่นั้น",
@@ -138,8 +138,8 @@ export const TH_MESSAGES: Record<string, string> = {
     "บันทึกการตั้งค่าไม่สำเร็จ กู้คืนอินสแตนซ์ก่อนหน้าแล้ว",
   "Connected, but could not save setup for the next launch. Try Continue again.":
     "เชื่อมต่อสำเร็จ แต่บันทึกการตั้งค่าสำหรับการเปิดครั้งถัดไปไม่สำเร็จ ลองกดดำเนินการต่ออีกครั้ง",
-  "The app-managed Rakazo services are not ready. Retry setup.":
-    "บริการ Rakazo ที่แอปจัดการยังไม่พร้อม ลองตั้งค่าอีกครั้ง",
+  "The app-managed Superbot services are not ready. Retry setup.":
+    "บริการ Superbot ที่แอปจัดการยังไม่พร้อม ลองตั้งค่าอีกครั้ง",
   "Docker is installed, but Docker Compose is missing. Install Docker Desktop or the docker-compose-plugin.":
     "ติดตั้ง Docker แล้ว แต่ไม่มี Docker Compose ให้ติดตั้ง Docker Desktop หรือ docker-compose-plugin",
   "Could not check Docker Compose. Check the output below, then retry.":
@@ -158,10 +158,10 @@ export const TH_MESSAGES: Record<string, string> = {
   "Docker stopped answering. Start Docker, then retry.": "Docker ไม่ตอบสนอง เริ่ม Docker แล้วลองอีกครั้ง",
   "Docker Compose is missing. Install Docker Desktop or the docker-compose-plugin, then retry.":
     "ไม่มี Docker Compose ให้ติดตั้ง Docker Desktop หรือ docker-compose-plugin แล้วลองอีกครั้ง",
-  "Downloading Rakazo images failed. Check the output below, then retry.":
-    "ดาวน์โหลดอิมเมจของ Rakazo ไม่สำเร็จ ดูผลลัพธ์ด้านล่างแล้วลองอีกครั้ง",
-  "Rakazo services did not start. Check the output below, then retry.":
-    "บริการของ Rakazo ไม่เริ่มทำงาน ดูผลลัพธ์ด้านล่างแล้วลองอีกครั้ง",
+  "Downloading Superbot images failed. Check the output below, then retry.":
+    "ดาวน์โหลดอิมเมจของ Superbot ไม่สำเร็จ ดูผลลัพธ์ด้านล่างแล้วลองอีกครั้ง",
+  "Superbot services did not start. Check the output below, then retry.":
+    "บริการของ Superbot ไม่เริ่มทำงาน ดูผลลัพธ์ด้านล่างแล้วลองอีกครั้ง",
   "The stack started but the web app did not answer. Retry, and check the output below.":
     "สแตกเริ่มทำงานแต่เว็บแอปไม่ตอบกลับ ลองอีกครั้งและดูผลลัพธ์ด้านล่าง",
   "Could not prepare the local stack. Retry.": "เตรียมสแตกในเครื่องไม่สำเร็จ ลองอีกครั้ง",
@@ -184,27 +184,27 @@ export const TH_MESSAGES: Record<string, string> = {
   "Chat Details": "รายละเอียดแชท",
   Help: "ช่วยเหลือ",
   "Keyboard Shortcuts": "แป้นพิมพ์ลัด",
-  "Downloading Rakazo failed. Check the internet connection, then retry.":
-    "ดาวน์โหลด Rakazo ไม่สำเร็จ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง",
+  "Downloading Superbot failed. Check the internet connection, then retry.":
+    "ดาวน์โหลด Superbot ไม่สำเร็จ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง",
   "Could not move your data from Docker. Check the output below, then retry.":
     "ย้ายข้อมูลของคุณจาก Docker ไม่สำเร็จ ดูผลลัพธ์ด้านล่างแล้วลองอีกครั้ง",
   "The computer runtime already running is too old. Update or quit it, then retry.":
     "รันไทม์ของคอมพิวเตอร์ที่ทำงานอยู่เก่าเกินไป ให้อัปเดตหรือออกจากตัวนั้นแล้วลองอีกครั้ง",
-  "Your Rakazo data is in a different computer runtime. Quit the one running, then retry.":
-    "ข้อมูล Rakazo ของคุณอยู่ในรันไทม์ของคอมพิวเตอร์อื่น ให้ออกจากตัวที่ทำงานอยู่แล้วลองอีกครั้ง",
-  "Run Rakazo without Docker?": "จะรัน Rakazo โดยไม่ใช้ Docker ไหม",
+  "Your Superbot data is in a different computer runtime. Quit the one running, then retry.":
+    "ข้อมูล Superbot ของคุณอยู่ในรันไทม์ของคอมพิวเตอร์อื่น ให้ออกจากตัวที่ทำงานอยู่แล้วลองอีกครั้ง",
+  "Run Superbot without Docker?": "จะรัน Superbot โดยไม่ใช้ Docker ไหม",
   "Your bots and data move over. Docker is stopped, not removed.":
     "บอทและข้อมูลของคุณจะย้ายมาด้วย โดย Docker จะถูกหยุด ไม่ได้ลบออก",
   Move: "ย้าย",
   "Keep Docker": "ใช้ Docker ต่อไป",
-  "Nothing to install.": "ไม่มีอะไรต้องติดตั้ง",
   "Your data stays on this computer.": "ข้อมูลของคุณอยู่บนคอมพิวเตอร์เครื่องนี้",
   "Connect to a server you or your team already run.": "เชื่อมต่อกับเซิร์ฟเวอร์ที่คุณหรือทีมของคุณเปิดใช้อยู่แล้ว",
-  "Rakazo needs Docker Desktop to run on this computer.":
-    "Rakazo ต้องมี Docker Desktop จึงจะทำงานบนคอมพิวเตอร์เครื่องนี้ได้",
-  "Rakazo needs Docker to run on this computer.": "Rakazo ต้องมี Docker จึงจะทำงานบนคอมพิวเตอร์เครื่องนี้ได้",
-  "Docker Desktop is a free app that runs Rakazo in the background. Install it and open it once.":
-    "Docker Desktop เป็นแอปฟรีที่รัน Rakazo อยู่เบื้องหลัง ให้ติดตั้งแล้วเปิดสักครั้ง",
+  "Superbot needs Docker Desktop to run on this computer.":
+    "Superbot ต้องมี Docker Desktop จึงจะทำงานบนคอมพิวเตอร์เครื่องนี้ได้",
+  "Superbot needs Docker to run on this computer.":
+    "Superbot ต้องมี Docker จึงจะทำงานบนคอมพิวเตอร์เครื่องนี้ได้",
+  "Docker Desktop is a free app that runs Superbot in the background. Install it and open it once.":
+    "Docker Desktop เป็นแอปฟรีที่รัน Superbot อยู่เบื้องหลัง ให้ติดตั้งแล้วเปิดสักครั้ง",
   "Install Docker Engine and start it.": "ติดตั้ง Docker Engine แล้วเริ่มทำงาน",
   "Download Docker Desktop": "ดาวน์โหลด Docker Desktop",
   "Install Docker": "ติดตั้ง Docker",
@@ -213,14 +213,14 @@ export const TH_MESSAGES: Record<string, string> = {
   "Starting {app}…": "กำลังเริ่ม {app}…",
   "Docker is installed but not running. Start the Docker service to continue.":
     "ติดตั้ง Docker แล้วแต่ยังไม่ทำงาน ให้เริ่มบริการ Docker เพื่อดำเนินการต่อ",
-  "Rakazo stopped unexpectedly.": "Rakazo หยุดทำงานโดยไม่คาดหมาย",
+  "Superbot stopped unexpectedly.": "Superbot หยุดทำงานโดยไม่คาดหมาย",
   Reload: "โหลดใหม่",
   "Mac app control": "การควบคุมแอปบน Mac",
   "Set up Mac app control": "ตั้งค่าการควบคุมแอปบน Mac",
-  "Commands already work. To use apps, allow Accessibility and Screen Recording for Rakazo in System Settings, then restart Rakazo.":
-    "คำสั่งใช้งานได้แล้ว หากจะใช้แอป ให้อนุญาต Accessibility และการบันทึกหน้าจอให้ Rakazo ในการตั้งค่าระบบ แล้วเริ่ม Rakazo ใหม่",
+  "Commands already work. To use apps, allow Accessibility and Screen Recording for Superbot in System Settings, then restart Superbot.":
+    "คำสั่งใช้งานได้แล้ว หากจะใช้แอป ให้อนุญาต Accessibility และการบันทึกหน้าจอให้ Superbot ในการตั้งค่าระบบ แล้วเริ่ม Superbot ใหม่",
   "Open System Settings": "เปิดการตั้งค่าระบบ",
-  "Restart Rakazo": "เริ่ม Rakazo ใหม่",
+  "Restart Superbot": "เริ่ม Superbot ใหม่",
   "Not Now": "ไว้ก่อน",
-  "Restart Rakazo to finish setup": "เริ่ม Rakazo ใหม่เพื่อตั้งค่าให้เสร็จ",
+  "Restart Superbot to finish setup": "เริ่ม Superbot ใหม่เพื่อตั้งค่าให้เสร็จ",
 };
