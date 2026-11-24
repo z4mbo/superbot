@@ -8,22 +8,22 @@ only; no product UI, copy or behavior changed. Every screen and value shown here
 
 ### web/ (captured locally on Linux by `apps/web/e2e/chat/bot-model-pick.spec.ts`)
 
-| File | What it shows |
-| --- | --- |
-| `01-settings-models.png` | Settings → Models: the main model is the first connected model. |
-| `02-bot-model-before.png` | The chat with the model picker beside Send, showing the main model the bot follows. |
-| `03-composer-model-picker-open.png` | The picker open in chat: Space default (checked) and both connected models. |
-| `04-bot-model-after.png` | After picking the second model and the High thinking level for the bot. |
-| `05-bot-settings-model.png` | After a reload, the bot's Settings show the same model and thinking level. |
+| File                                | What it shows                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| `01-settings-models.png`            | Settings → Models: the main model is the first connected model.                     |
+| `02-bot-model-before.png`           | The chat with the model picker beside Send, showing the main model the bot follows. |
+| `03-composer-model-picker-open.png` | The picker open in chat: Space default (checked) and both connected models.         |
+| `04-bot-model-after.png`            | After picking the second model and the High thinking level for the bot.             |
+| `05-bot-settings-model.png`         | After a reload, the bot's Settings show the same model and thinking level.          |
 
 The spec then sends a message and checks that the run starts on the picked model (read from
 `threads/get` while the scripted run waits on a question).
 
 ### test-evidence/
 
-| File | What it shows |
-| --- | --- |
-| `linux-test-results.png` | The new unit tests (25), the Postgres integration test and the web e2e spec, all passing on this Linux host. |
+| File                         | What it shows                                                                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `linux-test-results.png`     | The new unit tests (25), the Postgres integration test and the web e2e spec, all passing on this Linux host.                                                             |
 | `ci-unit-tests-three-os.png` | Both new unit files passing on ubuntu, windows and macos in the cross-platform workflow ([run 45184455851](https://github.com/z4mbo/superbot/actions/runs/45184455851)). |
 
 ## What ran where
