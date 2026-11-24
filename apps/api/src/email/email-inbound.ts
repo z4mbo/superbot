@@ -41,6 +41,8 @@ export type EmailInboundDeps = Pick<WebhookDeps, "prisma" | "jobs"> & {
   }) => Promise<{ id: string; name: string; mimeType: string; size: number }>;
   /** Parses and authenticates the raw message; tests pass a fixed one. */
   readEmail?: (raw: Uint8Array) => Promise<InboundEmail>;
+  /** Bots can send mail here, so the answer to the owner's email goes back to them by email. */
+  repliesByEmail?: boolean;
 };
 
 /**
@@ -231,7 +233,12 @@ export async function receiveBotEmail(deps: EmailInboundDeps, recipient: string,
       : {}),
     ...(unavailable.length ? { unavailable: listed(unavailable) } : {}),
   };
-  const prompt = matched.length ? formatRoutineEmailPrompt(payload) : ownerEmailPrompt(payload);
+  // Only the owner's own verified mail, outside any routine, gets the run's answer mailed back:
+  // a routine reads the mail as data and reports to the owner in the app.
+  const mailsAnswer = ownerMessage && matched.length === 0;
+  const prompt = matched.length
+    ? formatRoutineEmailPrompt(payload)
+    : ownerEmailPrompt(payload, { answerMailed: Boolean(deps.repliesByEmail) });
 
   return deliverWebhookEvent(
     deps,
@@ -248,6 +255,7 @@ export async function receiveBotEmail(deps: EmailInboundDeps, recipient: string,
       routines: matched,
       source: "email",
       idempotencyKey: email.key,
+      ...(mailsAnswer ? { emailReplyTo: saved.id } : {}),
     },
   ).catch((error: unknown) => {
     if (error instanceof SpaceDeletionInProgressError) return ignored("space being deleted");

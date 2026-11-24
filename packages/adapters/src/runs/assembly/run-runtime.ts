@@ -357,6 +357,8 @@ export function createRunRuntime(
     lifecycleEmail,
     meetingWork,
     meetingCalendarSync,
+    email: deps.email,
+    inboundEmailDomain: env.inboundEmailDomain,
   });
   return { runtime, executor, jobHandlers, messagingDelivery, teamChat };
 }

@@ -1251,6 +1251,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       events,
       jobs,
       ...env.inboundEmail,
+      repliesByEmail: Boolean(botEmail),
       storeAttachment: ({ spaceId, userId, ...input }) =>
         storeInboundAttachment(
           { prisma, artifacts, maxUploadSizeBytes: env.maxUploadSizeBytes },

@@ -13,6 +13,7 @@ import {
 } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
 import { resolveBotWorkspacePath } from "../../computers/screens/computer-support.js";
+import { scheduleOwnerEmailReply, sendOwnerEmailReplyNow } from "../../email/owner-email-reply.js";
 import {
   answeredSteeringMessageIds,
   retainsConversationTurn,
@@ -127,8 +128,14 @@ export async function completeRun(ctx: RunContext) {
   await ctx.computer.checkpoint.flush();
   ctx.state.terminalCheckpointComplete = true;
 
-  const { blocks, text, groupSilentEnd } = await finalReply(ctx);
+  const { blocks, text, groupSilentEnd, answered } = await finalReply(ctx);
   if (!(await renewRunLease(deps, runId, ctx.workerId, ctx.fence))) return;
+  // Scheduled before the completion commits, so a stop right after it still mails the answer.
+  const mailsAnswer = await scheduleOwnerEmailReply(deps, run, answered).catch((error) => {
+    getLogger().error("owner email reply backup was not scheduled", error);
+    // The send right after completion checks everything again.
+    return answered;
+  });
   const botMessageOutcome =
     run.trigger === "bot_message"
       ? botMessageOutcomeFromMidTurn(text, reply.midTurnUserTexts)
@@ -164,6 +171,8 @@ export async function completeRun(ctx: RunContext) {
   const { screenRelease } = ctx.state.computerUse;
   if (screenRelease) screenRelease.keepWarm = true;
   await enqueueSteeringContinuation(deps, completed.continuationRunId);
+  // In addition to the chat: the owner who emailed gets the answer in their mail thread.
+  if (mailsAnswer) await sendOwnerEmailReplyNow(deps, runId);
   if (botMessageOutcome) {
     // Prefer the final reply. If the turn only posted mid-turn progress, return that
     // text explicitly as status. Delivery uses a stable auto-outcome key; mark
@@ -341,7 +350,12 @@ async function finalReply(ctx: RunContext) {
   ) {
     throw new Error(TOOL_STEPS_WITHOUT_RESPONSE);
   }
-  return { blocks, text, groupSilentEnd };
+  // Something the person sees: a reply the run wrote, or messages it posted while working.
+  const answered =
+    !ctx.state.handedOff &&
+    !groupSilentEnd &&
+    (Boolean(silentReply.assembled.trim()) || reply.publishedMidTurnUserMessage);
+  return { blocks, text, groupSilentEnd, answered };
 }
 
 // Last, and never fatal: the run is already finalized, so a failure here must not reach

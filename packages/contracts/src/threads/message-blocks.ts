@@ -214,7 +214,11 @@ export const MessageBlock = z.discriminatedUnion("kind", [
    * Marks a user message as what woke the bot (a webhook, an email, a chat message). Its text
    * block is the bot's full prompt, so chats, previews and search leave the message out.
    */
-  z.object({ kind: z.literal("delivery") }),
+  z.object({
+    kind: z.literal("delivery"),
+    /** The owner's email in the bot's inbox that the run's answer is mailed back to. */
+    emailReplyTo: Id.optional(),
+  }),
   z.object({
     kind: z.literal("progress"),
     text: z.string(),
