@@ -22,6 +22,7 @@ import { IMAGE_RETURNING_COMPUTER_TOOLS } from "../../models/model-vision.js";
 import { MODEL_CANNOT_SEE_MESSAGE } from "../../models/model-vision.prompt.js";
 import { personalCalendarTools } from "../../personal-calendar/personal-calendar.tool-definition.js";
 import { calendarTool } from "../../personal-calendar/run-calendar-tool.js";
+import { nightlyMemoryReviewToolRefusal } from "../../routines/nightly-memory-review.js";
 import { strategicInitiativeToolAllowed } from "../../routines/strategic-initiative.js";
 import type { RunContext } from "../assembly/run-context.js";
 import { markReadOutsideContent } from "../assembly/run-context.js";
@@ -257,6 +258,8 @@ async function dispatchTool(
       ),
     );
   }
+  const reviewRefusal = nightlyMemoryReviewToolRefusal(name, args, ctx.run);
+  if (reviewRefusal) return refuse(refusal("memory_review_tool_not_allowed", reviewRefusal));
   if (ctx.state.handedOff) {
     return refuse(
       refusal(

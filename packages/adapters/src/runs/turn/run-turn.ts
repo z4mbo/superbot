@@ -2,6 +2,7 @@ import type { AgentRuntimeEvent } from "@rakazo/adapter-kit";
 import { isBackgroundRunTrigger, redactSecrets, redactSecretsAfter } from "@rakazo/core";
 import { RunHistoryWriteError, recordUsage } from "@rakazo/db";
 import { bestEffort } from "@rakazo/logging";
+import { isNightlyMemoryReviewRun } from "../../routines/nightly-memory-review.js";
 import { isStrategicInitiativeRun } from "../../routines/strategic-initiative.js";
 import { withRuntimeCleanup } from "../../runtime/runtime-stream.js";
 import { snapshotReply } from "../assembly/reply-snapshot.js";
@@ -91,10 +92,11 @@ export async function consumeRunEvents(
       if (await runLeaseLost(ctx)) return true;
 
       if (
-        isStrategicInitiativeRun(run) &&
+        (isStrategicInitiativeRun(run) || isNightlyMemoryReviewRun(run)) &&
         (event.type === "takeover" || event.type === "subagent")
       ) {
-        throw new Error("Daily check-ins cannot start a computer or helper.");
+        const kind = isStrategicInitiativeRun(run) ? "Daily check-ins" : "Memory reviews";
+        throw new Error(`${kind} cannot start a computer or helper.`);
       }
       if (event.type === "thinking") {
         await publishThinking(event.active);

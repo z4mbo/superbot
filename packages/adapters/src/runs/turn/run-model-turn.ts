@@ -3,6 +3,8 @@ import { modelRoleConnectionId } from "@rakazo/contracts";
 import { BACKGROUND_HELPER_TRIGGER, redactSecrets } from "@rakazo/core";
 import { isDatabaseUnavailable, recordUsage } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { isNightlyMemoryReviewRun } from "../../routines/nightly-memory-review.js";
+import { MEMORY_REVIEW_REPLY_GUIDANCE } from "../../routines/nightly-memory-review.prompt.js";
 import { isStrategicInitiativeRun } from "../../routines/strategic-initiative.js";
 import { personSpeaker } from "../../runtime/context/history-speakers.js";
 import { backgroundHelpersAllowed } from "../../tasks/background-helpers.js";
@@ -230,10 +232,14 @@ function modelTurnRequest(
       pluginLine,
       agentSkillsLine,
       taughtSkillsLine,
-      replyGuidance: runReplyGuidance(run.trigger, replyMode),
+      replyGuidance: isNightlyMemoryReviewRun(run)
+        ? MEMORY_REVIEW_REPLY_GUIDANCE
+        : runReplyGuidance(run.trigger, replyMode),
       // These runs get a narrow tool set, so guidance names only the tools they have.
       disabledBuiltinTools:
-        isStrategicInitiativeRun(run) || run.trigger === BACKGROUND_HELPER_TRIGGER
+        isStrategicInitiativeRun(run) ||
+        isNightlyMemoryReviewRun(run) ||
+        run.trigger === BACKGROUND_HELPER_TRIGGER
           ? new Set(
               builtinAgentTools
                 .map((tool) => tool.name)

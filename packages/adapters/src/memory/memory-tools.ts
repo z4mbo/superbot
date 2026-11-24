@@ -25,6 +25,9 @@ export function selectMemoryTools(
     : tools.filter((tool) => !SEMANTIC_MEMORY_TOOL_NAMES.has(tool.name));
 }
 
+/** A one-line entry with its list marker, if any, left off: "- Vegan" and "Vegan" are one fact. */
+const entryText = (line: string) => line.trim().replace(/^[-*]\s+/, "");
+
 export function appendMemoryFact(existing: string, fact: string): string {
   const current = existing.trimEnd().replace(/\r\n/g, "\n");
   const next = fact.trim();
@@ -32,7 +35,8 @@ export function appendMemoryFact(existing: string, fact: string): string {
   if (
     !next ||
     `\n${current}\n`.includes(`\n${comparableFact}\n`) ||
-    (!next.includes("\n") && current.split("\n").some((line) => line.trim() === next))
+    (!next.includes("\n") &&
+      current.split("\n").some((line) => entryText(line) === entryText(next)))
   )
     return existing;
   return existing ? `${existing}${existing.endsWith("\n") ? "" : "\n"}${next}\n` : `${next}\n`;

@@ -19,6 +19,8 @@ import {
   retainsConversationTurn,
 } from "../../memory/conversation-memory.js";
 import { returnBotMessageOutcome } from "../../messaging/bot-messages.js";
+import { isNightlyMemoryReviewRun } from "../../routines/nightly-memory-review.js";
+import { applyNightlyMemoryReview } from "../../routines/nightly-memory-review-apply.js";
 import { clearRoutineBackoff } from "../../routines/routine-backoff.js";
 import { isStrategicInitiativeRun } from "../../routines/strategic-initiative.js";
 import {
@@ -124,11 +126,19 @@ export async function completeRun(ctx: RunContext) {
   await flushProgress(ctx);
 
   await applyScriptedTurns(ctx);
+  // A memory review answers with what to keep; the product saves it, whatever tools the model used.
+  if (isNightlyMemoryReviewRun(run)) {
+    await applyNightlyMemoryReview(ctx, reply.assembled);
+    if (!ctx.state.lease.valid) return;
+  }
 
   await ctx.computer.checkpoint.flush();
   ctx.state.terminalCheckpointComplete = true;
 
-  const { blocks, text, groupSilentEnd, answered } = await finalReply(ctx);
+  // A memory review never posts: whatever the model wrote stays out of the chat.
+  const { blocks, text, groupSilentEnd, answered } = isNightlyMemoryReviewRun(run)
+    ? { blocks: [], text: "", groupSilentEnd: false, answered: false }
+    : await finalReply(ctx);
   if (!(await renewRunLease(deps, runId, ctx.workerId, ctx.fence))) return;
   // Scheduled before the completion commits, so a stop right after it still mails the answer.
   const mailsAnswer = await scheduleOwnerEmailReply(deps, run, answered).catch((error) => {
@@ -215,7 +225,8 @@ export async function completeRun(ctx: RunContext) {
 /** A scripted runtime's turns carry the files and memory it writes. */
 async function applyScriptedTurns(ctx: RunContext) {
   const { deps, run, runId, bot, thread, context } = ctx;
-  for (const turn of isStrategicInitiativeRun(run) ? [] : (ctx.script ?? [])) {
+  const limited = isStrategicInitiativeRun(run) || isNightlyMemoryReviewRun(run);
+  for (const turn of limited ? [] : (ctx.script ?? [])) {
     for (const file of turn.files ?? []) {
       ctx.computer.checkpoint.markDirty();
       await deps.sandbox.writeFile(

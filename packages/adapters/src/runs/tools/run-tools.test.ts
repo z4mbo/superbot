@@ -337,3 +337,53 @@ describe("daily check-in dispatch restriction", () => {
     ).toEqual({ code: "daily_check_in_tool_not_allowed" });
   });
 });
+
+describe("nightly memory review dispatch restriction", () => {
+  const reviewContext = () => ({
+    ...dispatchContext(false),
+    run: { trigger: "routine", clientNonce: "nightly-memory-review:bot-1:2026-11-24" },
+  });
+
+  it.each([
+    "computer_shell",
+    "browser_act",
+    "message_user",
+    "ask_user",
+    "update_bot",
+    "schedule_create",
+    "run_subagent",
+    "catalog_execute",
+    "gmail_send",
+    "forget_memory",
+  ])("rejects %s before resolving, approving or executing it", async (name) => {
+    const ctx = reviewContext();
+    vi.mocked(gateToolCall).mockClear();
+    expect(await applyTool(ctx as never, name, {}, "call-1")).toEqual({
+      error: "The memory review can only save memory with remember or save_shared_memory.",
+    });
+    expect(gateToolCall).not.toHaveBeenCalled();
+    expect(audited).toEqual([]);
+    expect(
+      (ctx.state as { toolRefusals?: Map<string, unknown> }).toolRefusals?.get("call-1"),
+    ).toEqual({ code: "memory_review_tool_not_allowed" });
+  });
+
+  it("rejects a daily note write", async () => {
+    const ctx = reviewContext();
+    expect(
+      await applyTool(ctx as never, "remember", { content: "x", daily: true }, "call-1"),
+    ).toEqual({
+      error:
+        "The memory review cannot write daily notes. Leave out daily to save the fact to your memory.",
+    });
+  });
+
+  it("lets a memory save past the review's own check", async () => {
+    const ctx = reviewContext();
+    await applyTool(ctx as never, "remember", { content: "x" }, "call-1");
+    // Nothing is offered in this fixture, so the ordinary memory check is what turns it away.
+    expect(
+      (ctx.state as { toolRefusals?: Map<string, unknown> }).toolRefusals?.get("call-1"),
+    ).toEqual({ code: "memory_tool_unavailable" });
+  });
+});

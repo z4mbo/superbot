@@ -1,0 +1,1 @@
+ALTER TABLE "bots" ADD COLUMN "nightlyMemoryReview" BOOLEAN NOT NULL DEFAULT true;

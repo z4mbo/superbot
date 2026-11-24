@@ -164,6 +164,12 @@ describe("appendMemoryFact", () => {
     expect(appendMemoryFact("a\ndurable fact\n", "durable fact")).toBe("a\ndurable fact\n");
     expect(appendMemoryFact("a\n", "   ")).toBe("a\n");
   });
+
+  it("treats a list entry and the same bare fact as one", () => {
+    expect(appendMemoryFact("# Me\n\n- Vegan.\n", "Vegan.")).toBe("# Me\n\n- Vegan.\n");
+    expect(appendMemoryFact("# Me\n\nVegan.\n", "* Vegan.")).toBe("# Me\n\nVegan.\n");
+    expect(appendMemoryFact("- Vegan for years.\n", "Vegan.")).toBe("- Vegan for years.\nVegan.\n");
+  });
 });
 
 describe("multiline memory facts", () => {

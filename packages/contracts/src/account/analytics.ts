@@ -49,6 +49,7 @@ export const AnalyticsBotSetting = z.enum([
   "team_chat",
   "cross_space",
   "daily_check_ins",
+  "nightly_memory_review",
   "fleet_management",
   "reply_mode",
   "tools",

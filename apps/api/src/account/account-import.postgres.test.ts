@@ -57,6 +57,7 @@ function sourceRecords(): AccountExportRecord[] {
       teamChatRules: "",
       crossSpaceCommunication: false,
       dailyCheckIns: false,
+      nightlyMemoryReview: false,
       fleetManagement: false,
       replyMode: "messages",
       createdAt: at,
@@ -86,6 +87,7 @@ function sourceRecords(): AccountExportRecord[] {
       teamChatRules: "",
       crossSpaceCommunication: false,
       dailyCheckIns: false,
+      nightlyMemoryReview: false,
       fleetManagement: true,
       replyMode: "chat",
       createdAt: at,
@@ -458,6 +460,8 @@ describePostgres("account import (PostgreSQL)", () => {
     expect(child.replyMode).toBe("messages");
     expect(child.dailyCheckIns).toBe(false);
     expect(parent.dailyCheckIns).toBe(false);
+    expect(child.nightlyMemoryReview).toBe(false);
+    expect(parent.nightlyMemoryReview).toBe(false);
     expect(child.disabledBuiltinTools).toEqual(["browser"]);
     const section = await system.botSection.findFirstOrThrow({ where: { spaceId } });
     expect(child.sectionId).toBe(section.id);

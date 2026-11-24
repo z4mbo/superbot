@@ -19,6 +19,7 @@ import { isDatabaseUnavailable, retryWhileDatabaseUnavailable } from "@rakazo/db
 import { getLogger } from "@rakazo/logging";
 import { sanitizedError } from "@rakazo/logging/monitoring";
 import { returnBotMessageOutcome } from "../../messaging/bot-messages.js";
+import { isNightlyMemoryReviewRun } from "../../routines/nightly-memory-review.js";
 import {
   backOffRoutineAfterAccountError,
   modelAccountRefusal,
@@ -239,6 +240,7 @@ export async function failRun(
   if (
     runSendsFinishNotification(run.trigger) &&
     !isStrategicInitiativeRun(run) &&
+    !isNightlyMemoryReviewRun(run) &&
     !failed.continuationRunId &&
     !retrying
   ) {
