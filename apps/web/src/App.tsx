@@ -35,7 +35,7 @@ import { syncLogOutFailure } from "./lib/auth/sign-out";
 import { completeSsoCallback, SSO_CALLBACK_PATH } from "./lib/auth/sso-flow";
 import { syncWebLogoAvatarIdentity } from "./lib/bots/logo-avatar-activity";
 import { syncCallIdentity } from "./lib/calls/call-session";
-import { analyticsSurface } from "./lib/platform/desktop";
+import { analyticsSurface, desktopBridge } from "./lib/platform/desktop";
 import { identifyMonitoringUser } from "./lib/platform/monitoring";
 import { markAfterPaint, markOnce } from "./lib/platform/performance";
 import { lazyComponent } from "./lib/platform/preload-recovery";
@@ -188,7 +188,9 @@ function SessionApp() {
               <Route
                 path="/"
                 element={
-                  user || hasSignedInBefore() ? (
+                  // The desktop app opens on sign-in: the landing page is a site of its own,
+                  // outside the page that draws the window's controls.
+                  user || hasSignedInBefore() || desktopBridge() ? (
                     <Navigate to={user ? "/app" : "/sign-in"} replace />
                   ) : (
                     <WelcomeRedirect />

@@ -1,6 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
 import { bestEffort } from "@rakazo/logging/best-effort";
-import { Copy, Minus, Square, X } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -61,7 +60,7 @@ function PageWindowControls({ desktop }: { desktop: RakazoDesktop }) {
           label={minimizeLabel}
           onClick={once(desktop.window.minimize, "window.minimize")}
         >
-          <Minus />
+          <Glyph d="M3.5 12h17" weight={2.8} />
         </WindowButton>
         <WindowButton
           label={maximizeLabel}
@@ -71,13 +70,38 @@ function PageWindowControls({ desktop }: { desktop: RakazoDesktop }) {
             "window.toggleMaximize",
           )}
         >
-          {maximized ? <Copy /> : <Square />}
+          {maximized ? (
+            <Glyph d="M6.5 9.5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2zM9.5 4.5h8a3 3 0 0 1 3 3v8" />
+          ) : (
+            <Glyph
+              d="M6.5 2.5h12a3 3 0 0 1 3 3v13a3 3 0 0 1-3 3h-12a3 3 0 0 1-3-3v-13a3 3 0 0 1 3-3z"
+              weight={1.8}
+            />
+          )}
         </WindowButton>
         <WindowButton close label={closeLabel} onClick={once(desktop.window.close, "window.close")}>
-          <X />
+          <Glyph d="M5 5l14 14M19 5 5 19" />
         </WindowButton>
       </div>
     </div>
+  );
+}
+
+/** A 12px line glyph, sized to the reference's: 1px strokes, the minus 10px wide. */
+function Glyph({ d, weight = 2 }: { d: string; weight?: number }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={weight}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3"
+    >
+      <path d={d} />
+    </svg>
   );
 }
 
@@ -101,7 +125,7 @@ function WindowButton({
       tabIndex={-1}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`app-no-drag inline-flex h-7 w-9 cursor-default items-center justify-center rounded-lg text-muted-foreground transition-[background-color,color] duration-120 ease-in-out outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none [&_svg]:size-3 [&_svg]:stroke-[1.5] ${
+      className={`app-no-drag inline-flex h-7 w-9 cursor-default items-center justify-center rounded-lg text-muted-foreground transition-[background-color,color] duration-120 ease-in-out outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none ${
         close
           ? "hover:bg-destructive-fill hover:text-destructive-foreground active:bg-destructive-fill/78"
           : "hover:bg-foreground/8 hover:text-foreground active:bg-foreground/13"

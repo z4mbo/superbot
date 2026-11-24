@@ -210,3 +210,41 @@ it("tells the call session who is signed in, without counting an unreachable loo
     vi.unstubAllGlobals();
   }
 });
+
+it.each([
+  ["opens the desktop app on sign-in, where its window controls are", true, "Auth in"],
+  ["sends a first browser visit to the landing page", false, ""],
+])("signed out at the root, %s", async (_name, desktop, text) => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const replace = vi.fn();
+  vi.stubGlobal("location", { ...window.location, pathname: "/", replace });
+  if (desktop)
+    window.rakazoDesktop = {
+      platform: "darwin",
+      window: { state: async () => ({ maximized: false }) },
+    } as never;
+  localStorage.clear();
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  capability.session = { isPending: false, data: null, error: null };
+  try {
+    await act(async () =>
+      root.render(
+        <MemoryRouter initialEntries={["/"]}>
+          <App />
+        </MemoryRouter>,
+      ),
+    );
+    if (desktop) {
+      await vi.waitFor(() => expect(container.textContent).toBe(text));
+      expect(replace).not.toHaveBeenCalled();
+    } else {
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/welcome/"));
+    }
+  } finally {
+    capability.session = null;
+    delete window.rakazoDesktop;
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  }
+});
