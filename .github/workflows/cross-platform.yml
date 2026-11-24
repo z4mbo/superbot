@@ -1,0 +1,136 @@
+name: Cross-platform
+# Runs a short, explicit set of unit tests and desktop Playwright specs on Linux, Windows and macOS,
+# and uploads the desktop screenshots each OS took. The everyday suites in ci.yml run on Linux
+# only (plus the "Native computer" job on macOS and Windows); this workflow is where code that
+# touches files, processes, locks or the desktop window proves it works on all three.
+#
+# Adding a test: append its path to UNIT_TESTS (vitest files, run from the repo root) or its spec
+# file name to DESKTOP_SPECS (files in apps/desktop/e2e). Keep both lists short and explicit: they
+# are the two extension points, marked below. A desktop spec that saves screenshots writes them to
+# apps/desktop/e2e/screenshots, and every PNG there is uploaded.
+#
+# Running it: it runs on every pull request, whatever its base. Once this file is on the default
+# branch, any branch can also be run by hand:
+#   gh workflow run cross-platform.yml --repo <owner>/<repo> --ref <branch>
+# Each run's summary prints the Node and SQLite versions of Node and of Electron's Node per OS.
+# Fetching the screenshots: the artifacts are named linux-desktop, windows-desktop and
+# macos-desktop (plus <os>-desktop-report with the Playwright traces when a spec fails):
+#   gh run download <run-id> --repo <owner>/<repo> --name windows-desktop --dir <folder>
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-platform-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # ── Extension point 1: unit tests run on every OS (space-separated, repo-relative). ──
+  # Not listed because they fail on Windows today: storage/home.test.ts (POSIX mode bits),
+  # storage/workspace-archive.test.ts (a file name with a newline) and
+  # desktop-sandbox-write-containment.test.ts (a parent swapped for a junction during mkdir).
+  UNIT_TESTS: >-
+    packages/adapters/src/storage/file-handle-path.test.ts
+    packages/adapters/src/storage/home-races.test.ts
+    packages/adapters/src/runtime/pi/pi-session.test.ts
+    packages/adapters/src/providers/computer/desktop/desktop-sandbox-paths.test.ts
+    packages/adapters/src/providers/computer/desktop/desktop-workspace-cleanup.test.ts
+    packages/testkit/src/runtime/pi-offline.test.ts
+  # ── Extension point 2: desktop Playwright specs run on every OS (file names in apps/desktop/e2e). ──
+  DESKTOP_SPECS: >-
+    smoke.spec.ts
+    setup.spec.ts
+    window-drag.spec.ts
+
+jobs:
+  unit:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
+      - run: pnpm db:generate
+        env:
+          DATABASE_URL: postgres://rakazo:rakazo@127.0.0.1:5433/rakazo
+      - name: Unit tests
+        shell: bash
+        run: |
+          read -r -a tests <<<"$UNIT_TESTS"
+          pnpm exec vitest run "${tests[@]}"
+
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux-desktop
+          - os: windows-latest
+            artifact: windows-desktop
+          - os: macos-latest
+            artifact: macos-desktop
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
+        with:
+          electron: "true"
+          filter: "@rakazo/desktop..."
+      - run: pnpm --filter @rakazo/desktop build
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-cache
+      # The Node inside Electron is not the Node of the server; both must open node:sqlite.
+      - name: Runtime versions
+        shell: bash
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-cache
+          PROBE: >-
+            const { DatabaseSync } = require("node:sqlite");
+            const db = new DatabaseSync(":memory:");
+            console.log(JSON.stringify({ electron: process.versions.electron ?? null, node: process.versions.node,
+            sqlite: db.prepare("select sqlite_version() as v").get().v }));
+        run: |
+          {
+            node -e "$PROBE"
+            ELECTRON_RUN_AS_NODE=1 pnpm --filter @rakazo/desktop exec electron -e "$PROBE"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Desktop specs
+        shell: bash
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-cache
+        run: |
+          read -r -a specs <<<"$DESKTOP_SPECS"
+          run=(pnpm --filter @rakazo/desktop exec playwright test --config e2e/playwright.config.ts "${specs[@]}")
+          # Linux runners have no display; macOS and Windows runners have a desktop session.
+          if [[ "$RUNNER_OS" == Linux ]]; then run=(xvfb-run --auto-servernum "${run[@]}"); fi
+          "${run[@]}"
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: apps/desktop/e2e/screenshots
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact }}-report
+          path: apps/desktop/e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 14
