@@ -194,6 +194,21 @@ for (const [index, spec] of fixture.bots.entries()) {
   spec.id = botId;
 }
 
+// Exactly the fixture's extra workspaces, so Settings has more than one to choose between only
+// when asked: with two or more, the roster names each workspace in its section headings.
+const wantedWorkspaces = new Set(fixture.workspaces ?? []);
+const listed = await rpc("spaces/list", {});
+for (const space of listed.spaces) {
+  if (space.id !== spaceId && space.canDelete && !wantedWorkspaces.has(space.name)) {
+    await rpc("spaces/remove", { spaceId: space.id });
+  }
+}
+for (const workspaceName of wantedWorkspaces) {
+  if (!listed.spaces.some((space) => space.name === workspaceName)) {
+    await rpc("spaces/create", { name: workspaceName });
+  }
+}
+
 // A new bot starts an introduction run; with no model behind the fixture those would stay open.
 await db.query(
   `DELETE FROM runs WHERE "spaceId" = $1 AND "leaseOwner" IS DISTINCT FROM 'parity-fixture'`,
