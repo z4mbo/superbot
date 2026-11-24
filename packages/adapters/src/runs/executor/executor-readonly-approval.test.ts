@@ -31,6 +31,7 @@ import type * as FleetToolsModule from "../../tools/fleet-tools.js";
 import {
   CATALOG_EXECUTE,
   catalogEntries,
+  DIRECT_TOOL_LIMIT,
   lazyCatalogTools,
   resolveCatalogCall,
 } from "../../tools/lazy-tool-catalog.js";
@@ -5303,6 +5304,138 @@ describe("marketplace plugin dispatch", () => {
       structuredContent: { value: 212, unit: "fahrenheit" },
     });
     expect(f.execute).not.toHaveBeenCalled();
+  });
+
+  /** Lists this many other tools before the sample's own, as a plugin with many tools would. */
+  function listToolsBefore(count: number) {
+    const fetchSample = fixtureNetwork.options!.fetch!;
+    fixtureNetwork.options!.fetch = async (input, init) => {
+      const response = await fetchSample(input, init);
+      const { method } = JSON.parse(String(init?.body)) as { method: string };
+      if (method !== "tools/list") return response;
+      const payload = (await response.json()) as { result: { tools: unknown[] } };
+      payload.result.tools.unshift(
+        ...Array.from({ length: count }, (_, index) => ({
+          name: `measure_${index + 1}`,
+          description: "Measure something else.",
+          inputSchema: { type: "object", properties: {} },
+        })),
+      );
+      return Response.json(payload);
+    };
+  }
+
+  function findSample(f: ReturnType<typeof fixture>, executionId = "search") {
+    f.setCalls([
+      {
+        name: "marketplace_search_tools",
+        args: { query: "convert temperature" },
+        executionId,
+      },
+    ]);
+  }
+
+  function executeSample(f: ReturnType<typeof fixture>, id: string, executionId: string) {
+    f.setCalls([{ name: "marketplace_execute_tool", args: { id, arguments: args }, executionId }]);
+  }
+
+  it("offers 20 plugin tools directly", async () => {
+    listToolsBefore(DIRECT_TOOL_LIMIT - 1);
+    const f = fixture({ builtin: true });
+    grant(f);
+    setCall(f);
+    await f.run();
+    const offered = f.offeredTools();
+    expect(offered.filter((tool) => tool.startsWith("marketplace__"))).toHaveLength(20);
+    expect(offered).not.toContain("marketplace_execute_tool");
+    expect(isApprovalPausedResult(f.results[0])).toBe(true);
+  });
+
+  it("reaches the 22nd plugin tool through the catalog, approved and run as a direct call", async () => {
+    listToolsBefore(DIRECT_TOOL_LIMIT + 1);
+    const f = fixture({ builtin: true, autoReview: true });
+    grant(f);
+    findSample(f);
+    await f.run();
+    const offered = f.offeredTools();
+    expect(offered.filter((tool) => tool.startsWith("marketplace"))).toEqual([
+      "marketplace_search_tools",
+      "marketplace_load_tool",
+      "marketplace_execute_tool",
+    ]);
+    const [hit] = (f.results[0] as { tools: { id: string; name: string }[] }).tools;
+    expect(hit!.name).toMatch(/^marketplace__convert_temperatu/);
+
+    executeSample(f, hit!.id, "call-1");
+    await f.run();
+    expect(isApprovalPausedResult(f.results.at(-1))).toBe(true);
+    expect(pausedActionIds(f)).toEqual(["allow", "deny"]);
+    expect(askDetail(f)).toContain("https://units.example.com/mcp");
+    expect(askDetail(f)).toContain(JSON.stringify(args));
+    expect(forwarded).not.toContain("tools/call");
+    // Stored exactly as the direct call's approval: the plugin tool and its own arguments.
+    const effect = f.effects.find((candidate) => candidate.kind === hit!.name)!;
+    expect(f.effects.filter((candidate) => candidate.kind.startsWith("marketplace__"))).toEqual([
+      effect,
+    ]);
+    expect(effect.kind).toBe(hit!.name);
+    expect(JSON.stringify(effect.request)).toContain(JSON.stringify(args));
+    expect(JSON.stringify(effect.request)).not.toContain(hit!.id);
+
+    effect.status = "approved";
+    executeSample(f, hit!.id, "replay");
+    await f.run();
+    expect(forwarded.filter((method) => method === "tools/call")).toHaveLength(1);
+    expect(f.results.at(-1)).toMatchObject({
+      isError: false,
+      structuredContent: { value: 212, unit: "fahrenheit" },
+    });
+    expect(f.execute).not.toHaveBeenCalled();
+  });
+
+  it("checks the grant again before a catalog call reaches the plugin", async () => {
+    listToolsBefore(DIRECT_TOOL_LIMIT + 1);
+    const f = fixture({ builtin: true });
+    grant(f);
+    findSample(f);
+    await f.run();
+    const [hit] = (f.results[0] as { tools: { id: string }[] }).tools;
+    executeSample(f, hit!.id, "call-1");
+    await f.run();
+    f.effects.find((candidate) => candidate.kind.startsWith("marketplace__"))!.status = "approved";
+    let lists = 0;
+    beforeRequest = (method) => {
+      if (method === "tools/list" && ++lists === 2) {
+        f.prisma.registryPluginGrant.findMany.mockResolvedValue([]);
+      }
+    };
+    executeSample(f, hit!.id, "replay");
+    await f.run();
+    expect(lists).toBe(2);
+    expect(forwarded).not.toContain("tools/call");
+    expect(f.results.at(-1)).toHaveProperty("error");
+  });
+
+  it("refuses a catalog call in Never ask mode, as the direct call is", async () => {
+    listToolsBefore(DIRECT_TOOL_LIMIT + 1);
+    const f = fixture({ builtin: true, skipApprovals: true });
+    grant(f);
+    executeSample(f, "convert_temperature", "call-1");
+    await f.run();
+    expect(forwarded).not.toContain("tools/call");
+    expect(f.results[0]).toHaveProperty("error");
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
+  });
+
+  it("refuses a catalog id that names no granted tool", async () => {
+    listToolsBefore(DIRECT_TOOL_LIMIT + 1);
+    const f = fixture({ builtin: true });
+    grant(f);
+    executeSample(f, "convert_length", "call-1");
+    await f.run();
+    expect(forwarded).not.toContain("tools/call");
+    expect(f.results[0]).toEqual({ error: expect.stringContaining("unknown or not authorized") });
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
   });
 
   it.each(["revoked", "regranted", "approval denied", "blocked by rule"] as const)(

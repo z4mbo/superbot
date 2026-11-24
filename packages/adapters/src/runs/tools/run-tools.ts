@@ -1,15 +1,17 @@
-import type { AgentToolExecutionObserver } from "@rakazo/adapter-kit";
+import type { AgentToolExecutionObserver, ConnectorTool } from "@rakazo/adapter-kit";
 import { BACKGROUND_HELPER_TRIGGER, toolResultTaintsRun } from "@rakazo/core";
 import {
   isInternalTermination,
   isTerminatingReplyResult,
 } from "../../approvals/approval-effect.js";
 import { argumentGiven } from "../../bots/update-bot-patch.js";
+import { sanitizeConnectorError } from "../../integrations/connector-safety.js";
 import {
   findLiveMarketplaceGrant,
   MARKETPLACE_UNAVAILABLE,
   marketplaceScope,
   marketplaceToolName,
+  resolveMarketplaceCatalogCall,
 } from "../../integrations/marketplace-runtime.js";
 import { listChatTranscripts, readChatMeeting } from "../../meetings/meeting-chat.js";
 import {
@@ -204,9 +206,10 @@ async function dispatchTool(
   observer: AgentToolExecutionObserver | undefined,
 ) {
   ctx.context.signal.throwIfAborted();
+  const calledName = name;
   // A call turned away before its tool runs is logged by its refusal code. `target` is the
   // connector tool a catalog call resolved to.
-  const refuse = <T>(refused: T, target?: string): T => {
+  const refuse = <T>(refused: T, target = name): T => {
     const logged = logToolRefusal(
       {
         spaceId: ctx.run.spaceId,
@@ -215,10 +218,10 @@ async function dispatchTool(
         runId: ctx.runId,
         trigger: ctx.run.trigger,
       },
-      name,
+      calledName,
       refused,
       ctx.secrets,
-      target === name ? undefined : target,
+      target === calledName ? undefined : target,
     );
     if (logged) {
       ctx.state.toolRefusals ??= new Map();
@@ -226,6 +229,24 @@ async function dispatchTool(
     }
     return refused;
   };
+  // A marketplace catalog call runs as the direct call of the plugin tool it names, so every
+  // check, approval and audit below treats it exactly as that call.
+  let marketplaceCatalogTool: ConnectorTool | undefined;
+  try {
+    const resolved = resolveMarketplaceCatalogCall(
+      ctx.tools.connector.get(name)?.route,
+      ctx.tools.marketplaceCatalog,
+      args,
+    );
+    if (resolved) {
+      marketplaceCatalogTool = resolved.tool;
+      name = resolved.tool.name;
+      args = resolved.args;
+    }
+  } catch (error) {
+    await markReadOutsideContent(ctx);
+    return refuse(refusal("marketplace_tool_unavailable", sanitizeConnectorError(error)));
+  }
   if (!strategicInitiativeToolAllowed(name, ctx.run)) {
     return refuse(
       refusal(
@@ -273,7 +294,8 @@ async function dispatchTool(
     return refuse(refusal("model_cannot_see_images", MODEL_CANNOT_SEE_MESSAGE));
   }
   if (marketplaceToolName(name)) {
-    const tool = ctx.tools.offered.find((offered) => offered.name === name);
+    const tool =
+      marketplaceCatalogTool ?? ctx.tools.offered.find((offered) => offered.name === name);
     const scope = marketplaceScope(ctx.run, ctx.bot, ctx.source.messagingChannelRun);
     if (
       !tool ||

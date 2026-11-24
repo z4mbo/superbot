@@ -46,6 +46,7 @@ import { secretPausedToolResult } from "../../secrets/run-secret.js";
 import { recordVaultItemUse } from "../../secrets/vault/vault-activity.js";
 import { partitionTools } from "../../tools/builtin-tool-bridge.js";
 import type { FleetRun } from "../../tools/fleet-tools.js";
+import type { CatalogEntry } from "../../tools/lazy-tool-catalog.js";
 import type { ExecutorDeps } from "../executor/executor-deps.js";
 import type { createRunWorkspaceCheckpoint } from "../lifecycle/run-lifecycle.js";
 import { PausedTurnToolsUnavailableError } from "../lifecycle/run-lifecycle.js";
@@ -289,6 +290,8 @@ export interface RunTools {
   offered: ConnectorTool[];
   builtins: ConnectorTool[];
   connector: Map<string, ConnectorTool>;
+  /** Every marketplace tool the catalog reaches when the run offers the catalog instead. */
+  marketplaceCatalog: CatalogEntry[];
   disabled: Set<string>;
   connectedPlugins: ReturnType<typeof selectRunConnections>;
   approvedReplays: ApprovedEffectReplayQueue;
