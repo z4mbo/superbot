@@ -73,10 +73,12 @@ afterEach(() => {
 function renderHeader({
   inGroup = false,
   panelOpen = false,
+  sidePanelShown = panelOpen,
   modelPicker,
 }: {
   inGroup?: boolean;
   panelOpen?: boolean;
+  sidePanelShown?: boolean;
   modelPicker?: ReactNode;
 } = {}) {
   act(() =>
@@ -89,6 +91,7 @@ function renderHeader({
         activeGroup={undefined}
         activeSnapshot={null}
         panelOpen={panelOpen}
+        sidePanelShown={sidePanelShown}
         onOpenNavigation={() => undefined}
         onTogglePanel={() => undefined}
         modelPicker={modelPicker}
@@ -114,12 +117,18 @@ it("clears the macOS traffic lights beside Open navigation on a narrow desktop w
   expect(container.querySelector('[aria-hidden="true"].app-drag')).toBeNull();
 });
 
-it("keeps its right side clear of window controls at the top right, unless the panel is there", () => {
+it("keeps its right side clear of window controls at the top right, unless a panel is there", () => {
   renderHeader();
   const end = () => container.querySelector<HTMLElement>(".justify-self-end")!;
   expect(end().style.paddingInlineEnd).toBe("var(--window-controls-inset, 0px)");
   renderHeader({ panelOpen: true });
   expect(end().style.paddingInlineEnd).toBe("");
+  // A panel that is not the chat's own, such as a new group, takes the corner too.
+  renderHeader({ sidePanelShown: true });
+  expect(end().style.paddingInlineEnd).toBe("");
+  expect(
+    container.querySelector('[data-testid="bot-settings-trigger"]')!.getAttribute("aria-expanded"),
+  ).toBe("false");
 });
 
 it("holds only the bot's name and, beside it, its model", () => {

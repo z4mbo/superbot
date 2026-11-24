@@ -101,7 +101,7 @@ import { ShellDialogs, useShellDialogs } from "./shell/shell-dialogs";
 import type { SettingsSection } from "./shell/shell-overlay-url";
 import { AppOverlays, SettingsOverlays } from "./shell/shell-overlays";
 import { cycleBotId, isApplePlatform, useShellShortcuts } from "./shell/shell-shortcuts";
-import { ShellSidePanel } from "./shell/side-panel";
+import { ShellSidePanel, sidePanelShown } from "./shell/side-panel";
 import { ArchivedChats } from "./shell/sidebar/archived-chats";
 import { focusSidebarSearch, ShellSidebar } from "./shell/sidebar/shell-sidebar";
 import { BotsSidebarLayout } from "./shell/sidebar/sidebar-layout";
@@ -1182,6 +1182,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
             activeSnapshot={activeSnapshot}
             meetingsEnabled={Boolean(bootstrapMe?.meetingsEnabled)}
             panelOpen={chatPanelOpen}
+            sidePanelShown={sidePanelShown(panel, active, activeGroup)}
             onOpenNavigation={() => setMobileSidebarOpen(true)}
             onTogglePanel={toggleChatPanel}
             modelPicker={

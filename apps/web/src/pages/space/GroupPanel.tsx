@@ -8,6 +8,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { errorText } from "../../lib/query/user-error";
 import { useEventListener } from "../../lib/use-event-listener";
 import { DeleteItemDialog } from "../shell/create-delete-dialogs";
+import { sidePanelHeaderStyle } from "../shell/resizable-side-panel";
 
 function validSelection(name: string, selected: readonly string[]) {
   return (
@@ -173,7 +174,7 @@ export function CreateGroupForm({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between" style={sidePanelHeaderStyle}>
         <span className="text-body text-muted-foreground">
           <Trans>New group</Trans>
         </span>
@@ -310,7 +311,7 @@ export function GroupSettings({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between" style={sidePanelHeaderStyle}>
         <span className="text-body text-muted-foreground">
           <Trans>Group settings</Trans>
         </span>

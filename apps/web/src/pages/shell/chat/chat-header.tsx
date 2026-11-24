@@ -21,6 +21,7 @@ export function ChatHeader({
   activeSnapshot,
   meetingsEnabled,
   panelOpen,
+  sidePanelShown,
   onOpenNavigation,
   onTogglePanel,
   modelPicker,
@@ -30,7 +31,10 @@ export function ChatHeader({
   activeGroup: Group | undefined;
   activeSnapshot: ThreadSnapshot | null;
   meetingsEnabled?: boolean;
+  /** Whether the chat's own details panel is open, which the capsule toggles. */
   panelOpen: boolean;
+  /** Whether any panel shows beside the chat, so the window's top right corner is the panel's. */
+  sidePanelShown: boolean;
   onOpenNavigation: () => void;
   onTogglePanel: () => void;
   /** The bot's model, shown inside the capsule beside its name. */
@@ -108,10 +112,12 @@ export function ChatHeader({
       ) : (
         <div />
       )}
-      {/* Clear of window controls at the window's top right, unless the details panel is there. */}
+      {/* Clear of window controls at the window's top right, unless a side panel is there. */}
       <div
         className="flex items-center justify-self-end gap-2"
-        style={panelOpen ? undefined : { paddingInlineEnd: "var(--window-controls-inset, 0px)" }}
+        style={
+          sidePanelShown ? undefined : { paddingInlineEnd: "var(--window-controls-inset, 0px)" }
+        }
       >
         {meetingsEnabled && !inGroup && active ? (
           <MeetingsControl key={active.id} botId={active.id} />

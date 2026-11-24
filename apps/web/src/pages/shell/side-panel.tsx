@@ -9,9 +9,18 @@ import { RoutineEditor } from "../routines/RoutineEditor";
 import type { RoutineList } from "../routines/RoutineList";
 import { CreateGroupForm, GroupSettings } from "../space/GroupPanel";
 import { BotSettings } from "./bots/bot-panel";
-import { ResizableSidePanel } from "./resizable-side-panel";
+import { ResizableSidePanel, sidePanelHeaderStyle } from "./resizable-side-panel";
 import type { Panel } from "./right-panel-state";
 import { firstThreadRoute } from "./use-shell-navigation";
+
+/** Whether the panel beside the chat shows, taking the window's top right corner. */
+export function sidePanelShown(
+  panel: Panel,
+  active: Bot | undefined,
+  activeGroup: Group | undefined,
+) {
+  return Boolean(panel && (active || activeGroup));
+}
 
 /** The panel beside the chat: a bot, a routine, a group, or an import. */
 export function ShellSidePanel({
@@ -61,7 +70,7 @@ export function ShellSidePanel({
   onCoversChat: (covers: boolean) => void;
 }) {
   const { t } = useLingui();
-  const open = Boolean(panel && (active || activeGroup));
+  const open = sidePanelShown(panel, active, activeGroup);
   const botView = panel === "routines" || panel === "pages" || panel === "settings" ? panel : null;
 
   async function createGroup(input: { name: string; botIds: string[] }) {
@@ -82,7 +91,7 @@ export function ShellSidePanel({
           panel !== "routine" &&
           panel !== "create-group" &&
           panel !== "group-settings" ? (
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between" style={sidePanelHeaderStyle}>
               {!active && panel !== "settings" ? (
                 <span className="text-body text-muted-foreground">
                   <Trans>Group</Trans>
