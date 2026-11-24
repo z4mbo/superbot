@@ -267,6 +267,28 @@ export function bodyEyes(
   return out;
 }
 
+/**
+ * Keeps eye outlines inside a silhouette made by `bodySilhouette` (evenly spaced rays from the
+ * centre): a point past the edge moves in along its ray to just inside it, as the reference's
+ * mask trims an eye that reaches over the body's side.
+ */
+export function keepInside(eyes: readonly Point[][], silhouette: readonly Point[]): Point[][] {
+  const count = silhouette.length;
+  const reach = silhouette.map(([x, y]) => Math.hypot(x, y));
+  return eyes.map((eye) =>
+    eye.map(([x, y]) => {
+      const at = ((Math.atan2(y, x) / (Math.PI * 2) + 1) % 1) * count;
+      const index = Math.floor(at);
+      const t = at - index;
+      const edge = (reach[index % count]! * (1 - t) + reach[(index + 1) % count]! * t) * 0.985;
+      const distance = Math.hypot(x, y);
+      return distance > edge
+        ? ([(x / distance) * edge, (y / distance) * edge] as const)
+        : ([x, y] as const);
+    }),
+  );
+}
+
 /** How far a held gaze turns a body (degrees) and moves it (radii), per unit of gaze. */
 export function bodyGaze(shape: BotMarkBodyShape | "sphere") {
   if (shape === "sphere") return { pitch: 14, yaw: 18, x: 0.03, y: 0.024 };

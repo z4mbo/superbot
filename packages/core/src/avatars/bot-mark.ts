@@ -9,7 +9,7 @@
  * path it returns, once per bot, wherever that bot appears.
  */
 
-import { bodyEyes, bodyGaze, bodyMatrix, bodySilhouette } from "./bot-mark-bodies.js";
+import { bodyEyes, bodyGaze, bodyMatrix, bodySilhouette, keepInside } from "./bot-mark-bodies.js";
 import type { BotMarkBodyShape } from "./bot-mark-body-data.js";
 import type { BotMarkFace } from "./bot-mark-faces.js";
 import {
@@ -373,9 +373,11 @@ export function botMarkPath(shape: BotMarkShape, frame: BotMarkFrame): string {
       cx + x * sx * radius,
       anchorY + (cy - y * radius - anchorY) * sy,
     ];
-    body = smoothPath(bodySilhouette(shape, turn).map(toBox));
+    const silhouette = bodySilhouette(shape, turn);
+    body = smoothPath(silhouette.map(toBox));
     if (frame.eyes) {
-      for (const eye of bodyEyes(shape, frame.eyes, turn)) eyes.push(eye.map(toBox));
+      const inside = keepInside(bodyEyes(shape, frame.eyes, turn), silhouette);
+      for (const eye of inside) eyes.push(eye.map(toBox));
     }
   }
   return body + eyes.map(polylinePath).join("");
