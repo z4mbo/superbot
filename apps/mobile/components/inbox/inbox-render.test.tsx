@@ -572,7 +572,11 @@ it("collapses a section from its heading and keeps the choice for the account", 
     },
   ] as unknown as InboxSpace[];
   const userOne = { userId: "user-1" };
-  const heading = () => container.querySelector("button")!;
+  // Unassigned draws above the named sections, so find Work's heading by its name.
+  const heading = () =>
+    container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Collapse Work"], button[aria-label="Expand Work"]',
+    )!;
   const names = () =>
     Array.from(container.querySelectorAll("b[data-identity]"), (row) =>
       row.getAttribute("data-identity"),
@@ -585,7 +589,7 @@ it("collapses a section from its heading and keeps the choice for the account", 
   expect(heading().textContent).toBe("Work");
   // Every heading is a full tap target, with or without the section "…" menu beside it.
   expect(heading().dataset.minHeight).toBe("44");
-  expect(names()).toEqual(["bot-a", "bot-b", "bot-c"]);
+  expect(names()).toEqual(["bot-c", "bot-a", "bot-b"]);
 
   ui.chevronTargets = [];
   act(() => heading().click());
@@ -603,7 +607,7 @@ it("collapses a section from its heading and keeps the choice for the account", 
 
   act(() => heading().click());
   expect(heading().getAttribute("aria-label")).toBe("Collapse Work");
-  expect(names()).toEqual(["bot-a", "bot-b", "bot-c"]);
+  expect(names()).toEqual(["bot-c", "bot-a", "bot-b"]);
   expect(ui.saveCollapsedSections).toHaveBeenLastCalledWith("user-1", new Set());
 
   // Quick taps save once per committed state, the final one last.
@@ -631,12 +635,12 @@ it("collapses a section from its heading and keeps the choice for the account", 
   expect(heading().getAttribute("aria-label")).toBe("Expand Work");
   expect(names()).toEqual(["bot-c"]);
   expect(ui.avatars).not.toContain("bot-a");
-  // Work's chevron mounts pointing right (no fold animation); Unassigned's mounts turned down.
-  expect(ui.chevronStarts.slice(0, 2)).toEqual([0, 90]);
+  // Unassigned's chevron mounts turned down; Work's mounts pointing right (no fold animation).
+  expect(ui.chevronStarts.slice(0, 2)).toEqual([90, 0]);
 
   // Another account on this device starts expanded; the saved account keeps its choice.
   render(<SectionList spaces={spaces} me={{ userId: "user-2" }} />);
-  expect(names()).toEqual(["bot-a", "bot-b", "bot-c"]);
+  expect(names()).toEqual(["bot-c", "bot-a", "bot-b"]);
   render(<SectionList spaces={spaces} me={userOne} />);
   expect(names()).toEqual(["bot-c"]);
 });

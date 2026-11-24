@@ -101,15 +101,15 @@ describe("spaceInboxItems", () => {
           .map((item) => [item.key, item.title]),
       ).toEqual([
         [`${input.id}:pinned`, "Angeheftet"],
-        [`${input.id}:section:custom`, "Pinned"],
         [`${input.id}:unassigned`, "Nicht zugewiesen"],
+        [`${input.id}:section:custom`, "Pinned"],
       ]);
       activateUiLocale("en");
       expect(
         spaceInboxItems([input])
           .filter((item) => item.type === "heading")
           .map((item) => item.title),
-      ).toEqual(["Pinned", "Pinned", "Unassigned"]);
+      ).toEqual(["Pinned", "Unassigned", "Pinned"]);
     } finally {
       activateUiLocale("en");
     }
@@ -300,11 +300,11 @@ describe("spaceInboxItems", () => {
       ["Work", undefined, undefined],
       ["Pinned", false, 1],
       "pinned",
+      ["Unassigned", false, 1],
+      "loose",
       ["Research", false, 2],
       "parent",
       "child",
-      ["Unassigned", false, 1],
-      "loose",
     ]);
     // The space heading switches spaces, so its own key never collapses it.
     expect(
@@ -313,17 +313,17 @@ describe("spaceInboxItems", () => {
       ["Work", undefined, undefined],
       ["Pinned", false, 1],
       "pinned",
-      ["Research", true, 2],
       ["Unassigned", true, 1],
+      ["Research", true, 2],
     ]);
     expect(rows(new Set([`${work.id}:pinned`]))).toEqual([
       ["Work", undefined, undefined],
       ["Pinned", true, 1],
+      ["Unassigned", false, 1],
+      "loose",
       ["Research", false, 2],
       "parent",
       "child",
-      ["Unassigned", false, 1],
-      "loose",
     ]);
   });
 
