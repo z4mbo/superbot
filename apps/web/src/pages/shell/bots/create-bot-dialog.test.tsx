@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { botMarkShapeFor } from "@rakazo/core";
+import { BOT_MARK_PICKER_INKS, BOT_MARK_PICKER_SHAPES, botMarkShapeFor } from "@rakazo/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { act } from "react";
@@ -14,7 +14,6 @@ vi.mock("@lingui/react/macro", () => {
   return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
 });
 
-import { PICKER_INKS, PICKER_SHAPES } from "./bot-look-picker";
 import { CreateBotDialog } from "./create-bot-dialog";
 
 let container: HTMLDivElement;
@@ -83,8 +82,8 @@ describe("CreateBotDialog", () => {
       cell.getAttribute("data-bot-look-shape"),
     );
     // The picker's thirteen, plus the starting body when it is one the picker does not offer.
-    expect(shapes.slice(0, PICKER_SHAPES.length)).toEqual(PICKER_SHAPES);
-    expect(shapes.length - PICKER_SHAPES.length).toBeLessThanOrEqual(1);
+    expect(shapes.slice(0, BOT_MARK_PICKER_SHAPES.length)).toEqual(BOT_MARK_PICKER_SHAPES);
+    expect(shapes.length - BOT_MARK_PICKER_SHAPES.length).toBeLessThanOrEqual(1);
     const rows = document.querySelector('[aria-label="Character shape"]')!.children;
     // A starting body the picker does not offer joins the last row.
     expect([...rows].map((row) => row.children.length)).toEqual([5, 5, shapes.length - 10]);
@@ -92,7 +91,7 @@ describe("CreateBotDialog", () => {
       [...document.querySelectorAll("[data-bot-look-ink]")].map((cell) =>
         cell.getAttribute("data-bot-look-ink"),
       ),
-    ).toEqual(PICKER_INKS);
+    ).toEqual(BOT_MARK_PICKER_INKS);
   });
 
   it("sends the picked body and ink as the new bot's look, with the ink's colour", async () => {

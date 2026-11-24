@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { BOT_NAME_MAX_LENGTH } from "@rakazo/contracts";
-import { botMarkShapeFor, newBotLook } from "@rakazo/core";
+import { BOT_MARK_PICKER_INKS, botMarkShapeFor, newBotLook } from "@rakazo/core";
 import { botInks } from "@rakazo/ui-tokens";
 import {
   BotAvatar,
@@ -19,7 +19,7 @@ import { useSave } from "../../../lib/query/query";
 import type { RpcClient } from "../../../lib/query/rpc";
 import { errorText } from "../../../lib/query/user-error";
 import type { BotPickedLook } from "./bot-look-picker";
-import { BotLookPicker, PICKER_INKS } from "./bot-look-picker";
+import { BotLookPicker } from "./bot-look-picker";
 
 export interface CreateBotDialogInput {
   name: string;
@@ -35,7 +35,7 @@ export interface CreateBotDialogInput {
 /** A new bot starts on one of the everyday bodies, in any ink but black. */
 function startingLook(): { id: string; look: BotPickedLook } {
   const { id } = newBotLook();
-  const inks = PICKER_INKS.filter((ink) => ink !== "neutral");
+  const inks = BOT_MARK_PICKER_INKS.filter((ink) => ink !== "neutral");
   const ink = inks[Math.floor(Math.random() * inks.length)] ?? "blue";
   return { id, look: { shape: botMarkShapeFor(id), ink } };
 }

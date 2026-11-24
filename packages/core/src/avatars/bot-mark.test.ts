@@ -262,7 +262,9 @@ describe("bot mark", () => {
   it("offers the editor's colours and bodies in its order, the pumpkin bringing orange", () => {
     expect(BOT_MARK_PICKER_INKS[0]).toBe("neutral");
     expect(BOT_MARK_PICKER_INKS.at(-1)).toBe("gray");
-    expect(BOT_MARK_PICKER_SHAPES).toHaveLength(25);
+    expect(BOT_MARK_PICKER_SHAPES).toHaveLength(13);
+    expect(BOT_MARK_PICKER_SHAPES[0]).toBe("blob");
+    expect(BOT_MARK_PICKER_SHAPES.every((shape) => BOT_MARK_SHAPES.includes(shape))).toBe(true);
     expect(BOT_MARK_PICKER_SHAPES).not.toContain("pumpkin");
     expect(botMarkShapeInk("pumpkin")).toBe("orange");
     expect(botMarkShapeInk("blob")).toBeNull();

@@ -392,9 +392,22 @@ export const BOT_MARK_PICKER_INKS: readonly BotMarkInk[] = [
   "gray",
 ];
 
-/** The bodies the editor offers; the pumpkin is a seasonal body the editor leaves out. */
-export const BOT_MARK_PICKER_SHAPES: readonly BotMarkShape[] =
-  /* @__PURE__ */ BOT_MARK_SHAPES.filter((shape) => shape !== "pumpkin");
+/** The bodies a person can pick in the editor, in its order. The others are still drawn. */
+export const BOT_MARK_PICKER_SHAPES: readonly BotMarkShape[] = [
+  "blob",
+  "cloud",
+  "square",
+  "sparkle",
+  "clover",
+  "heart",
+  "flower",
+  "teardrop",
+  "tablet",
+  "wedge",
+  "house",
+  "star",
+  "hex",
+];
 
 /** Picking one of these bodies also picks its ink. */
 const SHAPE_INKS: Partial<Record<BotMarkShape, BotMarkInk>> = { pumpkin: "orange" };

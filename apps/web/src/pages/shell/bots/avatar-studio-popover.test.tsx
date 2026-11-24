@@ -12,9 +12,9 @@ vi.mock("@lingui/react/macro", () => {
   return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
 });
 
+import { BOT_MARK_PICKER_INKS, BOT_MARK_PICKER_SHAPES } from "@rakazo/core";
 import type { BotMarkLook } from "./avatar-studio-popover";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
-import { PICKER_INKS, PICKER_SHAPES } from "./bot-look-picker";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -91,8 +91,8 @@ describe("agent edit menu", () => {
     expect(document.querySelector('[aria-label="Avatar editor"]')).not.toBeNull();
     expect(button("Bot").getAttribute("aria-selected")).toBe("true");
     expect(maybeButton("Upload")).toBeDefined();
-    expect(shown("data-bot-look-shape")).toEqual(PICKER_SHAPES);
-    expect(shown("data-bot-look-ink")).toEqual(PICKER_INKS);
+    expect(shown("data-bot-look-shape")).toEqual(BOT_MARK_PICKER_SHAPES);
+    expect(shown("data-bot-look-ink")).toEqual(BOT_MARK_PICKER_INKS);
     const rows = document.querySelector('[aria-label="Character shape"]')!.children;
     expect([...rows].map((row) => row.children.length)).toEqual([5, 5, 3]);
     expect(button("blob character shape").getAttribute("aria-pressed")).toBe("true");
@@ -111,7 +111,7 @@ describe("agent edit menu", () => {
 
   it("adds the bot's own body when the picker does not offer it", async () => {
     await render("#FF781C", { lookShape: "pebble", lookColor: "blue" });
-    expect(shown("data-bot-look-shape")).toEqual([...PICKER_SHAPES, "pebble"]);
+    expect(shown("data-bot-look-shape")).toEqual([...BOT_MARK_PICKER_SHAPES, "pebble"]);
     expect(button("pebble character shape").getAttribute("aria-pressed")).toBe("true");
   });
 

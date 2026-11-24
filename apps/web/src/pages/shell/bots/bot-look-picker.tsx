@@ -1,46 +1,17 @@
 import { useLingui } from "@lingui/react/macro";
 import type { BotMarkInk, BotMarkShape } from "@rakazo/core";
-import { BOT_MARK_VIEWBOX, botMarkRestDrawing } from "@rakazo/core";
+import {
+  BOT_MARK_PICKER_INKS,
+  BOT_MARK_PICKER_SHAPES,
+  BOT_MARK_VIEWBOX,
+  botMarkRestDrawing,
+  botMarkShapeInk,
+} from "@rakazo/core";
 import { cn } from "@rakazo/ui-web";
 import { useId } from "react";
 
 /** A bot's look as the picker edits it: one body and one ink. */
 export type BotPickedLook = { shape: BotMarkShape; ink: BotMarkInk };
-
-/** The bodies the picker offers, in the reference's order. Rows hold five. */
-export const PICKER_SHAPES: readonly BotMarkShape[] = [
-  "blob",
-  "cloud",
-  "square",
-  "sparkle",
-  "clover",
-  "heart",
-  "flower",
-  "teardrop",
-  "tablet",
-  "wedge",
-  "house",
-  "star",
-  "hex",
-];
-
-/** The inks the picker offers, in the reference's order. */
-export const PICKER_INKS: readonly BotMarkInk[] = [
-  "neutral",
-  "brown",
-  "red",
-  "orange",
-  "yellow",
-  "green",
-  "cyan",
-  "blue",
-  "purple",
-  "magenta",
-  "gray",
-];
-
-/** A body that always wears one ink: picking it sets the ink and hides the colours. */
-const FIXED_INKS: Partial<Record<BotMarkShape, BotMarkInk>> = { pumpkin: "orange" };
 
 const ROW = 5;
 /** The mark inside a 48px shape cell. */
@@ -50,12 +21,14 @@ const RING_GAP = 3;
 
 /** The look after picking a body: a body with an ink of its own takes it. */
 export function withShape(look: BotPickedLook, shape: BotMarkShape): BotPickedLook {
-  return { shape, ink: FIXED_INKS[shape] ?? look.ink };
+  return { shape, ink: botMarkShapeInk(shape) ?? look.ink };
 }
 
 /** The shapes to show: the picker's own, plus the current body when it is not one of them. */
 function shownShapes(current: BotMarkShape): readonly BotMarkShape[] {
-  return PICKER_SHAPES.includes(current) ? PICKER_SHAPES : [...PICKER_SHAPES, current];
+  return BOT_MARK_PICKER_SHAPES.includes(current)
+    ? BOT_MARK_PICKER_SHAPES
+    : [...BOT_MARK_PICKER_SHAPES, current];
 }
 
 /**
@@ -76,7 +49,7 @@ export function BotLookPicker({
   const rows = Array.from({ length: Math.ceil(shapes.length / ROW) }, (_, index) =>
     shapes.slice(index * ROW, (index + 1) * ROW),
   );
-  const fixedInk = FIXED_INKS[look.shape];
+  const fixedInk = botMarkShapeInk(look.shape);
   return (
     <div className="flex flex-col gap-3">
       <fieldset
@@ -89,7 +62,7 @@ export function BotLookPicker({
               <ShapeCell
                 key={shape}
                 shape={shape}
-                ink={FIXED_INKS[shape] ?? look.ink}
+                ink={botMarkShapeInk(shape) ?? look.ink}
                 selected={shape === look.shape}
                 disabled={disabled}
                 onPick={() => onChange(withShape(look, shape))}
@@ -103,7 +76,7 @@ export function BotLookPicker({
           aria-label={t`Character color`}
           className="m-0 flex min-w-0 max-w-58 flex-wrap justify-center gap-2 self-center border-0 px-0 py-2"
         >
-          {PICKER_INKS.map((ink) => (
+          {BOT_MARK_PICKER_INKS.map((ink) => (
             <InkCell
               key={ink}
               ink={ink}
