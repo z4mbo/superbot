@@ -43,6 +43,7 @@ body{font-size:1rem}
 .rk-page>:not(.rk-header)+.rk-section[data-headed]{margin-top:1.25rem}
 .rk-section-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.6rem 1.2rem}
 .rk-actions{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.5rem 1rem}
+fieldset.rk-actions{min-width:auto;margin:0;padding:0;border:0}
 .rk-heading{margin:0;font-size:1.5rem;line-height:1.25;font-weight:500;letter-spacing:-0.01em}
 .rk-section .rk-section .rk-heading{font-size:1.25rem}
 .rk-section[data-card]{padding:1.125rem 1.125rem 1.25rem;border:1px solid var(--rk-line);border-radius:16px;gap:0.96rem}

@@ -128,7 +128,7 @@ export function ActionForm({
   };
   const available = actionsAvailable();
   return (
-    <div className="rk-actions" role="group" aria-label={buttonLabel}>
+    <fieldset className="rk-actions" aria-label={buttonLabel}>
       {fields.map(([name, field]) =>
         field.type === "boolean" ? (
           <label key={name} className="rk-toggle">
@@ -190,6 +190,6 @@ export function ActionForm({
         {buttonLabel}
       </button>
       <ActionError error={error} />
-    </div>
+    </fieldset>
   );
 }

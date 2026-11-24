@@ -151,6 +151,8 @@ it("sends an ActionForm's fields with a click, without a form submission", async
     await flush();
   });
   expect(document.querySelector("form")).toBeNull();
+  // A fieldset is a group named by the action's label.
+  expect(document.querySelector("fieldset")?.getAttribute("aria-label")).toBe("Add");
   const input = document.querySelector("input")!;
   await act(async () => {
     const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
