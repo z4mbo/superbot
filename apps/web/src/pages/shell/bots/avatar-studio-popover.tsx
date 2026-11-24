@@ -18,7 +18,6 @@ import {
   clampAvatarCrop,
   SHIPPED_BOT_AVATAR_SHAPE_KEYS,
 } from "@rakazo/core";
-import { botInks } from "@rakazo/ui-tokens";
 import {
   BOT_COLORS,
   BotAvatar,
@@ -209,8 +208,7 @@ export function MarkLookPicker({
     look.lookColor,
     resolvePersonaColorDef(identity, botLookState(color).color).hex,
   );
-  const inkStyle = (name: BotMarkInk) =>
-    name === "neutral" ? undefined : { color: botInks[name] };
+  const inkStyle = (name: BotMarkInk) => ({ color: `var(--bot-ink-${name})` });
   return (
     <div className="space-y-4">
       <div>
@@ -230,7 +228,7 @@ export function MarkLookPicker({
               onClick={() => onChange({ ...look, lookShape: name })}
               className={`flex size-10 items-center justify-center rounded-lg transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring ${
                 shape === name ? "bg-accent ring-1 ring-foreground/40" : ""
-              } ${ink === "neutral" ? "text-black dark:text-white" : ""}`}
+              }`}
               style={inkStyle(ink)}
             >
               <svg
@@ -261,7 +259,7 @@ export function MarkLookPicker({
               onClick={() => onChange({ ...look, lookColor: name })}
               className={`size-6 rounded-full bg-current transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring ${
                 ink === name ? "ring-2 ring-foreground ring-offset-2 ring-offset-popover" : ""
-              } ${name === "neutral" ? "text-black dark:text-white ring-1 ring-border" : ""}`}
+              } ${name === "neutral" ? "ring-1 ring-border" : ""}`}
               style={inkStyle(name)}
             />
           ))}

@@ -107,18 +107,13 @@ function ComputerPreview({
         data-state="idle"
         className="flex aspect-[16/10] flex-col items-center justify-center gap-3 rounded-xl bg-muted/50 px-6"
       >
-        <span aria-hidden className="relative">
-          <BotAvatar
-            avatarSet={bot.avatarSet}
-            color={bot.color}
-            identity={bot.id}
-            size={44}
-            className="opacity-50 grayscale"
-          />
-          <span className="absolute -end-3 -top-2 text-caption font-medium leading-none text-muted-foreground/70">
-            z<sup>z</sup>
-          </span>
-        </span>
+        <BotAvatar
+          avatarSet={bot.avatarSet}
+          color={bot.color}
+          identity={bot.id}
+          size={44}
+          state="asleep"
+        />
         <span className="text-body text-muted-foreground">
           <Trans>Asleep</Trans>
         </span>

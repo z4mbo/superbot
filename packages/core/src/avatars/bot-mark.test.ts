@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BOT_MARK_SHAPES,
   BOT_MARK_STATES,
-  botMarkBody,
+  botMarkBlend,
   botMarkFrame,
   botMarkInkFor,
   botMarkPath,
@@ -11,79 +11,146 @@ import {
   botMarkShowcaseEmotion,
   botMarkStateFor,
 } from "./bot-mark.js";
+import { bodyMatrix, bodySilhouette } from "./bot-mark-bodies.js";
+import { faceOutlines } from "./bot-mark-faces.js";
+import { playlistAt, pokeEffect, REST_ROTATION } from "./bot-mark-motion.js";
 
 const subpaths = (d: string) => d.split("M").length - 1;
 
-function radius(d: string, index: number) {
+function points(d: string, index: number) {
   const part = d.split("M")[index + 1]!;
   const numbers = part.match(/-?[\d.]+/g)!.map(Number);
-  let max = 0;
-  for (let i = 0; i < numbers.length; i += 2) {
-    max = Math.max(max, Math.hypot(numbers[i]! - 96, numbers[i + 1]! - 96));
-  }
-  return max;
+  const out: [number, number][] = [];
+  for (let i = 0; i + 1 < numbers.length; i += 2) out.push([numbers[i]!, numbers[i + 1]!]);
+  return out;
 }
+
+const centre = (d: string, index: number) => {
+  const p = points(d, index);
+  return [
+    p.reduce((sum, [x]) => sum + x, 0) / p.length,
+    p.reduce((sum, [, y]) => sum + y, 0) / p.length,
+  ];
+};
+
+const reach = (d: string, index: number) =>
+  Math.max(...points(d, index).map(([x, y]) => Math.hypot(x - 96, y - 96)));
 
 describe("bot mark", () => {
   it.each(BOT_MARK_SHAPES)("draws %s as one body with two eye holes", (shape) => {
     const d = botMarkRestPath(shape);
     expect(subpaths(d)).toBe(3);
     expect(d).toMatch(/Z$/);
-    expect(botMarkBody(shape).length).toBeGreaterThan(40);
   });
 
-  it("makes the disc 60% of the 192-unit box", () => {
-    expect(radius(botMarkRestPath("circle"), 0)).toBeCloseTo(57.6, 0);
+  it("makes the resting sphere a disc 60% of the 192-unit box, drawn with arcs", () => {
+    const d = botMarkRestPath("blob");
+    expect(d.startsWith("M153.6 96A57.6 57.6 0 0 0 96 38.4")).toBe(true);
   });
 
-  it("keeps the eyes inside the body however far the face turns", () => {
-    for (const shape of BOT_MARK_SHAPES) {
-      for (const pointer of [
-        [9, 0],
-        [-9, 4],
-        [0, -9],
-        [6, 6],
-      ] as const) {
-        const d = botMarkPath(shape, botMarkFrame({ state: "idle", time: 2000, seed: 7, pointer }));
-        expect(radius(d, 1)).toBeLessThan(radius(d, 0));
-        expect(radius(d, 2)).toBeLessThan(radius(d, 0));
-      }
+  it("rests with the eyes turned up and to the right, and faces a held gaze head on", () => {
+    const rest = botMarkRestPath("blob");
+    const [lx, ly] = centre(rest, 1);
+    const [rx, ry] = centre(rest, 2);
+    expect(lx).toBeGreaterThan(96);
+    expect(ry).toBeLessThan(ly);
+    expect(rx).toBeGreaterThan(lx);
+    const facing = botMarkPath(
+      "blob",
+      botMarkFrame({ state: "idle", time: 0, seed: 0, gaze: { x: 0, y: 0, hold: 1 } }),
+    );
+    expect(centre(facing, 1)[0]).toBeCloseTo(78.4, 0);
+    expect(centre(facing, 2)[0]).toBeCloseTo(113.6, 0);
+    expect(centre(facing, 1)[1]).toBeCloseTo(96, 0);
+  });
+
+  it("keeps the sphere's eyes inside the disc however far it turns", () => {
+    for (const time of [0, 150, 300, 450, 600, 750]) {
+      const frame = botMarkFrame({
+        state: "idle",
+        time: 0,
+        seed: 1,
+        pokes: [{ kind: "spin", since: time / 1000 }],
+      });
+      const d = botMarkPath("blob", frame);
+      for (let eye = 1; eye < subpaths(d); eye += 1)
+        expect(reach(d, eye)).toBeLessThanOrEqual(57.7);
     }
   });
 
-  it("turns the face toward the pointer and lays the eyes along the rim when it is far", () => {
-    const near = botMarkFrame({ state: "idle", time: 2000, seed: 1, pointer: [0.2, 0] });
-    const far = botMarkFrame({ state: "idle", time: 2000, seed: 1, pointer: [12, 0] });
-    expect(far.gaze[0]).toBeGreaterThan(near.gaze[0]);
-    expect(far.left.w).toBeLessThan(near.left.w);
-    expect(near.roll ?? 0).toBeCloseTo(0, 1);
+  it("spins a full turn in 0.9s when clicked", () => {
+    expect(pokeEffect([{ kind: "spin", since: 0.3 }]).yaw).toBeCloseTo(90, 5);
+    expect(pokeEffect([{ kind: "spin", since: 0.45 }]).yaw).toBeCloseTo(180, 5);
+    expect(pokeEffect([{ kind: "spin", since: 1 }]).yaw).toBe(0);
+    const bounce = pokeEffect([{ kind: "bounce", since: 0.05 }]);
+    expect(bounce.squash[0]).toBeGreaterThan(1);
+    expect(bounce.squash[1]).toBeLessThan(1);
   });
 
-  it("changes a working bot's eyes and sways its body over time", () => {
-    const frames = [0, 1200, 2600, 3800].map((time) =>
-      botMarkPath("circle", botMarkFrame({ state: "working", time, seed: 0, pointer: null })),
+  it("turns shaped bodies as solids, so their outline changes edge-on", () => {
+    const front = bodySilhouette("square", bodyMatrix([0, 0, 0]));
+    const side = bodySilhouette("square", bodyMatrix([0, 90, 0]));
+    const width = (outline: readonly (readonly [number, number])[]) =>
+      Math.max(...outline.map(([x]) => x)) - Math.min(...outline.map(([x]) => x));
+    expect(width(side)).toBeLessThan(width(front) * 0.5);
+    expect(width(bodySilhouette("capsule", bodyMatrix([0, 90, 0])))).toBeCloseTo(
+      width(bodySilhouette("capsule", bodyMatrix([0, 0, 0]))),
+      1,
+    );
+  });
+
+  it("plays a working bot's clips in a seeded order that differs between bots", () => {
+    const clips = [
+      "workSpin",
+      "workInspect",
+      "workSway",
+      "workScan",
+      "workLook",
+      "workFlip",
+    ] as const;
+    const order = (seed: number) =>
+      Array.from({ length: 12 }, (_, index) => playlistAt(clips, index * 5, seed).clip).join();
+    expect(order(1)).toBe(order(1));
+    expect(order(1)).not.toBe(order(2));
+    const frames = [0, 700, 1400, 2100].map((time) =>
+      botMarkPath("blob", botMarkFrame({ state: "working", time, seed: 0 })),
     );
     expect(new Set(frames).size).toBe(frames.length);
-    const sway = [0, 325, 650, 975].map(
-      (time) => botMarkFrame({ state: "working", time, seed: 0, pointer: null }).dx,
-    );
-    expect(Math.max(...sway) - Math.min(...sway)).toBeGreaterThan(6);
   });
 
   it.each(BOT_MARK_STATES)("draws the %s state", (state) => {
-    const d = botMarkPath("egg", botMarkFrame({ state, time: 1500, seed: 3, pointer: null }));
+    const d = botMarkPath("egg", botMarkFrame({ state, time: 1500, seed: 3, shape: "egg" }));
     expect(subpaths(d)).toBeGreaterThanOrEqual(1);
   });
 
-  it("squashes on a click and springs back", () => {
-    const poked = botMarkFrame({ state: "idle", time: 0, seed: 0, pointer: null, poke: 0 });
-    const settled = botMarkFrame({ state: "idle", time: 0, seed: 0, pointer: null, poke: 2000 });
-    expect(poked.sy).toBeLessThan(1);
-    expect(poked.sx).toBeGreaterThan(1);
-    expect(settled.sx).toBe(1);
+  it("closes a sleeping bot's eyes into flat curves", () => {
+    const [eye] = faceOutlines("sleepy");
+    const ys = eye.map(([, y]) => y);
+    const xs = eye.map(([x]) => x);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(
+      (Math.max(...xs) - Math.min(...xs)) * 0.8,
+    );
+    const frame = botMarkFrame({ state: "asleep", time: 900, seed: 0 });
+    expect(frame.eyes).not.toBeNull();
   });
 
-  it("shows each welcome emotion for 1200ms with 1200ms of idle between", () => {
+  it("rests idle bots in the reference's turned pose without moving", () => {
+    const a = botMarkFrame({ state: "idle", time: 0, seed: 0 });
+    const b = botMarkFrame({ state: "idle", time: 5000, seed: 9 });
+    expect(a).toEqual(b);
+    expect(a.rotation).toEqual([...REST_ROTATION]);
+  });
+
+  it("blends from one state into the next", () => {
+    const from = botMarkFrame({ state: "idle", time: 0, seed: 0 });
+    const to = botMarkFrame({ state: "working", time: 0, seed: 0 });
+    expect(botMarkBlend(from, to, 0).rotation[1]).toBeCloseTo(from.rotation[1], 5);
+    // A blend never unwinds whole turns, so compare the angle round the circle.
+    const turn = (value: number) => ((value % 360) + 360) % 360;
+    expect(turn(botMarkBlend(from, to, 1).rotation[1])).toBeCloseTo(turn(to.rotation[1]), 5);
+  });
+
+  it("shows each welcome emotion for 1200ms with 1200ms of rest between", () => {
     expect(botMarkShowcaseEmotion(100)).toBe("playful");
     expect(botMarkShowcaseEmotion(1300)).toBeNull();
     expect(botMarkShowcaseEmotion(2500)).toBe("excited");
@@ -91,20 +158,28 @@ describe("bot mark", () => {
 
   it("keeps a picked shape and ink, and derives stable ones otherwise", () => {
     expect(botMarkShapeFor("bot-1", "cloud")).toBe("cloud");
+    expect(botMarkShapeFor("bot-1", "circle")).toBe("blob");
     expect(botMarkShapeFor("bot-1", "nope")).toBe(botMarkShapeFor("bot-1"));
     expect(botMarkShapeFor("bot-1", null, 1)).toBe(BOT_MARK_SHAPES[1]);
+    const defaults = new Set(
+      Array.from({ length: 60 }, (_, index) => botMarkShapeFor(`bot-${index}`)),
+    );
+    expect(defaults.size).toBeGreaterThan(4);
     expect(botMarkInkFor("green", "#000000")).toBe("green");
+    expect(botMarkInkFor("violet", "#000000")).toBe("purple");
     expect(botMarkInkFor(null, "#1e86fc")).toBe("blue");
     expect(botMarkInkFor(null, "#fb2b3e")).toBe("red");
-    expect(botMarkInkFor(null, "#14c16f")).toBe("green");
     expect(botMarkInkFor(null, "#a06b39")).toBe("brown");
     expect(botMarkInkFor(null, "#111111")).toBe("neutral");
   });
 
-  it("maps run statuses to states", () => {
+  it("maps statuses to looks, with sleeping and unreachable bots asleep", () => {
     expect(botMarkStateFor("running")).toBe("working");
     expect(botMarkStateFor("waiting_input")).toBe("waiting");
     expect(botMarkStateFor("failed")).toBe("error");
+    expect(botMarkStateFor("hibernated")).toBe("asleep");
+    expect(botMarkStateFor("offline")).toBe("asleep");
+    expect(botMarkStateFor("waking")).toBe("waking");
     expect(botMarkStateFor(undefined)).toBe("idle");
   });
 });

@@ -166,6 +166,81 @@
   }
 }
 
+/* A sleeping bot's mark breathes slowly while z's drift up from its corner. */
+@keyframes bot-mark-breathe {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes bot-mark-z {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(1);
+  }
+}
+
+.bot-mark-sleep-body {
+  will-change: transform, opacity;
+  animation: bot-mark-breathe 2.4s ease-in-out infinite;
+}
+
+.bot-mark-sleep-zs {
+  position: absolute;
+  top: 4px;
+  inset-inline-start: calc(100% - 4px);
+  pointer-events: none;
+}
+
+.bot-mark-sleep-zs > span {
+  position: absolute;
+  bottom: 0;
+  display: block;
+  color: var(--faint-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: bot-mark-z 2.4s ease-out infinite;
+}
+
+.bot-mark-sleep-zs > span::before {
+  content: "z";
+}
+
+.bot-mark-sleep-zs > span:nth-child(2) {
+  inset-inline-start: 4px;
+  animation-delay: -800ms;
+}
+
+.bot-mark-sleep-zs > span:nth-child(3) {
+  inset-inline-start: 8px;
+  animation-delay: -1600ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bot-mark-sleep-body {
+    animation: none;
+  }
+  .bot-mark-sleep-zs {
+    display: none;
+  }
+}
+
 @keyframes rakazo-avatar-spin {
   0% {
     transform: rotate(0deg);

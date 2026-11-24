@@ -8,6 +8,7 @@ import {
   botMarkInkFor,
   botMarkRestPath,
   botMarkShapeFor,
+  botMarkStateFor,
   DEFAULT_BOT_AVATAR_COLOR,
   isRunWorking,
   logoAvatarStatusActivity,
@@ -19,7 +20,7 @@ import {
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, memo, useContext, useMemo } from "react";
 import { useBotAvatarActivity } from "./bot-avatar-activity.js";
-import { BotMark } from "./bot-mark.js";
+import { BotMark, BotMarkSleep } from "./bot-mark.js";
 import { cn } from "./lib/utils.js";
 import "./styles.css";
 
@@ -99,7 +100,7 @@ export interface BotAvatarProps {
   /** The shape and ink a person picked (`Bot.lookShape`, `Bot.lookColor`), when known. */
   lookShape?: string | null;
   lookColor?: string | null;
-  /** A state the run status cannot say, such as a sleeping computer. */
+  /** A state the run status cannot say, such as a sleeping computer (`asleep`). */
   state?: BotMarkState;
   className?: string;
 }
@@ -168,9 +169,20 @@ export const BotAvatar = memo(function BotAvatar({
   // Every drawn bot is one flat body with cut-out eyes, in the shape picked for it or the one its
   // identity picks; notification portraits draw the same.
   const shape = botMarkShapeFor(effectiveId, shapeName, parsed.shapeIndex);
-  const ink = state === "asleep" ? "gray" : botMarkInkFor(inkName, colorDef.hex);
-  if (activity !== undefined || state !== undefined) {
-    const shown = state ?? botMarkStateForActivity(activity ?? logoAvatarStatusActivity(status));
+  // A sleeping or unreachable bot (computer asleep, offline) shows the gray sleeping look.
+  const statusState = botMarkStateFor(status);
+  const fixed =
+    state ?? (statusState === "asleep" || statusState === "waking" ? statusState : undefined);
+  const ink = fixed === "asleep" ? "gray" : botMarkInkFor(inkName, colorDef.hex);
+  if (fixed === "asleep") {
+    return (
+      <BotMarkSleep className={className}>
+        <BotMark identity={effectiveId} shape={shape} ink={ink} state="asleep" size={size} />
+      </BotMarkSleep>
+    );
+  }
+  if (activity !== undefined || fixed !== undefined) {
+    const shown = fixed ?? botMarkStateForActivity(activity ?? logoAvatarStatusActivity(status));
     return (
       <BotMark
         identity={effectiveId}
