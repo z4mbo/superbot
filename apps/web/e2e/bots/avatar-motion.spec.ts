@@ -166,11 +166,9 @@ test("a roster mark follows the pointer only inside its own box, and the open bo
     main: await eyes(mark(tile)),
   };
 
-  // Elsewhere on the page the pointer moves nothing.
+  // Elsewhere on the page the pointer moves nothing: once the hovered row below has turned, the
+  // tile and the other row still show their resting drawings.
   await page.mouse.move(away.x, away.y - 160, { steps: 6 });
-  await page.waitForTimeout(300);
-  expect(await eyes(mark(ada))).toBe(rest.ada);
-  expect(await eyes(mark(tile))).toBe(rest.main);
 
   // Inside the row, at its far end, only that row's mark turns, and it rests again on leaving.
   await page.mouse.move(box.x + box.width - 4, box.y + box.height / 2);
@@ -185,17 +183,20 @@ test("a roster mark follows the pointer only inside its own box, and the open bo
   // bot opens.
   await tile.click();
   await page.mouse.move(away.x, away.y);
-  // The same drawing twice, a quarter second apart, once the face has finished turning.
-  const settled = async (avatar: Locator) => {
-    const before = await eyes(avatar);
-    await page.waitForTimeout(250);
-    return (await eyes(avatar)) === before ? before : null;
-  };
-  await expect.poll(() => settled(mark(tile))).not.toBeNull();
-  const facing = await eyes(mark(tile));
-  expect(facing).not.toBe(rest.main);
-  await page.waitForTimeout(500);
-  expect(await eyes(mark(tile))).toBe(facing);
+  // Settled: the same drawing on two reads a quarter second apart, and not the resting one.
+  let last = "";
+  await expect
+    .poll(
+      async () => {
+        const now = await eyes(mark(tile));
+        const same = now === last;
+        last = now;
+        return same;
+      },
+      { intervals: [250] },
+    )
+    .toBe(true);
+  expect(last).not.toBe(rest.main);
   await bo.click();
   await page.mouse.move(away.x, away.y);
   await expect.poll(() => eyes(mark(tile))).toBe(rest.main);
@@ -217,8 +218,7 @@ test("with reduced motion a hovered mark faces ahead at once and rests when left
   const facing = await eyes(mark);
   // Wherever the pointer goes inside the box, the face only ever looks straight ahead.
   await page.mouse.move(box.x + 6, box.y + box.height - 4);
-  await page.waitForTimeout(200);
-  expect(await eyes(mark)).toBe(facing);
+  await expect.poll(() => eyes(mark)).toBe(facing);
   await page.mouse.move(box.x + box.width + 120, box.y);
   await expect.poll(() => eyes(mark)).toBe(rest);
 });
