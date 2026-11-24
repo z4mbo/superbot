@@ -90,7 +90,7 @@ type Built =
 const LEVELS = 96;
 
 function points2(packed: string): Point[] {
-  const values = unpackBodyNumbers(packed);
+  const values = unpackBodyNumbers(packed, 2);
   const out: Point[] = [];
   for (let index = 0; index + 1 < values.length; index += 2) {
     out.push([values[index]!, values[index + 1]!]);
@@ -270,7 +270,7 @@ function build(shape: BotMarkBodyShape): Built {
       body = { type: "balls", balls: pillBalls(spec.axis, spec.reach, spec.radius) };
       break;
     case "balls": {
-      const values = unpackBodyNumbers(spec.balls);
+      const values = unpackBodyNumbers(spec.balls, 3);
       const balls: [number, number, number, number][] = [];
       for (let index = 0; index + 2 < values.length; index += 3) {
         balls.push([values[index]!, values[index + 1]!, 0, values[index + 2]!]);

@@ -116,17 +116,41 @@ fn facing(m: &M3, [x, y, z]: V3) -> f64 {
 
 const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
-pub(crate) fn unpack(packed: &str) -> Vec<f64> {
-    let digit = |b: u8| ALPHABET.iter().position(|c| *c == b).unwrap_or(0) as f64;
-    packed.as_bytes().chunks_exact(2).map(|pair| (digit(pair[0]) * 64. + digit(pair[1])) / 2000. - 1.024).collect()
+/// Unpacks a run of packed numbers holding `stride` interleaved channels, stored one channel after
+/// another: five bits per character (the sixth set while more follow), each number the zigzagged
+/// change from the straight-line guess off the two before it in its channel, at 1/2000 steps.
+pub(crate) fn unpack(packed: &str, stride: usize) -> Vec<f64> {
+    let mut steps: Vec<i64> = Vec::new();
+    let (mut value, mut shift) = (0_i64, 0);
+    for byte in packed.bytes() {
+        let digit = ALPHABET.iter().position(|c| *c == byte).unwrap_or(0) as i64;
+        value += (digit & 31) << shift;
+        shift += 5;
+        if digit & 32 != 0 {
+            continue;
+        }
+        steps.push(if value % 2 == 0 { value / 2 } else { -(value + 1) / 2 });
+        (value, shift) = (0, 0);
+    }
+    let count = steps.len() / stride.max(1);
+    let mut out = vec![0.; count * stride];
+    for channel in 0..stride {
+        let (mut previous, mut before) = (0_i64, 0_i64);
+        for index in 0..count {
+            let next = 2 * previous - before + steps[channel * count + index];
+            out[index * stride + channel] = next as f64 / 2000. - 1.024;
+            (before, previous) = (previous, next);
+        }
+    }
+    out
 }
 
 fn points(packed: &str) -> Vec<P2> {
-    unpack(packed).chunks_exact(2).map(|pair| (pair[0], pair[1])).collect()
+    unpack(packed, 2).chunks_exact(2).map(|pair| (pair[0], pair[1])).collect()
 }
 
 fn profile(top: f64, bottom: f64, packed: &str) -> Vec<P2> {
-    let radii = unpack(packed);
+    let radii = unpack(packed, 1);
     let last = (radii.len() - 1).max(1) as f64;
     radii
         .iter()
@@ -275,7 +299,7 @@ fn build(spec: &Spec) -> Built {
                 .collect(),
         ),
         Kind::Balls { balls, .. } => {
-            Built::Balls(unpack(balls).chunks_exact(3).map(|b| [b[0], b[1], 0., b[2]]).collect())
+            Built::Balls(unpack(balls, 3).chunks_exact(3).map(|b| [b[0], b[1], 0., b[2]]).collect())
         }
     }
 }
