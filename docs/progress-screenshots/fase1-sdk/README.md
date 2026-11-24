@@ -7,16 +7,16 @@ Fixture data only. Every screenshot comes from a test run against a disposable d
 `apps/web/e2e/pages/apps.spec.ts`, on Chrome against a local API and web server with the
 harness's emulated model.
 
-| File | Shows |
-| --- | --- |
-| `web/app-person-actions.png` | The example team dashboard open where pages open, after the person added a task ("Write the release notes", owner Alex) with the app's form and pressed "Shipped one". Shipped shows 1. |
-| `web/app-bot-action.png` | The same open app after the bot ran `run_app_action` (setStatus → At risk) from the chat: the status pill changed to At risk without reloading the app, and the person's task is still there. The bot's chat reply sits behind the full-screen app. |
-| `web/app-bot-refused.png` | An app whose manifest grants only `state`: the bot's `run_app_action` is refused and the status stays On track. |
+| File                         | Shows                                                                                                                                                                                                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web/app-person-actions.png` | The example team dashboard open where pages open, after the person added a task ("Write the release notes", owner Alex) with the app's form and pressed "Shipped one". Shipped shows 1.                                                             |
+| `web/app-bot-action.png`     | The same open app after the bot ran `run_app_action` (setStatus → At risk) from the chat: the status pill changed to At risk without reloading the app, and the person's task is still there. The bot's chat reply sits behind the full-screen app. |
+| `web/app-bot-refused.png`    | An app whose manifest grants only `state`: the bot's `run_app_action` is refused and the status stays On track.                                                                                                                                     |
 
 ## tests/
 
-| File | Shows |
-| --- | --- |
+| File                           | Shows                                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------------------------- |
 | `tests/local-test-results.png` | Local results: unit suites, hostile bridge inputs, the web e2e spec, `pnpm checks` and typechecks. |
 
 ## linux-desktop/, windows-desktop/, macos-desktop/ (from CI)
@@ -27,9 +27,9 @@ controls. The window is served by a small fixture host standing in for the web a
 server or database), and actions run through the SDK's action engine, which the server also uses.
 It runs in the `Cross-platform` workflow on ubuntu, windows and macos.
 
-| File | Shows |
-| --- | --- |
-| `<os>-desktop/app-sdk-opened.png` | The example app as it opens in the desktop window. |
+| File                               | Shows                                                        |
+| ---------------------------------- | ------------------------------------------------------------ |
+| `<os>-desktop/app-sdk-opened.png`  | The example app as it opens in the desktop window.           |
 | `<os>-desktop/app-sdk-actions.png` | After the person added a task and set the status to At risk. |
 
 CI run: see "Cross-platform status" below.
