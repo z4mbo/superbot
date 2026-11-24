@@ -1,9 +1,23 @@
 import type { AgentRuntimeEvent } from "@rakazo/adapter-kit";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunContext } from "../runs/assembly/run-context.js";
 import { completeRun } from "../runs/lifecycle/run-complete.js";
 import { createReplyState } from "../runs/lifecycle/run-progress.js";
+import type * as RunTools from "../runs/tools/run-tools.js";
 import { consumeRunEvents } from "../runs/turn/run-turn.js";
+
+// The saves themselves go through ordinary tool dispatch, covered in run-tools.test.ts.
+const saves = vi.hoisted(() => [] as Array<{ name: string; args: Record<string, unknown> }>);
+vi.mock("../runs/tools/run-tools.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof RunTools>()),
+  applyTool: vi.fn(async (_ctx: unknown, name: string, args: Record<string, unknown>) => {
+    saves.push({ name, args });
+    return { ok: true };
+  }),
+}));
+beforeEach(() => {
+  saves.length = 0;
+});
 
 async function context(
   options: {
@@ -51,6 +65,7 @@ async function context(
     deps,
     run,
     runId: run.id,
+    context: {},
     workerId: "worker-1",
     fence: 1,
     bot: { id: run.botId },
@@ -100,6 +115,47 @@ describe("nightly memory review execution", () => {
     expect(finalizeRun).toHaveBeenCalledWith(
       expect.objectContaining({ outcome: "completed", blocks: [], markUnread: false }),
     );
+  });
+
+  it("saves the facts its reply keeps even when the model called no tool", async () => {
+    const { ctx, finalizeRun } = await context();
+    const keep = {
+      keep: [
+        { fact: "The storage locker code is 4471-B.", scope: "private" },
+        { fact: "Dates as YYYY-MM-DD.", scope: "shared" },
+      ],
+    };
+    (ctx.deps as { memory?: unknown }).memory = { read: async () => ({ documents: [] }) };
+    await consumeRunEvents(
+      ctx,
+      events(
+        { type: "text", text: JSON.stringify(keep).slice(0, 30) },
+        { type: "text", text: JSON.stringify(keep).slice(30) },
+        { type: "done", text: JSON.stringify(keep) },
+      ),
+    );
+    await completeRun(ctx);
+    expect(saves).toEqual([
+      { name: "remember", args: { content: "The storage locker code is 4471-B." } },
+      {
+        name: "save_shared_memory",
+        args: { path: "MEMORY.md", content: "Dates as YYYY-MM-DD.\n" },
+      },
+    ]);
+    // The list itself is never posted.
+    expect(finalizeRun).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: "completed", blocks: [], markUnread: false }),
+    );
+  });
+
+  it("saves nothing for an empty list or a bare NO_RESPONSE", async () => {
+    for (const text of ['{"keep":[]}', "NO_RESPONSE"]) {
+      const { ctx, finalizeRun } = await context();
+      await consumeRunEvents(ctx, events({ type: "done", text }));
+      await completeRun(ctx);
+      expect(finalizeRun).toHaveBeenCalledWith(expect.objectContaining({ outcome: "completed" }));
+    }
+    expect(saves).toEqual([]);
   });
 
   it("does not apply scripted files or memory on completion", async () => {

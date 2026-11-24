@@ -129,6 +129,7 @@ export async function runTrial(
   let approvalPending = false;
   let clarificationPending = false;
   let priorMemory = "";
+  let memoryDocumentsBefore: Evidence["memoryDocumentsBefore"];
   let messagingLinked = false;
   // Set once a wallet connect starts, so teardown revokes the credential even after a failed setup.
   let walletCookie: string | undefined;
@@ -274,10 +275,28 @@ export async function runTrial(
           data: { ...persistedBot, botId, scope: "bot", path: dailyNotePath(day), content },
         });
       }
-      for (const document of scenario.sharedMemory ?? [])
-        await prisma.memoryDocument.create({
-          data: { ...persistedBot, scope: "user", path: document.path, content: document.content },
+      // A seed replaces the Space's starter document at its path rather than sitting beside it.
+      for (const document of scenario.sharedMemory ?? []) {
+        const starter = await prisma.memoryDocument.findFirst({
+          where: { spaceId: persistedBot.spaceId, scope: "user", path: document.path },
+          select: { id: true },
         });
+        if (starter)
+          await prisma.memoryDocument.update({
+            where: { id: starter.id },
+            data: { content: document.content },
+          });
+        else
+          await prisma.memoryDocument.create({
+            data: {
+              ...persistedBot,
+              scope: "user",
+              path: document.path,
+              content: document.content,
+            },
+          });
+      }
+      if (reviewsMemory(scenario)) memoryDocumentsBefore = await listMemoryDocuments(app, cookie);
       if (scenario.peer) {
         const created = await rpc<{ id: string }>(app, cookie, "bots/create", {
           name: scenario.peer.name,
@@ -1163,15 +1182,8 @@ export async function runTrial(
     const memories = await rpc<Array<{ content: string }>>(handles.app, cookie, "memory/list", {
       botId,
     });
-    const memoryDocuments = scenario.steps.some((step) => "reviewMemory" in step)
-      ? (
-          await rpc<Array<{ scope: "bot" | "user"; path: string; content: string }>>(
-            handles.app,
-            cookie,
-            "memory/list",
-            {},
-          )
-        ).map(({ scope, path, content }) => ({ scope, path, content }))
+    const memoryDocuments = reviewsMemory(scenario)
+      ? await listMemoryDocuments(handles.app, cookie)
       : undefined;
     const routines = await prisma.routine.findMany({
       where: { botId },
@@ -1230,7 +1242,7 @@ export async function runTrial(
       routines,
       routinesCreated,
       memory: memories.map((m) => m.content).join("\n"),
-      ...(memoryDocuments ? { memoryDocuments } : {}),
+      ...(memoryDocuments ? { memoryDocuments, memoryDocumentsBefore } : {}),
       approvalPending,
       clarificationPending,
       pendingApproval,
@@ -1737,4 +1749,16 @@ export async function cleanupActors(
   }
   if (!stable) failures.push(new Error("Trial scope did not become idle"));
   if (failures.length) throw new Error("Trial work could not be stopped", { cause: failures });
+}
+
+const reviewsMemory = (scenario: EvalCase) => scenario.steps.some((step) => "reviewMemory" in step);
+
+async function listMemoryDocuments(app: App, cookie: string) {
+  const documents = await rpc<Array<{ scope: "bot" | "user"; path: string; content: string }>>(
+    app,
+    cookie,
+    "memory/list",
+    {},
+  );
+  return documents.map(({ scope, path, content }) => ({ scope, path, content }));
 }

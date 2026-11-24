@@ -20,6 +20,7 @@ import {
 } from "../../memory/conversation-memory.js";
 import { returnBotMessageOutcome } from "../../messaging/bot-messages.js";
 import { isNightlyMemoryReviewRun } from "../../routines/nightly-memory-review.js";
+import { applyNightlyMemoryReview } from "../../routines/nightly-memory-review-apply.js";
 import { clearRoutineBackoff } from "../../routines/routine-backoff.js";
 import { isStrategicInitiativeRun } from "../../routines/strategic-initiative.js";
 import {
@@ -125,6 +126,11 @@ export async function completeRun(ctx: RunContext) {
   await flushProgress(ctx);
 
   await applyScriptedTurns(ctx);
+  // A memory review answers with what to keep; the product saves it, whatever tools the model used.
+  if (isNightlyMemoryReviewRun(run)) {
+    await applyNightlyMemoryReview(ctx, reply.assembled);
+    if (!ctx.state.lease.valid) return;
+  }
 
   await ctx.computer.checkpoint.flush();
   ctx.state.terminalCheckpointComplete = true;

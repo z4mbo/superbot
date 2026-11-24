@@ -48,6 +48,7 @@ import { findConnectedModelCredential } from "../../models/model-selection.js";
 import { paidRequestEffect } from "../../payments/paid-request.js";
 import type { PurchaseApproval } from "../../payments/purchase-gate.js";
 import { PURCHASE_CHECKED_TOOLS, purchaseApprovalOf } from "../../payments/purchase-gate.js";
+import { isNightlyMemoryReviewRun } from "../../routines/nightly-memory-review.js";
 import { asksRoutineEvents } from "../../routines/routine-triggers.js";
 import { resolveCompletedSecretLeftover } from "../../secrets/run-secret.js";
 import { scheduleRunSecretsExpiry } from "../../secrets/run-secrets-expiry.js";
@@ -759,7 +760,19 @@ async function settleToolUncertainty(
 }
 
 /** Ask the owner through an approval card. Parallel calls share the first call's pause. */
-function requestApproval(ctx: RunContext, call: ToolCall, card: ApprovalCardOptions) {
+async function requestApproval(ctx: RunContext, call: ToolCall, card: ApprovalCardOptions) {
+  // A memory review runs unattended and never posts, so a save that would ask is left out.
+  if (isNightlyMemoryReviewRun(ctx.run)) {
+    await ctx.deps.prisma.externalEffect.updateMany({
+      where: { id: call.applied!.effect.id, status: "intended" },
+      data: { status: "denied", result: { refused: "unattended" } },
+    });
+    await auditToolCall(ctx, call.name, "denied", { reason: "never_asks" });
+    return refusal(
+      "memory_review_needs_approval",
+      "This save needs the owner's approval, and the memory review never asks. Leave it out.",
+    );
+  }
   const { approval } = ctx.state;
   // Parallel calls can need approval at once. Only the first saves the turn and shows
   // its card; the others wait for that pause. Otherwise a later call's save could make

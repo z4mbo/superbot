@@ -1,6 +1,7 @@
 import type * as Core from "@rakazo/core";
 import type * as Db from "@rakazo/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { recordEffect } from "../lifecycle/run-effects.js";
 import { gateToolCall } from "./run-tool-gate.js";
 import type { ToolRequest } from "./run-tool-request.js";
 
@@ -191,5 +192,71 @@ describe("gateToolCall: typing into a page after outside content, in Auto", () =
       { kind: "fill", ref: "e2", text: "12 Rua Nova" },
     ]);
     expect(reviewOnly).toEqual([false, true]);
+  });
+});
+
+describe("gateToolCall: a nightly memory review", () => {
+  it("leaves out a save a rule would ask about, with no card, pause or push", async () => {
+    vi.mocked(recordEffect).mockResolvedValueOnce({
+      effect: { id: "effect-1", status: "intended" },
+      duplicate: false,
+    } as never);
+    const updateMany = vi.fn(async () => ({ count: 1 }));
+    const pauseRunForInput = vi.fn();
+    const args = { path: "MEMORY.md", content: "- Dates as YYYY-MM-DD.\n" };
+    const executionId = "memory-review-1";
+    const request = {
+      name: "save_shared_memory",
+      args,
+      executionId,
+      connectorCall: { tool: "save_shared_memory", args, executionId, route: undefined },
+      effectRequest: args,
+      replayEffectToolName: "save_shared_memory",
+      heldForApproval: false,
+      settingsChange: false,
+      ignoresAllowRules: false,
+    } as unknown as ToolRequest;
+    const ctx = {
+      deps: {
+        prisma: {
+          attempt: { count: async () => 1 },
+          externalEffect: { findMany: async () => [], updateMany },
+        },
+        events: { pauseRunForInput },
+      },
+      run: {
+        id: "run-1",
+        userId: "user-1",
+        spaceId: "space-1",
+        trigger: "routine",
+        clientNonce: "nightly-memory-review:bot-1:2026-11-24",
+      },
+      runId: "run-1",
+      bot: { id: "bot-1", name: "Helper" },
+      thread: { id: "thread-1" },
+      context: { signal: new AbortController().signal },
+      source: { ownerStartedRun: false },
+      tools: { connector: new Map(), connectedPlugins: [] },
+      state: {
+        tainted: false,
+        approval: { pausePending: false },
+        effects: { consumedIds: new Set(), counts: new Map(), occurrences: [] },
+      },
+      trust: {
+        loadApprovalRules: async () => [
+          { effect: "require_approval", matchKind: "tool", matchValue: "save_shared_memory" },
+        ],
+        loadAutoReviewPreference: async () => ({ enabled: false, skipApprovals: false }),
+        receivedOutsideMessage: async () => false,
+      },
+    };
+    const outcome = await gateToolCall(ctx as never, request, undefined);
+    expect(outcome).toEqual({ result: { error: expect.stringContaining("never asks") } });
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "effect-1", status: "intended" },
+      data: { status: "denied", result: { refused: "unattended" } },
+    });
+    expect(pauseRunForInput).not.toHaveBeenCalled();
+    expect(ctx.state.approval.pausePending).toBe(false);
   });
 });

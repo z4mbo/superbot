@@ -88,6 +88,8 @@ export type Evidence = {
   memory: string;
   /** Every memory document in the Space, shared ones too, for cases that review memory. */
   memoryDocuments?: Array<{ scope: "bot" | "user"; path: string; content: string }>;
+  /** The same documents once the case was seeded, before its first step. */
+  memoryDocumentsBefore?: Array<{ scope: "bot" | "user"; path: string; content: string }>;
   approvalPending: boolean;
   clarificationPending?: boolean;
   pendingApproval: { kind: string; request: unknown } | null;
