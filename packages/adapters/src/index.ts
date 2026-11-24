@@ -14,6 +14,7 @@ export * from "./approvals/decision-models.js";
 export * from "./approvals/http-decisions.js";
 export * from "./approvals/scripted-auto-review.js";
 export * from "./apps/app-bundle.js";
+export * from "./apps/app-install-pages.js";
 export * from "./apps/app-installs.js";
 export * from "./apps/app-pages.js";
 export * from "./apps/app-tools.js";

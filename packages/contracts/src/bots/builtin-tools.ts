@@ -51,6 +51,7 @@ export const BUILTIN_TOOL_NAMES = [
   "read_app_state",
   "run_app_action",
   "find_apps",
+  "open_app",
   "generate_image",
   "generate_video",
   "add_mcp_server",

@@ -131,14 +131,20 @@ copy saved before you added a key will not have it.
 
 ## How bots use an app
 
-A bot reaches the apps it can reach as pages: its own, and its group's in a group chat.
+A bot reaches the apps it can reach as pages (its own, and its group's in a group chat) and the
+apps its person installed in the Space.
 
-- `read_app_state {pageId}` returns the app's name, version, state and revision, and, when the app
-  allows `agent:actions`, its actions with their inputs.
-- `run_app_action {pageId, action, input}` runs one declared action and returns the new state.
+- `find_apps {query}` lists the installed apps, each with its `app_id`.
+- `read_app_state {pageId}` or `{app_id}` returns the app's name, version, state and revision,
+  and, when the app allows `agent:actions`, its actions with their inputs.
+- `run_app_action {pageId or app_id, action, input}` runs one declared action and returns the new
+  state.
+- `open_app {app_id}` shows an installed app in the chat as a page card.
 
-Both are refused unless the app declares the matching `agent:*` permission. What a bot reads from
-an app counts as outside content, like anything else people wrote.
+Reading and acting are refused unless the app declares the matching `agent:*` permission and, for
+an installed app, its install granted it too. An installed app keeps its state on a page of its
+own, made the first time it is opened or acted on; removing the app removes that page. What a bot
+reads from an app counts as outside content, like anything else people wrote.
 
 ## Where apps run
 

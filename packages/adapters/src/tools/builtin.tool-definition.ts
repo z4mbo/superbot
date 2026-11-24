@@ -1,6 +1,6 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { FLEET_TOOL_NAMES } from "@rakazo/contracts";
-import { findAppsTool } from "../apps/app-tools.tool-definition.js";
+import { findAppsTool, openAppTool } from "../apps/app-tools.tool-definition.js";
 import { meetingTranscriptTool } from "../meetings/meeting-chat.tool-definition.js";
 import { personalCalendarTools } from "../personal-calendar/personal-calendar.tool-definition.js";
 import { appTools } from "./builtin-apps.tool-definition.js";
@@ -25,6 +25,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   ...conversationTools,
   ...appTools,
   findAppsTool,
+  openAppTool,
   meetingTranscriptTool,
   ...serviceTools,
   ...memoryTools,

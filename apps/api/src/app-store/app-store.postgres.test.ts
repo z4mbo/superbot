@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { createRouterClient } from "@orpc/server";
-import { findInstalledApps } from "@rakazo/adapters";
+import {
+  AppChangedError,
+  AppNotInstalledError,
+  findInstalledApps,
+  installedAppLaunch,
+  installedAppPage,
+  readInstalledApp,
+  runInstalledAppAction,
+} from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { createDb, runAsSystem, runAsTenant } from "@rakazo/db";
@@ -318,5 +326,106 @@ describe.skipIf(!enabled)("app store lifecycle (PostgreSQL)", () => {
     ]);
     const none = await runAsTenant(author(), () => findInstalledApps(prisma, author(), "timer"));
     expect(none).toMatchObject({ apps: [], note: expect.stringContaining("No installed app") });
+  });
+
+  const counter = (permissions: string[]) =>
+    bundle({
+      name: "Counter",
+      permissions,
+      initialState: { count: 0 },
+      actions: [
+        {
+          name: "bump",
+          description: "Add some.",
+          input: { by: { type: "number", integer: true, min: 1, max: 5 } },
+          effects: [{ op: "increment", path: "count", from: "by", by: 1 }],
+        },
+      ],
+    });
+
+  it("gives a bot and the person one state for an installed app, reached only by its owner here", async () => {
+    const listing = await publish(counter(["state", "agent:read", "agent:actions"]));
+    const { appId } = listing;
+    const install = await runAsTenant(other(), () =>
+      client(other()).apps.install({ ...listing, grant: listing.permissions }),
+    );
+    let pageId = "";
+    await runAsTenant(other(), async () => {
+      expect(await readInstalledApp(prisma, other(), appId)).toMatchObject({
+        state: { count: 0 },
+        revision: 0,
+      });
+      expect(
+        await runInstalledAppAction(prisma, other(), appId, { action: "bump", input: { by: 2 } }),
+      ).toMatchObject({ ok: true, state: { count: 2 }, revision: 1 });
+      const launch = await installedAppLaunch(prisma, other(), appId);
+      pageId = (await installedAppPage(prisma, other(), launch)).pageId;
+      // The person sees and changes the same state through the page, as with any app page.
+      const rpc = client(other());
+      expect((await rpc.pages.appState({ pageId })).app).toMatchObject({
+        state: { count: 2 },
+        revision: 1,
+      });
+      await rpc.pages.runAction({ pageId, action: "bump", input: { by: 1 } });
+      expect(await readInstalledApp(prisma, other(), appId)).toMatchObject({
+        state: { count: 3 },
+        revision: 2,
+      });
+      expect((await installedAppPage(prisma, other(), launch)).pageId).toBe(pageId);
+    });
+    // Only the lookup decides here: another person, and this person in another Space, have none.
+    await runAsSystem("look the app up from other scopes", async () => {
+      for (const scope of [
+        author(),
+        { spaceId: author().spaceId, userId: other().userId },
+        { spaceId: other().spaceId, userId: author().userId },
+      ])
+        await expect(readInstalledApp(prisma, scope, appId)).rejects.toBeInstanceOf(
+          AppNotInstalledError,
+        );
+    });
+    // A grant without bot actions keeps the bot out, though the manifest lets bots act.
+    await runAsSystem("narrow the recorded grant", async () => {
+      const row = await prisma.capabilityInstall.findUniqueOrThrow({ where: { id: install.id } });
+      await prisma.capabilityInstall.update({
+        where: { id: row.id },
+        data: {
+          config: { ...(row.config as Record<string, unknown>), granted: ["state", "agent:read"] },
+        },
+      });
+    });
+    await runAsTenant(other(), async () => {
+      expect(
+        await runInstalledAppAction(prisma, other(), appId, { action: "bump", input: { by: 1 } }),
+      ).toMatchObject({ ok: false, reason: "forbidden" });
+      // Removing the app removes the page that kept its state.
+      await client(other()).apps.uninstall({ id: install.id });
+      await expect(readInstalledApp(prisma, other(), appId)).rejects.toBeInstanceOf(
+        AppNotInstalledError,
+      );
+    });
+    const left = await runAsSystem("check the app's page is gone", () =>
+      prisma.page.count({ where: { id: pageId } }),
+    );
+    expect(left).toBe(0);
+  });
+
+  it("refuses an installed app by app_id once its stored version changed", async () => {
+    const listing = await publish(counter(["state", "agent:read", "agent:actions"]));
+    const install = await runAsTenant(other(), () =>
+      client(other()).apps.install({ ...listing, grant: listing.permissions }),
+    );
+    await runAsSystem("tamper with a stored app version", () =>
+      prisma.appRelease.update({ where: { id: listing.releaseId }, data: { source: "changed" } }),
+    );
+    await runAsTenant(other(), async () => {
+      await expect(readInstalledApp(prisma, other(), listing.appId)).rejects.toBeInstanceOf(
+        AppChangedError,
+      );
+      await expect(
+        runInstalledAppAction(prisma, other(), listing.appId, { action: "bump", input: {} }),
+      ).rejects.toBeInstanceOf(AppChangedError);
+      expect(await prisma.page.count({ where: { appInstallId: install.id } })).toBe(0);
+    });
   });
 });

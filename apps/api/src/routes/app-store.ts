@@ -35,11 +35,11 @@ export function appStoreRoutes(ctx: RouterContext) {
         uninstallApp(deps.prisma, context.actor, input.id),
       ),
       launch: authed.apps.launch.handler(async ({ context, input }) => {
-        const { manifest: _manifest, ...launch } = await readAppLaunch(
-          deps.prisma,
-          context.actor,
-          input.id,
-        );
+        const {
+          manifest: _manifest,
+          source: _source,
+          ...launch
+        } = await readAppLaunch(deps.prisma, context.actor, input.id);
         return launch;
       }),
     },
