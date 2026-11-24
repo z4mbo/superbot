@@ -591,7 +591,7 @@ export function BotSettings({
               value={color}
               identity={bot.id}
               status={bot.status}
-              size={76}
+              size={64}
               avatarSet={avatarSet}
               look={look}
               onLookChange={(next) => {
