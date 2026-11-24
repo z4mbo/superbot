@@ -20,7 +20,6 @@ import { PL_MESSAGES } from "../main/locales/pl.js";
 type DesktopSetupResult = Awaited<ReturnType<RakazoSetup["save"]>>;
 
 const DEFAULT_LOCAL_URL = "http://127.0.0.1:6130";
-const CLOUD_URL = "https://cloud.rakazo.example";
 const ENGLISH: RakazoSetup["locale"] = { lang: "en", dir: "ltr", messages: {} };
 
 // The jsdom environment replaces the global URL, so resolve the sibling files via Node's.
@@ -45,7 +44,7 @@ async function flush(ticks = 30): Promise<void> {
   for (let i = 0; i < ticks; i += 1) await Promise.resolve();
 }
 
-function selectMode(mode: "cloud" | "new" | "existing"): void {
+function selectMode(mode: "new" | "existing"): void {
   const input = document.querySelector<HTMLInputElement>(`input[name="mode"][value="${mode}"]`);
   if (input === null) throw new Error(`setup.html is missing the ${mode} mode input`);
   input.checked = true;
@@ -83,7 +82,12 @@ interface Harness {
   resolveSave: (result: DesktopSetupResult) => void;
 }
 
-function mount(saved: DesktopSetup | null, locale = ENGLISH, platform = "linux"): Harness {
+function mount(
+  saved: DesktopSetup | null,
+  locale = ENGLISH,
+  platform = "linux",
+  suggestedServerUrl: string | null = null,
+): Harness {
   document.body.innerHTML = setupBody ?? "";
   const checkCalls: Array<Deferred<DesktopReachability>> = [];
   const startResult = deferred<DesktopLocalStackState>();
@@ -139,7 +143,7 @@ function mount(saved: DesktopSetup | null, locale = ENGLISH, platform = "linux")
   new Function(setupScript)();
 
   const initState = stateCalls.shift();
-  initState?.resolve({ defaultLocalUrl: DEFAULT_LOCAL_URL, cloudUrl: CLOUD_URL, saved });
+  initState?.resolve({ defaultLocalUrl: DEFAULT_LOCAL_URL, suggestedServerUrl, saved });
   return {
     nextCheck: () => {
       const call = checkCalls.shift();
@@ -153,7 +157,7 @@ function mount(saved: DesktopSetup | null, locale = ENGLISH, platform = "linux")
     resolveAppState: (next) =>
       stateCalls
         .shift()
-        ?.resolve({ defaultLocalUrl: DEFAULT_LOCAL_URL, cloudUrl: CLOUD_URL, saved: next }),
+        ?.resolve({ defaultLocalUrl: DEFAULT_LOCAL_URL, suggestedServerUrl, saved: next }),
     resolveStackState: (state) => stackStateCalls.shift()?.resolve(state),
     rejectStackState: (reason) => stackStateCalls.shift()?.reject(reason),
     pushStackState: (state) => {
@@ -169,8 +173,9 @@ async function boot(
   saved: DesktopSetup | null,
   locale = ENGLISH,
   platform = "linux",
+  suggestedServerUrl: string | null = null,
 ): Promise<Harness> {
-  const ui = mount(saved, locale, platform);
+  const ui = mount(saved, locale, platform, suggestedServerUrl);
   await flush(); // init reaches its stack.state call only after its state await resumes
   ui.resolveStackState(stackState("idle"));
   await flush();
@@ -210,7 +215,7 @@ describe("setup", () => {
     check.click();
     ui.resolveCheck({ ok: true, url: "https://two.example" });
     await flush();
-    expect(status.textContent).toBe("Rakazo answered at https://two.example.");
+    expect(status.textContent).toBe("Superbot answered at https://two.example.");
   });
 
   it("does not clear an unrelated save error when an address is edited", async () => {
@@ -275,7 +280,7 @@ describe("setup", () => {
     currentCheck.resolve({ ok: true, url: "https://two.example" });
     await flush();
     expect(field.value).toBe("https://two.example");
-    expect(element("status").textContent).toBe("Rakazo answered at https://two.example.");
+    expect(element("status").textContent).toBe("Superbot answered at https://two.example.");
     expect(element("status").getAttribute("data-tone")).toBe("ok");
     expect(element<HTMLButtonElement>("check").disabled).toBe(false);
     expect(element<HTMLButtonElement>("continue").disabled).toBe(false);
@@ -288,7 +293,7 @@ describe("setup", () => {
     await flush();
     expect(element<HTMLButtonElement>("continue").disabled).toBe(true);
 
-    selectMode("cloud");
+    selectMode("existing");
     await flush();
     expect(element<HTMLButtonElement>("continue").disabled).toBe(false);
 
@@ -304,7 +309,7 @@ describe("setup", () => {
     selectMode("new");
     submitForm();
     await flush();
-    selectMode("cloud");
+    selectMode("existing");
     await flush();
 
     ui.startResult.reject(new Error("renderer closed"));
@@ -319,7 +324,7 @@ describe("setup", () => {
     selectMode("new");
     submitForm();
     await flush();
-    selectMode("cloud");
+    selectMode("existing");
     await flush();
     ui.startResult.resolve(stackState("starting"));
     await flush();
@@ -332,7 +337,7 @@ describe("setup", () => {
     await flush();
 
     expect(element("stack").hidden).toBe(false);
-    expect(element("stack-phase").textContent).toBe("Downloading Rakazo…");
+    expect(element("stack-phase").textContent).toBe("Downloading Superbot…");
   });
 
   it("locks the address while it is being saved and unlocks it when the save fails", async () => {
@@ -387,7 +392,7 @@ describe("setup", () => {
     await flush();
 
     expect(element<HTMLInputElement>("server-url").value).toBe("https://one.example");
-    expect(element("status").textContent).toBe("Rakazo answered at https://one.example.");
+    expect(element("status").textContent).toBe("Superbot answered at https://one.example.");
     expect(element("status").getAttribute("data-tone")).toBe("ok");
     expect(element<HTMLButtonElement>("check").disabled).toBe(false);
   });
@@ -438,7 +443,7 @@ describe("setup", () => {
     ui.startResult.resolve(stackState("pulling"));
     await flush();
     expect(element("stack").hidden).toBe(false);
-    expect(element("stack-phase").textContent).toBe("Downloading Rakazo…");
+    expect(element("stack-phase").textContent).toBe("Downloading Superbot…");
     expect(element<HTMLButtonElement>("continue").disabled).toBe(true);
 
     ui.resolveStackState(stackState("ready"));
@@ -448,7 +453,7 @@ describe("setup", () => {
     ui.resolveSave({ ok: true });
     await flush();
 
-    expect(element("stack-phase").textContent).toBe("Rakazo is ready.");
+    expect(element("stack-phase").textContent).toBe("Superbot is ready.");
     expect(element("stack-phase").getAttribute("data-tone")).toBe("ok");
     expect(ui.saves).toEqual([{ mode: "new", serverUrl: DEFAULT_LOCAL_URL }]);
     expect(element<HTMLButtonElement>("continue").disabled).toBe(false);
@@ -475,7 +480,7 @@ describe("setup", () => {
     submitForm();
     const missing = {
       ...stackState("docker-missing"),
-      message: "Rakazo needs Docker Desktop to run on this computer.",
+      message: "Superbot needs Docker Desktop to run on this computer.",
     };
     ui.startResult.resolve(missing);
     await flush();
@@ -499,7 +504,7 @@ describe("setup", () => {
     const ui = await boot(null, ENGLISH, "darwin");
     selectMode("new");
     submitForm();
-    const missing = { ...stackState("docker-missing"), message: "Rakazo needs Docker Desktop." };
+    const missing = { ...stackState("docker-missing"), message: "Superbot needs Docker Desktop." };
     ui.startResult.resolve(missing);
     await flush();
     ui.resolveStackState(missing);
@@ -530,7 +535,7 @@ describe("setup", () => {
     const ui = await boot(null, ENGLISH, "darwin");
     selectMode("new");
     submitForm();
-    const missing = { ...stackState("docker-missing"), message: "Rakazo needs Docker Desktop." };
+    const missing = { ...stackState("docker-missing"), message: "Superbot needs Docker Desktop." };
     ui.startResult.resolve(missing);
     await flush();
     ui.resolveStackState(missing);
@@ -556,7 +561,7 @@ describe("setup", () => {
       submitForm();
       ui.startResult.resolve(stackState("pulling"));
       await flush();
-      expect(element("stack-phase").textContent).toBe("Downloading Rakazo…");
+      expect(element("stack-phase").textContent).toBe("Downloading Superbot…");
 
       if (leaveAfterReady) {
         ui.resolveStackState(stackState("ready"));
@@ -578,6 +583,36 @@ describe("setup", () => {
     });
   }
 
+  it("starts on This computer when nothing is saved and the build names no server", async () => {
+    await boot(null);
+    expect(document.querySelectorAll('input[name="mode"]')).toHaveLength(2);
+    expect(element<HTMLInputElement>("mode-new").checked).toBe(true);
+    expect(element("panel-existing").hidden).toBe(true);
+    expect(element<HTMLInputElement>("server-url").value).toBe("");
+  });
+
+  it("offers the server the build names, still editable", async () => {
+    const ui = await boot(null, ENGLISH, "linux", "https://bots.example.org");
+    expect(element<HTMLInputElement>("mode-existing").checked).toBe(true);
+    expect(element("panel-existing").hidden).toBe(false);
+    expect(element<HTMLInputElement>("server-url").value).toBe("https://bots.example.org");
+
+    element<HTMLInputElement>("server-url").value = "https://other.example.org";
+    submitForm();
+    await flush();
+    expect(ui.saves).toMatchObject([{ mode: "existing", serverUrl: "https://other.example.org" }]);
+  });
+
+  it("keeps a saved choice over the server the build names", async () => {
+    await boot(
+      { mode: "existing", serverUrl: "https://saved.example.org" },
+      ENGLISH,
+      "linux",
+      "https://bots.example.org",
+    );
+    expect(element<HTMLInputElement>("server-url").value).toBe("https://saved.example.org");
+  });
+
   it("lays a right-to-left language out right to left", async () => {
     await boot(null, { lang: "he", dir: "rtl", messages: HE_MESSAGES });
     expect(document.documentElement.lang).toBe("he");
@@ -589,18 +624,18 @@ describe("setup", () => {
     const ui = await boot(null, { lang: "es", dir: "ltr", messages: ES_MESSAGES });
     expect(document.documentElement.lang).toBe("es");
     expect(document.documentElement.dir).toBe("ltr");
-    expect(document.querySelector("h1")?.textContent).toBe("Te damos la bienvenida a Rakazo");
+    expect(document.querySelector("h1")?.textContent).toBe("Te damos la bienvenida a Superbot");
     expect(document.querySelector('label[for="mode-new"] .choice-title')?.textContent).toBe(
       "Esta computadora",
     );
     expect(document.querySelector('label[for="mode-new"] .choice-description')?.textContent).toBe(
       "Tus datos se quedan en esta computadora.",
     );
-    expect(document.querySelector('label[for="mode-cloud"] .choice-title')?.textContent).toBe(
-      "Rakazo Cloud",
+    expect(document.querySelector('label[for="mode-existing"] .choice-title')?.textContent).toBe(
+      "Servidor de Superbot",
     );
     expect(element("quit").textContent).toBe("Salir");
-    expect(element("quit").title).toBe("Salir de Rakazo");
+    expect(element("quit").title).toBe("Salir de Superbot");
     expect(element("stack-details").getAttribute("aria-label")).toBe("Detalles técnicos");
     expect(element<HTMLTextAreaElement>("server-headers").placeholder).toBe("Nombre: valor");
     expect(element("continue").textContent).toBe("Continuar");
@@ -613,13 +648,13 @@ describe("setup", () => {
     expect(element("status").textContent).toBe("Comprobando…");
     ui.resolveCheck({ ok: true, url: "https://one.example" });
     await flush();
-    expect(element("status").textContent).toBe("Rakazo respondió en https://one.example.");
+    expect(element("status").textContent).toBe("Superbot respondió en https://one.example.");
 
     selectMode("new");
     submitForm();
     ui.startResult.resolve({ ...stackState("pulling"), layerBytes: { layer: 2.5e6 } });
     await flush();
-    expect(element("stack-phase").textContent).toBe("Descargando Rakazo…");
+    expect(element("stack-phase").textContent).toBe("Descargando Superbot…");
     expect(element("stack-detail").textContent).toBe("3 MB descargados");
   });
 
@@ -627,7 +662,7 @@ describe("setup", () => {
     const ui = await boot(null, { lang: "pl", dir: "ltr", messages: PL_MESSAGES });
     expect(document.documentElement.lang).toBe("pl");
     expect(document.documentElement.dir).toBe("ltr");
-    expect(document.querySelector("h1")?.textContent).toBe("Witaj w Rakazo");
+    expect(document.querySelector("h1")?.textContent).toBe("Witaj w Superbot");
     expect(element("continue").textContent).toBe(PL_MESSAGES.Continue);
     expect(element("stack-details").getAttribute("aria-label")).toBe(
       PL_MESSAGES["Technical details"],
@@ -645,14 +680,14 @@ describe("setup", () => {
     ui.resolveCheck({ ok: true, url: "https://one.example" });
     await flush();
     expect(element("status").textContent).toBe(
-      "Rakazo odpowiedziało pod adresem https://one.example.",
+      "Superbot odpowiedział pod adresem https://one.example.",
     );
 
     selectMode("new");
     submitForm();
     ui.startResult.resolve({ ...stackState("pulling"), layerBytes: { layer: 2.5e6 } });
     await flush();
-    expect(element("stack-phase").textContent).toBe(PL_MESSAGES["Downloading Rakazo…"]);
+    expect(element("stack-phase").textContent).toBe(PL_MESSAGES["Downloading Superbot…"]);
     expect(element("stack-detail").textContent).toBe("Pobrano 3 MB");
   });
 });

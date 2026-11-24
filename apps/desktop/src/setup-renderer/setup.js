@@ -58,10 +58,10 @@
   const PHASE_LABELS = {
     "checking-docker": t("Getting ready…"),
     preparing: t("Getting ready…"),
-    pulling: t("Downloading Rakazo…"),
-    starting: t("Starting Rakazo…"),
+    pulling: t("Downloading Superbot…"),
+    starting: t("Starting Superbot…"),
     "waiting-healthy": t("Almost ready…"),
-    ready: t("Rakazo is ready."),
+    ready: t("Superbot is ready."),
   };
   const TERMINAL_PHASES = new Set([
     "idle",
@@ -83,7 +83,6 @@
   const PULL_SCALE_BYTES = 1.2e9;
 
   let defaultLocalUrl = "";
-  let cloudUrl = "";
   /** Bumped on user edits, mode switches, and new async runs; a run left behind is stale. */
   let requestGeneration = 0;
   /** Generation of the check in flight; an edit or mode switch retires it and releases its lock. */
@@ -103,7 +102,7 @@
 
   function selectedMode() {
     const checked = form.querySelector('input[name="mode"]:checked');
-    return checked === null ? "cloud" : checked.value;
+    return checked === null ? "new" : checked.value;
   }
 
   function setStatus(message, tone, fromCheck = false) {
@@ -238,7 +237,7 @@
     stackHint.hidden = phase !== "docker-missing";
     stackHint.textContent = dockerDesktop
       ? t(
-          "Docker Desktop is a free app that runs Rakazo in the background. Install it and open it once.",
+          "Docker Desktop is a free app that runs Superbot in the background. Install it and open it once.",
         )
       : t("Install Docker Engine and start it.");
   }
@@ -395,7 +394,7 @@
       if (generation !== requestGeneration) return result;
       if (result.ok) {
         serverUrl.value = result.url;
-        setCheckStatus(t("Rakazo answered at {url}.", { url: result.url }), "ok");
+        setCheckStatus(t("Superbot answered at {url}.", { url: result.url }), "ok");
       } else {
         setCheckStatus(result.error ?? t("Could not reach that address."), "error");
       }
@@ -467,8 +466,6 @@
     if (mode === "new" && lastStack?.phase === "docker-missing")
       void bridge.openLink("docker-download");
     else if (mode === "new") void runStack();
-    // Cloud is an existing server at a fixed address.
-    else if (mode === "cloud") void save("existing", cloudUrl);
     else {
       const headers = readHeaders();
       if (headers === null) setStatus(t("Invalid custom headers"), "error");
@@ -498,16 +495,19 @@
     }
 
     watchStack();
-    // Continue needs the Cloud address and any saved choice before it can submit.
+    // Continue needs any saved choice before it can submit.
     setBusy(true);
     try {
       const state = await bridge.state();
       if (state === null) throw new Error("Setup is not active");
       defaultLocalUrl = state.defaultLocalUrl;
-      cloudUrl = state.cloudUrl;
+      if (state.saved === null && state.suggestedServerUrl !== null) {
+        // The build names a server: offer it, still editable.
+        document.getElementById("mode-existing").checked = true;
+        serverUrl.value = state.suggestedServerUrl;
+      }
       if (state.saved !== null) {
-        const savedCloud = state.saved.mode === "existing" && state.saved.serverUrl === cloudUrl;
-        const mode = savedCloud ? "cloud" : state.saved.mode;
+        const mode = state.saved.mode;
         const modeInput = document.querySelector(`input[name="mode"][value="${mode}"]`);
         if (modeInput !== null) modeInput.checked = true;
         if (mode === "existing") serverUrl.value = state.saved.serverUrl;
@@ -535,7 +535,7 @@
         continueButton.focus();
       }
     } catch {
-      setStatus(t("Setup could not start. Quit Rakazo and try again."), "error");
+      setStatus(t("Setup could not start. Quit Superbot and try again."), "error");
       setBusy(true);
     }
   }

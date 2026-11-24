@@ -193,7 +193,7 @@ export interface RakazoDesktop {
 }
 
 /**
- * How the desktop app was pointed at a Rakazo server during first-run setup.
+ * How the desktop app was pointed at a Superbot server during first-run setup.
  * `new` is the Docker Compose stack this app installs and runs on the same computer.
  */
 export type DesktopInstanceMode = "new" | "existing";
@@ -207,8 +207,8 @@ export interface DesktopSetup {
 
 export interface DesktopSetupState {
   defaultLocalUrl: string;
-  /** Hosted Rakazo origin, saved as an `existing` server when chosen. */
-  cloudUrl: string;
+  /** The server this build suggests (`SUPERBOT_SERVER_URL`), offered when nothing is saved yet. */
+  suggestedServerUrl: string | null;
   saved: DesktopSetup | null;
   /** Present when a saved or newly selected server could not be reopened. */
   error?: string;

@@ -3,6 +3,7 @@ import { copyFile, lstat, mkdir, readFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
 import type { DesktopLocalStackState } from "@rakazo/contracts";
+import { brandEnv } from "@rakazo/core";
 import { t } from "../i18n.js";
 import { readPrivateFile, writePrivateFile } from "../setup/setup-store.js";
 import type { DockerFailureKind, RunDocker, RunDockerResult } from "./docker-cli.js";
@@ -14,6 +15,7 @@ import {
 } from "./docker-cli.js";
 
 export const STACK_DIR_NAME = "stack";
+// Named when the app was called Rakazo; kept so existing stacks keep their containers and volumes.
 export const STACK_PROJECT_NAME = "rakazo-desktop";
 export const STACK_COMPOSE_FILE = "docker-compose.images.yml";
 export const STACK_ENV_TEMPLATE = ".env.images.example";
@@ -116,11 +118,33 @@ const GENERATED_SECRETS: Record<string, number> = {
 const LAUNCH_SUPPLIED = ["RAKAZO_IMAGE_TAG", "RAKAZO_COMPUTER_IMAGE_TAG"];
 
 /**
+ * Where a new stack pulls the app and computer images from: `<registry>/app` and
+ * `<registry>/computer`. Override with `SUPERBOT_IMAGE_REGISTRY` (or the legacy
+ * `RAKAZO_IMAGE_REGISTRY`). An existing stack keeps the images its `.env` already names.
+ */
+export const DEFAULT_IMAGE_REGISTRY = "ghcr.io/z4mbo/superbot";
+
+export function imageRegistry(env: Readonly<Record<string, string | undefined>>): string {
+  const configured = brandEnv("IMAGE_REGISTRY", env)?.trim().replace(/\/+$/, "");
+  return configured || DEFAULT_IMAGE_REGISTRY;
+}
+
+const REGISTRY_IMAGES: Record<string, string> = {
+  RAKAZO_IMAGE: "app",
+  RAKAZO_COMPUTER_IMAGE: "computer",
+};
+
+/**
  * Port of install-images.sh `create_env`: fills the empty secret lines with random
  * hex and keeps everything else verbatim. Image tags are dropped because the app
- * supplies them per launch, so an update never leaves a stale pin behind.
+ * supplies them per launch, so an update never leaves a stale pin behind, and the
+ * image names point at `registry`.
  */
-export function renderStackEnv(template: string, randomHex: (bytes: number) => string): string {
+export function renderStackEnv(
+  template: string,
+  randomHex: (bytes: number) => string,
+  registry = DEFAULT_IMAGE_REGISTRY,
+): string {
   const lines = template.split("\n");
   const rendered: string[] = [];
   for (const line of lines) {
@@ -131,7 +155,8 @@ export function renderStackEnv(template: string, randomHex: (bytes: number) => s
       continue;
     }
     if (LAUNCH_SUPPLIED.includes(name)) continue;
-    rendered.push(line);
+    const image = Object.hasOwn(REGISTRY_IMAGES, name) ? REGISTRY_IMAGES[name] : undefined;
+    rendered.push(image === undefined ? line : `${name}=${registry}/${image}`);
   }
   return rendered.join("\n");
 }
@@ -170,6 +195,7 @@ export async function ensureStackEnv(
   dir: string,
   template: string,
   randomHex: (bytes: number) => string,
+  registry = DEFAULT_IMAGE_REGISTRY,
 ): Promise<"kept" | "created"> {
   const destination = path.join(dir, STACK_ENV_FILE);
   const info = await lstat(destination).catch(() => undefined);
@@ -183,7 +209,7 @@ export async function ensureStackEnv(
     return "kept";
   }
   // Missing files (and a final symlink) are created below.
-  await writePrivateFile(destination, renderStackEnv(template, randomHex));
+  await writePrivateFile(destination, renderStackEnv(template, randomHex, registry));
   return "created";
 }
 
@@ -327,8 +353,8 @@ export function stackFailureMessage(
       );
     case "other":
       return phase === "pulling"
-        ? t("Downloading Rakazo images failed. Check the output below, then retry.")
-        : t("Rakazo services did not start. Check the output below, then retry.");
+        ? t("Downloading Superbot images failed. Check the output below, then retry.")
+        : t("Superbot services did not start. Check the output below, then retry.");
   }
 }
 
@@ -598,8 +624,8 @@ export class LocalStackController extends StackLifecycle {
         type: "docker-missing",
         message:
           this.deps.platform === "linux"
-            ? t("Rakazo needs Docker to run on this computer.")
-            : t("Rakazo needs Docker Desktop to run on this computer."),
+            ? t("Superbot needs Docker to run on this computer.")
+            : t("Superbot needs Docker Desktop to run on this computer."),
       });
       return;
     }
@@ -672,7 +698,12 @@ export class LocalStackController extends StackLifecycle {
       path.join(this.deps.stackDir, STACK_COMPOSE_FILE),
     );
     const template = await readFile(path.join(this.deps.resourceDir, STACK_ENV_TEMPLATE), "utf8");
-    await ensureStackEnv(this.deps.stackDir, template, this.deps.randomHex);
+    await ensureStackEnv(
+      this.deps.stackDir,
+      template,
+      this.deps.randomHex,
+      imageRegistry(this.deps.env),
+    );
     const stackToken = await ensureStackToken(this.deps.stackDir, this.deps.randomHex);
     this.currentStackToken = stackToken;
 

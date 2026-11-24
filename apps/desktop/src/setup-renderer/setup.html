@@ -6,34 +6,26 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; form-action 'none'; base-uri 'none'"
     />
-    <title>Set up Rakazo</title>
+    <title>Set up Superbot</title>
     <link rel="stylesheet" href="tokens.css" />
     <link rel="stylesheet" href="setup.css" />
   </head>
   <body>
     <header class="titlebar">
-      <span class="titlebar-name">Rakazo</span>
-      <button id="quit" class="titlebar-quit" type="button" title="Quit Rakazo">Quit</button>
+      <span class="titlebar-name">Superbot</span>
+      <button id="quit" class="titlebar-quit" type="button" title="Quit Superbot">Quit</button>
     </header>
 
     <main class="shell">
-      <h1 class="heading">Welcome to Rakazo</h1>
-      <p class="subheading">Choose where Rakazo runs.</p>
+      <h1 class="heading">Welcome to Superbot</h1>
+      <p class="subheading">Choose where Superbot runs.</p>
 
       <form id="setup" novalidate>
         <fieldset class="choices">
           <legend class="sr-only">Instance</legend>
 
-          <label class="choice" for="mode-cloud">
-            <input id="mode-cloud" type="radio" name="mode" value="cloud" checked />
-            <span class="choice-text">
-              <span class="choice-title">Rakazo Cloud</span>
-              <span class="choice-description">Nothing to install.</span>
-            </span>
-          </label>
-
           <label class="choice" for="mode-new">
-            <input id="mode-new" type="radio" name="mode" value="new" />
+            <input id="mode-new" type="radio" name="mode" value="new" checked />
             <span class="choice-text">
               <span class="choice-title">This computer</span>
               <span class="choice-description">Your data stays on this computer.</span>
@@ -43,7 +35,7 @@
           <label class="choice" for="mode-existing">
             <input id="mode-existing" type="radio" name="mode" value="existing" />
             <span class="choice-text">
-              <span class="choice-title">Existing instance</span>
+              <span class="choice-title">Superbot server</span>
               <span class="choice-description">Connect to a server you or your team already run.</span>
             </span>
           </label>
@@ -93,7 +85,7 @@
             type="text"
             spellcheck="false"
             autocomplete="off"
-            placeholder="https://rakazo.example.com"
+            placeholder="https://superbot.example.com"
           />
           <details id="server-headers-section" class="headers">
             <summary>Headers</summary>

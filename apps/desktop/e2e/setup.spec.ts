@@ -11,7 +11,10 @@ import { _electron as electron, expect, test } from "@playwright/test";
 import type { RakazoDesktop } from "@rakazo/contracts";
 import { shownWindow } from "./shown-window.js";
 
-const APP_MARKER = "Existing Rakazo instance ready";
+/** A packaged build to test instead of the development app. */
+const E2E_EXECUTABLE =
+  process.env.SUPERBOT_E2E_EXECUTABLE || process.env.RAKAZO_E2E_EXECUTABLE || undefined;
+const APP_MARKER = "Existing Superbot instance ready";
 /**
  * The shell waits 20s for a page to mount the app before it rejects the server. A page that never
  * mounts is rejected the same way after any wait, so those specs shorten it instead of sitting out
@@ -61,7 +64,7 @@ test.beforeAll(async () => {
     }
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     response.end(
-      `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title></head><body><main>${APP_MARKER}</main></body></html>`,
+      `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Superbot</title></head><body><main>${APP_MARKER}</main></body></html>`,
     );
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -96,13 +99,16 @@ function launch(extraEnv: Record<string, string> = {}) {
     ...process.env,
     RAKAZO_PERFORMANCE_USER_DATA: userData,
   };
-  // A stale RAKAZO_WEB_URL from the developer's shell would bypass setup entirely.
-  delete env.RAKAZO_WEB_URL;
-  // A first launch opens Rakazo Cloud; these specs stay offline and start in setup instead.
+  // A web or server address from the developer's shell would bypass setup entirely.
+  for (const name of ["WEB_URL", "SERVER_URL"]) {
+    delete env[`SUPERBOT_${name}`];
+    delete env[`RAKAZO_${name}`];
+  }
+  // Start in setup even when a build names a server; these specs stay offline.
   if (!extraEnv.RAKAZO_WEB_URL && !existsSync(path.join(userData, "setup.json"))) {
     env.RAKAZO_FORCE_SETUP = "1";
   }
-  const executablePath = process.env.RAKAZO_E2E_EXECUTABLE;
+  const executablePath = E2E_EXECUTABLE;
   return electron.launch({
     ...(executablePath ? { executablePath: path.resolve(executablePath) } : {}),
     args: executablePath ? [] : ["."],
@@ -111,32 +117,23 @@ function launch(extraEnv: Record<string, string> = {}) {
   });
 }
 
-test("setup offers Rakazo Cloud first, with local and existing instances", async () => {
+test("setup offers this computer first, with a Superbot server as the other choice", async () => {
   app = await launch();
-  if (process.env.RAKAZO_E2E_EXECUTABLE) {
+  if (E2E_EXECUTABLE) {
     expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(true);
   }
   const setup = await app.firstWindow();
 
-  await expect(setup.getByRole("heading", { name: "Welcome to Rakazo" })).toBeVisible();
-  await expect(setup.getByText("Choose where Rakazo runs.")).toBeVisible();
-  await expect(setup.getByText("Rakazo Cloud", { exact: true })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Welcome to Superbot" })).toBeVisible();
+  await expect(setup.getByText("Choose where Superbot runs.")).toBeVisible();
   await expect(setup.getByText("This computer", { exact: true })).toBeVisible();
-  await expect(setup.getByText("Existing instance", { exact: true })).toBeVisible();
+  await expect(setup.getByText("Superbot server", { exact: true })).toBeVisible();
+  await expect(setup.getByRole("radio")).toHaveCount(2);
   await expect(setup.locator(".card")).toHaveCount(0);
 
-  // Cloud is the default: one click opens the hosted app, with nothing to fill in.
-  await expect(setup.getByRole("radio", { name: /Rakazo Cloud/ })).toBeChecked();
-  await expect(setup.locator("#panel-new")).toBeHidden();
-  await expect(setup.locator("#panel-existing")).toBeHidden();
-  await expect(setup.getByRole("button", { name: "Check connection" })).toBeHidden();
+  // This computer is the default: it runs the stack itself at the local address.
+  await expect(setup.getByRole("radio", { name: /This computer/ })).toBeChecked();
   await expect(setup.getByRole("button", { name: "Continue" })).toBeEnabled();
-  await setup.screenshot({
-    path: path.join(import.meta.dirname, "screenshots", "00-setup-cloud.png"),
-  });
-
-  // This computer runs the stack itself at the local address.
-  await setup.getByRole("radio", { name: /This computer/ }).check();
   // The panel is empty until a start begins, so check the attribute rather than the box.
   await expect(setup.locator("#panel-new")).toHaveJSProperty("hidden", false);
   await expect(setup.locator("#stack")).toBeHidden();
@@ -183,7 +180,7 @@ test("setup opens in the language the app last used", async () => {
 
   await expect(setup.locator("html")).toHaveAttribute("lang", "es");
   await expect(
-    setup.getByRole("heading", { name: "Te damos la bienvenida a Rakazo" }),
+    setup.getByRole("heading", { name: "Te damos la bienvenida a Superbot" }),
   ).toBeVisible();
   await expect(setup.getByRole("button", { name: "Continuar" })).toBeEnabled();
   await setup.screenshot({
@@ -197,68 +194,34 @@ test("setup lays out right to left in Hebrew", async () => {
   const setup = await app.firstWindow();
 
   await expect(setup.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect(setup.getByRole("heading", { name: "ברוכים הבאים ל-Rakazo" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "ברוכים הבאים ל-Superbot" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "המשך" })).toBeEnabled();
   await setup.screenshot({
     path: path.join(import.meta.dirname, "screenshots", "11-setup-hebrew.png"),
   });
 });
 
-test("Rakazo Cloud saves the hosted address and is reselected when saved", async () => {
-  app = await launch();
+test("setup offers the Superbot server the build names", async () => {
+  app = await launch({ SUPERBOT_SERVER_URL: serverUrl, SUPERBOT_FORCE_SETUP: "1" });
   const setup = await app.firstWindow();
-  await expect(setup.getByRole("radio", { name: /Rakazo Cloud/ })).toBeChecked();
-  await expect(setup.getByRole("button", { name: "Continue" })).toBeEnabled();
 
-  // Capture the request instead of reaching the hosted server, so CI stays offline.
-  const { cloudUrl } = await setup.evaluate(() =>
-    (
-      window as typeof window & { rakazoSetup: { state: () => Promise<{ cloudUrl: string }> } }
-    ).rakazoSetup.state(),
-  );
-  expect(cloudUrl).toMatch(/^https:\/\//);
-  await app.evaluate(({ ipcMain }) => {
-    const state = globalThis as typeof globalThis & { cloudSaves?: unknown[] };
-    state.cloudSaves = [];
-    ipcMain.removeHandler("desktop.setup.save");
-    ipcMain.handle("desktop.setup.save", (_event, payload: unknown) => {
-      state.cloudSaves?.push(payload);
-      return { ok: false, error: "Captured." };
-    });
-  });
-  await setup.getByRole("button", { name: "Continue" }).click();
-  await expect(setup.locator("#status")).toHaveText("Captured.");
-  expect(
-    await app.evaluate(
-      () => (globalThis as typeof globalThis & { cloudSaves?: unknown[] }).cloudSaves,
-    ),
-  ).toEqual([{ mode: "existing", serverUrl: cloudUrl }]);
-  expect(await readFile(path.join(userData, "setup.json"), "utf8").catch(() => null)).toBeNull();
-
-  // A saved Cloud setup reopens with Cloud chosen, not as a typed existing address.
-  await app.evaluate(({ ipcMain }, url) => {
-    ipcMain.removeHandler("desktop.setup.state");
-    ipcMain.handle("desktop.setup.state", () => ({
-      defaultLocalUrl: "http://127.0.0.1:45173",
-      cloudUrl: url,
-      saved: { mode: "existing", serverUrl: url },
-    }));
-  }, cloudUrl);
-  await setup.reload();
-  await expect(setup.getByRole("radio", { name: /Rakazo Cloud/ })).toBeChecked();
-  await expect(setup.locator("#panel-existing")).toBeHidden();
+  await expect(setup.getByRole("radio", { name: /Superbot server/ })).toBeChecked();
+  await expect(setup.locator("#panel-existing")).toBeVisible();
+  await expect(setup.locator("#server-url")).toHaveValue(serverUrl);
+  await setup.getByRole("button", { name: "Check connection" }).click();
+  await expect(setup.locator("#status")).toHaveText(`Superbot answered at ${serverUrl}.`);
 });
 
 test("connecting to an existing instance verifies, saves, and opens it", async () => {
   app = await launch();
   const setup = await app.firstWindow();
 
-  await setup.getByRole("radio", { name: /Existing instance/ }).check();
+  await setup.getByRole("radio", { name: /Superbot server/ }).check();
   await expect(setup.locator("#panel-new")).toBeHidden();
 
   await setup.locator("#server-url").fill(serverUrl);
   await setup.getByRole("button", { name: "Check connection" }).click();
-  await expect(setup.locator("#status")).toHaveText(`Rakazo answered at ${serverUrl}.`);
+  await expect(setup.locator("#status")).toHaveText(`Superbot answered at ${serverUrl}.`);
   await expect(setup.locator("#status")).toHaveAttribute("data-tone", "ok");
 
   await setup.screenshot({
@@ -290,7 +253,7 @@ test("connecting to an existing instance verifies, saves, and opens it", async (
 test("Continue verifies and remembers the instance so setup does not run again", async () => {
   app = await launch();
   const setup = await app.firstWindow();
-  await setup.getByRole("radio", { name: /Existing instance/ }).check();
+  await setup.getByRole("radio", { name: /Superbot server/ }).check();
   await setup.locator("#server-url").fill(serverUrl);
   const firstRun = await Promise.all([
     app.waitForEvent("window"),
@@ -320,7 +283,7 @@ test("an unreachable address is reported instead of being saved", async () => {
   app = await launch();
   const setup = await app.firstWindow();
 
-  await setup.getByRole("radio", { name: /Existing instance/ }).check();
+  await setup.getByRole("radio", { name: /Superbot server/ }).check();
   await setup.locator("#server-url").fill(closedUrl);
   await setup.getByRole("button", { name: "Check connection" }).click();
 
@@ -353,7 +316,7 @@ test("an HTTP error document is not accepted after a healthy probe", async () =>
   try {
     app = await launch();
     const setup = await app.firstWindow();
-    await setup.getByRole("radio", { name: /Existing instance/ }).check();
+    await setup.getByRole("radio", { name: /Superbot server/ }).check();
     await setup.locator("#server-url").fill(`http://127.0.0.1:${address.port}`);
     await setup.getByRole("button", { name: "Continue" }).click();
 
@@ -369,7 +332,7 @@ test("an HTTP error document is not accepted after a healthy probe", async () =>
 });
 
 test("a session-pending shell skeleton is not accepted as a ready app", async () => {
-  const skeletonHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title></head>
+  const skeletonHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Superbot</title></head>
 <body><div id="root"><div data-rakazo-app-state="session-pending"><aside></aside><main><div>Opening your Space…</div></main></div></div></body></html>`;
   const skeleton = createServer((request, response) => {
     if (request.url === "/rpc/health" && request.method === "POST") {
@@ -388,7 +351,7 @@ test("a session-pending shell skeleton is not accepted as a ready app", async ()
   try {
     app = await launch(NOT_READY_MOUNT_ENV);
     const setup = await app.firstWindow();
-    await setup.getByRole("radio", { name: /Existing instance/ }).check();
+    await setup.getByRole("radio", { name: /Superbot server/ }).check();
     await setup.locator("#server-url").fill(`http://127.0.0.1:${address.port}`);
     await setup.getByRole("button", { name: "Continue" }).click();
 
@@ -420,7 +383,7 @@ for (const { name, surface } of [
   },
 ]) {
   test(`a post-session ${name} mount is accepted`, async () => {
-    const readyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title>
+    const readyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Superbot</title>
 </head>
 <body><div id="root"><div data-rakazo-app-state="ready">${surface}</div></div></body></html>`;
     const ready = createServer((request, response) => {
@@ -440,7 +403,7 @@ for (const { name, surface } of [
     try {
       app = await launch();
       const setup = await app.firstWindow();
-      await setup.getByRole("radio", { name: /Existing instance/ }).check();
+      await setup.getByRole("radio", { name: /Superbot server/ }).check();
       await setup.locator("#server-url").fill(`http://127.0.0.1:${address.port}`);
       const appWindow = await Promise.all([
         app.waitForEvent("window"),
@@ -469,7 +432,7 @@ for (const { name, surface } of [
 }
 
 test("a shell mount before workspace bootstrap is not accepted", async () => {
-  const preBootstrapHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title></head>
+  const preBootstrapHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Superbot</title></head>
 <body><div id="root"><div data-rakazo-app-state="ready"><div data-testid="shell-root" data-ready="false">Workspace</div></div></div></body></html>`;
   const preBootstrap = createServer((request, response) => {
     if (request.url === "/rpc/health" && request.method === "POST") {
@@ -488,7 +451,7 @@ test("a shell mount before workspace bootstrap is not accepted", async () => {
   try {
     app = await launch(NOT_READY_MOUNT_ENV);
     const setup = await app.firstWindow();
-    await setup.getByRole("radio", { name: /Existing instance/ }).check();
+    await setup.getByRole("radio", { name: /Superbot server/ }).check();
     await setup.locator("#server-url").fill(`http://127.0.0.1:${address.port}`);
     await setup.getByRole("button", { name: "Continue" }).click();
 
@@ -506,7 +469,7 @@ test("a shell mount before workspace bootstrap is not accepted", async () => {
 });
 
 test("a session-ready marker without a route surface is not accepted", async () => {
-  const emptyReadyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Rakazo</title></head>
+  const emptyReadyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Superbot</title></head>
 <body><div id="root"><div data-rakazo-app-state="ready" class="h-full"></div></div></body></html>`;
   const emptyReady = createServer((request, response) => {
     if (request.url === "/rpc/health" && request.method === "POST") {
@@ -525,7 +488,7 @@ test("a session-ready marker without a route surface is not accepted", async () 
   try {
     app = await launch(NOT_READY_MOUNT_ENV);
     const setup = await app.firstWindow();
-    await setup.getByRole("radio", { name: /Existing instance/ }).check();
+    await setup.getByRole("radio", { name: /Superbot server/ }).check();
     await setup.locator("#server-url").fill(`http://127.0.0.1:${address.port}`);
     await setup.getByRole("button", { name: "Continue" }).click();
 
@@ -546,7 +509,7 @@ test("a malformed address is rejected before anything is written", async () => {
   app = await launch();
   const setup = await app.firstWindow();
 
-  await setup.getByRole("radio", { name: /Existing instance/ }).check();
+  await setup.getByRole("radio", { name: /Superbot server/ }).check();
   await setup.locator("#server-url").fill("not a server");
   await setup.getByRole("button", { name: "Continue" }).click();
 
@@ -556,10 +519,10 @@ test("a malformed address is rejected before anything is written", async () => {
   }).toPass();
 });
 
-test("a generic web page is not accepted as a Rakazo server", async () => {
+test("a generic web page is not accepted as a Superbot server", async () => {
   const plain = createServer((_request, response) => {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end("<!doctype html><p>not Rakazo</p>");
+    response.end("<!doctype html><p>not Superbot</p>");
   });
   await new Promise<void>((resolve) => plain.listen(0, "127.0.0.1", resolve));
   const address = plain.address();
@@ -568,12 +531,12 @@ test("a generic web page is not accepted as a Rakazo server", async () => {
   try {
     app = await launch();
     const setup = await app.firstWindow();
-    await setup.getByRole("radio", { name: /Existing instance/ }).check();
+    await setup.getByRole("radio", { name: /Superbot server/ }).check();
     await setup.locator("#server-url").fill(`http://127.0.0.1:${address.port}`);
     await setup.getByRole("button", { name: "Continue" }).click();
 
     await expect(setup.locator("#status")).toHaveText(
-      "That address did not respond like a Rakazo server.",
+      "That address did not respond like a Superbot server.",
     );
     await expect(async () => {
       await expect(readFile(path.join(userData, "setup.json"), "utf8")).rejects.toThrow();
@@ -599,7 +562,7 @@ test("the setup probe refuses redirects instead of following them", async () => 
   try {
     app = await launch();
     const setup = await app.firstWindow();
-    await setup.getByRole("radio", { name: /Existing instance/ }).check();
+    await setup.getByRole("radio", { name: /Superbot server/ }).check();
     await setup.locator("#server-url").fill(`http://127.0.0.1:${address.port}`);
     await setup.getByRole("button", { name: "Continue" }).click();
 
@@ -627,8 +590,8 @@ test("an unreachable saved server falls back to setup with a recovery message", 
   app = await launch();
   const setup = await app.firstWindow();
 
-  await expect(setup.getByRole("heading", { name: "Welcome to Rakazo" })).toBeVisible();
-  await expect(setup.getByRole("radio", { name: /Existing instance/ })).toBeChecked();
+  await expect(setup.getByRole("heading", { name: "Welcome to Superbot" })).toBeVisible();
+  await expect(setup.getByRole("radio", { name: /Superbot server/ })).toBeChecked();
   await expect(setup.locator("#server-url")).toHaveValue(closedUrl);
   await expect(setup.locator("#status")).toContainText("Could not reconnect to the saved server.");
   await setup.screenshot({
@@ -649,7 +612,7 @@ test("the native application menu can reopen setup without exposing setup IPC to
   });
   const setup = await setupPromise;
 
-  await expect(setup.getByRole("heading", { name: "Welcome to Rakazo" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Welcome to Superbot" })).toBeVisible();
   await expect(setup.locator("#status")).toBeEmpty();
 
   // Closing setup without saving restores the connected instance.
@@ -846,7 +809,7 @@ for (const failure of ["load", "save"] as const) {
         item.click();
       });
       const setup = await setupPromise;
-      await setup.getByRole("radio", { name: /Existing instance/ }).check();
+      await setup.getByRole("radio", { name: /Superbot server/ }).check();
       await setup.locator("#server-url").fill(`http://127.0.0.1:${address.port}`);
       if (failure === "save") {
         await rm(path.join(userData, "setup.json"));

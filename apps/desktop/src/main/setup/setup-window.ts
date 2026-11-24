@@ -10,7 +10,7 @@ import { dockerDownloadUrl, isDesktopSetupLink } from "../this-computer/docker-c
 import type { createAppOpener } from "../windows/app-opener.js";
 import { developmentIcon, markOnce } from "../windows/app-window.js";
 import { setupWindowOptions } from "../windows/window-options.js";
-import { managedLocalOpenUrl, parseSetupInput, RAKAZO_CLOUD_URL } from "./setup-config.js";
+import { configuredServerUrl, managedLocalOpenUrl, parseSetupInput } from "./setup-config.js";
 import { writeSetup } from "./setup-store.js";
 
 let setupSaveInProgress = false;
@@ -112,7 +112,7 @@ type SetupIpcDeps = {
   settleLocalStack: () => Promise<void>;
 };
 
-/** The setup window's IPC. The channel map keeps a connected Rakazo server from calling any of it. */
+/** The setup window's IPC. The channel map keeps a connected server from calling any of it. */
 export function registerSetupIpc({
   userDataDir,
   appOpener,
@@ -133,7 +133,7 @@ export function registerSetupIpc({
   }));
   handleIpc("desktop.setup.state", () => ({
     defaultLocalUrl: desktop.localStack.webUrl(),
-    cloudUrl: RAKAZO_CLOUD_URL,
+    suggestedServerUrl: configuredServerUrl(process.env),
     saved: desktop.currentSetup,
     error: desktop.setupError ?? undefined,
   }));
@@ -170,7 +170,7 @@ export function registerSetupIpc({
         if (managedUrl === null || !(await desktop.localStack.matchesDesiredStack())) {
           return {
             ok: false,
-            error: t("The app-managed Rakazo services are not ready. Retry setup."),
+            error: t("The app-managed Superbot services are not ready. Retry setup."),
           };
         }
         openSetup = { mode: "new", serverUrl: managedUrl };

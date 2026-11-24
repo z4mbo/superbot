@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  configuredServerUrl,
   DEFAULT_LOCAL_WEB_URL,
   desktopStackImageTag,
   isRakazoHealth,
@@ -10,7 +11,6 @@ import {
   parseSetupInput,
   parseStoredSetup,
   probeFailureMessage,
-  RAKAZO_CLOUD_URL,
   readProbeJson,
   resolveStartupTarget,
   safeExternalUrl,
@@ -58,12 +58,12 @@ describe("server address normalization", () => {
     expect(normalizeServerUrl("http://[fd00:ec2::254]")).toBeNull();
     // fd::1 is 00fd::1, not unique-local.
     expect(normalizeServerUrl("http://[fd::1]:3100")).toBeNull();
-    // HTTPS to link-local still normalizes; the health probe must match Rakazo.
+    // HTTPS to link-local still normalizes; the health probe must match Superbot.
     expect(normalizeServerUrl("https://169.254.169.254")).toBe("https://169.254.169.254");
   });
 
   it.each(["", "   ", "not a url", "ftp://example.com", "file:///etc/passwd", "http://"])(
-    "rejects an address that cannot reach a Rakazo server (%s)",
+    "rejects an address that cannot reach a Superbot server (%s)",
     (value) => {
       expect(normalizeServerUrl(value)).toBeNull();
     },
@@ -137,15 +137,11 @@ describe("saved setup", () => {
     });
   });
 
-  it("saves Rakazo Cloud as an existing server under the exact origin setup matches", () => {
-    // The setup window recognizes a saved Cloud choice by comparing against this constant.
-    expect(normalizeServerUrl(RAKAZO_CLOUD_URL)).toBe(RAKAZO_CLOUD_URL);
-    expect(parseSetupInput({ mode: "existing", serverUrl: RAKAZO_CLOUD_URL })).toEqual({
+  it("keeps a server saved while the app pointed at the old hosted service", () => {
+    expect(parseSetupInput({ mode: "existing", serverUrl: "https://app.rakazo.com" })).toEqual({
       mode: "existing",
-      serverUrl: RAKAZO_CLOUD_URL,
+      serverUrl: "https://app.rakazo.com",
     });
-    expect(parseSetupInput({ mode: "new", serverUrl: RAKAZO_CLOUD_URL })).toBeNull();
-    expect(servesBundledRenderer(RAKAZO_CLOUD_URL, false)).toBe(false);
   });
 });
 
@@ -164,7 +160,7 @@ describe("server request headers", () => {
     ).toEqual({ mode: "existing", serverUrl: "https://rakazo.example.com" });
   });
 
-  it("refuses headers Rakazo owns and headers for a new local instance", () => {
+  it("refuses headers Superbot owns and headers for a new local instance", () => {
     expect(parseSetupInput({ ...setup, headers: { Cookie: "a=b" } })).toBeNull();
     expect(parseSetupInput({ ...setup, headers: "x: y" })).toBeNull();
     expect(
@@ -183,16 +179,42 @@ describe("server request headers", () => {
   });
 });
 
+describe("configured server", () => {
+  it("reads SUPERBOT_SERVER_URL, then the legacy RAKAZO_SERVER_URL", () => {
+    expect(configuredServerUrl({})).toBeNull();
+    expect(configuredServerUrl({ RAKAZO_SERVER_URL: "legacy.example.org" })).toBe(
+      "https://legacy.example.org",
+    );
+    expect(
+      configuredServerUrl({
+        SUPERBOT_SERVER_URL: "https://bots.example.org/app",
+        RAKAZO_SERVER_URL: "legacy.example.org",
+      }),
+    ).toBe("https://bots.example.org");
+  });
+
+  it("ignores an address that cannot name a server", () => {
+    expect(configuredServerUrl({ SUPERBOT_SERVER_URL: "http://bots.example.org" })).toBeNull();
+  });
+});
+
 describe("startup target", () => {
   const saved = { mode: "existing", serverUrl: "https://rakazo.example.com" } as const;
 
-  it("opens Rakazo Cloud on a first launch", () => {
-    expect(resolveStartupTarget({})).toEqual({
+  it("opens setup on a first launch when the build names no server", () => {
+    expect(resolveStartupTarget({})).toEqual({ kind: "setup" });
+    expect(resolveStartupTarget({ saved: null, configuredUrl: null })).toEqual({ kind: "setup" });
+  });
+
+  it("opens the server the build names on a first launch", () => {
+    expect(resolveStartupTarget({ configuredUrl: "https://bots.example.org" })).toEqual({
       kind: "app",
-      url: RAKAZO_CLOUD_URL,
-      source: "cloud",
+      url: "https://bots.example.org",
+      source: "configured",
     });
-    expect(resolveStartupTarget({ saved: null })).toMatchObject({ source: "cloud" });
+    expect(
+      resolveStartupTarget({ saved, configuredUrl: "https://bots.example.org" }),
+    ).toMatchObject({ source: "saved" });
   });
 
   it("opens the saved instance on later launches", () => {
@@ -270,7 +292,7 @@ describe("remote-content isolation", () => {
   });
 });
 
-describe("Rakazo health response", () => {
+describe("Superbot health response", () => {
   it("requires the public RPC health contract", () => {
     expect(isRakazoHealth({ json: { ok: true, version: "0.1.0" } })).toBe(true);
     expect(isRakazoHealth({ json: { ok: true } })).toBe(false);
