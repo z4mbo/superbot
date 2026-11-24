@@ -1,10 +1,8 @@
 import type { BotAvatarSet, BotColorDef } from "@rakazo/contracts";
 import { BOT_COLOR_LIST, BOT_COLORS } from "@rakazo/contracts";
-import type { AvatarEyes, BotMarkState, LogoAvatarActivity } from "@rakazo/core";
+import type { BotMarkState, LogoAvatarActivity } from "@rakazo/core";
 import {
-  avatarEyeRects,
   BOT_MARK_VIEWBOX,
-  botEyeTone,
   botMarkInkFor,
   botMarkRestPath,
   botMarkShapeFor,
@@ -14,8 +12,6 @@ import {
   logoAvatarStatusActivity,
   resolvePersonaColorDef,
   SHIPPED_BOT_AVATAR_SHAPE_KEYS,
-  SHIPPED_BOT_AVATAR_SHAPES,
-  SHIPPED_BOT_AVATAR_VIEWBOX,
 } from "@rakazo/core";
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, memo, useContext, useMemo } from "react";
@@ -26,16 +22,6 @@ import "./styles.css";
 
 export type { BotColorDef };
 export { BOT_COLOR_LIST, BOT_COLORS, DEFAULT_BOT_AVATAR_COLOR, resolvePersonaColorDef };
-
-export const BOT_SHAPES = SHIPPED_BOT_AVATAR_SHAPES;
-export const SHIPPED_SHAPE_KEYS = SHIPPED_BOT_AVATAR_SHAPE_KEYS;
-const _VIEWBOX = SHIPPED_BOT_AVATAR_VIEWBOX;
-
-export const BOT_MASCOT_SHAPES = SHIPPED_SHAPE_KEYS.map(
-  (k) => BOT_SHAPES[k] ?? FALLBACK_SHAPE_PATH,
-);
-
-const FALLBACK_SHAPE_PATH = BOT_SHAPES.hex ?? "";
 
 export function parseBotAvatar(
   rawColor: string,
@@ -59,7 +45,7 @@ export function parseBotAvatar(
     const shapeIdx = Number.isSafeInteger(parsedShapeIdx) ? parsedShapeIdx : 0;
     return {
       color: parts[0] || "#F97316",
-      shapeIndex: shapeIdx % SHIPPED_SHAPE_KEYS.length,
+      shapeIndex: shapeIdx % SHIPPED_BOT_AVATAR_SHAPE_KEYS.length,
       isImage: false,
     };
   }
@@ -238,18 +224,6 @@ function botMarkStateForActivity(activity: LogoAvatarActivity): BotMarkState {
     default:
       return "idle";
   }
-}
-
-function _BarEyes({ eyes }: { eyes: AvatarEyes }) {
-  return avatarEyeRects(eyes).map((rect) => <rect key={rect.x} {...rect} />);
-}
-
-/** Eyes are cut-outs in the page color unless the body is nearly white or black. */
-function _eyeFill(bodyHex: string): string {
-  const tone = botEyeTone(bodyHex);
-  if (tone === "dark") return "fill-foreground dark:fill-background";
-  if (tone === "light") return "fill-background dark:fill-foreground";
-  return "fill-background";
 }
 
 export function BotShapePreview({

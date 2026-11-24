@@ -13,11 +13,7 @@ export type { BotMarkClipName } from "./bot-mark-clips.js";
 import { BOT_MARK_CLIPS } from "./bot-mark-clips.js";
 import { cubicEase } from "./bot-mark-geometry.js";
 import type { BotMarkMorphKind } from "./bot-mark-morph.js";
-
-/** The pose a body holds when nothing plays: turned up and to the right, as if glancing aside. */
-export const REST_ROTATION = [-15.9, 33.3, 25.4] as const;
-/** The body's diameter as a share of the box. */
-export const REST_ZOOM = 0.6;
+import { REST_ZOOM } from "./bot-mark-rest.js";
 
 /** What each state plays, and the face it holds over its clips. */
 export type BotMarkPlaylist = {

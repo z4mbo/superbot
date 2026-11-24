@@ -103,8 +103,13 @@ function curve(off: Point, half: number, p0: Point, p1: Point, p2: Point, arc: b
 const REST_WIDTH = 0.26;
 const ROUND = 0.1305;
 
-/** Each face's eyes, in eye space (x points away from the middle of the face). */
-export const BOT_MARK_FACE_EYES: Record<BotMarkFace, readonly [EyeShape, EyeShape]> = (() => {
+/**
+ * Each face's eyes, in eye space (x points away from the middle of the face). Built in a call
+ * marked pure, so a bundle that never draws a mark, such as the desktop main process, leaves it out.
+ */
+export const BOT_MARK_FACE_EYES = /* @__PURE__ */ faceEyes();
+
+function faceEyes(): Record<BotMarkFace, readonly [EyeShape, EyeShape]> {
   const both = (eye: EyeShape) => [eye, eye] as const;
   const dot = (size: number, offX: number) => pill(size, size, 0, offX);
   return {
@@ -120,7 +125,7 @@ export const BOT_MARK_FACE_EYES: Record<BotMarkFace, readonly [EyeShape, EyeShap
     calm: both({ spine: [[0, 0]], half: 0, oval: [0.296, 0.247], off: [0.05, 0], tilt: 0, lid: 1 }),
     confused: both(curve([-0.1, 0], ROUND, [0.01, 0.16], [-0.17, 0], [0.01, -0.16], false)),
   };
-})();
+}
 
 const outlines = new Map<BotMarkFace, readonly [Point[], Point[]]>();
 

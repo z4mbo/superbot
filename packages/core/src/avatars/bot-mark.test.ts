@@ -2,20 +2,25 @@ import { describe, expect, it } from "vitest";
 import {
   BOT_MARK_SHAPES,
   BOT_MARK_STATES,
+  botMarkInkFor,
+  botMarkRestDrawing,
+  botMarkRestFrame,
+  botMarkRestPath,
+  botMarkShapeFor,
+  botMarkStateFor,
+} from "./bot-mark.js";
+import {
   botMarkBlend,
   botMarkDrawing,
   botMarkFrame,
-  botMarkInkFor,
   botMarkPath,
-  botMarkRestPath,
-  botMarkShapeFor,
   botMarkShowcaseEmotion,
-  botMarkStateFor,
   botMarkZoom,
-} from "./bot-mark.js";
+} from "./bot-mark-animation.js";
 import { bodySilhouette } from "./bot-mark-bodies.js";
 import { faceOutlines } from "./bot-mark-faces.js";
-import { playlistAt, pokeEffect, REST_ROTATION } from "./bot-mark-motion.js";
+import { playlistAt, pokeEffect } from "./bot-mark-motion.js";
+import { REST_ROTATION } from "./bot-mark-rest.js";
 
 const subpaths = (d: string) => d.split("M").length - 1;
 
@@ -184,6 +189,15 @@ describe("bot mark", () => {
     expect(a).toEqual(b);
     expect(a.rotation).toEqual([...REST_ROTATION]);
   });
+
+  it.each(BOT_MARK_SHAPES)(
+    "first paints %s at rest exactly as the animation draws it idle",
+    (shape) => {
+      const idle = botMarkFrame({ state: "idle", time: 0, seed: 0, shape });
+      expect(botMarkRestFrame()).toEqual(idle);
+      expect(botMarkRestDrawing(shape)).toEqual(botMarkDrawing(shape, idle));
+    },
+  );
 
   it("blends from one state into the next", () => {
     const from = botMarkFrame({ state: "idle", time: 0, seed: 0 });

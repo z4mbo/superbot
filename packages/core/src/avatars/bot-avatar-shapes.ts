@@ -40,13 +40,12 @@ export const SHIPPED_BOT_AVATAR_SHAPE_KEYS = [
   "cloud",
 ] as const;
 
-const FALLBACK_SHAPE_PATH = SHIPPED_BOT_AVATAR_SHAPES.hex ?? "";
-
 export function shippedBotAvatarShapePath(shapeIndex: number): string {
   const count = SHIPPED_BOT_AVATAR_SHAPE_KEYS.length;
   const normalized = Number.isFinite(shapeIndex)
     ? ((Math.trunc(shapeIndex) % count) + count) % count
     : 0;
   const key = SHIPPED_BOT_AVATAR_SHAPE_KEYS[normalized] ?? "hex";
-  return SHIPPED_BOT_AVATAR_SHAPES[key] ?? FALLBACK_SHAPE_PATH;
+  // Read here, not in a top-level constant, so a bundle that never draws these paths drops them.
+  return SHIPPED_BOT_AVATAR_SHAPES[key] ?? SHIPPED_BOT_AVATAR_SHAPES.hex ?? "";
 }

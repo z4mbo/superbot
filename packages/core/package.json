@@ -64,6 +64,11 @@
       "development": "./src/node/test-runtime.ts",
       "default": "./src/node/test-runtime.ts"
     },
+    "./bot-mark-animation": {
+      "types": "./src/avatars/bot-mark-animation.ts",
+      "development": "./src/avatars/bot-mark-animation.ts",
+      "default": "./src/avatars/bot-mark-animation.ts"
+    },
     "./plot": {
       "types": "./src/plot/plot-spec.ts",
       "development": "./src/plot/plot-spec.ts",
