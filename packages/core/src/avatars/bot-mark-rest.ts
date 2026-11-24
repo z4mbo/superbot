@@ -5,7 +5,7 @@
 import type { BotMarkPose } from "./bot-mark-motion.js";
 
 /** Turned up and to the right, as if glancing aside: pitch, yaw and roll in degrees. */
-export const REST_ROTATION = [-15.9, 33.3, 25.4] as const;
+export const REST_ROTATION = [-15.8963, 33.2932, 25.3848] as const;
 /** The body's diameter as a share of the box. */
 export const REST_ZOOM = 0.6;
 

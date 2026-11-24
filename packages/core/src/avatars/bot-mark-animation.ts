@@ -69,6 +69,78 @@ const CENTER = BOT_MARK_BOX / 2;
 /** Where the pointer holds the face: x right and y up, each -1 to 1, and how firmly (0 to 1). */
 export type BotMarkGaze = { x: number; y: number; hold: number };
 
+/**
+ * A gaze as it moves: where the face looks now (`x`, `y`, `hold`), where it is headed (`to`) and
+ * whether anything still holds it (`held`). Released, the face keeps easing toward its last aim
+ * while the hold lets go, so it turns back to rest from where it was looking.
+ */
+export type BotMarkGazeHold = BotMarkGaze & { to: readonly [number, number]; held: boolean };
+
+export const BOT_MARK_GAZE_REST: BotMarkGazeHold = { x: 0, y: 0, hold: 0, to: [0, 0], held: false };
+
+/**
+ * Where the pointer over an avatar's box holds its face: the pointer's offset from the mark's
+ * middle in half-widths of the mark, x right and y up, each clamped to ±1.
+ */
+export function botMarkPointerGaze(
+  mark: { left: number; top: number; width: number; height: number },
+  pointer: readonly [number, number],
+): [number, number] {
+  const reach = Math.max(mark.width, 1) * 0.5;
+  const clamp = (value: number) => Math.max(-1, Math.min(1, value));
+  return [
+    clamp((pointer[0] - (mark.left + mark.width / 2)) / reach),
+    clamp(-(pointer[1] - (mark.top + mark.height / 2)) / reach),
+  ];
+}
+
+/**
+ * Aims a gaze at `target`, or releases it with null. A face that was not held at all starts
+ * looking straight at the target and only its hold eases in, so the first glance does not sweep.
+ */
+export function botMarkGazeAim(
+  gaze: BotMarkGazeHold,
+  target: readonly [number, number] | null,
+): BotMarkGazeHold {
+  if (!target) return gaze.held ? { ...gaze, held: false } : gaze;
+  const x = Math.max(-1, Math.min(1, target[0]));
+  const y = Math.max(-1, Math.min(1, target[1]));
+  if (gaze.held && gaze.to[0] === x && gaze.to[1] === y) return gaze;
+  return gaze.hold === 0
+    ? { x, y, hold: 0, to: [x, y], held: true }
+    : { ...gaze, to: [x, y], held: true };
+}
+
+/** The share of the way a gaze eases each 60th of a second. */
+const GAZE_EASE = 0.14;
+/** A step never covers more than this, so a mark that missed frames does not leap. */
+const GAZE_MAX_STEP = 0.1;
+
+/**
+ * Moves a gaze `seconds` on: the face and the hold each close 14% of their distance per 60th of
+ * a second, landing exactly once within a thousandth.
+ */
+export function botMarkGazeStep(gaze: BotMarkGazeHold, seconds: number): BotMarkGazeHold {
+  if (botMarkGazeSettled(gaze)) return gaze;
+  const k = 1 - (1 - GAZE_EASE) ** (Math.min(Math.max(seconds, 0), GAZE_MAX_STEP) * 60);
+  const toward = (from: number, to: number) => {
+    const value = from + (to - from) * k;
+    return Math.abs(to - value) < 1e-3 ? to : value;
+  };
+  return {
+    ...gaze,
+    x: toward(gaze.x, gaze.to[0]),
+    y: toward(gaze.y, gaze.to[1]),
+    hold: toward(gaze.hold, gaze.held ? 1 : 0),
+  };
+}
+
+/** Whether a gaze has stopped moving: fully held on its aim, or let go. */
+export function botMarkGazeSettled(gaze: BotMarkGazeHold): boolean {
+  if (!gaze.held) return gaze.hold === 0;
+  return gaze.hold === 1 && gaze.x === gaze.to[0] && gaze.y === gaze.to[1];
+}
+
 export type BotMarkFrameInput = {
   state: BotMarkState;
   /** Milliseconds since the mark entered this state. */
