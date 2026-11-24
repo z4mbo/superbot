@@ -11,6 +11,7 @@ import type {
   PaymentWalletProvider,
   SandboxProvider,
   SecretStore,
+  TransactionalEmailProvider,
 } from "@rakazo/adapter-kit";
 import {
   memoryRetainTurnJob,
@@ -42,6 +43,7 @@ import {
   expireComputerControl,
   scheduleComputerControlExpiry,
 } from "../../computers/screens/computer-control.js";
+import { replyToOwnerEmail } from "../../email/owner-email-reply.js";
 import { retryConnectionCleanup } from "../../integrations/connection-cleanup.js";
 import type { ConnectorRegistry } from "../../integrations/connector-registry.js";
 import { pollMediaVideo } from "../../media/media-video-poll.js";
@@ -123,6 +125,9 @@ export function createBackgroundJobHandlers(deps: {
   meetingCalendarSync?: (job: BackgroundJobPayloads["meeting.calendar-sync"]) => Promise<void>;
   meetingWork?: (job: BackgroundJobPayloads["meeting.work"]) => Promise<unknown>;
   lifecycleEmail?: (job: BackgroundJobPayloads["email.lifecycle"]) => Promise<void>;
+  /** Sends a bot's email from its own address; absent when this server sends no email. */
+  email?: TransactionalEmailProvider;
+  inboundEmailDomain?: string;
 }): BackgroundJobHandlers {
   const delivery = deps.messagingDelivery;
   const cleanupDeps = { prisma: deps.prisma, secrets: deps.secretStore };
@@ -322,6 +327,10 @@ export function createBackgroundJobHandlers(deps: {
     "email.lifecycle": async (payload) => {
       await runAsSystem("send a lifecycle email", async () => deps.lifecycleEmail?.(payload));
     },
+    // Runs only when the process that finished the run did not send it; a send is never repeated.
+    "email.owner-reply": asOwner(run, async ({ runId }) => {
+      await replyToOwnerEmail(deps, runId);
+    }),
     "history.compact": asOwner(thread, async (payload) => {
       // Retrieval policies use stored context without paid message-count compaction.
       // Skip legacy backlog work after a policy change.

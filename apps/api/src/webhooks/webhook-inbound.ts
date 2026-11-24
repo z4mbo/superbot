@@ -261,6 +261,8 @@ export async function deliverWebhookEvent(
     allowParallelRun?: boolean;
     /** Claims what the wake answers in the transaction that starts its run. */
     claim?: SendUserMessageInput["claim"];
+    /** The owner's email the run's answer is mailed back to. */
+    emailReplyTo?: string;
   },
 ) {
   const promptText =
@@ -290,7 +292,9 @@ export async function deliverWebhookEvent(
     botId: target.bot.id,
     userId: target.bot.userId,
     blocks: [
-      { kind: "delivery" },
+      input.emailReplyTo
+        ? { kind: "delivery", emailReplyTo: input.emailReplyTo }
+        : { kind: "delivery" },
       { kind: "text", text: promptText },
       ...(input.attachmentBlocks ?? []),
     ],

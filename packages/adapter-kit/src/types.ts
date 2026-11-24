@@ -1151,6 +1151,8 @@ export interface BackgroundJobPayloads {
     userId: string;
     message: Pick<TransactionalEmail, "subject" | "text" | "html" | "headers">;
   };
+  /** Backup for mailing a finished run's answer back to the owner's email that started it. */
+  "email.owner-reply": { runId: string };
 }
 
 /**

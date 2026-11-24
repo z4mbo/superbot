@@ -75,6 +75,7 @@ function handlers(overrides: Partial<BackgroundJobHandlers> = {}): BackgroundJob
     "media.poll": vi.fn(async () => undefined),
     "push.receipt": vi.fn(async () => undefined),
     "email.lifecycle": vi.fn(async () => undefined),
+    "email.owner-reply": vi.fn(async () => undefined),
     ...overrides,
   };
 }

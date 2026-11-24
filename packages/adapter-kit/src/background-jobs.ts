@@ -160,6 +160,7 @@ const payloadSchemas = {
       headers: z.record(z.string(), z.string()).optional(),
     }),
   }),
+  "email.owner-reply": z.object({ runId: z.string().min(1) }),
 } satisfies { [Name in BackgroundJobName]: z.ZodType<BackgroundJobPayloads[Name]> };
 
 export function parseBackgroundJob(name: string, payload: unknown): BackgroundJob {
@@ -576,5 +577,23 @@ export function lifecycleEmailJob(
     replaceKey: `email.lifecycle:${payload.kind}:${payload.userId}:${payload.organizationId}`,
     queueName: `email.lifecycle:${payload.userId}`,
     maxAttempts: LIFECYCLE_EMAIL_MAX_ATTEMPTS,
+  };
+}
+
+/** A few tries ride out a provider or database blip; each one counts toward the allowance. */
+const OWNER_EMAIL_REPLY_MAX_ATTEMPTS = 5;
+
+export function ownerEmailReplyJobKey(runId: string): string {
+  return `email.owner-reply:${runId}`;
+}
+
+/** Backup for mailing a finished run's answer to the owner's email that started it. */
+export function ownerEmailReplyJob(runId: string, availableAt?: Date): BackgroundJob {
+  return {
+    name: "email.owner-reply",
+    payload: { runId },
+    replaceKey: ownerEmailReplyJobKey(runId),
+    maxAttempts: OWNER_EMAIL_REPLY_MAX_ATTEMPTS,
+    ...(availableAt ? { availableAt } : {}),
   };
 }

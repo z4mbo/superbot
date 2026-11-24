@@ -5,13 +5,14 @@ import {
   BotEmailRecipientSchema,
 } from "@rakazo/contracts";
 import { attachmentComputerPath, matchesSearchQuery, redactSecrets } from "@rakazo/core";
-import {
-  claimBotEmailName,
-  contentEncryptionOf,
-  reserveBotEmailSend,
-  storedEmailAttachments,
-} from "@rakazo/db";
+import { claimBotEmailName, contentEncryptionOf, storedEmailAttachments } from "@rakazo/db";
 import { z } from "zod";
+import {
+  BOT_EMAIL_SUBJECT_MAX_CHARS,
+  emailReplyThreading,
+  emailSubjectLine,
+  sendBotEmail,
+} from "../../email/bot-email-send.js";
 import { redactConnectorPayload } from "../../integrations/connector-safety.js";
 import type { RunContext } from "../assembly/run-context.js";
 import { argsError } from "../turn/tool-args.js";
@@ -269,8 +270,6 @@ async function claimEmailAddress(ctx: RunContext, call: ToolCall) {
 
 const SEND_RECIPIENTS_MAX = 10;
 const SEND_TEXT_MAX_CHARS = 20_000;
-const SUBJECT_MAX_CHARS = 500;
-const MAX_REFERENCES = 20;
 
 const Recipients = z
   .union([BotEmailRecipientSchema, z.array(BotEmailRecipientSchema)])
@@ -279,7 +278,7 @@ const SendEmailSchema = z
   .object({
     to: Recipients.refine((list) => list.length > 0, "Name at least one recipient."),
     cc: Recipients.optional(),
-    subject: z.string().trim().max(SUBJECT_MAX_CHARS).optional(),
+    subject: z.string().trim().max(BOT_EMAIL_SUBJECT_MAX_CHARS).optional(),
     text: z.string().trim().min(1).max(SEND_TEXT_MAX_CHARS),
     inReplyTo: z.string().trim().min(1).max(100).optional(),
   })
@@ -332,47 +331,18 @@ async function sendEmail(ctx: RunContext, call: ToolCall) {
   if (input.inReplyTo && !original) {
     return call.finish({ error: "No email with that id in your inbox." });
   }
+  const thread = original ? emailReplyThreading(original) : undefined;
   // Redacted before lines are joined, so a secret that spans lines still matches.
-  const subject = redactSecrets(
-    input.subject ||
-      (original
-        ? /^re:/i.test(original.subject)
-          ? original.subject
-          : `Re: ${original.subject}`
-        : ""),
-    ctx.secrets,
-  )
-    .replace(/[\r\n]+/g, " ")
-    .slice(0, SUBJECT_MAX_CHARS);
+  const subject = emailSubjectLine(
+    redactSecrets(input.subject || thread?.subject || "", ctx.secrets),
+  );
   if (!subject) return call.finish({ error: "Give the email a subject." });
   // Secrets this run has used never leave in an email, whatever the bot was asked to write.
   const text = redactSecrets(input.text, ctx.secrets);
   if (text.length > SEND_TEXT_MAX_CHARS) {
     return call.finish({ error: "The email is too long once secrets are removed. Shorten it." });
   }
-  // A reply to mail the bot sent answers what that one answered: its own ID is the provider's.
-  const parent = original?.messageId ?? original?.references.at(-1);
-  const references = original?.messageId
-    ? [...original.references, original.messageId].slice(-MAX_REFERENCES)
-    : (original?.references ?? []);
 
-  const key = `sent:${call.effectKey}`;
-  // Only what the bot chose: a reply's subject repeats what the sender wrote, outside text that
-  // this result, counted as the bot's own, must not carry.
-  const done = (id: string) =>
-    call.finish({ sent: true, id, from: address, to: input.to, ...(cc.length ? { cc } : {}) });
-  const earlier = await deps.prisma.botEmailMessage.findUnique({
-    where: { botId_key: { botId: bot.id, key } },
-    select: { id: true },
-  });
-  // A finished send is replayed by the gate, so a row found here is an attempt cut off midway.
-  if (earlier) {
-    return call.finish({
-      error:
-        "An earlier attempt to send this email was interrupted and may or may not have gone out. Tell your owner instead of sending it again.",
-      id: earlier.id,
-    });
-  }
   // Only a recent, authenticated incoming message authorizes a reply recipient.
   // A sent copy, forged message, or caller-supplied address can never grant that permission.
   const verifiedReplySender =
@@ -382,13 +352,30 @@ async function sendEmail(ctx: RunContext, call: ToolCall) {
     original.fromAddress.split("@").at(-1)?.toLowerCase() !== domain.toLowerCase()
       ? original.fromAddress
       : undefined;
-  const reserved = await reserveBotEmailSend(deps.prisma, {
-    userId: bot.userId,
-    botId: bot.id,
-    recipients: [...input.to, ...cc],
-    verifiedReplySender,
-  });
-  if (typeof reserved === "string") {
+  const result = await sendBotEmail(
+    { prisma: deps.prisma, email: deps.email },
+    {
+      bot,
+      address,
+      key: `sent:${call.effectKey}`,
+      to: input.to,
+      cc,
+      subject,
+      text,
+      parent: thread?.parent,
+      references: thread?.references,
+      verifiedReplySender,
+    },
+  );
+  // A finished send is replayed by the gate, so a row found here is an attempt cut off midway.
+  if ("earlier" in result) {
+    return call.finish({
+      error:
+        "An earlier attempt to send this email was interrupted and may or may not have gone out. Tell your owner instead of sending it again.",
+      id: result.earlier,
+    });
+  }
+  if ("refused" in result) {
     const errors = {
       limit: "Your account has reached its email allowance for the last 24 hours. Try again later.",
       too_many:
@@ -397,45 +384,23 @@ async function sendEmail(ctx: RunContext, call: ToolCall) {
       unverified: "Verify your account email before sending.",
       recipient: "This recipient isn't approved for this account.",
     };
-    return call.finish({ error: errors[reserved] });
+    return call.finish({ error: errors[result.refused] });
   }
-  // Saved before it goes: a retry after a crash finds it and never sends the email twice.
-  const row = await deps.prisma.botEmailMessage.create({
-    data: {
-      spaceId: bot.spaceId,
-      botId: bot.id,
-      key,
-      references,
-      fromAddress: address,
-      fromName: bot.name,
-      verified: true,
-      sent: true,
-      to: input.to,
-      cc,
-      subject,
-      text,
-    },
-    select: { id: true },
-  });
-  try {
-    await deps.email.send({
-      from: `"${bot.name.replace(/["\\\r\n]/g, "")}" <${address}>`,
-      replyTo: address,
-      to: input.to,
-      ...(cc.length ? { cc } : {}),
-      subject,
-      text,
-      ...(parent ? { headers: { "In-Reply-To": parent, References: references.join(" ") } } : {}),
-    });
-  } catch (error) {
-    await deps.prisma.botEmailMessage.delete({ where: { id: row.id } }).catch(() => undefined);
-    // Most failures are refusals, but one can come after the provider took the email, so the
-    // reserved send keeps counting toward the daily limits either way.
+  if ("failed" in result) {
+    const error = result.failed;
     return call.finish({
       error: `Sending failed (${error instanceof Error ? error.message : String(error)}). It most likely did not go out.`,
     });
   }
-  return done(row.id);
+  // Only what the bot chose: a reply's subject repeats what the sender wrote, outside text that
+  // this result, counted as the bot's own, must not carry.
+  return call.finish({
+    sent: true,
+    id: result.id,
+    from: address,
+    to: input.to,
+    ...(cc.length ? { cc } : {}),
+  });
 }
 
 /** The bot's own address and inbox: mail anyone sent to it, and mail it sends. */
