@@ -79,6 +79,23 @@ pub(crate) fn draw(
     if let Ok(path) = path.build() {
         window.paint_path(path, paint.body);
     }
+    // The pumpkin's stem goes over its body in two greys of its own: the whole stem, then its end.
+    for (tone, loops) in mark::stem(paint.shape, &frame) {
+        let Some((_, color)) = mark::STEM_COLORS.iter().find(|(t, _)| *t == tone) else { continue };
+        let mut path = PathBuilder::fill();
+        for outline in loops {
+            let mut points = outline.into_iter().map(|(x, y)| center + point(px(x * radius), px(y * radius)));
+            let Some(first) = points.next() else { continue };
+            path.move_to(first);
+            for next in points {
+                path.line_to(next);
+            }
+            path.close();
+        }
+        if let Ok(path) = path.build() {
+            window.paint_path(path, Hsla::from(gpui_kit::rgb(*color)));
+        }
+    }
 }
 
 /// The mark's look for a face pose. With no gaze the body rests turned up and aside; a gaze turns

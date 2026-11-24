@@ -11,6 +11,8 @@ mod face_motion;
 mod frames;
 pub mod mark;
 mod mark_bodies;
+mod mark_pumpkin;
+mod mark_shapes;
 mod motion;
 mod pack;
 #[cfg(feature = "local-engine")]

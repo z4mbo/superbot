@@ -1,14 +1,19 @@
 //! The bot mark, the same drawing the web app makes (`packages/core/src/avatars/bot-mark.ts`):
 //! a 3D body seen orthographically, drawn as one flat silhouette with two eye holes under the
 //! even-odd rule. The default body is a sphere whose eyes are wrapped onto its surface; shaped
-//! bodies are lofted solids (turned profiles or rounded slabs) whose outline changes as they
-//! turn. Nothing is shaded or layered. Outlines are in resting-body radii, y down.
+//! bodies are built as the web app builds them (`mark_shapes`, `mark_pumpkin`) and their outline
+//! changes as they turn. Nothing is shaded; only the pumpkin's stem is drawn over the body, in two
+//! greys of its own. Outlines are in resting-body radii, y down.
 
 use std::collections::HashMap;
 use std::f32::consts::{PI, TAU};
 use std::sync::{Mutex, OnceLock};
 
-use crate::mark_bodies::{spec, Kind, Mount, Spec};
+pub use crate::mark_pumpkin::StemTone;
+use crate::{mark_pumpkin, mark_shapes};
+
+/// The pumpkin stem's greys, as the web app's `--bot-stem` and `--bot-stem-cap` tokens.
+pub const STEM_COLORS: [(StemTone, u32); 2] = [(StemTone::Stem, 0x3d3d3d), (StemTone::Cap, 0x525252)];
 
 pub type Point = (f32, f32);
 type Vec3 = [f32; 3];
@@ -104,36 +109,6 @@ fn rotation_matrix([pitch, yaw, roll]: [f32; 3]) -> Mat3 {
 
 fn rotate(m: &Mat3, [x, y, z]: Vec3) -> Vec3 {
     [m[0] * x + m[1] * y + m[2] * z, m[3] * x + m[4] * y + m[5] * z, m[6] * x + m[7] * y + m[8] * z]
-}
-
-/// Shaped bodies take the rotation apart into pitch, yaw and roll and rebuild it yaw first
-/// (Rz · Rx · Ry); a body turned past halfway is drawn from its front again, mirrored.
-fn body_matrix(rotation: [f32; 3]) -> Mat3 {
-    let mut m = rotation_matrix(rotation);
-    if m[8] < 0. {
-        m = [-m[0], m[1], -m[2], -m[3], m[4], -m[5], -m[6], m[7], -m[8]];
-    }
-    let s = (-m[6]).clamp(-1., 1.);
-    let yaw = s.asin();
-    let (pitch, roll) = if s.abs() > 0.999999 {
-        (f32::atan2(-m[5], m[4]), 0.)
-    } else {
-        (f32::atan2(m[7], m[8]), f32::atan2(m[3], m[0]))
-    };
-    let (sx, cx) = pitch.sin_cos();
-    let (sy, cy) = yaw.sin_cos();
-    let (sz, cz) = roll.sin_cos();
-    [
-        cz * cy - sz * sx * sy,
-        -sz * cx,
-        cz * sy + sz * sx * cy,
-        sz * cy + cz * sx * sy,
-        cz * cx,
-        sz * sy - cz * sx * cy,
-        -cx * sy,
-        sx,
-        cx * cy,
-    ]
 }
 
 // ── Faces ───────────────────────────────────────────────────────────────────────────────────
@@ -386,9 +361,14 @@ impl Default for Frame {
 impl Frame {
     /// The resting pose turned toward a gaze (x right, y up, each ±1) held by `hold` (0 to 1).
     pub fn facing(shape: Shape, gaze: Point, hold: f32) -> Frame {
-        let (pitch, yaw, dx, dy) = match spec(shape) {
-            None => (14., 18., 0.03, 0.024),
-            Some(spec) => (19. * spec.gaze_scale, 26. * spec.gaze_scale, 0.07, 0.055),
+        let turn = match shape {
+            Shape::Heart => 0.6,
+            Shape::Wedge => 0.55,
+            _ => 1.,
+        };
+        let (pitch, yaw, dx, dy) = match shape {
+            Shape::Blob | Shape::Circle => (14., 18., 0.03, 0.024),
+            _ => (19. * turn, 26. * turn, 0.07, 0.055),
         };
         let target = [-pitch * gaze.1, yaw * gaze.0, 0.];
         let h = hold.clamp(0., 1.);
@@ -399,232 +379,6 @@ impl Frame {
         frame.offset = (dx * gaze.0 * h, dy * gaze.1 * h);
         frame
     }
-}
-
-// ── Bodies ──────────────────────────────────────────────────────────────────────────────────
-
-const RING_POINTS: usize = 48;
-const RAYS: usize = 120;
-const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
-fn decode_outline(packed: &str) -> Vec<Point> {
-    let bytes = packed.as_bytes();
-    let count = bytes.len() / 2;
-    let digit = |b: u8| ALPHABET.iter().position(|c| *c == b).unwrap_or(0) as f32;
-    (0..count)
-        .map(|i| {
-            let radius = (digit(bytes[i * 2]) * 64. + digit(bytes[i * 2 + 1])) / 2000.;
-            let angle = i as f32 / count as f32 * TAU;
-            (angle.cos() * radius, angle.sin() * radius)
-        })
-        .collect()
-}
-
-fn span(outline: &[Point], y: f32) -> Option<Point> {
-    let (mut low, mut high) = (f32::MAX, f32::MIN);
-    for i in 0..outline.len() {
-        let ((ax, ay), (bx, by)) = (outline[i], outline[(i + 1) % outline.len()]);
-        if (ay <= y) == (by <= y) {
-            continue;
-        }
-        let x = ax + (bx - ax) * (y - ay) / (by - ay);
-        low = low.min(x);
-        high = high.max(x);
-    }
-    (low <= high).then_some((low, high))
-}
-
-fn evenly(outline: &[Point], count: usize) -> Vec<Point> {
-    let mut lengths = vec![0.];
-    for i in 1..=outline.len() {
-        let (a, b) = (outline[i - 1], outline[i % outline.len()]);
-        lengths.push(lengths[i - 1] + (b.0 - a.0).hypot(b.1 - a.1));
-    }
-    let total = lengths[outline.len()];
-    let top = (0..outline.len()).max_by(|&a, &b| outline[a].1.total_cmp(&outline[b].1)).unwrap_or(0);
-    let mut segment = top;
-    (0..count)
-        .map(|i| {
-            let at = (lengths[top] + i as f32 / count as f32 * total) % total;
-            while !(lengths[segment] <= at && at <= lengths[segment + 1]) {
-                segment = (segment + 1) % outline.len();
-            }
-            let (a, b) = (outline[segment], outline[(segment + 1) % outline.len()]);
-            let t = (at - lengths[segment]) / (lengths[segment + 1] - lengths[segment]).max(1e-9);
-            (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t)
-        })
-        .collect()
-}
-
-fn rings(spec: &Spec) -> Vec<Vec<Vec3>> {
-    let outline = decode_outline(spec.outline);
-    match spec.kind {
-        Kind::Lathe { sideways, squeeze } => {
-            let profile: Vec<Point> = if sideways { outline.iter().map(|&(x, y)| (y, x)).collect() } else { outline };
-            let low = profile.iter().map(|p| p.1).fold(f32::MAX, f32::min);
-            let high = profile.iter().map(|p| p.1).fold(f32::MIN, f32::max);
-            let steps = 18;
-            (0..=steps)
-                .map(|step| {
-                    let y = low + (high - low) * (0.5 - 0.5 * (PI * step as f32 / steps as f32).cos());
-                    let (left, right) = span(&profile, y.clamp(low + 1e-6, high - 1e-6)).unwrap_or((0., 0.));
-                    let (middle, radius) = ((left + right) / 2., (right - left) / 2.);
-                    (0..RING_POINTS)
-                        .map(|i| {
-                            let a = i as f32 / RING_POINTS as f32 * TAU;
-                            let across = middle + a.cos() * radius;
-                            let depth = a.sin() * radius * squeeze;
-                            if sideways {
-                                [y, across, depth]
-                            } else {
-                                [across, y, depth]
-                            }
-                        })
-                        .collect()
-                })
-                .collect()
-        }
-        Kind::Slab { depth, bevel } => {
-            let base = evenly(&outline, RING_POINTS);
-            let steps = 10;
-            (0..=steps)
-                .map(|step| {
-                    let z = -depth / 2. + depth * (0.5 - 0.5 * (PI * step as f32 / steps as f32).cos());
-                    let over = z.abs() - (depth / 2. - bevel);
-                    let inset = if over > 0. && bevel > 0. {
-                        bevel * (1. - (1. - (over / bevel).powi(2)).max(0.).sqrt())
-                    } else {
-                        0.
-                    };
-                    base.iter()
-                        .map(|&(x, y)| {
-                            let factor = (1. - inset / x.hypot(y).max(1e-9)).max(0.);
-                            [x * factor, y * factor, z]
-                        })
-                        .collect()
-                })
-                .collect()
-        }
-    }
-}
-
-/// The body's outline seen through `turn`, in body radii (y up): the far edge of everything
-/// between neighbouring rings, found along evenly spaced rays from the centre.
-fn silhouette(shape: Shape, spec: &Spec, turn: &Mat3) -> Vec<Point> {
-    static RINGS: OnceLock<Mutex<HashMap<Shape, Vec<Vec<Vec3>>>>> = OnceLock::new();
-    let cache = RINGS.get_or_init(Default::default);
-    let projected: Vec<Vec<Point>> = {
-        let mut cache = cache.lock().unwrap_or_else(|poison| poison.into_inner());
-        cache
-            .entry(shape)
-            .or_insert_with(|| rings(spec))
-            .iter()
-            .map(|ring| {
-                ring.iter()
-                    .map(|&p| {
-                        let [x, y, _] = rotate(turn, p);
-                        (x, y)
-                    })
-                    .collect()
-            })
-            .collect()
-    };
-    let mut edges = Vec::new();
-    for (k, ring) in projected.iter().enumerate() {
-        for i in 0..ring.len() {
-            let a = ring[i];
-            let b = ring[(i + 1) % ring.len()];
-            edges.push((a, (b.0 - a.0, b.1 - a.1)));
-            if let Some(next) = projected.get(k + 1) {
-                edges.push((a, (next[i].0 - a.0, next[i].1 - a.1)));
-            }
-        }
-    }
-    (0..RAYS)
-        .map(|ray| {
-            let (dy, dx) = (ray as f32 / RAYS as f32 * TAU).sin_cos();
-            let mut far = 0.;
-            for &((ax, ay), (ex, ey)) in &edges {
-                let den = dx * ey - dy * ex;
-                if den.abs() < 1e-12 {
-                    continue;
-                }
-                let t = (ax * ey - ay * ex) / den;
-                if t <= far {
-                    continue;
-                }
-                let u = (ax * dy - ay * dx) / den;
-                if (0. ..=1.).contains(&u) {
-                    far = t;
-                }
-            }
-            (dx * far, dy * far)
-        })
-        .collect()
-}
-
-/// Eye outlines laid on a shaped body's seat, turned with it and dropped flat; an eye facing
-/// away is left out and a wrapped eye is cut where the side turns away.
-fn body_eyes(spec: &Spec, eyes: &[Vec<Point>; 2], turn: &Mat3) -> Vec<Vec<Point>> {
-    let seat = &spec.seat;
-    let mut out = Vec::new();
-    for (index, outline) in eyes.iter().enumerate() {
-        let side = if index == 0 { -1. } else { 1. };
-        let placed: Vec<(Vec3, f32)> = outline
-            .iter()
-            .map(|&(x, y)| {
-                let u = side * (seat.gap + x * seat.scale_x);
-                let v = seat.y + y * seat.scale_y;
-                match seat.mount {
-                    Mount::Wrap(r) => {
-                        let (s, c) = (u / r).sin_cos();
-                        (rotate(turn, [r * s, v, r * c]), rotate(turn, [s, 0., c])[2])
-                    }
-                    Mount::Front(z) => (rotate(turn, [u, v, z]), turn[8]),
-                }
-            })
-            .collect();
-        let mut visible = Vec::new();
-        for k in 0..placed.len() {
-            let (a, fa) = placed[k];
-            let (b, fb) = placed[(k + 1) % placed.len()];
-            if fa >= 0. {
-                visible.push((a[0], a[1]));
-            }
-            if (fa >= 0.) != (fb >= 0.) {
-                let t = fa / (fa - fb);
-                visible.push((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t));
-            }
-        }
-        if visible.len() >= 3 {
-            out.push(visible);
-        }
-    }
-    out
-}
-
-/// Keeps eyes inside a ray-cast silhouette: a point past the edge moves in along its ray, as the
-/// reference's mask trims an eye reaching over the body's side.
-fn keep_inside(eyes: Vec<Vec<Point>>, silhouette: &[Point]) -> Vec<Vec<Point>> {
-    let count = silhouette.len();
-    let reach: Vec<f32> = silhouette.iter().map(|(x, y)| x.hypot(*y)).collect();
-    eyes.into_iter()
-        .map(|eye| {
-            eye.into_iter()
-                .map(|(x, y)| {
-                    let at = (y.atan2(x) / TAU).rem_euclid(1.) * count as f32;
-                    let (index, t) = (at.floor() as usize, at.fract());
-                    let edge = (reach[index % count] * (1. - t) + reach[(index + 1) % count] * t) * 0.985;
-                    let distance = x.hypot(y);
-                    if distance > edge {
-                        (x / distance * edge, y / distance * edge)
-                    } else {
-                        (x, y)
-                    }
-                })
-                .collect()
-        })
-        .collect()
 }
 
 /// The sphere's eyes: centres 18.4° either side of the front, wrapped onto the surface keeping
@@ -688,9 +442,20 @@ fn clip_to_front(points: &[Vec3]) -> Option<Vec<Point>> {
     (out.len() >= 3).then_some(out)
 }
 
-/// The outlines to fill with the even-odd rule, in resting-body radii around the slot's centre
-/// with y down: the body, then each visible eye.
-pub fn outlines(shape: Shape, frame: &Frame) -> Vec<Vec<Point>> {
+/// Each eye's centre in eye space: shaped bodies spread the centres apart separately from the
+/// eyes' size.
+fn face_offsets(face: Face) -> [Point; 2] {
+    let [left, right] = face_eyes(face);
+    [left.off, right.off]
+}
+
+struct Drawing {
+    body: Vec<Point>,
+    eyes: Vec<Vec<Point>>,
+    stem: Vec<(StemTone, Vec<Vec<Point>>)>,
+}
+
+fn drawing(shape: Shape, frame: &Frame) -> Drawing {
     let mut eyes = face_outlines(frame.face);
     if frame.lids > 0.
         && !matches!(frame.face, Face::Sad | Face::Happy | Face::Confused | Face::Squinted | Face::Sleepy | Face::Calm)
@@ -709,25 +474,88 @@ pub fn outlines(shape: Shape, frame: &Frame) -> Vec<Vec<Point>> {
     let scale = frame.zoom / REST_ZOOM;
     let (sx, sy) = (frame.squash.0.abs(), frame.squash.1.abs());
     let place = |(x, y): Point| ((x * sx + frame.offset.0) * scale, -(y * sy + frame.offset.1) * scale);
-    let (body, holes) = match spec(shape) {
-        None => {
+    let zoom = f64::from(frame.zoom);
+    let rotation = frame.rotation.map(f64::from);
+    let offsets = face_offsets(frame.face);
+    let pair: Vec<(Vec<(f64, f64)>, (f64, f64))> = (0..2)
+        .map(|i| {
+            let wide = |(x, y): Point| (f64::from(x), f64::from(y));
+            (eyes[i].iter().copied().map(wide).collect(), wide(offsets[i]))
+        })
+        .collect();
+    let narrow = |points: Vec<(f64, f64)>, k: f64| -> Vec<Point> {
+        points.into_iter().map(|(x, y)| place(((x * k) as f32, (y * k) as f32))).collect()
+    };
+    match shape {
+        Shape::Blob | Shape::Circle => {
             let turn = rotation_matrix(frame.rotation);
             let body = (0..96)
                 .map(|i| {
                     let (s, c) = (i as f32 / 96. * TAU).sin_cos();
-                    (c, s)
+                    place((c, s))
                 })
                 .collect();
-            (body, sphere_eyes(&eyes, &turn))
+            let eyes = sphere_eyes(&eyes, &turn).into_iter().map(|eye| eye.into_iter().map(place).collect()).collect();
+            Drawing { body, eyes, stem: Vec::new() }
         }
-        Some(spec) => {
-            let turn = body_matrix(frame.rotation);
-            let body = silhouette(shape, &spec, &turn);
-            let holes = keep_inside(body_eyes(&spec, &eyes, &turn), &body);
-            (body, holes)
+        Shape::Pumpkin => {
+            // The pumpkin is drawn on a whole-pixel sprite at least 144 across, never mirrored.
+            let exact = (192. * zoom / (184. / 256.)).round().max(8.);
+            let sprite = exact.max(144.);
+            let k = exact / sprite / (96. * zoom);
+            let to_radii = |points: Vec<(f64, f64)>| -> Vec<Point> {
+                points
+                    .into_iter()
+                    .map(|(x, y)| place((((x - sprite / 2.) * k) as f32, (-(y - sprite / 2.) * k) as f32)))
+                    .collect()
+            };
+            let turn = mark_shapes::body_turn(rotation, mark_shapes::turn_step(zoom), false);
+            let look = mark_pumpkin::look(turn, sprite);
+            let eyes = mark_pumpkin::eyes(turn, sprite, &look, &pair).into_iter().map(to_radii).collect();
+            let stem =
+                look.stem.iter().map(|(tone, loops)| (*tone, loops.iter().cloned().map(to_radii).collect())).collect();
+            Drawing { body: to_radii(look.outline.clone()), eyes, stem }
         }
-    };
-    std::iter::once(body).chain(holes).map(|outline| outline.into_iter().map(place).collect()).collect()
+        _ => {
+            let turn = mark_shapes::body_turn(rotation, mark_shapes::turn_step(zoom), true);
+            let k = mark_shapes::unit(shape, zoom);
+            let body = narrow(mark_shapes::silhouette(shape, turn), k);
+            let eyes = mark_shapes::body_eyes(shape, &pair, turn).into_iter().map(|eye| narrow(eye, k)).collect();
+            Drawing { body, eyes, stem: Vec::new() }
+        }
+    }
+}
+
+fn inside((px, py): Point, polygon: &[Point]) -> bool {
+    let mut hit = false;
+    let mut j = polygon.len().wrapping_sub(1);
+    for i in 0..polygon.len() {
+        let ((xi, yi), (xj, yj)) = (polygon[i], polygon[j]);
+        if (yi > py) != (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi {
+            hit = !hit;
+        }
+        j = i;
+    }
+    hit
+}
+
+/// The outlines to fill with the even-odd rule, in resting-body radii around the slot's centre
+/// with y down: the body, then each visible eye. An eye reaching over a shaped body's edge is left
+/// out, since the even-odd rule would show it as ink there.
+pub fn outlines(shape: Shape, frame: &Frame) -> Vec<Vec<Point>> {
+    let Drawing { body, eyes, .. } = drawing(shape, frame);
+    let sphere = matches!(shape, Shape::Blob | Shape::Circle);
+    let eyes = eyes.into_iter().filter(|eye| sphere || eye.iter().all(|&p| inside(p, &body)));
+    std::iter::once(body.clone()).chain(eyes).collect()
+}
+
+/// The pumpkin's stem over its body, in the same space as `outlines`: the whole stem, then its
+/// lighter cut end; empty for every other body.
+pub fn stem(shape: Shape, frame: &Frame) -> Vec<(StemTone, Vec<Vec<Point>>)> {
+    if shape != Shape::Pumpkin {
+        return Vec::new();
+    }
+    drawing(shape, frame).stem
 }
 
 /// The ink nearest a stored bot colour, or the picked one, as an RGB value for the light theme.
@@ -840,6 +668,19 @@ mod tests {
                 - parts[0].iter().map(|p| p.0).fold(f32::MAX, f32::min)
         };
         assert!(width([0., 90., 0.]) < width([0., 0., 0.]) * 0.5);
+    }
+
+    #[test]
+    fn the_pumpkin_has_a_stem_in_two_greys_and_no_other_body_does() {
+        let frame = Frame::default();
+        let tones: Vec<StemTone> = stem(Shape::Pumpkin, &frame).into_iter().map(|(tone, _)| tone).collect();
+        assert_eq!(tones, vec![StemTone::Stem, StemTone::Cap]);
+        assert!(stem(Shape::Egg, &frame).is_empty());
+        // The stem rises above the body's top.
+        let body = &outlines(Shape::Pumpkin, &frame)[0];
+        let top = body.iter().map(|p| p.1).fold(f32::MAX, f32::min);
+        let tip = stem(Shape::Pumpkin, &frame)[0].1.iter().flatten().map(|p| p.1).fold(f32::MAX, f32::min);
+        assert!(tip < top, "{tip} {top}");
     }
 
     #[test]
