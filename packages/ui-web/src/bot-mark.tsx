@@ -13,6 +13,7 @@ import {
   botMarkRestFrame,
   botMarkSeed,
 } from "@rakazo/core";
+import type { BotMarkGazeHold } from "@rakazo/core/bot-mark-animation";
 import type { CSSProperties, ReactNode } from "react";
 import { memo, useEffect, useId, useLayoutEffect, useRef } from "react";
 import { cn } from "./lib/utils.js";
@@ -31,8 +32,10 @@ import { cn } from "./lib/utils.js";
 export type BotMarkInstance = {
   element: SVGSVGElement;
   visible: boolean;
-  /** The row or control around the avatar; the pointer over it turns the face. */
-  region: Element;
+  /** Where the pointer is while it is inside the avatar's box, in client pixels. */
+  pointer: [number, number] | null;
+  /** Whether the avatar's box is the open bot, which faces straight ahead. */
+  selected: boolean;
   /** The avatar's size in pixels: small avatars grow while their bot is morphed. */
   size: number;
 };
@@ -58,7 +61,7 @@ export type BotMarkSource = {
   seed: number;
   instances: Set<BotMarkInstance>;
   pokes: { kind: BotMarkPoke["kind"]; at: number; turns?: number }[];
-  gaze: { x: number; y: number; hold: number };
+  gaze: BotMarkGazeHold;
   frame: BotMarkFrame | null;
   drawnAt: number;
   /** Everything last written to the drawing, so an unchanged frame writes nothing. */
@@ -153,7 +156,7 @@ function sourceFor(
     seed: botMarkSeed(identity),
     instances: new Set(),
     pokes: [],
-    gaze: { x: 0, y: 0, hold: 0 },
+    gaze: { x: 0, y: 0, hold: 0, to: [0, 0], held: false },
     frame: null,
     drawnAt: now,
     drawn: "",
@@ -261,12 +264,44 @@ if (typeof document !== "undefined") {
   });
 }
 
-/** The row or control an avatar sits in: the pointer over it turns the avatar's face. */
-function hoverRegion(element: Element): Element {
-  return (
-    element.closest("[data-bot-mark-host], a, button, [role='button'], [role='option'], li") ??
-    element
-  );
+/**
+ * The box an avatar answers the pointer in: the nearest element marked `data-bot-mark-host`
+ * with this bot's identity, such as its roster row or pinned tile. An avatar with no host of its
+ * own, or inside another bot's box, never follows the pointer.
+ */
+function hostOf(element: Element, identity: string): HTMLElement | null {
+  const host = element.closest<HTMLElement>("[data-bot-mark-host]");
+  const owner = host?.dataset.botMarkHost;
+  return host && (owner === "" || owner === identity) ? host : null;
+}
+
+/**
+ * Follows the pointer while it is inside a host's box, and whether the host is the open bot
+ * (`aria-current`), so the avatar's face can turn to either. Returns what stops listening.
+ */
+function watchHost(host: HTMLElement, instance: BotMarkInstance): () => void {
+  const move = (event: PointerEvent) => {
+    instance.pointer = [event.clientX, event.clientY];
+    schedule();
+  };
+  const leave = () => {
+    instance.pointer = null;
+    schedule();
+  };
+  const current = () => {
+    instance.selected = (host.getAttribute("aria-current") ?? "false") !== "false";
+    schedule();
+  };
+  current();
+  host.addEventListener("pointermove", move, { passive: true });
+  host.addEventListener("pointerleave", leave);
+  const observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(current);
+  observer?.observe(host, { attributes: true, attributeFilter: ["aria-current"] });
+  return () => {
+    host.removeEventListener("pointermove", move);
+    host.removeEventListener("pointerleave", leave);
+    observer?.disconnect();
+  };
 }
 
 /** Live states share one drawing per bot; the sleeping look draws on its own. */
@@ -316,9 +351,12 @@ export const BotMark = memo(function BotMark({
     const instance: BotMarkInstance = {
       element,
       visible: true,
-      region: hoverRegion(element),
+      pointer: null,
+      selected: false,
       size,
     };
+    const host = hostOf(element, who);
+    const unwatch = host ? watchHost(host, instance) : null;
     source.instances.add(instance);
     instances.add(instance);
     markPaused(instance);
@@ -335,6 +373,7 @@ export const BotMark = memo(function BotMark({
     schedule();
     return () => {
       observer?.disconnect();
+      unwatch?.();
       instances.delete(instance);
       release(key, source, instance);
       sourceRef.current = null;

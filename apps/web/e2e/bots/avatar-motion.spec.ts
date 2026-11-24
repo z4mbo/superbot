@@ -137,3 +137,88 @@ test("a mark starts working in place and stops drawing while offscreen or hidden
   const resumed = await outline(avatar);
   await expect.poll(() => outline(avatar)).not.toBe(resumed);
 });
+
+/** The eye holes a mark shows, from the shared source its <use> points at. */
+function eyes(avatar: Locator) {
+  return avatar.evaluate((svg) => {
+    const href = svg.querySelector("use")?.getAttribute("href") ?? "";
+    return document.querySelector(href)?.querySelector("mask path")?.getAttribute("d") ?? "";
+  });
+}
+
+test("a roster mark follows the pointer only inside its own box, and the open bot faces ahead", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/e2e/fixtures/avatar-motion.html");
+  const tile = page.locator(".roster-tile");
+  const ada = page.locator(".roster-row").first();
+  const bo = page.locator(".roster-row").nth(1);
+  const mark = (host: Locator) => host.locator("svg[data-bot-mark]");
+  await expect(mark(ada)).toBeVisible();
+  // Each move below jumps straight to its point, so the pointer never crosses another box.
+  const box = (await ada.boundingBox())!;
+  const away = { x: box.x + box.width + 120, y: box.y + box.height / 2 };
+  await page.mouse.move(away.x, away.y);
+  const rest = {
+    ada: await eyes(mark(ada)),
+    bo: await eyes(mark(bo)),
+    main: await eyes(mark(tile)),
+  };
+
+  // Elsewhere on the page the pointer moves nothing.
+  await page.mouse.move(away.x, away.y - 160, { steps: 6 });
+  await page.waitForTimeout(300);
+  expect(await eyes(mark(ada))).toBe(rest.ada);
+  expect(await eyes(mark(tile))).toBe(rest.main);
+
+  // Inside the row, at its far end, only that row's mark turns, and it rests again on leaving.
+  await page.mouse.move(box.x + box.width - 4, box.y + box.height / 2);
+  await expect.poll(() => eyes(mark(ada))).not.toBe(rest.ada);
+  expect(await eyes(mark(bo))).toBe(rest.bo);
+  expect(await eyes(mark(tile))).toBe(rest.main);
+  await captureScreenshot(page, testInfo, "avatar-roster-row-hovered");
+  await page.mouse.move(away.x, away.y);
+  await expect.poll(() => eyes(mark(ada))).toBe(rest.ada);
+
+  // The open bot faces straight ahead, holds it once the pointer leaves, and rests when another
+  // bot opens.
+  await tile.click();
+  await page.mouse.move(away.x, away.y);
+  // The same drawing twice, a quarter second apart, once the face has finished turning.
+  const settled = async (avatar: Locator) => {
+    const before = await eyes(avatar);
+    await page.waitForTimeout(250);
+    return (await eyes(avatar)) === before ? before : null;
+  };
+  await expect.poll(() => settled(mark(tile))).not.toBeNull();
+  const facing = await eyes(mark(tile));
+  expect(facing).not.toBe(rest.main);
+  await page.waitForTimeout(500);
+  expect(await eyes(mark(tile))).toBe(facing);
+  await bo.click();
+  await page.mouse.move(away.x, away.y);
+  await expect.poll(() => eyes(mark(tile))).toBe(rest.main);
+  await expect.poll(() => eyes(mark(bo))).not.toBe(rest.bo);
+});
+
+test("with reduced motion a hovered mark faces ahead at once and rests when left", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/e2e/fixtures/avatar-motion.html");
+  const row = page.locator(".roster-row").first();
+  const mark = row.locator("svg[data-bot-mark]");
+  await expect(mark).toBeVisible();
+  const rest = await eyes(mark);
+  const box = (await row.boundingBox())!;
+  await page.mouse.move(box.x + box.width - 4, box.y + 4);
+  await expect.poll(() => eyes(mark)).not.toBe(rest);
+  const facing = await eyes(mark);
+  // Wherever the pointer goes inside the box, the face only ever looks straight ahead.
+  await page.mouse.move(box.x + 6, box.y + box.height - 4);
+  await page.waitForTimeout(200);
+  expect(await eyes(mark)).toBe(facing);
+  await page.mouse.move(box.x + box.width + 120, box.y);
+  await expect.poll(() => eyes(mark)).toBe(rest);
+});

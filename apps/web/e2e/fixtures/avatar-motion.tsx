@@ -25,6 +25,45 @@ function OrganicExample() {
   );
 }
 
+/**
+ * A roster in miniature: a pinned 60px tile and 36px rows, each its own bot's box, as the
+ * sidebar marks them. Clicking one opens it, so it is marked current.
+ */
+function RosterExample() {
+  const [open, setOpen] = useState<string | null>(null);
+  const bots = [
+    { id: "roster-ada", color: "#10B981" },
+    { id: "roster-bo", color: "#F59E0B" },
+  ];
+  return (
+    <div className="roster">
+      <button
+        type="button"
+        className="roster-tile"
+        data-bot-mark-host="roster-main"
+        aria-current={open === "roster-main" ? "page" : undefined}
+        onClick={() => setOpen("roster-main")}
+      >
+        <BotAvatar color="#111111" identity="roster-main" lookShape="blob" size={60} />
+        <span>Main</span>
+      </button>
+      {bots.map((bot) => (
+        <button
+          key={bot.id}
+          type="button"
+          className="roster-row"
+          data-bot-mark-host={bot.id}
+          aria-current={open === bot.id ? "page" : undefined}
+          onClick={() => setOpen(bot.id)}
+        >
+          <BotAvatar color={bot.color} identity={bot.id} lookShape="blob" size={36} />
+          <span>{bot.id}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 createRoot(document.getElementById("root")!).render(
   <>
     <div className="avatar-example">
@@ -58,5 +97,6 @@ createRoot(document.getElementById("root")!).render(
       <span>Working shape</span>
     </div>
     <OrganicExample />
+    <RosterExample />
   </>,
 );

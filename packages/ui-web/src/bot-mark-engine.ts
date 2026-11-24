@@ -4,10 +4,14 @@ import {
   botMarkBlend,
   botMarkDrawing,
   botMarkFrame,
+  botMarkGazeAim,
+  botMarkGazeSettled,
+  botMarkGazeStep,
+  botMarkPointerGaze,
   botMarkShowcaseEmotion,
   botMarkZoom,
 } from "@rakazo/core/bot-mark-animation";
-import type { BotMarkEngine, BotMarkHost, BotMarkInstance, BotMarkSource } from "./bot-mark.js";
+import type { BotMarkEngine, BotMarkHost, BotMarkSource } from "./bot-mark.js";
 
 /**
  * What makes the bot marks move, loaded once the first mark is on screen. Until then each mark
@@ -22,7 +26,6 @@ const POKES = ["spin", "bounce", "nod"] as const;
 
 export function createBotMarkEngine({ sources, paint }: BotMarkHost): BotMarkEngine {
   let frameRequest = 0;
-  let pointer: [number, number] | null = null;
   // Absent where there is no layout to query, as in a test document.
   const media =
     typeof window.matchMedia === "function"
@@ -47,35 +50,30 @@ export function createBotMarkEngine({ sources, paint }: BotMarkHost): BotMarkEng
     }
   }
 
-  /** Where the pointer is as gaze for an avatar whose row it is over: x right, y up, ±1. */
-  function pointerGaze(instance: BotMarkInstance): [number, number] | null {
-    if (!pointer || !instance.visible) return null;
-    const area = instance.region.getBoundingClientRect();
-    const [px, py] = pointer;
-    if (px < area.left || px > area.right || py < area.top || py > area.bottom) return null;
-    const rect = instance.element.getBoundingClientRect();
-    const reach = Math.max(rect.width, 1) * 0.5;
-    const clamp = (value: number) => Math.max(-1, Math.min(1, value));
-    return [
-      clamp((px - (rect.left + rect.width / 2)) / reach),
-      clamp(-(py - (rect.top + rect.height / 2)) / reach),
-    ];
+  /**
+   * Where a source's face looks: at the pointer while it is inside the box of one of the bot's
+   * avatars, straight ahead while one of those boxes is the open bot, else nowhere. With reduced
+   * motion the face only ever looks straight ahead.
+   */
+  function gazeTarget(source: BotMarkSource): [number, number] | null {
+    let pointed: [number, number] | null = null;
+    let facing = false;
+    for (const instance of source.instances) {
+      facing ||= instance.selected;
+      if (instance.pointer && instance.visible) {
+        pointed = botMarkPointerGaze(instance.element.getBoundingClientRect(), instance.pointer);
+      }
+    }
+    if (reducedMotion) return pointed || facing ? [0, 0] : null;
+    return pointed ?? (facing ? [0, 0] : null);
   }
 
-  /** Moves the held gaze toward the pointer over this bot's row, easing like a spring. */
+  /** Aims the face and eases it a frame on; with reduced motion it lands at once. */
   function follow(source: BotMarkSource, now: number) {
-    let target: [number, number] | null = null;
-    for (const instance of source.instances) target = pointerGaze(instance) ?? target;
-    const step = 1 - 0.86 ** (Math.max(0, now - source.drawnAt) / (1000 / 60));
-    const gaze = source.gaze;
-    if (target) {
-      const fresh = gaze.hold === 0;
-      gaze.x = fresh ? target[0] : gaze.x + (target[0] - gaze.x) * step;
-      gaze.y = fresh ? target[1] : gaze.y + (target[1] - gaze.y) * step;
-    }
-    const hold = target ? 1 : 0;
-    gaze.hold += (hold - gaze.hold) * step;
-    if (Math.abs(gaze.hold - hold) < 1e-3) gaze.hold = hold;
+    const aimed = botMarkGazeAim(source.gaze, gazeTarget(source));
+    source.gaze = reducedMotion
+      ? { ...aimed, x: aimed.to[0], y: aimed.to[1], hold: aimed.held ? 1 : 0 }
+      : botMarkGazeStep(aimed, (now - source.drawnAt) / 1000);
   }
 
   /** Whether the source still moves: a state that plays, a poke in flight, a blend or a gaze. */
@@ -83,13 +81,13 @@ export function createBotMarkEngine({ sources, paint }: BotMarkHost): BotMarkEng
     if (reducedMotion) return false;
     if (source.showcase || source.state !== "idle") return true;
     if (source.pokes.length > 0 || source.previous) return true;
-    const target = [...source.instances].some((instance) => pointerGaze(instance) !== null);
-    return target || source.gaze.hold > 0 || now - source.stateSince < BLEND_MS;
+    const gaze = botMarkGazeAim(source.gaze, gazeTarget(source));
+    return !botMarkGazeSettled(gaze) || now - source.stateSince < BLEND_MS;
   }
 
   function draw(source: BotMarkSource, now: number) {
     const still = reducedMotion;
-    if (!still) follow(source, now);
+    follow(source, now);
     source.drawnAt = now;
     source.pokes = source.pokes.filter((poke) => now - poke.at < 2000);
     const emotion: BotMarkEmotion | null =
@@ -99,7 +97,7 @@ export function createBotMarkEngine({ sources, paint }: BotMarkHost): BotMarkEng
       time: still ? 0 : now - source.stateSince,
       seed: source.seed,
       shape: source.shape,
-      gaze: still ? null : source.gaze,
+      gaze: source.gaze,
       pokes: still ? [] : source.pokes.map((poke) => ({ ...poke, since: (now - poke.at) / 1000 })),
       emotion,
     });
@@ -128,25 +126,13 @@ export function createBotMarkEngine({ sources, paint }: BotMarkHost): BotMarkEng
   }
 
   function schedule() {
-    if (frameRequest || reducedMotion || typeof requestAnimationFrame === "undefined") return;
+    if (frameRequest || typeof requestAnimationFrame === "undefined") return;
     frameRequest = requestAnimationFrame(tick);
   }
 
   media?.addEventListener("change", () => {
     reducedMotion = media.matches;
     for (const source of sources.values()) draw(source, performance.now());
-    schedule();
-  });
-  window.addEventListener(
-    "pointermove",
-    (event) => {
-      pointer = [event.clientX, event.clientY];
-      schedule();
-    },
-    { passive: true },
-  );
-  document.documentElement.addEventListener("pointerleave", () => {
-    pointer = null;
     schedule();
   });
 

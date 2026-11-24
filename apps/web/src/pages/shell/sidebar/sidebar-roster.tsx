@@ -348,6 +348,7 @@ export function SidebarRoster({
                     render={<button type="button" />}
                     draggable={item.kind === "bot"}
                     data-roster-bot-id={item.kind === "bot" ? item.chat.id : undefined}
+                    data-bot-mark-host={item.kind === "bot" ? item.chat.id : undefined}
                     data-roster-unread={item.chat.unread ? "true" : undefined}
                     data-roster-error={rowError && compact ? "true" : undefined}
                     aria-current={selected ? "page" : undefined}
@@ -568,6 +569,7 @@ function PinnedTiles({
             <ContextMenuTrigger
               render={<button type="button" />}
               data-roster-bot-id={item.kind === "bot" ? item.chat.id : undefined}
+              data-bot-mark-host={item.kind === "bot" ? item.chat.id : undefined}
               data-roster-unread={item.chat.unread ? "true" : undefined}
               aria-current={selected ? "page" : undefined}
               aria-label={item.chat.unread ? t`${item.chat.name} (unread)` : undefined}
