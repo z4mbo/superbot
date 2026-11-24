@@ -64,6 +64,7 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
               scope,
               signal: context.signal,
               appAllowed: ctx.source.marketplaceAppAllowed,
+              e2ePluginHosts: deps.e2ePluginHosts,
             },
             tool,
             args,

@@ -136,13 +136,13 @@ it. The card cannot call tools directly.
 
 ## Manifest and endpoint reference
 
-| Field or part            | What to provide                                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `schemaVersion`          | The integer `1`.                                                                                                               |
-| `name` and `description` | A short display name and a description of the job the plugin does.                                                             |
-| `parts`                  | One to sixteen entries, each with a unique lowercase, hyphen-separated `id`.                                                   |
-| `kind: "skill"`          | An `instructions` string containing Markdown. The bot can read it as tool output when granted.                                 |
-| `kind: "mcp"`            | Set `transport` to `streamable_http` and `endpoint` to a public HTTPS URL without credentials, query parameters or a fragment. |
+| Field or part            | What to provide                                                                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemaVersion`          | The integer `1`.                                                                                                                               |
+| `name` and `description` | A short display name and a description of the job the plugin does.                                                                             |
+| `parts`                  | One to sixteen entries, each with a unique lowercase, hyphen-separated `id`.                                                                   |
+| `kind: "skill"`          | An `instructions` string containing Markdown. The bot can read it as tool output when granted.                                                 |
+| `kind: "mcp"`            | Set `transport` to `streamable_http` and `endpoint` to a public HTTPS URL without credentials, query parameters or a fragment.                 |
 | `kind: "app"`            | One to sixteen `fields`, each with `id`, `label`, `type` (`text`, `number` or `date`) and `required`, plus an optional numeric `summaryField`. |
 
 Use a short description and a JSON object input schema for each MCP tool. Define
@@ -163,3 +163,15 @@ manifests permit neither authentication materials nor local code entry points.
 The worker sends only MCP protocol requests and the approved tool arguments. A
 redirect or private address fails runtime validation. See the
 [runtime reference](plugin-runtime.md) for approval and grant handling.
+
+### Test-only: plugin servers on a private address
+
+Isolated test stacks that run fake plugin servers next to the API can set
+`SUPERBOT_E2E_ALLOW_PLUGIN_HOSTS` on the API and the worker. It takes a
+comma-separated list of exact hostnames or IP literals, such as `127.0.0.1`.
+Only plugin endpoints on those hosts may then resolve to private or loopback
+addresses, at review and at runtime. The endpoint must still use HTTPS, so
+the test stack serves it with a certificate its processes trust through
+`NODE_EXTRA_CA_CERTS`. The setting is unset by default, no deployment file sets
+it, and it is ignored when `NODE_ENV=production`. Never set it on a server
+other people use.

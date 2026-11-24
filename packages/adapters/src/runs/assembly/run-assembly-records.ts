@@ -459,6 +459,7 @@ export async function connectRun(
           scope,
           signal: context.signal,
           appAllowed: marketplaceAppAllowed,
+          e2ePluginHosts: deps.e2ePluginHosts,
         })
       : NO_MARKETPLACE_TOOLS,
   ]).then(([connectors, marketplace]) => {

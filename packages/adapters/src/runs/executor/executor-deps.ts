@@ -89,6 +89,8 @@ export interface ExecutorDeps {
   secretHttp?: RemoteTransportDependencies;
   /** Allow RFC1918 / Docker-network MCP URLs when the operator enabled the escape. */
   mcpAllowPrivateEndpoint?: boolean;
+  /** TEST ONLY: marketplace plugin hosts an acceptance stack allows on private addresses. */
+  e2ePluginHosts?: readonly string[];
   /** Remote cloud coding agents. Null/omit means tools stay uninjected. */
   cloudAgent?: CloudAgentConnection | null;
   /** Environments users connected themselves; a run uses its user's before the deployment's. */
