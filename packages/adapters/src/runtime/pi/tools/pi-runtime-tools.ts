@@ -409,6 +409,7 @@ function toAgentTool(
         return {
           content: String(raw.content ?? ""),
           ...(typeof raw.old_text === "string" && raw.old_text ? { old_text: raw.old_text } : {}),
+          ...(typeof raw.layer === "string" && raw.layer ? { layer: raw.layer } : {}),
           ...(raw.daily === true ? { daily: true } : {}),
         };
       }

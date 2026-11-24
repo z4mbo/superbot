@@ -1,14 +1,19 @@
-import type { AgentImportFile } from "@rakazo/contracts";
+import type { AgentImportFile, MemoryLayer } from "@rakazo/contracts";
 import { isOpenClawDefault } from "./stock.js";
 import type { AgentImportParse, SkillFiles } from "./types.js";
 import { byPath, fileMap, instructionItem, memoryItem, skillItems } from "./types.js";
 
-/** IDENTITY.md is read for the bot's name and description only, not as instructions. */
-export const OPENCLAW_INSTRUCTION_FILES = [
-  ["SOUL.md", "persona"],
-  ["AGENTS.md", "working"],
-] as const;
-export const OPENCLAW_MEMORY_FILES = ["MEMORY.md", "USER.md"] as const;
+export const OPENCLAW_INSTRUCTION_FILES = [["AGENTS.md", "working"]] as const;
+/**
+ * Each becomes one named layer of the new bot's memory, as written. IDENTITY.md also
+ * suggests the bot's name and description.
+ */
+export const OPENCLAW_LAYER_FILES = [
+  ["IDENTITY.md", "identity"],
+  ["SOUL.md", "soul"],
+  ["USER.md", "profile"],
+] as const satisfies readonly (readonly [string, MemoryLayer])[];
+export const OPENCLAW_MEMORY_FILES = ["MEMORY.md"] as const;
 /** Runtime rituals with no Rakazo equivalent. */
 export const OPENCLAW_RUNTIME_FILES = ["TOOLS.md", "HEARTBEAT.md", "BOOTSTRAP.md", "BOOT.md"];
 const DAILY_MEMORY = /^memory\/[^/]+\.md$/;
@@ -42,12 +47,27 @@ export function parseOpenClaw(
     suggestedName: identity?.name ?? workspaceAgentId(root) ?? "OpenClaw",
     suggestedDescription: identity?.description ?? "",
     instructions,
-    memory: memoryPaths.flatMap((path) => {
-      const content = byName.get(path) ?? "";
-      return content.trim()
-        ? [{ ...memoryItem(path, path, path, content), stock: isOpenClawDefault(path, content) }]
-        : [];
-    }),
+    memory: [
+      ...OPENCLAW_LAYER_FILES.flatMap(([path, layer]) => {
+        const content = byName.get(path) ?? "";
+        // A blank IDENTITY.md template is skipped below instead.
+        if (!content.trim() || (layer === "identity" && isOpenClawDefault(path, content)))
+          return [];
+        return [
+          {
+            ...memoryItem(path, path, path, content),
+            layer,
+            stock: isOpenClawDefault(path, content),
+          },
+        ];
+      }),
+      ...memoryPaths.flatMap((path) => {
+        const content = byName.get(path) ?? "";
+        return content.trim()
+          ? [{ ...memoryItem(path, path, path, content), stock: isOpenClawDefault(path, content) }]
+          : [];
+      }),
+    ],
     skills: skills.skills,
     skipped: [
       ...OPENCLAW_RUNTIME_FILES.filter((path) => byName.has(path)).map((path) => ({

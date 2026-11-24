@@ -91,7 +91,8 @@ export async function createRunContext(
   } = parts.records;
   const { connectedPlugins, context, memoryScope, runAbortController, semanticMemory } =
     parts.connected;
-  const { allowSilentEmptyRun, emptyResponseText, groupReplyOptional } = parts.turnContext;
+  const { allowSilentEmptyRun, emptyResponseText, groupReplyOptional, profilePersonId } =
+    parts.turnContext;
   const { scripted } = parts.model;
   const {
     computerKind,
@@ -244,6 +245,7 @@ export async function createRunContext(
     memory: {
       semantic: semanticMemory,
       scope: memoryScope,
+      profilePersonId,
     },
     scripted,
     script,

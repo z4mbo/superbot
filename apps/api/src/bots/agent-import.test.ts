@@ -389,3 +389,63 @@ describe("portable avatar appearance on import", () => {
     },
   );
 });
+
+describe("an OpenClaw agent's soul, identity and user files", () => {
+  it("are each saved as one named layer of the new bot's memory, not folded into instructions", async () => {
+    const files = [
+      { path: "workspace/AGENTS.md", content: "Keep replies short.\n" },
+      { path: "workspace/SOUL.md", content: "Calm and direct.\n" },
+      { path: "workspace/IDENTITY.md", content: "- Name: Pebble\n- Vibe: warm\n" },
+      { path: "workspace/USER.md", content: "Prefers metric units.\n" },
+    ];
+    const plan = await previewAgentImport(services({}), actor, {
+      files,
+      includeSecrets: false,
+      skillFiles: {},
+    });
+    const written: Record<string, unknown>[] = [];
+    let instructions: string | undefined;
+    await createImportedBot(
+      services({
+        createBot: async (_actor, request) => {
+          instructions = request.instructions;
+          const db = fakeDb() as Record<string, Record<string, (args: unknown) => unknown>>;
+          const tx = new Proxy(db, {
+            get: (target, name: string) =>
+              name === "memoryDocument"
+                ? new Proxy(target.memoryDocument!, {
+                    get: (model, method: string) => async (args: { data?: never }) => {
+                      if (method === "create") written.push(args.data!);
+                      return model[method]!(args);
+                    },
+                  })
+                : target[name],
+          });
+          await request.seed(tx as never, bot.id);
+          return bot;
+        },
+      }),
+      actor,
+      AgentImportCreateInput.parse({
+        files,
+        name: "Pebble",
+        selection: {
+          instructions: plan.instructions.map((item) => item.id),
+          // Asked for space memory: a layer still belongs to the new bot.
+          memory: plan.memory.map((item) => ({ id: item.id, destination: "space" })),
+          skills: [],
+        },
+      }),
+    );
+    expect(instructions).toBe("Keep replies short.");
+    expect(written.map((row) => [row.scope, row.botId, row.userId, row.path, row.content])).toEqual(
+      expect.arrayContaining([
+        ["bot", bot.id, actor.userId, "IDENTITY.md", "- Name: Pebble\n- Vibe: warm\n"],
+        ["bot", bot.id, actor.userId, "SOUL.md", "Calm and direct.\n"],
+        // The imported user is the person importing the agent, who owns the new bot.
+        ["bot", bot.id, actor.userId, `people/${actor.userId}.md`, "Prefers metric units.\n"],
+      ]),
+    );
+    expect(written).toHaveLength(3);
+  });
+});

@@ -63,15 +63,23 @@ describe("OpenClaw workspace", () => {
     expect(result.suggestedName).toBe("Pebble");
     // OpenClaw prefers Theme, then Creature, then Vibe.
     expect(result.suggestedDescription).toBe("owl");
+    // SOUL.md, IDENTITY.md and USER.md each become one named layer, as written, and are
+    // no longer folded into the instructions.
     expect(result.instructions.map((item) => [item.title, item.role])).toEqual([
-      ["SOUL.md", "persona"],
       ["AGENTS.md", "working"],
     ]);
-    expect(result.memory.map((item) => [item.title, item.path])).toEqual([
-      ["MEMORY.md", "MEMORY.md"],
-      ["USER.md", "USER.md"],
-      ["memory/2026-01-02.md", "memory/2026-01-02.md"],
-      ["memory/2026-01-03.md", "memory/2026-01-03.md"],
+    expect(JSON.stringify(result.instructions)).not.toContain("Calm and direct");
+    expect(result.memory.map((item) => [item.title, item.layer, item.content])).toEqual([
+      [
+        "IDENTITY.md",
+        "identity",
+        "- **Name:** Pebble\n- **Vibe:** calm\n- **Creature:** owl\n- **Emoji:** 🪨\n",
+      ],
+      ["SOUL.md", "soul", "# Soul\n\nCalm and direct.\n"],
+      ["USER.md", "profile", "Prefers metric units.\n"],
+      ["MEMORY.md", undefined, "Project Alpha ships in May.\n"],
+      ["memory/2026-01-02.md", undefined, "Planned the week.\n"],
+      ["memory/2026-01-03.md", undefined, "Talked about the garden.\n"],
     ]);
     expect(result.skills.map((item) => item.name)).toEqual(["notes", "watering", "weekly-review"]);
     const review = result.skills.find((item) => item.name === "weekly-review");
@@ -316,10 +324,7 @@ describe("instructions", () => {
 
   it("reports the combined length so an oversized import can be refused", () => {
     const big = "x".repeat(BOT_INSTRUCTIONS_MAX_LENGTH);
-    const result = plan([
-      { path: "workspace/SOUL.md", content: big },
-      { path: "workspace/AGENTS.md", content: "More.\n" },
-    ]);
+    const result = plan([{ path: "workspace/AGENTS.md", content: `${big}\nMore.\n` }]);
     expect(combineImportedInstructions(result.instructions).length).toBeGreaterThan(
       BOT_INSTRUCTIONS_MAX_LENGTH,
     );
@@ -506,10 +511,11 @@ describe("OpenClaw home folder", () => {
       }));
     const result = plan(files);
     expect(result.source).toBe("openclaw");
-    expect(result.instructions.map((item) => item.content)).toEqual([
-      "From .openclaw/workspace/SOUL.md\n",
+    expect(result.instructions).toEqual([]);
+    expect(result.memory.map((item) => [item.path, item.content])).toEqual([
+      ["SOUL.md", "From .openclaw/workspace/SOUL.md\n"],
+      ["memory/2026-01-02.md", "From .openclaw/workspace/memory/2026-01-02.md\n"],
     ]);
-    expect(result.memory.map((item) => item.path)).toEqual(["memory/2026-01-02.md"]);
     expect(result.skills.map((item) => item.name)).toEqual(["managed", "shared"]);
     expect(JSON.stringify(result)).not.toContain("credentials");
     expect(JSON.stringify(result)).not.toContain("workspace-research");

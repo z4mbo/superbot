@@ -13,6 +13,9 @@ import { DAILY_NOTE_DAYS_IN_PROMPT } from "../memory/daily-notes.js";
 import { messageUserMaxLength } from "../runs/lifecycle/user-progress.js";
 import { allowPrivateHttpSecretOrigins } from "../secrets/bot-secrets.js";
 
+/** Where remember saves: the bot's own notes, or the profile of the person it works for. */
+export const REMEMBER_LAYERS = ["memory", "profile"] as const;
+
 // The owner flag can land in process.env after static imports run (loadRootEnv
 // parses .env once the entry module is already executing), so the model-facing
 // surface is built lazily on first tool access instead of at module scope.
@@ -278,6 +281,11 @@ export const conversationTools: ConnectorTool[] = [
       properties: {
         content: { type: "string" },
         old_text: { type: "string" },
+        layer: {
+          type: "string",
+          enum: [...REMEMBER_LAYERS],
+          description: "profile: a fact about the person you work for, kept in their profile.",
+        },
         daily: {
           type: "boolean",
           description: `Log content in today's note instead, kept as written. Notes from the last ${DAILY_NOTE_DAYS_IN_PROMPT} days stay in your memory.`,

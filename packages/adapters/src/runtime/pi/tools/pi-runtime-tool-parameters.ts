@@ -9,6 +9,7 @@ import {
   normalizeOpenAiToolParameters,
   openAiToolParametersNeedNormalization,
 } from "../../../models/endpoints/openai-tool-parameters.js";
+import { REMEMBER_LAYERS } from "../../../tools/builtin-conversation.tool-definition.js";
 import { SELECTED_SCHEMA_MAX_BYTES } from "../../../tools/lazy-tool-catalog.js";
 
 export function parametersFor(tool: ConnectorTool) {
@@ -82,6 +83,7 @@ function builtinParameters(tool: ConnectorTool) {
     return Type.Object({
       content: Type.String(),
       old_text: Type.Optional(Type.String()),
+      layer: Type.Optional(stringEnum(REMEMBER_LAYERS, {})),
       daily: Type.Optional(Type.Boolean()),
     });
   }

@@ -61,9 +61,10 @@ describe("built-in tool bridge", () => {
     // most used deferred tool, and a lookup before each message cost a step; schedule_create says
     // whether a routine runs in its chat, and takes the events (webhook, Git, chat, email) a
     // routine can start on, saying a Git event needs no connected app; remember can log to
-    // today's daily note; the media area names the two app tools. find_apps and open_app are
-    // deferred and cost only their names in the find_tool index.
-    expect(definitionBytes(listed)).toBeLessThanOrEqual(35_754);
+    // today's daily note and save to the profile of the person the bot works for; the media area
+    // names the two app tools. find_apps and open_app are deferred and cost only their names in the
+    // find_tool index.
+    expect(definitionBytes(listed)).toBeLessThanOrEqual(35_894);
     expect(deferred.map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["render_plot", "create_space", "generate_secret", "scratchpad_add"]),
     );

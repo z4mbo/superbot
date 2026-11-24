@@ -9,7 +9,7 @@ describe("a single file with document headings", () => {
     const result = parseAgentImport([{ path: "workspace/SOUL.md", content: headed }]);
     if ("error" in result) throw new Error(result.error);
     expect(result.source).not.toBe("document");
-    expect(result.instructions.map((item) => item.content)).toEqual([headed]);
+    expect(result.memory.map((item) => [item.layer, item.content])).toEqual([["soul", headed]]);
   });
 
   it("is still read as Hermes memory under memories/", () => {

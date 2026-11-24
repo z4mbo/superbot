@@ -2,6 +2,7 @@ import * as z from "zod";
 import { BOT_DESCRIPTION_MAX_LENGTH, BOT_NAME_MAX_LENGTH } from "../bots/bot.js";
 import { BotAvatarSetSchema, BotAvatarValueSchema } from "../bots/bot-avatar.js";
 import { BOT_TEMPLATE_IMPORT_KEY_PREFIX } from "../bots/bot-template.js";
+import { MemoryLayerSchema } from "../bots/memory-layers.js";
 import { ComputerModeSchema } from "../computers/computer.js";
 import { AgentImportStatusSchema } from "./agent-import-setup.js";
 
@@ -119,6 +120,8 @@ export const AgentImportMemorySchema = z.object({
   path: z.string(),
   /** Path in space memory; differs from `path` when that name is already taken. */
   spacePath: z.string(),
+  /** A named layer of the new bot's memory; it is always saved to that bot, never to space memory. */
+  layer: MemoryLayerSchema.optional(),
   stock,
   containsKey,
 });

@@ -31,6 +31,7 @@ import {
   CreateRoutineInput,
   isValidTimeZone,
   MEMORY_INDEX_PATH,
+  memoryLayerPath,
 } from "@rakazo/contracts";
 import type { RoutineTriggersAvailable, SkillFiles } from "@rakazo/core";
 import {
@@ -578,8 +579,14 @@ export async function writeImportedBot<PreparedKey>(
     const now = Date.now();
     for (const [index, item] of memory.entries()) {
       const updatedAt = new Date(now - (memory.length - 1 - index));
-      const toBot = destinations.get(item.id) === "bot";
-      const path = toBot ? item.path : item.spacePath;
+      // A named layer is the new bot's own; an imported profile is the importing person's,
+      // who owns the bot and wrote the source's notes about its user.
+      const toBot = Boolean(item.layer) || destinations.get(item.id) === "bot";
+      const path = item.layer
+        ? memoryLayerPath(item.layer, actor.userId)
+        : toBot
+          ? item.path
+          : item.spacePath;
       const seeded =
         toBot && path === MEMORY_INDEX_PATH
           ? await tx.memoryDocument.findFirst({
