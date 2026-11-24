@@ -41,14 +41,7 @@ export type BotMarkBodySpec = Common &
         radius: number;
         seat: BotMarkWrapSeat | BotMarkWrapXSeat;
       }
-    | {
-        kind: "balls";
-        balls: string;
-        top: number;
-        bottom: number;
-        radii: string;
-        seat: BotMarkWrapSeat;
-      }
+    | { kind: "balls"; balls: string; seat: BotMarkWrapSeat }
   );
 
 export const BOT_MARK_BODY_SPECS = {
@@ -72,12 +65,6 @@ export const BOT_MARK_BODY_SPECS = {
       "gPiW26gPdq26gPgy22gPfO22gPj62egPcG2ehzfO2Ihzgy2IerY-1wernC1whzdq1whziW1werle1qerai1qgPai1mgP" +
       "le1merj61eercG1eerom0nerXa0ngPY-0ngPnC0ndHom0mdHXa0mdHV20SdHqK0SbjruzdbjUSzdbjqKzUbjV2zUZ_Su" +
       "xyZ_tSxy",
-    top: 0.99956,
-    bottom: -0.99955,
-    radii:
-      "gog2heiijXkPlFl6mvnjoXpKp8qtresNs7tpuVvAvqwTw6xgyFyozJzp0G0i091V1r1_2R2h2v273E3L3R3U3W3W3W3U" +
-      "3T3T3T3T3U3W3W3W3U3R3L3E272v2h2R1_1r1V090i0GzpzJyoyFxgw6wTvqvAuVtps7sNreqtp8pKoXnjmvl6lFkPjY" +
-      "iiheg2go",
     seat: { wrap: [-0.99955, 0.99956, 0] },
   },
   capsule: {
