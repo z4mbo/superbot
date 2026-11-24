@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import { useNow } from "@rakazo/chat-ui/hooks";
-import { BotAvatar, Button, cn, defaultBotAvatarValue } from "@rakazo/ui-web";
+import { BotAvatar, Button, cn } from "@rakazo/ui-web";
 import { Captions, ChevronDown, Mic, MicOff, PhoneOff, Settings } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { CallState } from "../../lib/calls/call-session";
@@ -102,13 +102,6 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
           }}
           className="relative grid size-32 place-items-center md:size-24"
         >
-          {ringing ? (
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 animate-ping rounded-full border-2"
-              style={{ borderColor: defaultBotAvatarValue(call.botColor) }}
-            />
-          ) : null}
           <BotAvatar
             avatarSet={call.botAvatarSet}
             color={call.botColor}

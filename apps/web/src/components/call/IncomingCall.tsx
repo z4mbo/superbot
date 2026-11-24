@@ -2,7 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import { useTimeout } from "@rakazo/chat-ui/hooks";
 import type { Bot } from "@rakazo/contracts";
 import { nextIncomingCall, respondToIncomingCall } from "@rakazo/core";
-import { BotAvatar, Button, defaultBotAvatarValue } from "@rakazo/ui-web";
+import { BotAvatar, Button } from "@rakazo/ui-web";
 import { Phone, PhoneOff } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
@@ -203,11 +203,6 @@ export function IncomingCall({
     >
       <div className="flex flex-1 flex-col items-center justify-center gap-5 md:flex-none md:flex-row md:justify-start md:gap-3.5">
         <span className="relative grid size-32 shrink-0 place-items-center md:size-14">
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 animate-ping rounded-full border-2"
-            style={{ borderColor: defaultBotAvatarValue(bot.color) }}
-          />
           <span className="md:hidden">
             <BotAvatar avatarSet={bot.avatarSet} color={bot.color} identity={bot.id} size={120} />
           </span>
