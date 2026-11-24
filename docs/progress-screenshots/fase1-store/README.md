@@ -8,14 +8,14 @@ sandbox). Fixture data only.
 Captured locally on the Linux host by `apps/web/e2e/settings/app-store.spec.ts`, run through the
 e2e harness (`pnpm test:e2e -- --spec=app-store.spec.ts`) in headless Chrome at 1280×720.
 
-| File | What it shows |
-| --- | --- |
-| `integrations-baseline.png` | Integrations before any app is approved: the marketplace as it is today (featured connectors, plugin sections, more apps). With no reviewed app the store adds nothing to this screen. |
-| `app-store-browse.png` | Browse with one reviewed app: the **Apps** section after the featured connectors and before the plugin sections, with the app's **Add** button. |
-| `app-store-detail.png` | The app's page: icon, name, **Add**, its description and the **Permissions** it asks for. |
-| `app-store-permission-prompt.png` | The consent step: **Allow Focus timer to:** with each permission, **Cancel** and **Allow**. Nothing is installed until **Allow**. |
-| `app-store-installed.png` | The same page once added: **Remove** and **Open**, and the permissions that were granted. |
-| `app-store-opened.png` | The installed app running in the page viewer's sandbox inside the Integrations dialog. |
+| File                              | What it shows                                                                                                                                                                          |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `integrations-baseline.png`       | Integrations before any app is approved: the marketplace as it is today (featured connectors, plugin sections, more apps). With no reviewed app the store adds nothing to this screen. |
+| `app-store-browse.png`            | Browse with one reviewed app: the **Apps** section after the featured connectors and before the plugin sections, with the app's **Add** button.                                        |
+| `app-store-detail.png`            | The app's page: icon, name, **Add**, its description and the **Permissions** it asks for.                                                                                              |
+| `app-store-permission-prompt.png` | The consent step: **Allow Focus timer to:** with each permission, **Cancel** and **Allow**. Nothing is installed until **Allow**.                                                      |
+| `app-store-installed.png`         | The same page once added: **Remove** and **Open**, and the permissions that were granted.                                                                                              |
+| `app-store-opened.png`            | The installed app running in the page viewer's sandbox inside the Integrations dialog.                                                                                                 |
 
 In the spec the real server checks and stores the submitted app (`apps/submit`). Approval needs a
 deployment admin, which the shared e2e harness does not configure, so from the listing on the
