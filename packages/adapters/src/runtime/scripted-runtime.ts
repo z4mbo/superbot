@@ -154,6 +154,34 @@ function jsonObject(text: string): Record<string, unknown> | undefined {
   }
 }
 
+// Pages and the apps built on them take the same scripted call.
+const SCRIPTED_PAGE_TOOLS = ["save_page", "read_app_state", "run_app_action"] as const;
+const THEN_SAY = "\nthen say ";
+
+/**
+ * Reads `call <tool> with <args>` and an optional `\nthen say <reply>` with plain string
+ * operations, so a long message never makes the scan backtrack. The args end at the first
+ * `\nthen say `.
+ */
+function scriptedPageCall(
+  words: string,
+): { name: string; args: string; say: string | undefined } | undefined {
+  let text = words.trim();
+  // In a group the words open with the mention that picked this bot.
+  if (text.startsWith("@")) {
+    const space = text.search(/\s/);
+    if (space < 2) return undefined;
+    text = text.slice(space).trimStart();
+  }
+  const name = SCRIPTED_PAGE_TOOLS.find((tool) => text.startsWith(`call ${tool} with `));
+  if (!name) return undefined;
+  const start = `call ${name} with `.length;
+  if (text.length <= start) return undefined;
+  const end = text.indexOf(THEN_SAY, start + 1);
+  if (end === -1) return { name, args: text.slice(start), say: undefined };
+  return { name, args: text.slice(start, end), say: text.slice(end + THEN_SAY.length) };
+}
+
 export function inferScript(
   prompt: string,
   resumeFromCheckpoint?: string,
@@ -198,16 +226,13 @@ export function inferScript(
   // keyword by chance ("crm" inside a cuid), so the branches key on the words alone.
   const words = peerMessage(prompt)?.text ?? prompt.replace(REPLY_CONTEXT, "");
   const lower = words.toLowerCase();
-  // In a group the words open with the mention that picked this bot.
-  const page = /^(?:@\S+\s+)?call save_page with (.+?)(?:\nthen say ([\s\S]+))?$/s.exec(
-    words.trim(),
-  );
-  const pageArgs = page ? jsonObject(page[1]!) : undefined;
+  const page = scriptedPageCall(words);
+  const pageArgs = page ? jsonObject(page.args) : undefined;
   if (page && pageArgs) {
     return [
       {
-        assistant: page[2],
-        toolCalls: [{ name: "save_page", args: pageArgs }],
+        assistant: page.say,
+        toolCalls: [{ name: page.name, args: pageArgs }],
         complete: true,
       },
     ];

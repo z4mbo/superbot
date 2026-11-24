@@ -6,6 +6,7 @@ import { cn, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-
 import { Pencil, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useRef, useState } from "react";
+import type { PageAppBridge } from "../../lib/pages/page-app-bridge";
 import {
   DARWIN_WINDOW_CONTROLS_WIDTH_PX,
   desktopBridge,
@@ -36,6 +37,7 @@ export function PageView({
   returnFocus,
   compact = false,
   notice = null,
+  app,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -54,6 +56,8 @@ export function PageView({
   compact?: boolean;
   /** Said in place of the page when it could not be opened. */
   notice?: ReactNode;
+  /** The open app's bridge, when the page is an app. */
+  app?: PageAppBridge;
 }) {
   const { t } = useLingui();
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -195,6 +199,7 @@ export function PageView({
                       interactive
                       onReply={onReply}
                       onHeight={onDrawn}
+                      app={app}
                     />
                   </div>
                 ) : null}

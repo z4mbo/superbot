@@ -1,0 +1,3 @@
+ALTER TABLE "pages" ADD COLUMN "appState" JSONB;
+ALTER TABLE "pages" ADD COLUMN "appRevision" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "page_versions" ADD COLUMN "app" JSONB;

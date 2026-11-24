@@ -45,6 +45,10 @@ export function pageViewerDocument(input: {
   bottomInset?: number;
   /** The reader's app language, for the kit's own words when the page does not set `lang`. */
   lang?: string;
+  /** An app page's stored state, so it draws with it from the first frame. */
+  appState?: { state: Record<string, unknown>; revision: number };
+  /** The host runs the app's actions it asks for; elsewhere its controls stay off. */
+  appActions?: boolean;
 }): string {
   const boot = JSON.stringify({
     code: input.code,
@@ -56,10 +60,16 @@ export function pageViewerDocument(input: {
     input.bottomInset !== undefined && Number.isFinite(input.bottomInset) && input.bottomInset > 0
       ? `<style>:root{--rk-bottom-inset:${Math.round(input.bottomInset)}px}</style>`
       : "";
+  const appState = input.appState
+    ? `<script>globalThis.__rakazoAppState=${JSON.stringify(input.appState)
+        .replace(/</g, "\\u003c")
+        .replace(/[\u2028\u2029]/g, (char) => `\\u${char.charCodeAt(0).toString(16)}`)}</script>`
+    : "";
   return [
-    `<!DOCTYPE html><html${input.touch ? " data-touch" : ""}${input.reply ? " data-reply" : ""}><head><meta charset="utf-8">`,
+    `<!DOCTYPE html><html${input.touch ? " data-touch" : ""}${input.reply ? " data-reply" : ""}${input.appActions ? " data-app-actions" : ""}><head><meta charset="utf-8">`,
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<script>${input.runtime}</script>`,
+    appState,
     input.surface !== undefined && HEX_COLOR.test(input.surface)
       ? `<style>@media screen{:root[data-theme]{--background:${input.surface}}}</style>`
       : "",

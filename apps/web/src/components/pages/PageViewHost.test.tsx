@@ -32,8 +32,17 @@ vi.mock("../../lib/query/query", () => ({
           }),
         }),
       },
+      // A plain page: no app on it.
+      appState: {
+        queryOptions: ({ input }: { input: { pageId: string } }) => ({
+          queryKey: ["app", input],
+          queryFn: async () => ({ app: null }),
+        }),
+        key: () => ["app"],
+      },
     },
   }),
+  useSave: () => ({ run() {}, pending: false, error: null }),
 }));
 vi.mock("../../lib/pages/page-actions", () => ({
   pageMutationOptions: () => ({ rename: {}, setVisibility: {} }),

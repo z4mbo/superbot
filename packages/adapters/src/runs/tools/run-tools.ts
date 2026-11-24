@@ -37,6 +37,7 @@ import {
   PAGE_BROWSER_TOOL_NAMES,
   SUBAGENT_HIDDEN_TOOLS,
 } from "./run-tool-selection.js";
+import { appTools } from "./run-tools-apps.js";
 import { computerTools, pageBrowserTool } from "./run-tools-computer.js";
 import { emailTools } from "./run-tools-email.js";
 import { feedbackTools } from "./run-tools-feedback.js";
@@ -64,6 +65,7 @@ const TOOL_HANDLERS = new Map<string, ToolHandler>([
   ...Object.entries(computerTools),
   ...Object.entries(fileTools),
   ...Object.entries(pageTools),
+  ...Object.entries(appTools),
   ...Object.entries(memoryTools),
   [
     READ_MEETING_TRANSCRIPT,

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { PAGE_RUNTIME_PATH } from "@rakazo/core";
-import { buildPageRuntime } from "@rakazo/page-kit/runtime-build";
+import { buildAppRuntime } from "@rakazo/plugin-sdk/runtime-build";
 import type { Hono } from "hono";
 
 /**
@@ -37,9 +37,10 @@ const loadDiagramScript = cachedScript(async () => {
 });
 
 // Built once per process. Revalidated on every use, so a page never renders with a kit older
-// than the server that checked it.
+// than the server that checked it. It is the page runtime with the app bridge added; plain pages
+// run in it unchanged.
 const loadPageRuntime = cachedScript(async () => {
-  const body = new TextEncoder().encode(await buildPageRuntime());
+  const body = new TextEncoder().encode(await buildAppRuntime());
   const hash = createHash("sha256").update(body).digest("base64url").slice(0, 22);
   return { body, etag: `"page-runtime-${hash}"`, cacheControl: "public, no-cache" };
 });
