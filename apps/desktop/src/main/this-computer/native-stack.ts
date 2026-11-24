@@ -18,6 +18,7 @@ import {
   defaultSleep,
   ensureStackEnv,
   ensureStackToken,
+  imageRegistry,
   initialStackState,
   parseStackEnv,
   portFreeOnLoopback,
@@ -61,7 +62,6 @@ const NATIVE_OWNER = "rakazo";
 const NATIVE_DATABASE = "rakazo";
 /** Written once a Docker move has copied everything, so a cut-short move reruns. */
 const DOCKER_IMPORTED = ".docker-imported";
-const COMPUTER_IMAGE = "ghcr.io/elie222/rakazo/computer";
 const POSTGRES_LISTENING = "listening on IPv4 address";
 const POSTGRES_READY = "database system is ready to accept connections";
 const HEALTH_POLL_INTERVAL_MS = 1_000;
@@ -374,9 +374,9 @@ class StartFailure extends Error {
 }
 
 const downloadFailed = () =>
-  t("Downloading Rakazo failed. Check the internet connection, then retry.");
+  t("Downloading Superbot failed. Check the internet connection, then retry.");
 const servicesFailed = () =>
-  t("Rakazo services did not start. Check the output below, then retry.");
+  t("Superbot services did not start. Check the output below, then retry.");
 
 export class NativeStackController extends StackLifecycle {
   private background: AbortController | null = null;
@@ -450,7 +450,12 @@ export class NativeStackController extends StackLifecycle {
     }
     this.push({ type: "prepare" });
     const template = await readFile(path.join(this.deps.resourceDir, STACK_ENV_TEMPLATE), "utf8");
-    await ensureStackEnv(this.deps.stackDir, template, this.deps.randomHex);
+    await ensureStackEnv(
+      this.deps.stackDir,
+      template,
+      this.deps.randomHex,
+      imageRegistry(this.deps.env),
+    );
     const stackToken = await ensureStackToken(this.deps.stackDir, this.deps.randomHex);
     const stackEnv = parseStackEnv(await readFile(this.dir(STACK_ENV_FILE), "utf8"));
     await this.stopOrphans(signal);
@@ -607,7 +612,7 @@ export class NativeStackController extends StackLifecycle {
     if (chosenWeb !== webPort) this.currentWebUrl = `http://127.0.0.1:${chosenWeb}`;
     await writePrivateFile(this.dir(STACK_WEB_URL_FILE), this.currentWebUrl);
 
-    const computerImage = `${stackEnv.get("RAKAZO_COMPUTER_IMAGE") || COMPUTER_IMAGE}:${this.deps.imageTag}`;
+    const computerImage = `${stackEnv.get("RAKAZO_COMPUTER_IMAGE") || `${imageRegistry(this.deps.env)}/computer`}:${this.deps.imageTag}`;
     const appEnv = this.appEnv(stackEnv, {
       DATABASE_URL: databaseUrl,
       LOCAL_VM_CLI: runtime.cli,
@@ -718,7 +723,9 @@ export class NativeStackController extends StackLifecycle {
     let existing = await this.inspectDatabase(cli, signal);
     if (existing === null && ports.database !== undefined && ports.database !== holder) {
       throw new StartFailure(
-        t("Your Rakazo data is in a different computer runtime. Quit the one running, then retry."),
+        t(
+          "Your Superbot data is in a different computer runtime. Quit the one running, then retry.",
+        ),
       );
     }
     if (ports.database === undefined) {

@@ -61,14 +61,14 @@ jobs:
           sips -s format png "$RUNNER_TEMP/fallback.iconset/icon_128x128@2x.png" --out "$RUNNER_TEMP/fallback-decoded.png"
           test -s "$RUNNER_TEMP/fallback-decoded.png"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$app/Contents/Info.plist")" = Icon
-          echo "RAKAZO_E2E_EXECUTABLE=out/mac-arm64/$product.app/Contents/MacOS/$product" >> "$GITHUB_ENV"
+          echo "SUPERBOT_E2E_EXECUTABLE=out/mac-arm64/$product.app/Contents/MacOS/$product" >> "$GITHUB_ENV"
         env:
-          RAKAZO_ALLOW_DEV_SECRETS: "1"
+          SUPERBOT_ALLOW_DEV_SECRETS: "1"
       - name: Capture packaged macOS setup window and Dock
         run: >-
           pnpm --filter @rakazo/desktop exec playwright test
           --config e2e/playwright.config.ts setup.spec.ts
-          --grep "setup offers Rakazo Cloud first, with local and existing instances"
+          --grep "setup offers this computer first, with a Superbot server as the other choice"
       - name: Upload native macOS setup screenshot
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

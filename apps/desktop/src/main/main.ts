@@ -11,6 +11,7 @@ import type {
   DesktopSetup,
   RakazoDesktopDevice,
 } from "@rakazo/contracts";
+import { brandEnv } from "@rakazo/core";
 import { bestEffort } from "@rakazo/logging";
 import type { BrowserWindow, Session } from "electron";
 import {
@@ -36,6 +37,7 @@ import type { IpcCaller } from "./ipc/ipc.js";
 import { handleIpc, sentFrom } from "./ipc/ipc.js";
 import { installServerHeaders } from "./setup/server-request-headers.js";
 import {
+  configuredServerUrl,
   DEFAULT_LOCAL_WEB_URL,
   desktopStackImageTag,
   isRakazoHealth,
@@ -65,6 +67,7 @@ import {
   reportDesktopError,
 } from "./system/monitoring.js";
 import { createSystemSpeech } from "./system/system-speech.js";
+import { migrateLegacyUserData } from "./system/user-data-migration.js";
 import {
   createComputerPermissionSetup,
   waitForComputerSetupReturn,
@@ -129,10 +132,22 @@ import { registerWindowControls } from "./windows/window-controls.js";
 import { isMcpOAuthServerId, mcpOAuthPartition } from "./windows/window-open.js";
 
 process.setSourceMapsEnabled(true);
+const PERFORMANCE_USER_DATA = brandEnv("PERFORMANCE_USER_DATA", process.env);
+// Before anything reads userData (error reporting, crash checkpoints, setup, the stack), carry over
+// the profile the app kept while it was called Rakazo.
+const userDataMigration = PERFORMANCE_USER_DATA
+  ? null
+  : migrateLegacyUserData({
+      appDataDir: app.getPath("appData"),
+      userDataDir: app.getPath("userData"),
+    });
 installDesktopEarlyErrorReporting();
-const PERFORMANCE_USER_DATA = process.env.RAKAZO_PERFORMANCE_USER_DATA;
+if (userDataMigration?.kind === "failed") {
+  console.error("Could not copy the previous app data; starting fresh.", userDataMigration.error);
+  reportDesktopError(userDataMigration.error, "desktop.startup", { step: "user-data-migration" });
+}
 /** Test hook: where the app-managed stack answers. Mode `new` still requires loopback. */
-const LOCAL_WEB_URL = process.env.RAKAZO_LOCAL_WEB_URL?.trim() || DEFAULT_LOCAL_WEB_URL;
+const LOCAL_WEB_URL = brandEnv("LOCAL_WEB_URL", process.env)?.trim() || DEFAULT_LOCAL_WEB_URL;
 const DESKTOP_STACK_PROBE_PATH = "/.well-known/rakazo-desktop-stack";
 const DESKTOP_STACK_TOKEN_HEADER = "x-rakazo-desktop-stack-token";
 let monitoringSession: Session | undefined;
@@ -144,7 +159,7 @@ const updaterEnvironment = {
   // A `--dir` build has no update feed to read.
   packaged: app.isPackaged && existsSync(path.join(process.resourcesPath, "app-update.yml")),
   version: app.getVersion(),
-  disabled: process.env.RAKAZO_DISABLE_AUTO_UPDATE === "1",
+  disabled: brandEnv("DISABLE_AUTO_UPDATE", process.env) === "1",
 };
 let requestingComputerAccess = false;
 let hostScreen: HostScreen | undefined;
@@ -212,7 +227,7 @@ async function probeServer(
         ok: false,
         status: response.status,
         url,
-        error: t("That address redirects elsewhere. Enter the final Rakazo server address."),
+        error: t("That address redirects elsewhere. Enter the final Superbot server address."),
       };
     }
     if (!response.ok) {
@@ -229,7 +244,7 @@ async function probeServer(
         ok: false,
         status: response.status,
         url,
-        error: t("That address did not respond like a Rakazo server."),
+        error: t("That address did not respond like a Superbot server."),
       };
     }
     return {
@@ -258,7 +273,7 @@ async function offerDockerMove(userStackDir: string): Promise<StackChoice> {
     return "docker";
   const options: Electron.MessageBoxOptions = {
     type: "question",
-    message: t("Run Rakazo without Docker?"),
+    message: t("Run Superbot without Docker?"),
     detail: t("Your bots and data move over. Docker is stopped, not removed."),
     buttons: [t("Move"), t("Keep Docker")],
     defaultId: 0,
@@ -602,16 +617,16 @@ app.whenReady().then(async () => {
         type: "info",
         title: t("Mac app control"),
         message: readyForRestart
-          ? t("Restart Rakazo to finish setup")
+          ? t("Restart Superbot to finish setup")
           : t("Set up Mac app control"),
         detail: readyForRestart
           ? undefined
           : t(
-              "Commands already work. To use apps, allow Accessibility and Screen Recording for Rakazo in System Settings, then restart Rakazo.",
+              "Commands already work. To use apps, allow Accessibility and Screen Recording for Superbot in System Settings, then restart Superbot.",
             ),
         buttons: readyForRestart
-          ? [t("Restart Rakazo"), t("Not Now")]
-          : [t("Open System Settings"), t("Restart Rakazo"), t("Not Now")],
+          ? [t("Restart Superbot"), t("Not Now")]
+          : [t("Open System Settings"), t("Restart Superbot"), t("Not Now")],
         defaultId: 0,
         cancelId: readyForRestart ? 1 : 2,
         noLink: true,
@@ -696,12 +711,12 @@ app.whenReady().then(async () => {
     appPath: app.getAppPath(),
   });
   const localWebUrl =
-    process.env.RAKAZO_LOCAL_WEB_URL?.trim() ||
+    brandEnv("LOCAL_WEB_URL", process.env)?.trim() ||
     (await readStackWebUrl(userStackDir, LOCAL_WEB_URL));
   const imageTag = resolveImageTag({
     version: app.getVersion(),
     packaged: app.isPackaged,
-    override: process.env.RAKAZO_IMAGE_TAG,
+    override: brandEnv("IMAGE_TAG", process.env),
   });
   const probe = (url: string, signal: AbortSignal, token: string) =>
     probeManagedStack(url, token, signal);
@@ -724,7 +739,7 @@ app.whenReady().then(async () => {
     ? await readServerBundle({
         resourcesPath: process.resourcesPath,
         packaged: app.isPackaged,
-        override: process.env.RAKAZO_SERVER_BUNDLE,
+        override: brandEnv("SERVER_BUNDLE", process.env),
       })
     : null;
   // Read again when the choice is settled later: Docker or either stack may have changed since.
@@ -799,11 +814,12 @@ app.whenReady().then(async () => {
   );
   if (desktop.currentSetup?.mode === "new") await settleLocalStack();
   const target = resolveStartupTarget({
-    envUrl: process.env.RAKAZO_WEB_URL,
+    envUrl: brandEnv("WEB_URL", process.env),
     saved: desktop.currentSetup,
-    forceSetup: process.env.RAKAZO_FORCE_SETUP === "1",
+    forceSetup: brandEnv("FORCE_SETUP", process.env) === "1",
+    configuredUrl: configuredServerUrl(process.env),
   });
-  if (process.env.RAKAZO_PERFORMANCE_CLEAR_CACHE === "1") {
+  if (brandEnv("PERFORMANCE_CLEAR_CACHE", process.env) === "1") {
     const cacheSessions = new Set<Session>([session.defaultSession]);
     if (target.kind === "app") {
       cacheSessions.add((await resolveSessionForTarget(target.url)).value);
@@ -953,8 +969,8 @@ app.whenReady().then(async () => {
   if (process.platform === "darwin") {
     // Installed builds ship the helper as an extra resource; `pnpm build` compiles it for development.
     const helper = app.isPackaged
-      ? path.join(process.resourcesPath, "speech", "rakazo-speech")
-      : path.join(app.getAppPath(), "build", "speech", "rakazo-speech");
+      ? path.join(process.resourcesPath, "speech", "superbot-speech")
+      : path.join(app.getAppPath(), "build", "speech", "superbot-speech");
     const speech = createSystemSpeech(permissionTarget, (language) =>
       spawn(helper, [language], { stdio: "pipe" }),
     );
@@ -1045,7 +1061,7 @@ app.whenReady().then(async () => {
         destroySetupWindow();
       }
     } else {
-      // An unreachable first-launch Cloud lands in setup, where the other servers are.
+      // An unreachable configured server lands in setup, where the other choices are.
       showSetupWindow(
         target.source === "saved"
           ? t("Could not reconnect to the saved server. {detail}", {

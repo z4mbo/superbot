@@ -22,8 +22,13 @@ const DEDICATED_SECRET_PLACEHOLDERS = new Set([
   EXAMPLE_SCREEN_PROXY_SECRET_PLACEHOLDER,
 ]);
 
+/** Named literally (not built from a suffix) so the Compose environment checks can find the reads. */
+function devSecretsFlag(env: NodeJS.ProcessEnv): boolean {
+  return env.SUPERBOT_ALLOW_DEV_SECRETS === "1" || env.RAKAZO_ALLOW_DEV_SECRETS === "1";
+}
+
 export function isDevSecretAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.RAKAZO_ALLOW_DEV_SECRETS === "1") return true;
+  if (devSecretsFlag(env)) return true;
   if (env.VITEST === "true" || env.VITEST === "1") return true;
   const nodeEnv = env.NODE_ENV;
   return nodeEnv === "development" || nodeEnv === "test";
@@ -33,14 +38,14 @@ export function isDevSecretAllowed(env: NodeJS.ProcessEnv = process.env): boolea
  * `CONTENT_ENCRYPTION=on|off`: whether new content is encrypted at rest. Reads
  * decrypt existing ciphertext either way, so switching off never strands data.
  * Unset, it is on, except in local development (`NODE_ENV=development` or
- * `RAKAZO_ALLOW_DEV_SECRETS=1`). Tests keep the server default.
+ * `SUPERBOT_ALLOW_DEV_SECRETS=1`, or the legacy `RAKAZO_` name). Tests keep the server default.
  */
 export function resolveContentEncryption(env: NodeJS.ProcessEnv = process.env): boolean {
   const value = env.CONTENT_ENCRYPTION?.trim().toLowerCase();
   if (value === "on") return true;
   if (value === "off") return false;
   if (value) throw new Error('CONTENT_ENCRYPTION must be "on" or "off".');
-  return env.NODE_ENV !== "development" && env.RAKAZO_ALLOW_DEV_SECRETS !== "1";
+  return env.NODE_ENV !== "development" && !devSecretsFlag(env);
 }
 
 export function resolveAuthSecret(env: NodeJS.ProcessEnv = process.env): string {

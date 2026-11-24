@@ -8,9 +8,11 @@ import type { RunDocker, RunDockerResult } from "./docker-cli.js";
 import type { LocalStackDeps } from "./local-stack.js";
 import {
   COMPOSE_WAIT_TIMEOUT_S,
+  DEFAULT_IMAGE_REGISTRY,
   defaultSleep,
   ensureStackEnv,
   ensureStackToken,
+  imageRegistry,
   initialStackState,
   LocalStackController,
   readStackToken,
@@ -110,6 +112,36 @@ describe("resolveImageTag", () => {
   });
 });
 
+describe("imageRegistry", () => {
+  it("defaults to the Superbot registry", () => {
+    expect(imageRegistry({})).toBe(DEFAULT_IMAGE_REGISTRY);
+    expect(DEFAULT_IMAGE_REGISTRY).toBe("ghcr.io/z4mbo/superbot");
+  });
+
+  it("reads SUPERBOT_IMAGE_REGISTRY, then the legacy RAKAZO_IMAGE_REGISTRY", () => {
+    expect(imageRegistry({ RAKAZO_IMAGE_REGISTRY: "mirror.example/legacy/" })).toBe(
+      "mirror.example/legacy",
+    );
+    expect(
+      imageRegistry({
+        SUPERBOT_IMAGE_REGISTRY: " mirror.example/superbot ",
+        RAKAZO_IMAGE_REGISTRY: "mirror.example/legacy",
+      }),
+    ).toBe("mirror.example/superbot");
+  });
+
+  it("names the configured registry in a new stack", () => {
+    const rendered = renderStackEnv(
+      "RAKAZO_IMAGE=ghcr.io/elie222/rakazo/app\nRAKAZO_COMPUTER_IMAGE=x\nOTHER=1\n",
+      fakeHex,
+      "mirror.example/superbot",
+    );
+    expect(rendered).toBe(
+      "RAKAZO_IMAGE=mirror.example/superbot/app\nRAKAZO_COMPUTER_IMAGE=mirror.example/superbot/computer\nOTHER=1\n",
+    );
+  });
+});
+
 describe("renderStackEnv", () => {
   it("fills the generated secrets and drops the image tag lines of the shipped template", async () => {
     const template = await readFile(path.join(COMPOSE_DIR, STACK_ENV_TEMPLATE), "utf8");
@@ -128,8 +160,10 @@ describe("renderStackEnv", () => {
     }
     expect(lines.some((line) => line.startsWith("RAKAZO_IMAGE_TAG="))).toBe(false);
     expect(lines.some((line) => line.startsWith("RAKAZO_COMPUTER_IMAGE_TAG="))).toBe(false);
-    // Everything else, including the image names and empty optional keys, stays verbatim.
-    expect(lines).toContain("RAKAZO_IMAGE=ghcr.io/elie222/rakazo/app");
+    // New stacks pull from the Superbot registry; everything else, including empty optional keys,
+    // stays verbatim.
+    expect(lines).toContain("RAKAZO_IMAGE=ghcr.io/z4mbo/superbot/app");
+    expect(lines).toContain("RAKAZO_COMPUTER_IMAGE=ghcr.io/z4mbo/superbot/computer");
     expect(lines).toContain("SANDBOX_PROVIDER=docker");
     expect(lines).toContain("OPENROUTER_API_KEY=");
     expect(rendered.endsWith("\n")).toBe(template.endsWith("\n"));
@@ -361,11 +395,11 @@ describe("reduceStackState", () => {
   it("records why Docker is unavailable", () => {
     const state = reduceStackState(reduceStackState(start, { type: "check-start" }), {
       type: "docker-missing",
-      message: "Rakazo needs Docker to run on this computer.",
+      message: "Superbot needs Docker to run on this computer.",
     });
     expect(state).toMatchObject({
       phase: "docker-missing",
-      message: "Rakazo needs Docker to run on this computer.",
+      message: "Superbot needs Docker to run on this computer.",
     });
   });
 });
@@ -974,7 +1008,7 @@ describe("LocalStackController", () => {
     const state = await stack.start();
     expect(state).toMatchObject({
       phase: "docker-missing",
-      message: "Rakazo needs Docker to run on this computer.",
+      message: "Superbot needs Docker to run on this computer.",
     });
     expect(calls).toEqual([]);
     await expect(stat(path.join(root, "stack", STACK_ENV_FILE))).rejects.toThrow();
@@ -1052,7 +1086,7 @@ describe("LocalStackController", () => {
   it("names Docker Desktop when it is missing on macOS and Windows", async () => {
     const stack = controller({ platform: "darwin", exists: () => false });
     expect((await stack.start()).message).toBe(
-      "Rakazo needs Docker Desktop to run on this computer.",
+      "Superbot needs Docker Desktop to run on this computer.",
     );
   });
 

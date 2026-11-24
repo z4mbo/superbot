@@ -29,7 +29,7 @@ describe("desktop release workflow", () => {
   });
 
   it("requires signed platform builds before a single publication job", () => {
-    expect(workflow).toContain('RAKAZO_DESKTOP_RELEASE: "1"');
+    expect(workflow).toContain('SUPERBOT_DESKTOP_RELEASE: "1"');
     expect(workflow).toContain("-c.forceCodeSigning=true");
     expect(workflow).toContain("codesign --verify --deep --strict");
     expect(workflow).toContain("Get-AuthenticodeSignature");
@@ -105,8 +105,8 @@ describe("desktop release workflow", () => {
 
   it("pins every platform update feed to the official GitHub owner and repo", () => {
     expect(workflow).toContain('grep -Fqx "provider: github"');
-    expect(workflow).toContain('grep -Fqx "owner: elie222"');
-    expect(workflow).toContain('grep -Fqx "repo: rakazo"');
+    expect(workflow).toContain('grep -Fqx "owner: z4mbo"');
+    expect(workflow).toContain('grep -Fqx "repo: superbot"');
     expect(workflow).toContain("Verify Linux update feed is pinned to the official GitHub channel");
     expect(workflow).toContain("Windows update config missing");
     expect(workflow).toContain("RELEASE_VERSION:");

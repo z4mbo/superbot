@@ -3,7 +3,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Check for Updates…": "Zoek naar updates…",
   "Computer Access…": "Computertoegang…",
   "Revoke Local Computer Access": "Toegang tot lokale computer intrekken",
-  "Change Rakazo Server…": "Rakazo-server wijzigen…",
+  "Change Superbot Server…": "Superbot-server wijzigen…",
   "Hide {name}": "Verberg {name}",
   "Hide Others": "Verberg andere",
   "Show All": "Toon alles",
@@ -38,13 +38,13 @@ export const NL_MESSAGES: Record<string, string> = {
   "Checking for Updates…": "Zoeken naar updates…",
   "Downloading Update…": "Update downloaden…",
   "Restart to Update…": "Herstart om bij te werken…",
-  "Downloading Rakazo {version}…": "Rakazo {version} downloaden…",
-  "Rakazo {version} is ready to install.": "Rakazo {version} is klaar om te installeren.",
+  "Downloading Superbot {version}…": "Superbot {version} downloaden…",
+  "Superbot {version} is ready to install.": "Superbot {version} is klaar om te installeren.",
   Restart: "Herstart",
   Later: "Later",
   "Could not install the update.": "De update kon niet worden geïnstalleerd.",
   "Could not check for updates.": "Er kon niet worden gezocht naar updates.",
-  "Rakazo is up to date.": "Rakazo is up-to-date.",
+  "Superbot is up to date.": "Superbot is up-to-date.",
   "Version {version}": "Versie {version}",
   "Automatic updates are turned off for this install.":
     "Automatische updates zijn uitgeschakeld voor deze installatie.",
@@ -52,11 +52,11 @@ export const NL_MESSAGES: Record<string, string> = {
     "Automatische updates werken alleen in een geïnstalleerde versie.",
   "No desktop releases are published for this build yet.":
     "Er zijn nog geen desktopversies gepubliceerd voor deze build.",
-  "Move Rakazo to Applications to install updates.":
-    "Verplaats Rakazo naar Apps om updates te installeren.",
+  "Move Superbot to Applications to install updates.":
+    "Verplaats Superbot naar Apps om updates te installeren.",
   "Free up disk space to install updates.": "Maak schijfruimte vrij om updates te installeren.",
-  "This update could not be verified. Reinstall Rakazo from a trusted download.":
-    "Deze update kon niet worden geverifieerd. Installeer Rakazo opnieuw vanaf een vertrouwde download.",
+  "This update could not be verified. Reinstall Superbot from a trusted download.":
+    "Deze update kon niet worden geverifieerd. Installeer Superbot opnieuw vanaf een vertrouwde download.",
   "The update could not be completed. Try again later.":
     "De update kon niet worden voltooid. Probeer het later opnieuw.",
   "Could not reach the update server.": "De updateserver is niet bereikbaar.",
@@ -75,17 +75,17 @@ export const NL_MESSAGES: Record<string, string> = {
     "Er loopt al een inlogpoging. Annuleer die en probeer het opnieuw.",
   "Could not open browser sign-in. Close other sign-in attempts and retry.":
     "Inloggen via de browser kon niet worden geopend. Sluit andere inlogpogingen en probeer het opnieuw.",
-  "Sign-in callback rejected. Return to Rakazo to retry.":
-    "Het inlogantwoord is geweigerd. Ga terug naar Rakazo om het opnieuw te proberen.",
-  "You can close this tab and return to Rakazo.":
-    "Je kunt dit tabblad sluiten en teruggaan naar Rakazo.",
-  "Set up Rakazo": "Rakazo instellen",
-  "Quit Rakazo": "Stop Rakazo",
-  "Welcome to Rakazo": "Welkom bij Rakazo",
-  "Choose where Rakazo runs.": "Kies waar Rakazo draait.",
+  "Sign-in callback rejected. Return to Superbot to retry.":
+    "Het inlogantwoord is geweigerd. Ga terug naar Superbot om het opnieuw te proberen.",
+  "You can close this tab and return to Superbot.":
+    "Je kunt dit tabblad sluiten en teruggaan naar Superbot.",
+  "Set up Superbot": "Superbot instellen",
+  "Quit Superbot": "Stop Superbot",
+  "Welcome to Superbot": "Welkom bij Superbot",
+  "Choose where Superbot runs.": "Kies waar Superbot draait.",
   Instance: "Instantie",
   "This computer": "Deze computer",
-  "Existing instance": "Bestaande instantie",
+  "Superbot server": "Superbot-server",
   "Technical details": "Technische details",
   "Setup progress": "Voortgang van de installatie",
   "Server address": "Serveradres",
@@ -95,14 +95,14 @@ export const NL_MESSAGES: Record<string, string> = {
   Continue: "Doorgaan",
   Retry: "Opnieuw proberen",
   "Getting ready…": "Voorbereiden…",
-  "Downloading Rakazo…": "Rakazo downloaden…",
-  "Starting Rakazo…": "Rakazo starten…",
+  "Downloading Superbot…": "Superbot downloaden…",
+  "Starting Superbot…": "Superbot starten…",
   "Almost ready…": "Bijna klaar…",
-  "Rakazo is ready.": "Rakazo is klaar.",
+  "Superbot is ready.": "Superbot is klaar.",
   "{size} downloaded": "{size} gedownload",
   "Connecting…": "Verbinden…",
   "Checking…": "Controleren…",
-  "Rakazo answered at {url}.": "Rakazo antwoordde op {url}.",
+  "Superbot answered at {url}.": "Superbot antwoordde op {url}.",
   "Enter a server address first.": "Voer eerst een serveradres in.",
   "Could not save that address.": "Dat adres kon niet worden bewaard.",
   "Could not save that address. Try again.":
@@ -114,17 +114,17 @@ export const NL_MESSAGES: Record<string, string> = {
   "Could not run the connection check. Try again.":
     "De verbindingscontrole kon niet worden uitgevoerd. Probeer het opnieuw.",
   "Setup bridge unavailable.": "De installatiebrug is niet beschikbaar.",
-  "Setup could not start. Quit Rakazo and try again.":
-    "De installatie kon niet starten. Stop Rakazo en probeer het opnieuw.",
+  "Setup could not start. Quit Superbot and try again.":
+    "De installatie kon niet starten. Stop Superbot en probeer het opnieuw.",
   "Enter a server address.": "Voer een serveradres in.",
   "Enter a valid http:// or https:// address.": "Voer een geldig http://- of https://-adres in.",
   "Enter a valid server address. Public servers require HTTPS; a new local instance must use localhost.":
     "Voer een geldig serveradres in. Openbare servers vereisen HTTPS; een nieuwe lokale instantie moet localhost gebruiken.",
   "Invalid custom headers": "Ongeldige aangepaste headers",
-  "That address redirects elsewhere. Enter the final Rakazo server address.":
-    "Dat adres verwijst door naar een andere plek. Voer het uiteindelijke adres van de Rakazo-server in.",
-  "That address did not respond like a Rakazo server.":
-    "Dat adres antwoordde niet als een Rakazo-server.",
+  "That address redirects elsewhere. Enter the final Superbot server address.":
+    "Dat adres verwijst door naar een andere plek. Voer het uiteindelijke adres van de Superbot-server in.",
+  "That address did not respond like a Superbot server.":
+    "Dat adres antwoordde niet als een Superbot-server.",
   "The server answered with HTTP {status}.": "De server antwoordde met HTTP {status}.",
   "Timed out reaching that address.": "Time-out bij het bereiken van dat adres.",
   "Nothing is listening at that address yet.": "Er luistert nog niets op dat adres.",
@@ -150,8 +150,8 @@ export const NL_MESSAGES: Record<string, string> = {
     "De installatie kon niet worden bewaard. De vorige instantie is hersteld.",
   "Connected, but could not save setup for the next launch. Try Continue again.":
     "Verbonden, maar de installatie kon niet worden bewaard voor de volgende start. Klik nogmaals op Doorgaan.",
-  "The app-managed Rakazo services are not ready. Retry setup.":
-    "De Rakazo-services die de app beheert, zijn niet klaar. Start de installatie opnieuw.",
+  "The app-managed Superbot services are not ready. Retry setup.":
+    "De Superbot-services die de app beheert, zijn niet klaar. Start de installatie opnieuw.",
   "Docker is installed, but Docker Compose is missing. Install Docker Desktop or the docker-compose-plugin.":
     "Docker is geïnstalleerd, maar Docker Compose ontbreekt. Installeer Docker Desktop of de docker-compose-plugin.",
   "Could not check Docker Compose. Check the output below, then retry.":
@@ -172,10 +172,10 @@ export const NL_MESSAGES: Record<string, string> = {
     "Docker reageert niet meer. Start Docker en probeer het opnieuw.",
   "Docker Compose is missing. Install Docker Desktop or the docker-compose-plugin, then retry.":
     "Docker Compose ontbreekt. Installeer Docker Desktop of de docker-compose-plugin en probeer het opnieuw.",
-  "Downloading Rakazo images failed. Check the output below, then retry.":
-    "Het downloaden van de Rakazo-images is mislukt. Bekijk de uitvoer hieronder en probeer het opnieuw.",
-  "Rakazo services did not start. Check the output below, then retry.":
-    "De Rakazo-services zijn niet gestart. Bekijk de uitvoer hieronder en probeer het opnieuw.",
+  "Downloading Superbot images failed. Check the output below, then retry.":
+    "Het downloaden van de Superbot-images is mislukt. Bekijk de uitvoer hieronder en probeer het opnieuw.",
+  "Superbot services did not start. Check the output below, then retry.":
+    "De Superbot-services zijn niet gestart. Bekijk de uitvoer hieronder en probeer het opnieuw.",
   "The stack started but the web app did not answer. Retry, and check the output below.":
     "De stack is gestart, maar de web-app reageerde niet. Probeer het opnieuw en bekijk de uitvoer hieronder.",
   "Could not prepare the local stack. Retry.":
@@ -200,29 +200,28 @@ export const NL_MESSAGES: Record<string, string> = {
   "Chat Details": "Chatdetails",
   Help: "Help",
   "Keyboard Shortcuts": "Sneltoetsen",
-  "Downloading Rakazo failed. Check the internet connection, then retry.":
-    "Rakazo downloaden is mislukt. Controleer de internetverbinding en probeer het opnieuw.",
+  "Downloading Superbot failed. Check the internet connection, then retry.":
+    "Superbot downloaden is mislukt. Controleer de internetverbinding en probeer het opnieuw.",
   "Could not move your data from Docker. Check the output below, then retry.":
     "Je gegevens konden niet uit Docker worden overgezet. Bekijk de uitvoer hieronder en probeer het opnieuw.",
   "The computer runtime already running is too old. Update or quit it, then retry.":
     "De computerruntime die al draait is te oud. Werk hem bij of sluit hem af en probeer het opnieuw.",
-  "Your Rakazo data is in a different computer runtime. Quit the one running, then retry.":
-    "Je Rakazo-gegevens staan in een andere computerruntime. Sluit de runtime die draait af en probeer het opnieuw.",
-  "Run Rakazo without Docker?": "Rakazo zonder Docker gebruiken?",
+  "Your Superbot data is in a different computer runtime. Quit the one running, then retry.":
+    "Je Superbot-gegevens staan in een andere computerruntime. Sluit de runtime die draait af en probeer het opnieuw.",
+  "Run Superbot without Docker?": "Superbot zonder Docker gebruiken?",
   "Your bots and data move over. Docker is stopped, not removed.":
     "Je bots en gegevens gaan mee. Docker wordt gestopt, niet verwijderd.",
   Move: "Overzetten",
   "Keep Docker": "Docker houden",
-  "Nothing to install.": "Niets te installeren.",
   "Your data stays on this computer.": "Je gegevens blijven op deze computer.",
   "Connect to a server you or your team already run.":
     "Maak verbinding met een server die jij of je team al draait.",
-  "Rakazo needs Docker Desktop to run on this computer.":
-    "Rakazo heeft Docker Desktop nodig om op deze computer te draaien.",
-  "Rakazo needs Docker to run on this computer.":
-    "Rakazo heeft Docker nodig om op deze computer te draaien.",
-  "Docker Desktop is a free app that runs Rakazo in the background. Install it and open it once.":
-    "Docker Desktop is een gratis app die Rakazo op de achtergrond draait. Installeer en open het één keer.",
+  "Superbot needs Docker Desktop to run on this computer.":
+    "Superbot heeft Docker Desktop nodig om op deze computer te draaien.",
+  "Superbot needs Docker to run on this computer.":
+    "Superbot heeft Docker nodig om op deze computer te draaien.",
+  "Docker Desktop is a free app that runs Superbot in the background. Install it and open it once.":
+    "Docker Desktop is een gratis app die Superbot op de achtergrond draait. Installeer en open het één keer.",
   "Install Docker Engine and start it.": "Installeer Docker Engine en start het.",
   "Download Docker Desktop": "Docker Desktop downloaden",
   "Install Docker": "Docker installeren",
@@ -231,14 +230,14 @@ export const NL_MESSAGES: Record<string, string> = {
   "Starting {app}…": "{app} wordt gestart…",
   "Docker is installed but not running. Start the Docker service to continue.":
     "Docker is geïnstalleerd maar draait niet. Start de Docker-service om door te gaan.",
-  "Rakazo stopped unexpectedly.": "Rakazo is onverwacht gestopt.",
+  "Superbot stopped unexpectedly.": "Superbot is onverwacht gestopt.",
   Reload: "Opnieuw laden",
   "Mac app control": "Mac-appbediening",
   "Set up Mac app control": "Mac-appbediening instellen",
-  "Commands already work. To use apps, allow Accessibility and Screen Recording for Rakazo in System Settings, then restart Rakazo.":
-    "Opdrachten werken al. Geef Rakazo toestemming voor Toegankelijkheid en Schermopname in Systeeminstellingen om apps te gebruiken en start Rakazo daarna opnieuw.",
+  "Commands already work. To use apps, allow Accessibility and Screen Recording for Superbot in System Settings, then restart Superbot.":
+    "Opdrachten werken al. Geef Superbot toestemming voor Toegankelijkheid en Schermopname in Systeeminstellingen om apps te gebruiken en start Superbot daarna opnieuw.",
   "Open System Settings": "Systeeminstellingen openen",
-  "Restart Rakazo": "Rakazo opnieuw starten",
+  "Restart Superbot": "Superbot opnieuw starten",
   "Not Now": "Niet nu",
-  "Restart Rakazo to finish setup": "Start Rakazo opnieuw om de configuratie te voltooien",
+  "Restart Superbot to finish setup": "Start Superbot opnieuw om de configuratie te voltooien",
 };

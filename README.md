@@ -71,3 +71,5 @@ another git worktree, it moves to the next free block and prints the URL. Set `W
 ## Project structure
 
 The Rust workspace under `native/` contains the GPUI desktop, command line and API clients. The server API, worker, database, provider adapters, web client and mobile apps share the same workspace contracts. [Feature coverage](docs/superbot/parity.md) · [License](LICENSE) · [Notices](NOTICE)
+
+Superbot is based on [Rakazo](https://github.com/elie222/rakazo), used under the Apache License, Version 2.0.

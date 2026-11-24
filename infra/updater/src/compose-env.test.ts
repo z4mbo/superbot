@@ -50,7 +50,8 @@ const NOT_PASSED: Record<string, string> = {
   DEMO_ACCOUNT_PASSWORD: "publishes a shared login; only throwaway pull request previews set it",
   PM2_HOME: "restart-supervisor detection for PM2 hosts; Compose restarts containers",
   INVOCATION_ID: "restart-supervisor detection for systemd hosts; Compose restarts containers",
-  RAKAZO_ALLOW_DEV_SECRETS: "development-only escape hatch for placeholder secrets",
+  SUPERBOT_ALLOW_DEV_SECRETS: "development-only escape hatch for placeholder secrets",
+  RAKAZO_ALLOW_DEV_SECRETS: "legacy name of SUPERBOT_ALLOW_DEV_SECRETS",
   EMAIL_EMULATOR: "ignored when NODE_ENV=production",
   BILLING_EMULATOR: "ignored when NODE_ENV=production",
   NODE_USE_ENV_PROXY:

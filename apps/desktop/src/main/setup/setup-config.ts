@@ -2,26 +2,33 @@ import { createHash } from "node:crypto";
 import type { DesktopSetup, DesktopStackProbeResponse } from "@rakazo/contracts";
 import { parseServerHeaders } from "@rakazo/contracts";
 import { isLoopbackHost, isPrivateNetworkHost } from "@rakazo/contracts/network-host";
+import { brandEnv } from "@rakazo/core";
 import { t } from "../i18n.js";
 
 /** Managed desktop origin; development keeps its usual web/API ports. */
 export const DEFAULT_LOCAL_WEB_URL = "http://127.0.0.1:45173";
-/** Hosted Rakazo; setup saves it as an `existing` server so it opens like any other. */
-export const RAKAZO_CLOUD_URL = "https://app.rakazo.com";
+/**
+ * The Superbot server a build suggests, from `SUPERBOT_SERVER_URL` (or the legacy
+ * `RAKAZO_SERVER_URL`). There is no hosted default: unset, a first launch opens setup.
+ */
+export function configuredServerUrl(env: Readonly<Record<string, string | undefined>>) {
+  const value = brandEnv("SERVER_URL", env);
+  return value === undefined ? null : normalizeServerUrl(value);
+}
 export const PROBE_RESPONSE_LIMIT_BYTES = 64 * 1024;
 
 export const SETUP_FILE_NAME = "setup.json";
 
 export type StartupTarget =
-  | { kind: "app"; url: string; source: "env" | "saved" | "cloud" }
+  | { kind: "app"; url: string; source: "env" | "saved" | "configured" }
   | { kind: "setup" };
 
 const SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 
 /**
- * Accepts what a person would actually type ("localhost:5173", "rakazo.example.com")
+ * Accepts what a person would actually type ("localhost:5173", "superbot.example.com")
  * and returns a canonical http(s) origin, or null when the input can never
- * securely address a Rakazo server.
+ * securely address a Superbot server.
  */
 export function normalizeServerUrl(input: string): string | null {
   const trimmed = input.trim();
@@ -46,7 +53,7 @@ export function normalizeServerUrl(input: string): string | null {
   // Public login cookies and API traffic must never cross a cleartext connection.
   if (url.protocol === "http:" && !isPrivateNetworkHost(url.hostname)) return null;
 
-  // Rakazo serves its renderer, RPC, and auth routes from one origin. Keeping a
+  // Superbot serves its renderer, RPC, and auth routes from one origin. Keeping a
   // user-supplied path would make the setup probe and the loaded app disagree.
   return url.origin;
 }
@@ -123,15 +130,16 @@ export function serializeSetup(setup: DesktopSetup): string {
 }
 
 /**
- * Decides between the setup window and the app window. A first launch opens Rakazo
- * Cloud; other servers are a choice made from setup later. An explicit
- * `RAKAZO_WEB_URL` still wins over saved configuration so test and performance
+ * Decides between the setup window and the app window. A first launch opens the configured
+ * server when the build has one, and setup otherwise. An explicit
+ * `SUPERBOT_WEB_URL` still wins over saved configuration so test and performance
  * harnesses can point the shell anywhere without touching a user's real setup.
  */
 export function resolveStartupTarget(input: {
   envUrl?: string;
   saved?: DesktopSetup | null;
   forceSetup?: boolean;
+  configuredUrl?: string | null;
 }): StartupTarget {
   if (input.forceSetup === true) return { kind: "setup" };
 
@@ -143,7 +151,8 @@ export function resolveStartupTarget(input: {
     if (saved !== null) return { kind: "app", url: saved.serverUrl, source: "saved" };
     return { kind: "setup" };
   }
-  return { kind: "app", url: RAKAZO_CLOUD_URL, source: "cloud" };
+  if (input.configuredUrl) return { kind: "app", url: input.configuredUrl, source: "configured" };
+  return { kind: "setup" };
 }
 
 /** Turns a network failure into something a person can act on. */
@@ -178,12 +187,13 @@ export function servesBundledRenderer(targetUrl: string, managedLocalStack: bool
   }
 }
 
-/** Each Rakazo origin gets its own persistent cookie and storage partition. */
+/** Each server origin gets its own persistent cookie and storage partition. */
 export function sessionPartitionForServerUrl(targetUrl: string): string | null {
   try {
     const url = new URL(targetUrl);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
     const digest = createHash("sha256").update(url.origin).digest("hex").slice(0, 24);
+    // Kept from when the app was called Rakazo so a migrated profile keeps its site data.
     return `persist:rakazo-${digest}`;
   } catch {
     return null;

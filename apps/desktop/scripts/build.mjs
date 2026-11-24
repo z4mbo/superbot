@@ -1,5 +1,8 @@
 import { build } from "esbuild";
 
+/** Build-time settings read `SUPERBOT_<name>` first and the legacy `RAKAZO_<name>` after it. */
+const buildEnv = (name) => process.env[`SUPERBOT_${name}`] || process.env[`RAKAZO_${name}`] || "";
+
 await build({
   entryPoints: ["src/main/main.ts"],
   outfile: "dist/main.js",
@@ -14,8 +17,9 @@ await build({
   external: ["electron", "electron-updater", "koffi", "@sentry/electron"],
   // Only the release workflow's builds report errors; local and agent builds never do.
   define: {
-    "process.env.RAKAZO_DESKTOP_RELEASE": JSON.stringify(process.env.RAKAZO_DESKTOP_RELEASE ?? ""),
+    "process.env.RAKAZO_DESKTOP_RELEASE": JSON.stringify(buildEnv("DESKTOP_RELEASE")),
     // Self-hosted builds associated with their own passkey domain (see src/main/auth/passkeys.ts).
-    "process.env.RAKAZO_PASSKEY_RP_ID": JSON.stringify(process.env.RAKAZO_PASSKEY_RP_ID ?? ""),
+    "process.env.SUPERBOT_PASSKEY_RP_ID": JSON.stringify(buildEnv("PASSKEY_RP_ID")),
+    "process.env.RAKAZO_PASSKEY_RP_ID": JSON.stringify(buildEnv("PASSKEY_RP_ID")),
   },
 });

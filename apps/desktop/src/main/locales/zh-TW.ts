@@ -3,7 +3,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Check for Updates…": "檢查更新項目…",
   "Computer Access…": "電腦存取權…",
   "Revoke Local Computer Access": "撤銷本機電腦存取權",
-  "Change Rakazo Server…": "更換 Rakazo 伺服器…",
+  "Change Superbot Server…": "更換 Superbot 伺服器…",
   "Hide {name}": "隱藏 {name}",
   "Hide Others": "隱藏其他",
   "Show All": "顯示全部",
@@ -38,22 +38,22 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Checking for Updates…": "正在檢查更新項目…",
   "Downloading Update…": "正在下載更新項目…",
   "Restart to Update…": "重新啟動以更新…",
-  "Downloading Rakazo {version}…": "正在下載 Rakazo {version}…",
-  "Rakazo {version} is ready to install.": "Rakazo {version} 已可安裝。",
+  "Downloading Superbot {version}…": "正在下載 Superbot {version}…",
+  "Superbot {version} is ready to install.": "Superbot {version} 已可安裝。",
   Restart: "重新啟動",
   Later: "稍後",
   "Could not install the update.": "無法安裝更新項目。",
   "Could not check for updates.": "無法檢查更新項目。",
-  "Rakazo is up to date.": "Rakazo 已是最新版本。",
+  "Superbot is up to date.": "Superbot 已是最新版本。",
   "Version {version}": "版本 {version}",
   "Automatic updates are turned off for this install.": "此安裝已關閉自動更新。",
   "Automatic updates only run in an installed build.": "自動更新僅在已安裝的版本中執行。",
   "No desktop releases are published for this build yet.": "此版本尚未發佈桌面版。",
-  "Move Rakazo to Applications to install updates.":
-    "將 Rakazo 移到「應用程式」檔案夾以安裝更新項目。",
+  "Move Superbot to Applications to install updates.":
+    "將 Superbot 移到「應用程式」檔案夾以安裝更新項目。",
   "Free up disk space to install updates.": "釋放磁碟空間以安裝更新項目。",
-  "This update could not be verified. Reinstall Rakazo from a trusted download.":
-    "無法驗證此更新項目。請從可信任的來源重新下載並安裝 Rakazo。",
+  "This update could not be verified. Reinstall Superbot from a trusted download.":
+    "無法驗證此更新項目。請從可信任的來源重新下載並安裝 Superbot。",
   "The update could not be completed. Try again later.": "無法完成更新。請稍後再試一次。",
   "Could not reach the update server.": "無法連線到更新伺服器。",
   "Allow local computer access?": "要允許存取本機電腦嗎？",
@@ -71,15 +71,16 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
     "已有登入正在進行。請取消後再試一次。",
   "Could not open browser sign-in. Close other sign-in attempts and retry.":
     "無法開啟瀏覽器登入。請關閉其他登入嘗試後再試一次。",
-  "Sign-in callback rejected. Return to Rakazo to retry.": "登入回應遭拒。請返回 Rakazo 再試一次。",
-  "You can close this tab and return to Rakazo.": "你可以關閉此分頁並返回 Rakazo。",
-  "Set up Rakazo": "設定 Rakazo",
-  "Quit Rakazo": "結束 Rakazo",
-  "Welcome to Rakazo": "歡迎使用 Rakazo",
-  "Choose where Rakazo runs.": "選擇 Rakazo 的執行位置。",
+  "Sign-in callback rejected. Return to Superbot to retry.":
+    "登入回應遭拒。請返回 Superbot 再試一次。",
+  "You can close this tab and return to Superbot.": "你可以關閉此分頁並返回 Superbot。",
+  "Set up Superbot": "設定 Superbot",
+  "Quit Superbot": "結束 Superbot",
+  "Welcome to Superbot": "歡迎使用 Superbot",
+  "Choose where Superbot runs.": "選擇 Superbot 的執行位置。",
   Instance: "執行個體",
   "This computer": "這台電腦",
-  "Existing instance": "現有執行個體",
+  "Superbot server": "Superbot 伺服器",
   "Technical details": "技術詳細資訊",
   "Setup progress": "設定進度",
   "Server address": "伺服器位址",
@@ -89,14 +90,14 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   Continue: "繼續",
   Retry: "重試",
   "Getting ready…": "準備中…",
-  "Downloading Rakazo…": "正在下載 Rakazo…",
-  "Starting Rakazo…": "正在啟動 Rakazo…",
+  "Downloading Superbot…": "正在下載 Superbot…",
+  "Starting Superbot…": "正在啟動 Superbot…",
   "Almost ready…": "即將完成…",
-  "Rakazo is ready.": "Rakazo 已就緒。",
+  "Superbot is ready.": "Superbot 已就緒。",
   "{size} downloaded": "已下載 {size}",
   "Connecting…": "正在連線…",
   "Checking…": "正在檢查…",
-  "Rakazo answered at {url}.": "Rakazo 已在 {url} 回應。",
+  "Superbot answered at {url}.": "Superbot 已在 {url} 回應。",
   "Enter a server address first.": "請先輸入伺服器位址。",
   "Could not save that address.": "無法儲存該位址。",
   "Could not save that address. Try again.": "無法儲存該位址。請再試一次。",
@@ -104,15 +105,16 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Could not start the local stack. Try again.": "無法啟動本機服務堆疊。請再試一次。",
   "Could not run the connection check. Try again.": "無法檢查連線。請再試一次。",
   "Setup bridge unavailable.": "無法使用設定橋接。",
-  "Setup could not start. Quit Rakazo and try again.": "無法開始設定。請結束 Rakazo 後再試一次。",
+  "Setup could not start. Quit Superbot and try again.":
+    "無法開始設定。請結束 Superbot 後再試一次。",
   "Enter a server address.": "請輸入伺服器位址。",
   "Enter a valid http:// or https:// address.": "請輸入有效的 http:// 或 https:// 位址。",
   "Enter a valid server address. Public servers require HTTPS; a new local instance must use localhost.":
     "請輸入有效的伺服器位址。公開伺服器需要 HTTPS；新的本機執行個體必須使用 localhost。",
   "Invalid custom headers": "自訂標頭無效",
-  "That address redirects elsewhere. Enter the final Rakazo server address.":
-    "該位址會重新導向到其他位置。請輸入 Rakazo 伺服器的最終位址。",
-  "That address did not respond like a Rakazo server.": "該位址的回應不像 Rakazo 伺服器。",
+  "That address redirects elsewhere. Enter the final Superbot server address.":
+    "該位址會重新導向到其他位置。請輸入 Superbot 伺服器的最終位址。",
+  "That address did not respond like a Superbot server.": "該位址的回應不像 Superbot 伺服器。",
   "The server answered with HTTP {status}.": "伺服器回應了 HTTP {status}。",
   "Timed out reaching that address.": "連線到該位址逾時。",
   "Nothing is listening at that address yet.": "該位址目前沒有任何服務在監聽。",
@@ -135,8 +137,8 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
     "無法儲存設定。已還原先前的執行個體。",
   "Connected, but could not save setup for the next launch. Try Continue again.":
     "已連線，但無法為下次啟動儲存設定。請再按一次「繼續」。",
-  "The app-managed Rakazo services are not ready. Retry setup.":
-    "由 App 管理的 Rakazo 服務尚未就緒。請重新設定。",
+  "The app-managed Superbot services are not ready. Retry setup.":
+    "由 App 管理的 Superbot 服務尚未就緒。請重新設定。",
   "Docker is installed, but Docker Compose is missing. Install Docker Desktop or the docker-compose-plugin.":
     "已安裝 Docker，但缺少 Docker Compose。請安裝 Docker Desktop 或 docker-compose-plugin。",
   "Could not check Docker Compose. Check the output below, then retry.":
@@ -156,10 +158,10 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
     "Docker 已停止回應。請啟動 Docker 後再試一次。",
   "Docker Compose is missing. Install Docker Desktop or the docker-compose-plugin, then retry.":
     "缺少 Docker Compose。請安裝 Docker Desktop 或 docker-compose-plugin 後再試一次。",
-  "Downloading Rakazo images failed. Check the output below, then retry.":
-    "無法下載 Rakazo 映像檔。請查看下方輸出後再試一次。",
-  "Rakazo services did not start. Check the output below, then retry.":
-    "Rakazo 服務未能啟動。請查看下方輸出後再試一次。",
+  "Downloading Superbot images failed. Check the output below, then retry.":
+    "無法下載 Superbot 映像檔。請查看下方輸出後再試一次。",
+  "Superbot services did not start. Check the output below, then retry.":
+    "Superbot 服務未能啟動。請查看下方輸出後再試一次。",
   "The stack started but the web app did not answer. Retry, and check the output below.":
     "服務堆疊已啟動，但網頁 App 沒有回應。請重試並查看下方輸出。",
   "Could not prepare the local stack. Retry.": "無法準備本機服務堆疊。請再試一次。",
@@ -182,27 +184,26 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Chat Details": "聊天詳細資料",
   Help: "說明",
   "Keyboard Shortcuts": "鍵盤快速鍵",
-  "Downloading Rakazo failed. Check the internet connection, then retry.":
-    "無法下載 Rakazo。請檢查網路連線，然後再試一次。",
+  "Downloading Superbot failed. Check the internet connection, then retry.":
+    "無法下載 Superbot。請檢查網路連線，然後再試一次。",
   "Could not move your data from Docker. Check the output below, then retry.":
     "無法從 Docker 移轉你的資料。請查看下方輸出，然後再試一次。",
   "The computer runtime already running is too old. Update or quit it, then retry.":
     "已在執行的電腦執行環境版本過舊。請更新或結束它，然後再試一次。",
-  "Your Rakazo data is in a different computer runtime. Quit the one running, then retry.":
-    "你的 Rakazo 資料位於另一個電腦執行環境中。請結束正在執行的那個，然後再試一次。",
-  "Run Rakazo without Docker?": "不使用 Docker 執行 Rakazo？",
+  "Your Superbot data is in a different computer runtime. Quit the one running, then retry.":
+    "你的 Superbot 資料位於另一個電腦執行環境中。請結束正在執行的那個，然後再試一次。",
+  "Run Superbot without Docker?": "不使用 Docker 執行 Superbot？",
   "Your bots and data move over. Docker is stopped, not removed.":
     "你的機器人和資料會一併移轉。Docker 只會停止，不會移除。",
   Move: "移轉",
   "Keep Docker": "繼續使用 Docker",
-  "Nothing to install.": "無需安裝。",
   "Your data stays on this computer.": "你的資料保留在這台電腦上。",
   "Connect to a server you or your team already run.": "連線到你或你的團隊已在執行的伺服器。",
-  "Rakazo needs Docker Desktop to run on this computer.":
-    "Rakazo 需要 Docker Desktop 才能在這台電腦上執行。",
-  "Rakazo needs Docker to run on this computer.": "Rakazo 需要 Docker 才能在這台電腦上執行。",
-  "Docker Desktop is a free app that runs Rakazo in the background. Install it and open it once.":
-    "Docker Desktop 是一款免費應用程式，可在背景執行 Rakazo。安裝並開啟一次即可。",
+  "Superbot needs Docker Desktop to run on this computer.":
+    "Superbot 需要 Docker Desktop 才能在這台電腦上執行。",
+  "Superbot needs Docker to run on this computer.": "Superbot 需要 Docker 才能在這台電腦上執行。",
+  "Docker Desktop is a free app that runs Superbot in the background. Install it and open it once.":
+    "Docker Desktop 是一款免費應用程式，可在背景執行 Superbot。安裝並開啟一次即可。",
   "Install Docker Engine and start it.": "安裝並啟動 Docker Engine。",
   "Download Docker Desktop": "下載 Docker Desktop",
   "Install Docker": "安裝 Docker",
@@ -211,14 +212,14 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Starting {app}…": "正在啟動 {app}…",
   "Docker is installed but not running. Start the Docker service to continue.":
     "Docker 已安裝但未執行。請啟動 Docker 服務以繼續。",
-  "Rakazo stopped unexpectedly.": "Rakazo 意外停止。",
+  "Superbot stopped unexpectedly.": "Superbot 意外停止。",
   Reload: "重新載入",
   "Mac app control": "Mac App 控制",
   "Set up Mac app control": "設定 Mac App 控制",
-  "Commands already work. To use apps, allow Accessibility and Screen Recording for Rakazo in System Settings, then restart Rakazo.":
-    "指令已可使用。若要操作 App，請在系統設定中允許 Rakazo 使用輔助使用和螢幕錄製，然後重新啟動 Rakazo。",
+  "Commands already work. To use apps, allow Accessibility and Screen Recording for Superbot in System Settings, then restart Superbot.":
+    "指令已可使用。若要操作 App，請在系統設定中允許 Superbot 使用輔助使用和螢幕錄製，然後重新啟動 Superbot。",
   "Open System Settings": "打開系統設定",
-  "Restart Rakazo": "重新啟動 Rakazo",
+  "Restart Superbot": "重新啟動 Superbot",
   "Not Now": "稍後再說",
-  "Restart Rakazo to finish setup": "重新啟動 Rakazo 以完成設定",
+  "Restart Superbot to finish setup": "重新啟動 Superbot 以完成設定",
 };
