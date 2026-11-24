@@ -1,42 +1,41 @@
 // @vitest-environment jsdom
 
-import type { BotAvatarSet } from "@rakazo/contracts";
-import { BOT_MARK_SHAPES, botMarkShapeFor } from "@rakazo/core";
-import { DEFAULT_BOT_AVATAR_COLOR } from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { act, useState } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@lingui/react/macro", () => ({
-  Trans: ({ children }: { children: ReactNode }) => children,
-}));
+vi.mock("@lingui/react/macro", () => {
+  const t = (parts: TemplateStringsArray, ...values: unknown[]) =>
+    parts.reduce((text, part, index) => `${text}${index > 0 ? values[index - 1] : ""}${part}`, "");
+  return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
+});
 
+import type { BotMarkLook } from "./avatar-studio-popover";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
+import { PICKER_INKS, PICKER_SHAPES } from "./bot-look-picker";
 
 let container: HTMLDivElement;
 let root: Root;
-const changed = vi.fn<(value: string, avatarSet?: BotAvatarSet) => void>();
+const changed = vi.fn<(value: string) => void>();
+const looks = vi.fn<(look: BotMarkLook) => void>();
 
-function Harness({
-  value: initial,
-  avatarSet: initialSet,
-}: {
-  value: string;
-  avatarSet?: BotAvatarSet;
-}) {
+function Harness({ value: initial, look: initialLook }: { value: string; look: BotMarkLook }) {
   const [value, setValue] = useState(initial);
-  const [avatarSet, setAvatarSet] = useState(initialSet);
+  const [look, setLook] = useState(initialLook);
   return (
     <AvatarStudioPopover
       value={value}
       identity="sample-bot"
-      avatarSet={avatarSet}
-      onChange={(next, nextSet) => {
-        changed(next, nextSet);
+      look={look}
+      onChange={(next) => {
+        changed(next);
         setValue(next);
-        if (nextSet !== undefined) setAvatarSet(nextSet);
+      }}
+      onLookChange={(next) => {
+        looks(next);
+        setLook(next);
       }}
     />
   );
@@ -49,16 +48,18 @@ beforeEach(() => {
     media: query,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
-  })) as typeof window.matchMedia;
+  })) as unknown as typeof window.matchMedia;
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
   changed.mockClear();
+  looks.mockClear();
 });
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
 });
+
 function button(name: string) {
   const found = [...document.querySelectorAll<HTMLButtonElement>("button")].find(
     (node) => node.getAttribute("aria-label") === name || node.textContent === name,
@@ -66,89 +67,89 @@ function button(name: string) {
   if (!found) throw new Error(`Missing button ${name}`);
   return found;
 }
+function maybeButton(name: string) {
+  return [...document.querySelectorAll<HTMLButtonElement>("button")].find(
+    (node) => node.getAttribute("aria-label") === name || node.textContent === name,
+  );
+}
 async function click(name: string) {
   await act(async () => button(name).click());
 }
-async function render(value: string, avatarSet?: BotAvatarSet, key = "initial") {
-  await act(async () => root.render(<Harness key={key} value={value} avatarSet={avatarSet} />));
+async function render(value: string, look: BotMarkLook = { lookShape: null, lookColor: null }) {
+  await act(async () => root.render(<Harness value={value} look={look} />));
+  await click("Edit Bot avatar");
+}
+function shown(attribute: "data-bot-look-shape" | "data-bot-look-ink") {
+  return [...document.querySelectorAll(`[${attribute}]`)].map((cell) =>
+    cell.getAttribute(attribute),
+  );
 }
 
-describe("selectable bot icon sets", () => {
-  it("keeps a legacy appearance on open, saves a Rakazo switch, and restores the saved set on reload", async () => {
-    await render("#10B981");
-    await click("Customize bot avatar");
-    expect(button("Original").getAttribute("aria-selected")).toBe("true");
-    expect(document.querySelector("svg[data-bot-mark]")).not.toBeNull();
-    expect(changed).not.toHaveBeenCalled();
-    await click("Superbot");
-    expect(changed).toHaveBeenLastCalledWith("#10B981", "rakazo");
-    expect(document.querySelector("svg[data-bot-mark]")).not.toBeNull();
-    await render("#10B981", "rakazo", "reload");
-    await click("Customize bot avatar");
-    expect(button("Superbot").getAttribute("aria-selected")).toBe("true");
-    await click("Original");
-    expect(changed).toHaveBeenLastCalledWith("#10B981", "organic");
-    expect(document.querySelector("svg[data-bot-mark]")).not.toBeNull();
-    expect(button(botMarkShapeFor("", null, 1))).toBeDefined();
+describe("agent edit menu", () => {
+  it("opens the Avatar editor on the Bot tab with the reference's bodies and colours", async () => {
+    await render("#000000", { lookShape: "blob", lookColor: "neutral" });
+    expect(document.querySelector('[aria-label="Avatar editor"]')).not.toBeNull();
+    expect(button("Bot").getAttribute("aria-selected")).toBe("true");
+    expect(maybeButton("Upload")).toBeDefined();
+    expect(shown("data-bot-look-shape")).toEqual(PICKER_SHAPES);
+    expect(shown("data-bot-look-ink")).toEqual(PICKER_INKS);
+    const rows = document.querySelector('[aria-label="Character shape"]')!.children;
+    expect([...rows].map((row) => row.children.length)).toEqual([5, 5, 3]);
+    expect(button("blob character shape").getAttribute("aria-pressed")).toBe("true");
+    expect(button("Black character color").getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("leaves a photo intact until the user explicitly selects another set", async () => {
+  it("saves each pick as the bot's look as soon as it is made", async () => {
+    await render("#FF781C");
+    await click("cloud character shape");
+    expect(looks).toHaveBeenLastCalledWith({ lookShape: "cloud", lookColor: "orange" });
+    await click("Green character color");
+    expect(looks).toHaveBeenLastCalledWith({ lookShape: "cloud", lookColor: "green" });
+    expect(button("cloud character shape").getAttribute("aria-pressed")).toBe("true");
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it("adds the bot's own body when the picker does not offer it", async () => {
+    await render("#FF781C", { lookShape: "pebble", lookColor: "blue" });
+    expect(shown("data-bot-look-shape")).toEqual([...PICKER_SHAPES, "pebble"]);
+    expect(button("pebble character shape").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("hides the colours for a body that wears its own ink", async () => {
+    await render("#FF781C", { lookShape: "pumpkin", lookColor: "orange" });
+    expect(document.querySelector('[aria-label="Character color"]')).toBeNull();
+    await click("cloud character shape");
+    expect(looks).toHaveBeenLastCalledWith({ lookShape: "cloud", lookColor: "orange" });
+    expect(document.querySelector('[aria-label="Character color"]')).not.toBeNull();
+  });
+
+  it("offers Reset only while the bot has a picked look, and clears it", async () => {
+    await render("#FF781C");
+    expect(maybeButton("Reset character to default")).toBeUndefined();
+    await click("star character shape");
+    await click("Reset character to default");
+    expect(looks).toHaveBeenLastCalledWith({ lookShape: null, lookColor: null });
+    expect(maybeButton("Reset character to default")).toBeUndefined();
+  });
+
+  it("holds picks over a photo until Set avatar replaces it", async () => {
     const photo = "data:image/png;base64,abc";
     await render(photo);
     expect(document.querySelector(`img[src="${photo}"]`)).not.toBeNull();
-    await click("Customize bot avatar");
+    await click("heart character shape");
+    expect(looks).not.toHaveBeenCalled();
     expect(changed).not.toHaveBeenCalled();
-    expect(document.querySelector(`img[src="${photo}"]`)).not.toBeNull();
-    await click("Superbot");
-    expect(changed).toHaveBeenLastCalledWith(DEFAULT_BOT_AVATAR_COLOR, "rakazo");
+    await click("Set avatar");
+    expect(looks).toHaveBeenLastCalledWith({ lookShape: "heart", lookColor: expect.any(String) });
+    expect(changed).toHaveBeenLastCalledWith(expect.stringMatching(/^#/));
     expect(document.querySelector(`img[src="${photo}"]`)).toBeNull();
   });
 
-  it("keeps explicit original shapes and their chosen set while changing colour", async () => {
-    await render("#8B5CF6::shape_2", "organic");
-    await click("Customize bot avatar");
-    expect(changed).not.toHaveBeenCalled();
-    await click("Color #00C972");
-    expect(changed).toHaveBeenLastCalledWith("#00C972::shape_2", undefined);
-    expect(button("Original").getAttribute("aria-selected")).toBe("true");
-    await click("Superbot");
-    expect(changed).toHaveBeenLastCalledWith("#00C972", "rakazo");
-  });
-});
-
-describe("bot mark look", () => {
-  it("offers every mark shape and ink and saves the pick as the bot's look", async () => {
-    const looks = vi.fn();
-    function LookHarness() {
-      const [look, setLook] = useState({
-        lookShape: null as string | null,
-        lookColor: null as string | null,
-      });
-      return (
-        <AvatarStudioPopover
-          value="#FF781C"
-          identity="sample-bot"
-          onChange={changed}
-          look={look}
-          onLookChange={(next) => {
-            looks(next);
-            setLook(next);
-          }}
-        />
-      );
-    }
-    await act(async () => root.render(<LookHarness />));
-    await click("Customize bot avatar");
-    expect(document.querySelectorAll('[data-testid="avatar-studio-shapes"] button')).toHaveLength(
-      BOT_MARK_SHAPES.length,
-    );
-    expect(document.querySelectorAll('[data-testid="avatar-studio-inks"] button')).toHaveLength(10);
-    expect(button("orange").getAttribute("aria-pressed")).toBe("true");
-    await click("cloud");
-    expect(looks).toHaveBeenLastCalledWith({ lookShape: "cloud", lookColor: null });
-    await click("green");
-    expect(looks).toHaveBeenLastCalledWith({ lookShape: "cloud", lookColor: "green" });
-    expect(button("cloud").getAttribute("aria-pressed")).toBe("true");
-    expect(changed).not.toHaveBeenCalled();
+  it("resets a photo back to the bot's mark", async () => {
+    const photo = "data:image/png;base64,abc";
+    await render(photo);
+    await click("Reset to the Bot");
+    expect(changed).toHaveBeenLastCalledWith(expect.stringMatching(/^#/));
+    expect(document.querySelector(`img[src="${photo}"]`)).toBeNull();
   });
 });

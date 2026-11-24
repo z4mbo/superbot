@@ -1,540 +1,357 @@
-import { t } from "@lingui/core/macro";
-import { Trans } from "@lingui/react/macro";
-import type { BotAvatarSet } from "@rakazo/contracts";
-import { resolveBotAvatarSet } from "@rakazo/contracts";
-import type { AvatarCrop, BotMarkInk } from "@rakazo/core";
+import { Trans, useLingui } from "@lingui/react/macro";
+import type { AvatarCrop } from "@rakazo/core";
 import {
   AVATAR_CROP_MAX_ZOOM,
   avatarCropSquare,
-  BOT_MARK_SHAPES,
-  BOT_MARK_VIEWBOX,
   botLookState,
-  botLookWithColor,
-  botLookWithShape,
   botMarkInkFor,
-  botMarkRestPath,
   botMarkShapeFor,
   centeredAvatarCrop,
   clampAvatarCrop,
-  SHIPPED_BOT_AVATAR_SHAPE_KEYS,
+  resolvePersonaColorDef,
 } from "@rakazo/core";
 import {
-  BOT_COLORS,
   BotAvatar,
-  BotShapePreview,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Button,
+  cn,
   defaultBotAvatarValue,
-  resolvePersonaColorDef,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@rakazo/ui-web";
-import { Button } from "@rakazo/ui-web/components/ui/button";
-import { Check, Pencil, Upload, X } from "lucide-react";
-import type { ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent } from "react";
+import { Pencil } from "lucide-react";
+import type { ClipboardEvent, DragEvent, KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { useRef, useState } from "react";
-
-/**
- * The shape grid and color row for a bot's look. With `organicIdentities`, the grid also offers
- * the organic body each identity draws (for a bot that has no id yet); without them, "Default"
- * restores the bot's own organic body.
- */
-export function BotLookPicker({
-  value,
-  identity,
-  organicIdentities,
-  avatarSet = "organic",
-  onAvatarSetChange,
-  onChange,
-}: {
-  value: string;
-  identity?: string;
-  organicIdentities?: readonly string[];
-  avatarSet?: BotAvatarSet;
-  onAvatarSetChange?: (set: BotAvatarSet, value: string) => void;
-  onChange: (value: string, identity?: string) => void;
-}) {
-  const {
-    photo,
-    shapeIndex,
-    color: currentColor,
-    defaultLook: isDefaultLook,
-  } = botLookState(value);
-
-  return (
-    <div className="space-y-4">
-      {/* Only one bot's own editor overrides the account's set; a new bot takes the default. */}
-      {onAvatarSetChange ? (
-        <Tabs
-          value={avatarSet}
-          onValueChange={(next) =>
-            onAvatarSetChange(resolveBotAvatarSet(next), defaultBotAvatarValue(value))
-          }
-        >
-          <TabsList className="w-full" aria-label={t`Icon set`}>
-            <TabsTrigger value="organic" className="flex-1">
-              <Trans>Original</Trans>
-            </TabsTrigger>
-            <TabsTrigger value="rakazo" className="flex-1">
-              <Trans>Superbot</Trans>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      ) : null}
-      {avatarSet === "organic" ? (
-        <div>
-          {organicIdentities ? null : (
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-caption font-medium tracking-wider text-muted-foreground uppercase">
-                <Trans>Shape</Trans>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                type="button"
-                data-testid="avatar-studio-default"
-                aria-pressed={isDefaultLook}
-                onClick={() => {
-                  const next = defaultBotAvatarValue(value);
-                  if (next !== value) onChange(next);
-                }}
-                className={`px-3 py-1 text-label font-medium transition-colors ${
-                  isDefaultLook
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Trans>Default</Trans>
-              </Button>
-            </div>
-          )}
-          <div
-            className={`grid place-items-center gap-2 ${organicIdentities ? "grid-cols-4 sm:grid-cols-8 sm:gap-1" : "grid-cols-4"}`}
-          >
-            {organicIdentities?.map((organicIdentity, index) => (
-              <BotShapePreview
-                key={organicIdentity}
-                identity={organicIdentity}
-                label={t`Shape ${index + 1}`}
-                color={currentColor}
-                selected={isDefaultLook && identity === organicIdentity}
-                onClick={() => onChange(currentColor, organicIdentity)}
-              />
-            ))}
-            {SHIPPED_BOT_AVATAR_SHAPE_KEYS.map((key, index) => (
-              <BotShapePreview
-                key={key}
-                shapeIndex={index}
-                color={currentColor}
-                selected={shapeIndex === index}
-                onClick={() => onChange(botLookWithShape(currentColor, index))}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <div>
-        {organicIdentities ? null : (
-          <div className="mb-2 text-caption font-medium tracking-wider text-muted-foreground uppercase">
-            <Trans>Color</Trans>
-          </div>
-        )}
-        <div className="grid grid-cols-6 place-items-center gap-2">
-          {BOT_COLORS.map((color) => {
-            const selected = currentColor.toLowerCase() === color.toLowerCase() && !photo;
-            return (
-              <button
-                key={color}
-                type="button"
-                onClick={() => onChange(botLookWithColor(value, color))}
-                aria-label={t`Color ${color}`}
-                aria-pressed={selected}
-                className={`size-6 rounded-full border transition-transform hover:scale-110 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring ${
-                  selected
-                    ? "scale-105 border-transparent ring-2 ring-foreground ring-offset-2 ring-offset-popover"
-                    : "border-border"
-                }`}
-                style={{ backgroundColor: color }}
-              />
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
+import type { BotPickedLook } from "./bot-look-picker";
+import { BotLookPicker } from "./bot-look-picker";
 
 /** A bot's picked mark: the shape and ink it is drawn in, by their shared names. */
 export type BotMarkLook = { lookShape: string | null; lookColor: string | null };
 
-const MARK_INKS: BotMarkInk[] = [
-  "neutral",
-  "blue",
-  "cyan",
-  "green",
-  "magenta",
-  "orange",
-  "purple",
-  "red",
-  "yellow",
-  "brown",
-];
+const EMPTY_LOOK: BotMarkLook = { lookShape: null, lookColor: null };
 
-/** Every mark shape and ink; a pick saves to the bot's look, which every avatar of it draws. */
-export function MarkLookPicker({
-  identity,
-  color,
-  look,
-  onChange,
-}: {
-  identity: string;
-  color: string;
-  look: BotMarkLook;
-  onChange: (look: BotMarkLook) => void;
-}) {
-  const shape = botMarkShapeFor(
-    identity,
-    look.lookShape,
-    botLookState(color).shapeIndex ?? undefined,
-  );
-  const ink = botMarkInkFor(
-    look.lookColor,
-    resolvePersonaColorDef(identity, botLookState(color).color).hex,
-  );
-  const inkStyle = (name: BotMarkInk) => ({ color: `var(--bot-ink-${name})` });
-  return (
-    <div className="space-y-4">
-      <div>
-        <div className="mb-2 text-caption font-medium tracking-wider text-muted-foreground uppercase">
-          <Trans>Shape</Trans>
-        </div>
-        <div
-          className="grid grid-cols-7 place-items-center gap-1"
-          data-testid="avatar-studio-shapes"
-        >
-          {BOT_MARK_SHAPES.map((name) => (
-            <button
-              key={name}
-              type="button"
-              aria-label={name}
-              aria-pressed={shape === name}
-              onClick={() => onChange({ ...look, lookShape: name })}
-              className={`flex size-10 items-center justify-center rounded-lg transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring ${
-                shape === name ? "bg-accent ring-1 ring-foreground/40" : ""
-              }`}
-              style={inkStyle(ink)}
-            >
-              <svg
-                viewBox={BOT_MARK_VIEWBOX}
-                className="size-7 overflow-visible"
-                aria-hidden="true"
-              >
-                <path d={botMarkRestPath(name)} fill="currentColor" fillRule="evenodd" />
-              </svg>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <div className="mb-2 text-caption font-medium tracking-wider text-muted-foreground uppercase">
-          <Trans>Color</Trans>
-        </div>
-        <div
-          className="grid grid-cols-10 place-items-center gap-1"
-          data-testid="avatar-studio-inks"
-        >
-          {MARK_INKS.map((name) => (
-            <button
-              key={name}
-              type="button"
-              aria-label={name}
-              aria-pressed={ink === name}
-              onClick={() => onChange({ ...look, lookColor: name })}
-              className={`size-6 rounded-full bg-current transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring ${
-                ink === name ? "ring-2 ring-foreground ring-offset-2 ring-offset-popover" : ""
-              } ${name === "neutral" ? "ring-1 ring-border" : ""}`}
-              style={inkStyle(name)}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+/** The body and ink a bot draws: its picks, else what its identity and colour choose. */
+export function pickedLook(identity: string, color: string, look: BotMarkLook): BotPickedLook {
+  const state = botLookState(color);
+  return {
+    shape: botMarkShapeFor(identity, look.lookShape, state.shapeIndex ?? undefined),
+    ink: botMarkInkFor(look.lookColor, resolvePersonaColorDef(identity, state.color).hex),
+  };
+}
+
+function lookOf(picked: BotPickedLook): BotMarkLook {
+  return { lookShape: picked.shape, lookColor: picked.ink };
 }
 
 export interface AvatarStudioPopoverProps {
+  /** The bot's stored avatar value: a colour, or a photo as a data URL. */
   value: string;
-  identity?: string;
+  identity: string;
   status?: string;
-  avatarSet?: BotAvatarSet;
   size?: number;
-  onChange: (value: string, avatarSet?: BotAvatarSet) => void;
-  /** The bot's picked mark; with `onLookChange` the studio offers every shape and ink. */
+  /** A new photo, or the colour left after removing one. */
+  onChange: (value: string) => void;
+  /** The bot's picked mark; a pick saves at once, as every avatar of the bot draws it. */
   look?: BotMarkLook;
-  onLookChange?: (look: BotMarkLook) => void;
+  onLookChange: (look: BotMarkLook) => void;
   disabled?: boolean;
 }
 
+/**
+ * The bot's avatar with its edit menu: a click opens the Avatar editor under it, where the Bot
+ * tab picks the body and colour (saved as they are picked) and Upload sets a photo. While a photo
+ * is shown, picks wait for Set avatar, which replaces the photo with the mark.
+ */
 export function AvatarStudioPopover({
   value,
   identity,
   status,
-  avatarSet = "organic",
-  size = 72,
+  size = 64,
   onChange,
-  look,
+  look = EMPTY_LOOK,
   onLookChange,
   disabled = false,
 }: AvatarStudioPopoverProps) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"bot" | "upload">("bot");
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState<"bot" | "upload">("bot");
+  const [staged, setStaged] = useState<BotPickedLook | null>(null);
   const [picked, setPicked] = useState<PickedImage | null>(null);
+  const photo = botLookState(value).photo;
+  const shown = photo ? staged : null;
+  const current = shown ?? pickedLook(identity, value, look);
+  const customLook = look.lookShape !== null || look.lookColor !== null;
 
-  function restoreDefaultAvatar() {
-    const next = defaultBotAvatarValue(value);
-    if (next !== value) onChange(next);
-    if (onLookChange && (look?.lookShape || look?.lookColor))
-      onLookChange({ lookShape: null, lookColor: null });
-  }
-
-  function processImageFile(file: File) {
-    if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const src = event.target?.result as string;
-      if (!src) return;
-      const img = new Image();
-      img.onload = () => {
-        if (!img.width || !img.height) return;
-        setPicked({ image: img, crop: centeredAvatarCrop(img) });
-      };
-      img.src = src;
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function setPickedAvatar({ image, crop }: PickedImage) {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const targetSize = 256;
-    canvas.width = targetSize;
-    canvas.height = targetSize;
-    if (!ctx) return;
-
-    ctx.beginPath();
-    ctx.arc(targetSize / 2, targetSize / 2, targetSize / 2, 0, Math.PI * 2);
-    ctx.clip();
-
-    const { left, top, side } = avatarCropSquare(image, crop);
-    ctx.drawImage(image, left, top, side, side, 0, 0, targetSize, targetSize);
-
-    onChange(canvas.toDataURL("image/webp", 0.9));
-    setPicked(null);
-    setOpen(false);
-  }
-
-  function handleDrop(event: DragEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    setDragOver(false);
-    const file = event.dataTransfer.files?.[0];
-    if (file) processImageFile(file);
-  }
-
-  function handlePaste(event: ClipboardEvent<HTMLButtonElement>) {
-    const items = event.clipboardData?.items;
-    if (!items) return;
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      if (!item?.type.startsWith("image/")) continue;
-      const file = item.getAsFile();
-      if (file) {
-        processImageFile(file);
-        break;
-      }
+  function openChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setStaged(null);
+      setPicked(null);
+      setTab("bot");
     }
   }
 
-  return (
-    <>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen(true)}
-        className="group relative cursor-pointer rounded-2xl outline-none transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={t`Customize bot avatar`}
-        data-testid="avatar-studio-trigger"
-      >
-        <BotAvatar
-          color={value}
-          identity={identity}
-          size={size}
-          status={status}
-          avatarSet={avatarSet}
-          lookShape={look?.lookShape}
-          lookColor={look?.lookColor}
-        />
-        <div className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full border-2 border-background bg-secondary text-foreground shadow-md opacity-0 transition group-hover:scale-110 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100">
-          <Pencil size={12} strokeWidth={2.2} />
-        </div>
-      </button>
+  function pick(next: BotPickedLook) {
+    if (photo) setStaged(next);
+    else onLookChange(lookOf(next));
+  }
 
-      <Dialog
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) setPicked(null);
+  function removePhoto() {
+    setStaged(null);
+    onChange(defaultBotAvatarValue(value));
+  }
+
+  function setAvatar() {
+    if (!staged) return;
+    onLookChange(lookOf(staged));
+    onChange(defaultBotAvatarValue(value));
+    openChange(false);
+  }
+
+  function takePhoto(file: File) {
+    void loadImage(file).then((image) => {
+      if (image) setPicked({ image, crop: centeredAvatarCrop(image) });
+    });
+  }
+
+  function setPickedAvatar({ image, crop }: PickedImage) {
+    onChange(croppedPhoto(image, crop));
+    openChange(false);
+  }
+
+  const reset = photo
+    ? { label: t`Reset to the Bot`, run: removePhoto }
+    : tab === "bot" && customLook
+      ? { label: t`Reset character to default`, run: () => onLookChange(EMPTY_LOOK) }
+      : null;
+
+  return (
+    <Popover open={open && !disabled} onOpenChange={openChange}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              disabled={disabled}
+              aria-label={t`Edit Bot avatar`}
+              data-testid="avatar-studio-trigger"
+              // The mark turns to the pointer while it is over the avatar.
+              data-bot-mark-host={identity}
+              className="group/avatar relative flex cursor-pointer items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              style={{ width: size, height: size }}
+            />
+          }
+        >
+          <span className="flex transition-[filter] duration-150 group-hover/avatar:brightness-30 group-focus-visible/avatar:brightness-30">
+            <BotAvatar
+              color={photo && staged ? defaultBotAvatarValue(value) : value}
+              identity={identity}
+              size={size}
+              status={status}
+              lookShape={shown?.shape ?? look.lookShape}
+              lookColor={shown?.ink ?? look.lookColor}
+            />
+          </span>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center text-white opacity-0 transition-opacity duration-150 group-hover/avatar:opacity-100 group-focus-visible/avatar:opacity-100"
+          >
+            <Pencil className="size-3.5" strokeWidth={2} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <Trans>Edit Avatar</Trans>
+        </TooltipContent>
+      </Tooltip>
+      <PopoverContent
+        side="bottom"
+        sideOffset={6}
+        aria-label={t`Avatar editor`}
+        data-testid="avatar-studio"
+        className="w-[298px] gap-0 rounded-xl border border-hairline p-0 shadow-popover ring-0"
+        onPasteCapture={(event) => {
+          const file = pastedImage(event);
+          if (!file) return;
+          event.preventDefault();
+          setTab("upload");
+          takePhoto(file);
         }}
       >
-        <DialogContent
-          showCloseButton={false}
-          className="w-[360px] max-w-full gap-4 rounded-3xl p-5 sm:max-w-[360px]"
-          data-testid="avatar-studio"
+        <Tabs
+          value={tab}
+          onValueChange={(next) => {
+            setStaged(null);
+            setPicked(null);
+            setTab(next === "upload" ? "upload" : "bot");
+          }}
+          className="gap-0"
         >
-          <DialogHeader className="flex-row items-center justify-between space-y-0">
-            <DialogTitle className="text-body font-semibold tracking-tight">
-              <Trans>Avatar Studio</Trans>
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              <Trans>Choose a bot shape, color, or upload an image</Trans>
-            </DialogDescription>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-full text-muted-foreground"
-              aria-label={t`Close`}
+          <div className="flex items-center gap-2 border-b border-hairline p-2">
+            <TabsList
+              aria-label={t`Avatar source`}
+              className="h-auto flex-1 justify-start gap-0.5 bg-transparent p-0 group-data-horizontal/tabs:h-auto"
             >
-              <X size={16} />
-            </Button>
-          </DialogHeader>
-
-          <div className="flex flex-col items-center justify-center py-2">
-            <BotAvatar
-              color={value}
-              identity={identity}
-              size={78}
-              status={status}
-              avatarSet={avatarSet}
-              lookShape={look?.lookShape}
-              lookColor={look?.lookColor}
-            />
-          </div>
-
-          <Tabs
-            value={activeTab}
-            onValueChange={(next) => setActiveTab(next as "bot" | "upload")}
-            className="gap-4"
-          >
-            <div className="flex items-center justify-between border-b border-border pb-1">
-              <TabsList className="rounded-full">
-                <TabsTrigger value="bot" className="rounded-full px-3 text-label">
-                  <Trans>Bot</Trans>
-                </TabsTrigger>
-                <TabsTrigger value="upload" className="rounded-full px-3 text-label">
-                  <Trans>Upload</Trans>
-                </TabsTrigger>
-              </TabsList>
-
+              <AvatarTab value="bot">
+                <Trans>Bot</Trans>
+              </AvatarTab>
+              <AvatarTab value="upload">
+                <Trans>Upload</Trans>
+              </AvatarTab>
+            </TabsList>
+            {reset ? (
               <Button
                 variant="ghost"
-                size="sm"
-                type="button"
-                onClick={restoreDefaultAvatar}
-                className="text-label text-muted-foreground"
+                size="xs"
+                aria-label={reset.label}
+                onClick={reset.run}
+                className="rounded-sm text-body-sm font-normal text-muted-foreground"
               >
                 <Trans>Reset</Trans>
               </Button>
-            </div>
+            ) : null}
+          </div>
+          <TabsContent value="bot" className="flex flex-col gap-3 p-3">
+            <BotLookPicker look={current} onChange={pick} />
+            {photo ? (
+              <div className="flex gap-2">
+                <Button variant="secondary" className="flex-1" onClick={() => openChange(false)}>
+                  <Trans>Cancel</Trans>
+                </Button>
+                <Button className="flex-1" disabled={!staged} onClick={setAvatar}>
+                  <Trans>Set avatar</Trans>
+                </Button>
+              </div>
+            ) : null}
+          </TabsContent>
+          <TabsContent value="upload" className="flex min-h-60 flex-col p-3">
+            {picked ? (
+              <AvatarCropper
+                picked={picked}
+                onChange={setPicked}
+                onRestart={() => setPicked(null)}
+                onDone={() => setPickedAvatar(picked)}
+              />
+            ) : (
+              <PhotoDropzone onFile={takePhoto} />
+            )}
+          </TabsContent>
+        </Tabs>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
-            <TabsContent value="bot" className="pt-1" data-testid="avatar-studio-bot-tab">
-              {onLookChange && identity ? (
-                <MarkLookPicker
-                  identity={identity}
-                  color={value}
-                  look={look ?? { lookShape: null, lookColor: null }}
-                  onChange={onLookChange}
-                />
-              ) : (
-                <BotLookPicker
-                  value={value}
-                  identity={identity}
-                  avatarSet={avatarSet}
-                  onChange={(next) => onChange(next)}
-                  onAvatarSetChange={(set, next) => onChange(next, set)}
-                />
-              )}
-            </TabsContent>
-            <TabsContent value="upload">
-              {picked ? (
-                <AvatarCropper
-                  picked={picked}
-                  onChange={setPicked}
-                  onCancel={() => setPicked(null)}
-                  onDone={() => setPickedAvatar(picked)}
-                />
-              ) : (
-                <button
-                  type="button"
-                  aria-label={t`Image upload area`}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleDrop}
-                  onPaste={handlePaste}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`flex w-full flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors ${
-                    dragOver
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-muted hover:border-foreground/30"
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) processImageFile(file);
-                    }}
-                  />
-                  <div className="mb-2 grid size-10 place-items-center rounded-full bg-secondary text-muted-foreground">
-                    <Upload size={18} strokeWidth={1.8} />
-                  </div>
-                  <p className="text-body-sm font-medium text-muted-foreground">
-                    <Trans>Drag, drop, or paste an image</Trans>
-                  </p>
-                  <span className="mt-3 rounded-lg bg-secondary px-3 py-1.5 text-label font-medium text-foreground">
-                    <Trans>Choose file</Trans>
-                  </span>
-                </button>
-              )}
-            </TabsContent>
-          </Tabs>
+function AvatarTab({ value, children }: { value: "bot" | "upload"; children: ReactNode }) {
+  return (
+    <TabsTrigger
+      value={value}
+      className="h-6.5 flex-none rounded-full px-2 py-1 text-body-sm font-normal text-muted-foreground after:hidden hover:bg-secondary hover:text-foreground data-active:bg-secondary data-active:text-foreground group-data-[variant=default]/tabs-list:data-active:shadow-none dark:data-active:border-transparent dark:data-active:bg-secondary"
+    >
+      {children}
+    </TabsTrigger>
+  );
+}
 
-          {picked && activeTab === "upload" ? null : (
-            <DialogFooter className="border-border sm:justify-end">
-              <Button variant="secondary" size="sm" type="button" onClick={() => setOpen(false)}>
-                <Check size={14} />
-                <Trans>Done</Trans>
-              </Button>
-            </DialogFooter>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+/** An image file, decoded; nothing when it is not an image the browser can draw. */
+function loadImage(file: File): Promise<HTMLImageElement | null> {
+  if (!file.type.startsWith("image/")) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onerror = () => resolve(null);
+    reader.onload = (event) => {
+      const src = event.target?.result;
+      if (typeof src !== "string") return resolve(null);
+      const img = new Image();
+      img.onerror = () => resolve(null);
+      img.onload = () => resolve(img.width && img.height ? img : null);
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/** The kept square of an image as the avatar's photo: clipped round, 256px across. */
+function croppedPhoto(image: HTMLImageElement, crop: AvatarCrop): string {
+  const canvas = document.createElement("canvas");
+  const targetSize = 256;
+  canvas.width = targetSize;
+  canvas.height = targetSize;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.beginPath();
+    ctx.arc(targetSize / 2, targetSize / 2, targetSize / 2, 0, Math.PI * 2);
+    ctx.clip();
+    const { left, top, side } = avatarCropSquare(image, crop);
+    ctx.drawImage(image, left, top, side, side, 0, 0, targetSize, targetSize);
+  }
+  return canvas.toDataURL("image/webp", 0.9);
+}
+
+/** The first image on the clipboard, if any. */
+function pastedImage(event: ClipboardEvent): File | null {
+  for (const item of event.clipboardData?.items ?? []) {
+    const file = item.type.startsWith("image/") ? item.getAsFile() : null;
+    if (file) return file;
+  }
+  return null;
+}
+
+/** Drop or browse for an image. */
+function PhotoDropzone({ onFile }: { onFile: (file: File) => void }) {
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragOver(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) onFile(file);
+  }
+
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the drop target; Browse files is the control.
+    <div
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
+      className={cn(
+        "flex min-h-47.5 flex-1 flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-border px-3 text-center",
+        dragOver && "bg-secondary",
+      )}
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onFile(file);
+        }}
+      />
+      <span className="text-body leading-5.5 text-muted-foreground">
+        <Trans>Drag, drop, or paste an image</Trans>
+      </span>
+      <span className="text-body leading-5.5 text-faint-foreground">
+        <Trans>or</Trans>
+      </span>
+      <Button
+        variant="secondary"
+        onClick={() => fileInputRef.current?.click()}
+        className="rounded-[10px] font-normal text-body-sm"
+      >
+        <Trans>Browse files</Trans>
+      </Button>
+    </div>
   );
 }
 
@@ -543,21 +360,23 @@ interface PickedImage {
   crop: AvatarCrop;
 }
 
-const CROP_VIEWPORT = 200;
-const CROP_KEY_STEP = 8;
+/** The round crop preview, as large as the reference's. */
+const CROP_VIEWPORT = 96;
+const CROP_KEY_STEP = 4;
 
 /** Drag or use the arrow keys to position an uploaded image, and the slider to zoom it. */
 function AvatarCropper({
   picked,
   onChange,
-  onCancel,
+  onRestart,
   onDone,
 }: {
   picked: PickedImage;
   onChange: (next: PickedImage) => void;
-  onCancel: () => void;
+  onRestart: () => void;
   onDone: () => void;
 }) {
+  const { t } = useLingui();
   const { image, crop } = picked;
   const drag = useRef<{ x: number; y: number } | null>(null);
   const { left, top, side } = avatarCropSquare(image, crop);
@@ -586,7 +405,7 @@ function AvatarCropper({
   }
 
   return (
-    <div className="flex flex-col items-center gap-4" data-testid="avatar-cropper">
+    <div className="flex flex-1 flex-col items-center gap-2" data-testid="avatar-cropper">
       <button
         type="button"
         aria-label={t`Image position`}
@@ -633,11 +452,11 @@ function AvatarCropper({
         }
         className="w-full accent-primary"
       />
-      <div className="flex w-full justify-end gap-2">
-        <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
-          <Trans>Cancel</Trans>
+      <div className="flex w-full gap-2">
+        <Button variant="secondary" className="flex-1" onClick={onRestart}>
+          <Trans>Restart</Trans>
         </Button>
-        <Button size="sm" type="button" onClick={onDone}>
+        <Button className="flex-1" onClick={onDone}>
           <Trans>Set avatar</Trans>
         </Button>
       </div>
