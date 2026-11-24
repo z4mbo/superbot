@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { SpaceAvailabilitySchema } from "../account/space-availability.js";
+import { appPermissionSchema } from "../apps/app-manifest.js";
 import { Id } from "../ids.js";
 
 export const CapabilityInstallSchema = z.object({
@@ -160,6 +161,15 @@ export const PluginSubmissionSchema = PluginSubmissionInputSchema.omit({ tested:
   reason: z.string().nullable(),
   createdAt: z.string(),
   reviewedAt: z.string().nullable(),
+  /** Set for an app version sent from the app; absent from older servers. */
+  app: z
+    .object({
+      appId: z.string(),
+      version: z.string(),
+      permissions: z.array(appPermissionSchema),
+    })
+    .nullable()
+    .optional(),
 });
 export type PluginSubmission = z.infer<typeof PluginSubmissionSchema>;
 

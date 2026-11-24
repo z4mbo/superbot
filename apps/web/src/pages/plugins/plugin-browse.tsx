@@ -29,6 +29,7 @@ export function PluginBrowse({
   onConnectPreset,
   onManageConnections,
   plugins,
+  apps,
 }: {
   browse: CatalogBrowse;
   state: PluginConnections;
@@ -44,6 +45,8 @@ export function PluginBrowse({
   onManageConnections: () => void;
   /** Plugins matching the search, which the Store opens in Plugins. */
   plugins?: ReactNode;
+  /** Reviewed apps, listed after the featured connectors in browse and ahead of the plugins in search. */
+  apps?: ReactNode;
 }) {
   const { catalogLoaded, catalog } = state;
   const {
@@ -228,6 +231,7 @@ export function PluginBrowse({
       ) : null}
       {showFeatured ? (
         <>
+          {apps}
           {recommended}
           {catalogLoaded && catalog.length > 0 ? (
             <SectionHeading as="h2" className="mt-8 mb-2 px-2.5">
@@ -267,6 +271,7 @@ export function PluginBrowse({
             </div>
           ) : null}
           {presetGrid ? <div className="mb-2">{presetGrid}</div> : null}
+          {apps}
           {plugins}
           {rendered.length > 0 ? (
             <div className="mt-2 grid grid-cols-2 gap-2">

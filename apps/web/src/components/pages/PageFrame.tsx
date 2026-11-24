@@ -1,4 +1,5 @@
 import { useExternalLinkOpener } from "@rakazo/chat-ui/web";
+import type { AppPermission } from "@rakazo/contracts";
 import { pageCopyRequest, pageCopyResult, pageLinkRequest } from "@rakazo/core";
 import type { CSSProperties } from "react";
 import { useCallback, useRef, useState } from "react";
@@ -13,7 +14,8 @@ import { SandboxedHtmlViewer } from "../messages/SandboxedHtmlViewer";
  * open a link, offer a reply), and only right after the person used that frame: the viewer
  * shell vouches for a click or key inside it, the frame still has focus, and that click or key
  * has not been used for another action yet. Previews draw only. An app page acts only as its
- * manifest declares, through `app`.
+ * manifest declares, through `app`, and an installed app's frame only for what its install
+ * granted (`allow`); every other request is ignored.
  * An interactive frame prints whole: on paper it keeps the width the page was drawn at, so the
  * page's last reported height still fits it, and the browser scales it to the paper.
  */
@@ -24,6 +26,7 @@ export function PageFrame({
   onHeight,
   onReply,
   app,
+  allow,
 }: {
   document: string;
   title: string;
@@ -33,6 +36,8 @@ export function PageFrame({
   onReply?: (text: unknown) => void;
   /** The open app's bridge, when the page is an app. */
   app?: PageAppBridge;
+  /** Only these bridge requests are honored; without it, all of them are. */
+  allow?: readonly AppPermission[];
 }) {
   const { open, dialog } = useExternalLinkOpener();
   const box = useRef<HTMLDivElement>(null);
@@ -66,17 +71,19 @@ export function PageFrame({
       };
       if (app?.receive(data, answer, { fresh, use })) return;
       if (!fresh) return;
-      const copy = appAllows(app, "clipboard") ? pageCopyRequest(data) : null;
-      const url = copy || !appAllows(app, "links") ? null : pageLinkRequest(data);
+      const may = (permission: "reply" | "links" | "clipboard") =>
+        appAllows(app, permission) && (!allow || allow.includes(permission));
+      const copy = may("clipboard") ? pageCopyRequest(data) : null;
+      const url = copy || !may("links") ? null : pageLinkRequest(data);
       const reply =
-        !copy && !url && message.type === "rakazo-page:reply" && appAllows(app, "reply") && onReply;
+        !copy && !url && may("reply") && message.type === "rakazo-page:reply" && onReply;
       if (!copy && !url && !reply) return;
       use();
       if (copy) void writeClipboard(copy.text).then((ok) => answer(pageCopyResult(copy.id, ok)));
       else if (url) open(url);
       else if (reply) reply(message.text);
     },
-    [interactive, onHeight, onReply, open, app],
+    [interactive, onHeight, onReply, open, app, allow],
   );
   return (
     <>

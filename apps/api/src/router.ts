@@ -46,6 +46,7 @@ import { meetingRoutes } from "./meetings/meeting-routes.js";
 import { localAppRecordsRoutes } from "./plugin-registry/local-app-records.js";
 import { pluginRegistryRoutes } from "./plugin-registry/routes.js";
 import { accountRoutes } from "./routes/account.js";
+import { appStoreRoutes } from "./routes/app-store.js";
 import { availabilityRoutes } from "./routes/availability.js";
 import { boardsRoutes } from "./routes/boards.js";
 import { botsRoutes } from "./routes/bots.js";
@@ -201,6 +202,7 @@ export function createRouter(deps: RouterDeps) {
     ...capabilitiesRoutes(ctx),
     ...pluginRegistryRoutes(ctx),
     ...localAppRecordsRoutes(ctx),
+    ...appStoreRoutes(ctx),
     ...mcpRoutes(ctx),
     ...onboardingRoutes(ctx),
     ...availabilityRoutes(ctx),

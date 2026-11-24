@@ -28,6 +28,7 @@ model User {
   nativeCalendarRequests NativeCalendarRequest[]
   aiDataConsents AiDataConsent[]
   pages          Page[]
+  appReleases    AppRelease[]
   id                          String                       @id
   name                        String
   email                       String
@@ -615,6 +616,9 @@ model PluginSubmission {
   pinnedSource String?
   hasConnector Boolean   @default(false)
   skillCount   Int       @default(0)
+  /// The app version this submits; plugins and claims have none.
+  appReleaseId String?
+  appRelease   AppRelease? @relation(fields: [appReleaseId], references: [id], onDelete: Cascade)
   reviewedAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -622,7 +626,35 @@ model PluginSubmission {
   @@index([status, createdAt])
   @@index([source])
   @@index([claim, status])
+  @@index([appReleaseId])
   @@map("plugin_submissions")
+}
+
+/// One version of a UI app as its author published it. It is listed once its submission is
+/// approved; installs pin a version and its digest.
+model AppRelease {
+  id           String             @id @default(cuid())
+  /// The manifest id, stable across versions; the first author to publish it owns it.
+  appId        String
+  version      String
+  authorUserId String
+  author       User               @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  name         String
+  description  String
+  manifest     Json
+  source       String
+  /// The source compiled for the page viewer when it was published.
+  code         String
+  /// The icon as a data URL, checked when it was published.
+  icon         String?
+  /// sha256 over the manifest, source and icon; an install that names another digest is refused.
+  digest       String
+  createdAt    DateTime           @default(now())
+  submissions  PluginSubmission[]
+
+  @@unique([appId, version])
+  @@index([authorUserId])
+  @@map("app_releases")
 }
 
 model ActionApprovalRule {

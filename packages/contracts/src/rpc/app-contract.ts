@@ -4,6 +4,7 @@ import type {
   InferContractRouterOutputs,
 } from "@orpc/contract";
 import { accountRpc } from "../account/account-rpc.js";
+import { appStoreRpc } from "../apps/app-store-rpc.js";
 import { artifactsRpc } from "../artifacts/artifacts-rpc.js";
 import { billingRpc } from "../billing/billing-rpc.js";
 import { botsRpc } from "../bots/bots-rpc.js";
@@ -40,6 +41,7 @@ export const appContract = {
   ...integrationsRpc,
   ...pluginRegistryRpc,
   ...localAppRecordsRpc,
+  ...appStoreRpc,
   ...runsRpc,
 };
 

@@ -44,6 +44,7 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
   "scratchpad_list",
   "board_tickets",
   "ticket_get",
+  "find_apps",
   "skill_read",
   "web_search",
   "web_fetch",

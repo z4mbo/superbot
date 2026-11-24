@@ -339,6 +339,9 @@ importers:
       '@rakazo/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@rakazo/page-kit':
+        specifier: workspace:*
+        version: link:../../packages/page-kit
       '@rakazo/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
@@ -704,6 +707,9 @@ importers:
       '@rakazo/api':
         specifier: workspace:*
         version: link:../api
+      '@rakazo/page-kit':
+        specifier: workspace:*
+        version: link:../../packages/page-kit
       '@types/babel__core':
         specifier: 7.20.5
         version: 7.20.5

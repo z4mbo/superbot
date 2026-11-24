@@ -29,6 +29,7 @@
     "@playwright/test": "1.64.1",
     "@rakazo/adapters": "workspace:*",
     "@rakazo/core": "workspace:*",
+    "@rakazo/page-kit": "workspace:*",
     "@rakazo/plugin-sdk": "workspace:*",
     "@rakazo/ui-tokens": "workspace:*",
     "electron": "45.2.3",

@@ -15,6 +15,8 @@ const SPACE_CHANGE_PROCEDURES: Record<string, readonly SpaceChangeKind[]> = {
   "pluginRegistry.setGrants": ["pluginRegistry"],
   "pluginRegistry.switchVersion": ["pluginRegistry"],
   "pluginRegistry.uninstall": ["pluginRegistry"],
+  "apps.install": ["apps"],
+  "apps.uninstall": ["apps"],
   "routines.create": ["routines"],
   "routines.update": ["routines"],
   "routines.remove": ["routines"],

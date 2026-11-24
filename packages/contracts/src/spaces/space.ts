@@ -149,7 +149,7 @@ export const SpaceChangeKind = z.enum([
   "meetingCalendar",
   "pluginRegistry",
   "nativeCalendar",
-  /** An app page's state changed; open apps read it again. */
+  /** An app page's state or the Space's installed apps changed; open apps read them again. */
   "apps",
 ]);
 export type SpaceChangeKind = z.infer<typeof SpaceChangeKind>;
