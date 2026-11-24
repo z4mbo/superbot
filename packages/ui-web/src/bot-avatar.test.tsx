@@ -29,12 +29,15 @@ describe("BotAvatar", () => {
     expect(html).toContain('data-bot-mark-state="working"');
   });
 
-  it("waits, rests and sleeps in their own states", () => {
+  it("shows a bot waiting on someone blocked, a completed run done, and rests and sleeps", () => {
     for (const status of WAITING_ON_USER_RUN_STATUSES) {
       expect(renderToString(<BotAvatar color="#3B82F6" status={status} />)).toContain(
-        'data-bot-mark-state="waiting"',
+        'data-bot-mark-state="blocked"',
       );
     }
+    expect(renderToString(<BotAvatar color="#F59E0B" status="completed" />)).toContain(
+      'data-bot-mark-state="done"',
+    );
     expect(renderToString(<BotAvatar color="#F59E0B" status="idle" />)).toContain(
       'data-bot-mark-state="idle"',
     );

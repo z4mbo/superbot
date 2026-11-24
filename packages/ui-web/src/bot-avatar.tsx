@@ -174,7 +174,8 @@ export const BotAvatar = memo(function BotAvatar({
     );
   }
   if (activity !== undefined || fixed !== undefined) {
-    const shown = fixed ?? botMarkStateForActivity(activity ?? logoAvatarStatusActivity(status));
+    const shown =
+      fixed ?? botMarkStateForActivity(activity ?? logoAvatarStatusActivity(status), status);
     return (
       <BotMark
         identity={effectiveId}
@@ -207,11 +208,18 @@ function LiveBotMark({
   ...props
 }: Omit<ComponentProps<typeof BotMark>, "state" | "activity"> & { status?: string }) {
   const activity = useBotAvatarActivity(props.identity, status);
-  return <BotMark {...props} state={botMarkStateForActivity(activity)} activity={activity} />;
+  return (
+    <BotMark {...props} state={botMarkStateForActivity(activity, status)} activity={activity} />
+  );
 }
 
-/** The mark state that shows a live activity: reading, writing and using a computer are work. */
-function botMarkStateForActivity(activity: LogoAvatarActivity): BotMarkState {
+/**
+ * The mark state that shows a live activity: reading, writing and using a computer are work, a
+ * bot waiting on someone is blocked, and a run that just completed is shown done (the mark plays
+ * that only when it happens on screen).
+ */
+function botMarkStateForActivity(activity: LogoAvatarActivity, status?: string): BotMarkState {
+  if (activity === "idle" && status === "completed") return "done";
   switch (activity) {
     case "reading":
     case "writing":
@@ -221,7 +229,7 @@ function botMarkStateForActivity(activity: LogoAvatarActivity): BotMarkState {
     case "thinking":
       return "thinking";
     case "waiting":
-      return "waiting";
+      return "blocked";
     case "error":
       return "error";
     default:

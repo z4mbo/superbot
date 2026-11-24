@@ -526,7 +526,7 @@ export function botMarkStateFor(status: string | null | undefined): BotMarkState
       return "working";
     case "waiting_input":
     case "waiting_takeover":
-      return "waiting";
+      return "blocked";
     case "failed":
       return "error";
     case "blocked":

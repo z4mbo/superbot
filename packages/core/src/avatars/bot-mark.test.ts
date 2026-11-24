@@ -273,7 +273,7 @@ describe("bot mark", () => {
 
   it("maps statuses to looks, with sleeping and unreachable bots asleep", () => {
     expect(botMarkStateFor("running")).toBe("working");
-    expect(botMarkStateFor("waiting_input")).toBe("waiting");
+    expect(botMarkStateFor("waiting_input")).toBe("blocked");
     expect(botMarkStateFor("failed")).toBe("error");
     expect(botMarkStateFor("hibernated")).toBe("asleep");
     expect(botMarkStateFor("offline")).toBe("asleep");
