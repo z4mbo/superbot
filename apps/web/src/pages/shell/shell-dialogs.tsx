@@ -9,13 +9,13 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Settings, Trash2 } from "lucide-react";
 import type { ComponentProps, RefObject } from "react";
-import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { PAGE_PARAM } from "../../lib/pages/pages";
+import { lazyComponent } from "../../lib/platform/preload-recovery";
 import { useSpaceQueries } from "../../lib/query/query";
 import type { createSpaceRpc, RpcClient } from "../../lib/query/rpc";
 import { selectSpace } from "../../lib/query/rpc";
 import type { CreateBotDialogInput } from "./bots/create-bot-dialog";
-import { CreateBotDialog } from "./bots/create-bot-dialog";
 import type { CommandPaletteAction } from "./command-palette";
 import { CommandPalette } from "./command-palette";
 import {
@@ -28,6 +28,11 @@ import {
   RenameBotSectionDialog,
 } from "./create-delete-dialogs";
 import type { Panel } from "./right-panel-state";
+
+// Mounted only while someone creates a bot, so its picker stays out of the startup bundle.
+const CreateBotDialog = lazyComponent(() =>
+  import("./bots/create-bot-dialog").then((module) => module.CreateBotDialog),
+);
 
 type ChatTarget = { kind: "bot"; chat: Bot } | { kind: "group"; chat: Group };
 type SectionTarget = { section: BotSection; spaceId: string };
@@ -333,7 +338,9 @@ export function ShellDialogs({
       />
 
       {createBotOpen ? (
-        <CreateBotDialog onCancel={() => setCreateBotOpen(false)} onCreate={createBot} />
+        <Suspense fallback={null}>
+          <CreateBotDialog onCancel={() => setCreateBotOpen(false)} onCreate={createBot} />
+        </Suspense>
       ) : null}
 
       {newSpaceOpen ? (
