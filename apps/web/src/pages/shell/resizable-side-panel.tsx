@@ -2,7 +2,6 @@ import { t } from "@lingui/core/macro";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useEventListener } from "../../lib/use-event-listener";
-import { APP_RAIL_WIDTH, useAppRail } from "./app-rail";
 import { useBotsSidebarWidth } from "./sidebar/sidebar-layout";
 
 const STORAGE_KEY = "rakazo:right-panel-width";
@@ -44,11 +43,10 @@ export function ResizableSidePanel({
   children: ReactNode;
 }) {
   const sidebarWidth = useBotsSidebarWidth();
-  const hasRail = useAppRail();
   const [preferredWidth, setPreferredWidth] = useState(readPreferredWidth);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const belowMd = viewportWidth < MD_BREAKPOINT;
-  const reservedLeadingPx = belowMd ? 0 : sidebarWidth + (hasRail ? APP_RAIL_WIDTH : 0);
+  const reservedLeadingPx = belowMd ? 0 : sidebarWidth;
   const chatWidth = viewportWidth - reservedLeadingPx;
   const maxWidth = maximumWidth(reservedLeadingPx, viewportWidth);
   const overlay = belowMd || chatWidth < MIN_CHAT_WIDTH + MIN_WIDTH;
@@ -102,7 +100,13 @@ export function ResizableSidePanel({
       data-testid="side-panel"
       data-panel={panel}
       data-overlay={overlay || undefined}
-      style={{ "--panel-width": `${width}px` } as CSSProperties}
+      // Its top stays clear of window controls drawn at the window's top right.
+      style={
+        {
+          "--panel-width": `${width}px`,
+          paddingTop: "var(--window-controls-block, 0px)",
+        } as CSSProperties
+      }
       className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar focus:outline-none ${overlay ? "md:absolute" : "md:relative"} ${dragging ? "" : "transition-[width] duration-150 ease-out motion-reduce:transition-none"} ${open ? "w-full max-w-[384px] border-s border-sidebar-border md:w-(--panel-width) md:max-w-none" : "pointer-events-none w-0"}`}
     >
       {open ? (

@@ -1,41 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   BOTS_SIDEBAR_DEFAULT_WIDTH,
-  botsSidebarCollapsedStorageKey,
   botsSidebarWidthStorageKey,
   clampBotsSidebarWidth,
   maximumBotsSidebarWidth,
-  readBotsSidebarCollapsed,
   readBotsSidebarWidth,
-  writeBotsSidebarCollapsed,
   writeBotsSidebarWidth,
-} from "./bots-sidebar-pref";
-
-describe("bots sidebar collapse preference", () => {
-  it("builds a per-user storage key", () => {
-    expect(botsSidebarCollapsedStorageKey(null)).toBeNull();
-    expect(botsSidebarCollapsedStorageKey("user-1")).toBe("rakazo:bots-sidebar-collapsed:user-1");
-  });
-
-  it("reads and writes collapsed state", () => {
-    const store = new Map<string, string>();
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => {
-        store.set(key, value);
-      },
-      removeItem: (key: string) => {
-        store.delete(key);
-      },
-    });
-    expect(readBotsSidebarCollapsed("user-1")).toBe(false);
-    writeBotsSidebarCollapsed("user-1", true);
-    expect(readBotsSidebarCollapsed("user-1")).toBe(true);
-    writeBotsSidebarCollapsed("user-1", false);
-    expect(readBotsSidebarCollapsed("user-1")).toBe(false);
-    vi.unstubAllGlobals();
-  });
-});
+} from "./bots-sidebar-width-pref";
 
 describe("bots sidebar width preference", () => {
   it("remembers expanded widths independently for each user and clamps invalid limits", () => {

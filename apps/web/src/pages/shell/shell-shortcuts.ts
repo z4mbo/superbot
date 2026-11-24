@@ -98,7 +98,6 @@ export function shellShortcut(event: KeyboardEvent, host: ShortcutHost): ShellSh
   // Some layouts need Shift for the slash, so Shift does not matter here.
   if (primary && !event.altKey && event.key === "/") return { type: "shortcuts" };
   if (primary && !event.altKey && !event.shiftKey) {
-    if (key === "b") return { type: "toggle-sidebar" };
     if (key === "i") return { type: "focus-composer" };
     if (host.desktop && key === "f") return { type: "find" };
     if (host.desktop && /^[1-9]$/.test(key)) return { type: "bot", index: Number(key) - 1 };

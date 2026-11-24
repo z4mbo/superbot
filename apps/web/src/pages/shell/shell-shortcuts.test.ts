@@ -86,16 +86,9 @@ describe("shellShortcut", () => {
     expect(shellShortcut(keyEvent({ key: "k", metaKey: true, repeat: true }), macApp)).toBeNull();
   });
 
-  it("toggles the sidebar with Cmd on Apple keyboards and Ctrl elsewhere", () => {
-    expect(shellShortcut(keyEvent({ key: "b", metaKey: true }), macBrowser)).toEqual({
-      type: "toggle-sidebar",
-    });
-    expect(shellShortcut(keyEvent({ key: "b", ctrlKey: true }), windowsBrowser)).toEqual({
-      type: "toggle-sidebar",
-    });
-    // Ctrl+B moves the caret back a character on macOS.
-    expect(shellShortcut(keyEvent({ key: "b", ctrlKey: true }), macApp)).toBeNull();
-    expect(shellShortcut(keyEvent({ key: "b", metaKey: true }), windowsApp)).toBeNull();
+  it("leaves Cmd/Ctrl+B to the page", () => {
+    expect(shellShortcut(keyEvent({ key: "b", metaKey: true }), macBrowser)).toBeNull();
+    expect(shellShortcut(keyEvent({ key: "b", ctrlKey: true }), windowsBrowser)).toBeNull();
   });
 
   it("focuses the composer, switches model and thinking, and toggles chat details with the primary key", () => {
@@ -364,16 +357,16 @@ describe("useShellShortcuts", () => {
         return event.defaultPrevented;
       };
       try {
-        expect(press("b", true, true)).toBe(false);
+        expect(press("i", true, true)).toBe(false);
         expect(press("k", true, true)).toBe(false);
         expect(press("h", true)).toBe(false);
         expect(run).not.toHaveBeenCalled();
         expect(onTyping).not.toHaveBeenCalled();
 
-        expect(press("b", false, true)).toBe(true);
+        expect(press("i", false, true)).toBe(true);
         expect(press("k", false, true)).toBe(true);
         expect(press("h", false)).toBe(false);
-        expect(run.mock.calls).toEqual([[{ type: "toggle-sidebar" }], [{ type: "command-menu" }]]);
+        expect(run.mock.calls).toEqual([[{ type: "focus-composer" }], [{ type: "command-menu" }]]);
         expect(onTyping).toHaveBeenCalledOnce();
       } finally {
         await unmount();

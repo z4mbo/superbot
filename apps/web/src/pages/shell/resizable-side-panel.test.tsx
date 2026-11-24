@@ -7,13 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ResizableSidePanel } from "./resizable-side-panel";
 
 vi.mock("./sidebar/sidebar-layout", () => ({ useBotsSidebarWidth: () => sidebarWidth }));
-vi.mock("./app-rail", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  useAppRail: () => railEnabled,
-}));
 
 let sidebarWidth: number;
-let railEnabled: boolean;
 let host: HTMLDivElement;
 let root: Root;
 
@@ -42,7 +37,6 @@ function show(open: boolean, width: number) {
 describe("ResizableSidePanel", () => {
   beforeEach(() => {
     sidebarWidth = 0;
-    railEnabled = false;
     i18n.load("en", {});
     i18n.activate("en");
     host = document.createElement("div");
@@ -89,15 +83,8 @@ describe("ResizableSidePanel", () => {
     expect(show(true, 800).hasAttribute("inert")).toBe(false);
   });
 
-  it("counts the rail when checking how much chat the overlay covers", () => {
-    sidebarWidth = 400;
-    railEnabled = true;
-    expect(show(true, 800).hasAttribute("inert")).toBe(true);
-  });
-
-  it("ignores the hidden rail and sidebar when the panel covers a phone-sized chat", () => {
+  it("ignores the hidden sidebar when the panel covers a phone-sized chat", () => {
     sidebarWidth = 316;
-    railEnabled = true;
     expect(show(true, 390).hasAttribute("inert")).toBe(true);
   });
 

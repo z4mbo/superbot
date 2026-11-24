@@ -1,30 +1,8 @@
 import { readStoredString, writeStoredString } from "./stored-preference";
 
-const STORAGE_PREFIX = "rakazo:bots-sidebar-collapsed:";
-
-export function botsSidebarCollapsedStorageKey(userId: string | null | undefined): string | null {
-  if (!userId) return null;
-  return `${STORAGE_PREFIX}${userId}`;
-}
-
-export function readBotsSidebarCollapsed(userId: string | null | undefined): boolean {
-  const storageKey = botsSidebarCollapsedStorageKey(userId);
-  return storageKey ? readStoredString(storageKey) === "1" : false;
-}
-
-export function writeBotsSidebarCollapsed(
-  userId: string | null | undefined,
-  collapsed: boolean,
-): void {
-  const storageKey = botsSidebarCollapsedStorageKey(userId);
-  if (storageKey) writeStoredString(storageKey, collapsed ? "1" : null);
-}
-
-export const BOTS_SIDEBAR_MINI_WIDTH = 72;
 export const BOTS_SIDEBAR_DEFAULT_WIDTH = 280;
 export const BOTS_SIDEBAR_MIN_WIDTH = 240;
 export const BOTS_SIDEBAR_MAX_WIDTH = 480;
-export const BOTS_SIDEBAR_SNAP_WIDTH = 160;
 const MIN_CHAT_WIDTH = 320;
 
 export function botsSidebarWidthStorageKey(userId: string | null | undefined): string | null {

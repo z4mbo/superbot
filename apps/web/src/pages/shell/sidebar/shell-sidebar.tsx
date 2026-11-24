@@ -24,7 +24,6 @@ import { useQueryUserId } from "../../../lib/query/query";
 import { switchOrganization, useOrganizations } from "../../../lib/spaces/organizations";
 import { ActivityList } from "../../space/ActivityList";
 import { SpaceSearchResults } from "../../space/SpaceSearch";
-import { useAppRail } from "../app-rail";
 import type { ChatMenuState } from "../chat/chat-context-menu";
 import type { Panel } from "../right-panel-state";
 import type { SettingsSection } from "../shell-overlay-url";
@@ -56,15 +55,12 @@ function resetFadeWhenUnscrollable(event: UIEvent<HTMLDivElement>) {
 
 type User = { name?: string | null; email?: string; image?: string | null };
 
-/** The bots sidebar: a drawer on phones, collapsible to icons elsewhere. */
+/** The bots sidebar: a drawer on phones, a resizable column elsewhere. */
 export function ShellSidebar({
   isMobile,
   mobileOpen,
   setMobileOpen,
   density,
-  collapsed,
-  mini,
-  setCollapsedPref,
   createMenuOpen,
   setCreateMenuOpen,
   search,
@@ -80,7 +76,6 @@ export function ShellSidebar({
   roster,
   archived,
   user,
-  boardEnabled,
   navLinks,
   openSettings,
   openIntegrations,
@@ -91,9 +86,6 @@ export function ShellSidebar({
   mobileOpen: boolean;
   setMobileOpen: (open: boolean) => void;
   density: BotsSidebarDensity;
-  collapsed: boolean;
-  mini: boolean;
-  setCollapsedPref: (collapsed: boolean) => void;
   createMenuOpen: boolean;
   setCreateMenuOpen: (open: boolean) => void;
   search: SidebarSearch;
@@ -109,7 +101,6 @@ export function ShellSidebar({
   roster: ReactNode;
   archived: ReactNode;
   user: User | undefined;
-  boardEnabled: boolean;
   navLinks: NavLink[];
   openSettings: (section: SettingsSection) => void;
   openIntegrations: () => void;
@@ -117,7 +108,6 @@ export function ShellSidebar({
   openSpaceChat: (spaceId: string, path: string) => void;
 }) {
   const { t } = useLingui();
-  const rail = useAppRail();
   const {
     query,
     setQuery,
@@ -159,16 +149,13 @@ export function ShellSidebar({
         inert={isMobile && !mobileOpen ? true : undefined}
         aria-hidden={isMobile && !mobileOpen ? true : undefined}
         data-bots-sidebar-density={density}
-        data-collapsed={collapsed ? "true" : "false"}
         className={
           isMobile
             ? `absolute inset-y-0 start-0 z-40 flex w-[calc(100%-48px)] max-w-[316px] shrink-0 flex-col border-e border-sidebar-border bg-sidebar transition-transform duration-200 ease-out motion-reduce:transition-none ${mobileOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"}`
-            : // The sidebar is fixed to the window edge, so it steps aside for the rail there.
-              `h-full overflow-hidden border-sidebar-border ${rail ? "data-[side=left]:left-(--app-rail-width) data-[side=right]:right-(--app-rail-width)" : ""}`
+            : "h-full overflow-hidden border-sidebar-border"
         }
       >
         <SidebarHeader
-          mini={mini}
           createMenuOpen={createMenuOpen}
           setCreateMenuOpen={setCreateMenuOpen}
           activityMode={activityMode}
@@ -184,7 +171,6 @@ export function ShellSidebar({
             setSearchOpen(true);
             focusSidebarSearch();
           }}
-          setBotsSidebarCollapsedPref={setCollapsedPref}
           bots={bots}
           setMobileSidebarOpen={setMobileOpen}
           setPanel={setPanel}
@@ -192,8 +178,7 @@ export function ShellSidebar({
           setNewSpaceOpen={setNewSpaceOpen}
           setCreateBotOpen={setCreateBotOpen}
         />
-        {mini ||
-        !(
+        {!(
           searchOpen ||
           query ||
           (activityMode && (activityFilterCount > 0 || activityFiltersExpanded))
@@ -254,7 +239,7 @@ export function ShellSidebar({
           onScroll={resetFadeWhenUnscrollable}
           className="rk-scroll scroll-fade-y scroll-fade-12 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-2.5"
         >
-          {showSpaceSearch && !mini ? (
+          {showSpaceSearch ? (
             <SpaceSearchResults
               hits={searchHits}
               loading={searchLoading}
@@ -263,7 +248,7 @@ export function ShellSidebar({
               onSelect={(hit) => jumpToSearchHit(hit)}
               chatMenu={chatMenu}
             />
-          ) : activityMode && !mini ? (
+          ) : activityMode ? (
             <ActivityList
               bots={bots}
               groups={groups}
@@ -294,20 +279,16 @@ export function ShellSidebar({
         {/* One height limit for every shelf, so open shelves never squeeze out the chat list. */}
         <div
           className={
-            mini || activityMode
+            activityMode
               ? "hidden"
               : "rk-scroll flex max-h-[40vh] shrink-0 flex-col overflow-y-auto px-2.5 pb-1"
           }
         >
           {archived}
         </div>
-        <div className={mini ? "hidden" : "contents"}>
-          <PasskeyOffer />
-        </div>
+        <PasskeyOffer />
         <ShellSidebarFooter
-          mini={mini}
           user={user}
-          boardEnabled={boardEnabled}
           navLinks={navLinks}
           closeMobileSidebar={() => setMobileOpen(false)}
           navigate={navigate}
@@ -322,9 +303,7 @@ export function ShellSidebar({
 }
 
 function ShellSidebarFooter({
-  mini,
   user,
-  boardEnabled,
   navLinks,
   closeMobileSidebar,
   navigate,
@@ -333,9 +312,7 @@ function ShellSidebarFooter({
   openSkills,
   openSpaceChat,
 }: {
-  mini: boolean;
   user: User | undefined;
-  boardEnabled: boolean;
   navLinks: NavLink[];
   closeMobileSidebar: () => void;
   navigate: (path: string) => void;
@@ -369,7 +346,7 @@ function ShellSidebarFooter({
   const day = freeUntil ? formatBillingDate(freeUntil, i18n.locale || "en") : "";
   return (
     <>
-      {freeUntil && !mini ? (
+      {freeUntil ? (
         <div className="mx-2.5 flex items-center justify-between gap-2 ps-2.5 text-body text-muted-foreground">
           <span className="min-w-0 truncate">
             <Trans>Free plan ends {day}</Trans>
@@ -382,7 +359,6 @@ function ShellSidebarFooter({
         </div>
       ) : null}
       <SidebarFooter
-        mini={mini}
         name={userName}
         initials={initials}
         image={user?.image}
@@ -400,15 +376,6 @@ function ShellSidebarFooter({
           setMenuOpen(false);
           openSkills();
         }}
-        onBoard={
-          boardEnabled
-            ? () => {
-                setMenuOpen(false);
-                closeMobileSidebar();
-                navigate("/app/board");
-              }
-            : undefined
-        }
         links={navLinks}
         onLink={(link) => {
           setMenuOpen(false);
