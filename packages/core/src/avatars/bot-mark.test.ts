@@ -177,14 +177,15 @@ describe("bot mark", () => {
     expect(botMarkZoom(thinking, 200)).toBe(1);
   });
 
-  it("plays a finished or failed bot's clips once, then rests", () => {
+  it("shows a run that finishes on screen once, then rests; one finished earlier just rests", () => {
     for (const state of ["done", "error"] as const) {
-      const late = botMarkFrame({ state, time: 20_000, seed: 0 });
+      const late = botMarkFrame({ state, time: 20_000, seed: 0, entered: true });
       for (const [k, angle] of late.rotation.entries()) {
         expect(angle).toBeCloseTo(REST_ROTATION[k]!, 6);
       }
+      expect(botMarkFrame({ state, time: 500, seed: 0 }).rotation).toEqual([...REST_ROTATION]);
     }
-    const playing = botMarkFrame({ state: "done", time: 500, seed: 0 });
+    const playing = botMarkFrame({ state: "done", time: 900, seed: 0, entered: true });
     expect(playing.rotation).not.toEqual([...REST_ROTATION]);
   });
 
