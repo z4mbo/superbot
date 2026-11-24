@@ -62,7 +62,7 @@ describe("imported items with key-looking text", () => {
 
   it("are flagged from a folder, unchanged", () => {
     const result = parseAgentImport([
-      { path: "workspace/SOUL.md", content: "Calm.\n" },
+      { path: "workspace/AGENTS.md", content: "Calm.\n" },
       { path: "workspace/MEMORY.md", content: `Deploy key: ${key}\n` },
       {
         path: "workspace/skills/deploy/SKILL.md",

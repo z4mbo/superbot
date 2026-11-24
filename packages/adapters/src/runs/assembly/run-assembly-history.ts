@@ -2,6 +2,7 @@ import { botMessageAllowsSilence, userTurnMessageForRun } from "@rakazo/core";
 import { isPartialReplyClientNonce, storedMessageBlocks } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { loadAgentMemoryContext } from "../../memory/memory-context.js";
+import { conversationProfilePerson } from "../../memory/memory-layers.js";
 import { PARTIAL_REPLY_NOTE } from "../../messaging/automated-messages.prompt.js";
 import { isNightlyMemoryReviewRun } from "../../routines/nightly-memory-review.js";
 import {
@@ -116,6 +117,8 @@ export async function loadTurnContext(
   const { deps, run, runId } = hold;
   const {
     bot,
+    conversationRun,
+    conversationThread,
     messages,
     messagingChannelRun,
     nonOwnerChatRun,
@@ -199,6 +202,14 @@ export async function loadTurnContext(
       ? `Update from ${peerMessage.fromBotName}: ${peerMessage.text}`
       : DELEGATED_EMPTY_NOTICE
     : undefined;
+  // Runs that read no memory get no profile either.
+  const profilePersonId = nonOwnerChatRun
+    ? undefined
+    : conversationProfilePerson({
+        personId: conversationRun.userId,
+        threadUserId: conversationThread.userId,
+        authorUserIds: messages.map((message) => message.authorUserId),
+      });
   const capabilities = semanticMemory?.describe().capabilities;
   const recallsEachRun = capabilities?.recallEachRun === true;
   const compacted = thread.historyCompactedUpToSeq != null;
@@ -225,7 +236,15 @@ export async function loadTurnContext(
     await Promise.all([
       discoveredPromise,
       loadCurrentTurnImages(deps, turnBlocks, context),
-      nonOwnerChatRun ? Promise.resolve("") : loadAgentMemoryContext(deps.memory, bot.id, context),
+      nonOwnerChatRun
+        ? Promise.resolve("")
+        : loadAgentMemoryContext(
+            deps.memory,
+            bot.id,
+            context,
+            undefined,
+            profilePersonId ? [profilePersonId] : [],
+          ),
       nonOwnerChatRun
         ? Promise.resolve("")
         : loadAgentScratchpadContext(deps, {
@@ -278,6 +297,7 @@ export async function loadTurnContext(
     discovered,
     currentTurnImages,
     memoryContext,
+    profilePersonId,
     scratchpadContext,
     ticketContext,
     semanticMemoryEnabled,

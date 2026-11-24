@@ -182,30 +182,37 @@ describeIntegration("agent import", () => {
       description: plan.suggestedDescription,
       computerMode: "team",
       selection: {
-        instructions: [id("AGENTS.md"), id("SOUL.md")],
+        instructions: [id("AGENTS.md")],
         memory: [
           { id: id("MEMORY.md"), destination: "bot" },
+          { id: id("SOUL.md"), destination: "bot" },
+          { id: id("IDENTITY.md"), destination: "bot" },
+          // A named layer is the new bot's own, whatever destination is asked for.
           { id: id("USER.md"), destination: "space" },
         ],
         skills: [id("weekly-review")],
       },
     });
-    // Each file keeps its purpose: the persona first, then how the bot works. IDENTITY.md
-    // gives the name and description, not instructions.
+    // Each file keeps its purpose: AGENTS.md says how the bot works; SOUL.md, IDENTITY.md and
+    // USER.md are named layers of its memory. IDENTITY.md also gives the name and description.
     expect([bot.name, bot.description]).toEqual(["Pebble", "calm"]);
-    expect(bot.instructions).toBe(
-      "# Persona\n\nCalm and direct.\n\n# Working instructions\n\nKeep replies short.",
-    );
+    expect(bot.instructions).toBe("Keep replies short.");
 
     const botMemory = await db.memoryDocument.findMany({
       where: { botId: bot.id },
       include: { revisions: true },
-      orderBy: { path: "asc" },
     });
-    expect(botMemory.map((doc) => [doc.scope, doc.path, doc.content])).toEqual([
-      ["bot", "MEMORY.md", "Project Alpha ships in May.\n"],
-    ]);
-    expect(botMemory[0]!.revisions.map((revision) => revision.content)).toEqual([
+    expect(botMemory.map((doc) => [doc.scope, doc.path, doc.content]).sort()).toEqual(
+      [
+        ["bot", "IDENTITY.md", "- **Name:** Pebble\n- **Vibe:** calm\n"],
+        ["bot", "MEMORY.md", "Project Alpha ships in May.\n"],
+        ["bot", "SOUL.md", "Calm and direct.\n"],
+        // The imported user is the person who imported the agent.
+        ["bot", `people/${owner.userId}.md`, "Prefers metric units.\n"],
+      ].sort(),
+    );
+    const index = botMemory.find((doc) => doc.path === "MEMORY.md")!;
+    expect(index.revisions.map((revision) => revision.content)).toEqual([
       "Project Alpha ships in May.\n",
     ]);
 
@@ -215,7 +222,6 @@ describeIntegration("agent import", () => {
       orderBy: { path: "asc" },
     });
     expect(spaceMemory.map((doc) => [doc.path, doc.content, doc.revisions.length])).toEqual([
-      ["USER-2.md", "Prefers metric units.\n", 1],
       ["USER.md", "Existing.\n", 0],
     ]);
     expect(spaceMemory.find((doc) => doc.path === "USER.md")?.id).toBe(spaceUser.id);
@@ -280,10 +286,7 @@ describeIntegration("agent import", () => {
       selection: { instructions: ["instructions:secret.md"], memory: [], skills: [] },
     });
     expect(unknown.status).toBe(400);
-    const big = [
-      { path: "workspace/SOUL.md", content: "x".repeat(15_000) },
-      { path: "workspace/AGENTS.md", content: "y".repeat(15_000) },
-    ];
+    const big = [{ path: "workspace/AGENTS.md", content: "y".repeat(25_000) }];
     const plan = await rpc<AgentImportPlan>(app, cookie, "bots/importPreview", { files: big });
     const tooLong = await raw(app, cookie, "bots/importCreate", {
       files: big,
@@ -325,24 +328,32 @@ describeIntegration("agent import", () => {
     const updated = (path: string) =>
       documents.find((doc) => doc.path === path)!.updatedAt.getTime();
     const newestDay = Math.max(...days.map((day) => updated(day.path.slice("workspace/".length))));
-    expect(updated("USER.md")).toBeGreaterThan(newestDay);
-    expect(updated("MEMORY.md")).toBeGreaterThan(updated("USER.md"));
+    const owner = await db.bot.findUniqueOrThrow({
+      where: { id: bot.id },
+      select: { spaceId: true, userId: true },
+    });
+    const profile = `people/${owner.userId}.md`;
+    expect(updated(profile)).toBeGreaterThan(newestDay);
+    expect(updated("MEMORY.md")).toBeGreaterThan(updated(profile));
     expect(updated("memory/2026-01-05.md")).toBeGreaterThan(updated("memory/2026-01-01.md"));
 
     const { MarkdownMemoryStore } = await import("../../../memory/src/index.ts");
     const { loadAgentMemoryContext } = await import(
       "../../../adapters/src/memory/memory-context.ts"
     );
-    const owner = await db.bot.findUniqueOrThrow({
-      where: { id: bot.id },
-      select: { spaceId: true, userId: true },
-    });
-    const context = await loadAgentMemoryContext(new MarkdownMemoryStore(db), bot.id, {
-      operationId: "agent-import-test",
-      traceId: "agent-import-test",
-      ...owner,
-      signal: new AbortController().signal,
-    });
+    // The owner's own run reads the imported profile.
+    const context = await loadAgentMemoryContext(
+      new MarkdownMemoryStore(db),
+      bot.id,
+      {
+        operationId: "agent-import-test",
+        traceId: "agent-import-test",
+        ...owner,
+        signal: new AbortController().signal,
+      },
+      undefined,
+      [owner.userId],
+    );
     expect(context).toContain("Curated: Project Alpha ships in May.");
     expect(context).toContain("Curated: prefers metric units.");
   });
@@ -801,7 +812,7 @@ describeIntegration("agent import", () => {
         includeSecrets: true,
         name: "Rejected",
         selection: {
-          instructions: ["instructions:SOUL.md"],
+          instructions: [],
           memory: [],
           skills: [],
           apiKeys: ["key:openrouter"],
@@ -845,7 +856,7 @@ describeIntegration("agent import", () => {
       includeSecrets: true,
       name: "Imported",
       selection: {
-        instructions: ["instructions:SOUL.md"],
+        instructions: [],
         memory: [],
         skills: [],
         apiKeys: ["key:openrouter"],
@@ -881,7 +892,7 @@ describeIntegration("agent import", () => {
       includeSecrets: true,
       name: "Between",
       selection: {
-        instructions: ["instructions:SOUL.md"],
+        instructions: [],
         memory: [],
         skills: [],
         apiKeys: ["key:openrouter"],
@@ -900,7 +911,7 @@ describeIntegration("agent import", () => {
       includeSecrets: true,
       name: "Repeated",
       selection: {
-        instructions: ["instructions:SOUL.md"],
+        instructions: [],
         memory: [],
         skills: [],
         apiKeys: ["key:openrouter", "key:openrouter"],
@@ -913,7 +924,7 @@ describeIntegration("agent import", () => {
       includeSecrets: true,
       name: "Unknown",
       selection: {
-        instructions: ["instructions:SOUL.md"],
+        instructions: [],
         memory: [],
         skills: [],
         apiKeys: ["key:anthropic"],
@@ -1035,7 +1046,7 @@ describeIntegration("agent import", () => {
       files,
       name: "Blank",
       selection: {
-        instructions: ["instructions:SOUL.md"],
+        instructions: [],
         memory: [],
         skills: [],
         mcpServers: ["mcp:api"],

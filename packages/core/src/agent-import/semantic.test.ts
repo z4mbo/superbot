@@ -75,12 +75,13 @@ describe("defaults the source wrote", () => {
     ]);
     expect(openclaw.skipped).toContainEqual({ path: "IDENTITY.md", reason: "default" });
     expect(openclaw.instructions.map((item) => [item.title, item.stock])).toEqual([
-      ["SOUL.md", true],
       ["AGENTS.md", true],
     ]);
+    // A blank IDENTITY.md template is skipped, not offered as a layer.
     expect(openclaw.memory.map((item) => [item.title, item.stock])).toEqual([
-      ["MEMORY.md", false],
+      ["SOUL.md", true],
       ["USER.md", true],
+      ["MEMORY.md", false],
     ]);
     const hermes = plan([
       { path: ".hermes/SOUL.md", content: HERMES_SOUL },
@@ -93,7 +94,7 @@ describe("defaults the source wrote", () => {
 });
 
 describe("OpenClaw files by purpose", () => {
-  it("composes a customised SOUL and AGENTS as persona then working instructions", () => {
+  it("keeps a customised SOUL out of the instructions, as the soul layer", () => {
     const result = plan([
       {
         path: "workspace/AGENTS.md",
@@ -102,9 +103,11 @@ describe("OpenClaw files by purpose", () => {
       { path: "workspace/SOUL.md", content: "# SOUL.md - Who You Are\n\nCalm and direct.\n" },
       { path: "workspace/IDENTITY.md", content: "- Name: Pebble\n- Vibe: warm\n- Avatar: a.png\n" },
     ]);
-    expect(combineImportedInstructions(result.instructions)).toBe(
-      "# Persona\n\nCalm and direct.\n\n# Working instructions\n\nKeep replies short.",
-    );
+    expect(combineImportedInstructions(result.instructions)).toBe("Keep replies short.");
+    expect(result.memory.map((item) => [item.layer, item.content])).toEqual([
+      ["identity", "- Name: Pebble\n- Vibe: warm\n- Avatar: a.png\n"],
+      ["soul", "# SOUL.md - Who You Are\n\nCalm and direct.\n"],
+    ]);
     expect([result.suggestedName, result.suggestedDescription]).toEqual(["Pebble", "warm"]);
     expect(result.instructions.some((item) => item.title === "IDENTITY.md")).toBe(false);
     expect(result.skipped).toContainEqual({ path: "IDENTITY.md: Avatar", reason: "runtime" });

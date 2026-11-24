@@ -3,6 +3,7 @@ import {
   HistoryReadInputSchema,
   HistorySearchInputSchema,
   MEMORY_INDEX_PATH,
+  profileMemoryPath,
 } from "@rakazo/contracts";
 import { readHistory, searchHistory } from "@rakazo/db";
 import { redactConnectorPayload } from "../../integrations/connector-safety.js";
@@ -97,6 +98,23 @@ async function readHistoryTool(ctx: RunContext, call: ToolCall) {
   return call.finish(redacted);
 }
 
+/**
+ * The document remember edits. A profile is only ever the run's own person's
+ * (`conversationProfilePerson`): the model cannot name anyone else.
+ */
+export function rememberPath(
+  ctx: Pick<RunContext, "memory">,
+  layer: unknown,
+): string | { error: string } {
+  if (layer === undefined || layer === null || layer === "" || layer === "memory")
+    return MEMORY_INDEX_PATH;
+  if (layer !== "profile") return { error: "layer must be memory or profile." };
+  const person = ctx.memory.profilePersonId;
+  return person
+    ? profileMemoryPath(person)
+    : { error: "No person's profile is open in this conversation. Save it to your memory." };
+}
+
 /** Memory documents, semantic memory and thread history. */
 export const memoryTools: ToolHandlers = {
   async remember(ctx, call) {
@@ -105,8 +123,11 @@ export const memoryTools: ToolHandlers = {
     const daily = args.daily === true;
     const oldText = String(args.old_text ?? "");
     if (daily && oldText.trim()) return call.finish({ error: DAILY_NOTE_EDIT_ERROR });
-    // One document per bot keeps the size cap meaningful; daily notes get one per day.
-    const path = daily ? dailyNotePath(new Date()) : MEMORY_INDEX_PATH;
+    // One document per bot, and one per person it works for, keeps the size cap meaningful;
+    // daily notes get one per day.
+    const target = daily ? dailyNotePath(new Date()) : rememberPath(ctx, args.layer);
+    if (typeof target !== "string") return call.finish(target);
+    const path = target;
     // A concurrent save changes the revision, so re-read and apply the edit again.
     for (let attempt = 1; ; attempt += 1) {
       const snapshot = await deps.memory.read({ scope: "bot", botId: bot.id, path }, context);

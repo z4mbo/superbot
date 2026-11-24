@@ -203,7 +203,7 @@ describe("daily notes in the prompt", () => {
   it("loads today's and yesterday's notes and leaves older ones out", async () => {
     const { store } = memoryStore(stored());
 
-    const text = await loadAgentMemoryContext(store, "bot-1", context, undefined, now);
+    const text = await loadAgentMemoryContext(store, "bot-1", context, undefined, [], now);
 
     expect(text).toContain("## Your memory: daily/2026-11-24.md (revision 1)\ntoday entry");
     expect(text).toContain("## Your memory: daily/2026-11-23.md (revision 1)\nyesterday entry");
@@ -214,7 +214,7 @@ describe("daily notes in the prompt", () => {
   it("loads every other document exactly as before", async () => {
     const { store, read } = memoryStore(stored());
 
-    const documents = await readAgentMemory(store, "bot-1", context, now);
+    const documents = await readAgentMemory(store, "bot-1", context, [], now);
 
     expect(documents.filter((doc) => !doc.path.startsWith("daily/"))).toEqual([
       { ...stored()[0], scope: "bot" },

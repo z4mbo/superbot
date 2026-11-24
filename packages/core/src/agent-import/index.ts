@@ -30,6 +30,7 @@ import {
 import {
   isOpenClawDailyMemory,
   OPENCLAW_INSTRUCTION_FILES,
+  OPENCLAW_LAYER_FILES,
   OPENCLAW_MEMORY_FILES,
   OPENCLAW_RUNTIME_FILES,
   parseOpenClaw,
@@ -85,7 +86,7 @@ export const AGENT_IMPORT_NOT_FOUND = "No OpenClaw, Hermes or agent document fou
 
 const WORKSPACE_FILES = new Set<string>([
   ...OPENCLAW_INSTRUCTION_FILES.map(([path]) => path),
-  "IDENTITY.md",
+  ...OPENCLAW_LAYER_FILES.map(([path]) => path),
   ...OPENCLAW_MEMORY_FILES,
   ...OPENCLAW_RUNTIME_FILES,
   ...HERMES_INSTRUCTION_FILES.map(([path]) => path),

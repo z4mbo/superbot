@@ -172,9 +172,10 @@ test("imports an OpenClaw folder and another assistant's document as new bots", 
   // Without the opt-in, no credential value leaves the browser.
   expect(homeBody).not.toContain("placeholder-");
   const homePreview = panel.getByTestId("agent-import-preview");
+  // SOUL.md is the new bot's soul, a named layer of its memory, not an instruction.
+  await expect(homePreview.getByTestId("agent-import-instructions")).toHaveCount(0);
   for (const [section, names] of [
-    ["agent-import-instructions", ["SOUL.md"]],
-    ["agent-import-memory", ["MEMORY.md"]],
+    ["agent-import-memory", ["SOUL.md", "MEMORY.md"]],
     ["agent-import-skills", ["cleanup", "inbox-triage"]],
   ] as const) {
     await expandRow(homePreview, section);
@@ -204,11 +205,11 @@ test("imports an OpenClaw folder and another assistant's document as new bots", 
   await skills.getByRole("checkbox", { name: "cleanup" }).click();
   await expect(skills.getByRole("checkbox", { name: "cleanup" })).toBeChecked();
   await homePreview
-    .getByTestId("agent-import-instructions")
+    .getByTestId("agent-import-memory")
     .getByRole("button", { name: "SOUL.md", exact: true })
     .click();
   await expect(
-    homePreview.getByTestId("agent-import-instructions").getByTestId("agent-import-content"),
+    homePreview.getByTestId("agent-import-memory").getByTestId("agent-import-content"),
   ).toHaveText("Home soul.");
   const model = homePreview.getByTestId("agent-import-model");
   await expandRow(homePreview, "agent-import-model");
@@ -274,8 +275,9 @@ test("imports an OpenClaw folder and another assistant's document as new bots", 
     "Not imported",
   ]);
   for (const [section, names, ticked] of [
-    ["agent-import-instructions", ["SOUL.md", "AGENTS.md"], true],
-    ["agent-import-memory", ["MEMORY.md", "USER.md"], true],
+    ["agent-import-instructions", ["AGENTS.md"], true],
+    // IDENTITY.md, SOUL.md and USER.md are named layers of the new bot's memory.
+    ["agent-import-memory", ["IDENTITY.md", "SOUL.md", "USER.md", "MEMORY.md"], true],
     ["agent-import-skills", ["weekly-review"], true],
   ] as const) {
     await expandRow(preview, section);
@@ -292,7 +294,7 @@ test("imports an OpenClaw folder and another assistant's document as new bots", 
     /IDENTITY\.md: Emoji\s*Not used by Superbot/,
     /TOOLS\.md\s*Not used by Superbot/,
   ]);
-  // IDENTITY.md names and describes the bot; it is not part of its instructions.
+  // IDENTITY.md also names and describes the bot; it is not part of its instructions.
   await expect(preview.getByRole("textbox", { name: "Name" })).toHaveValue("Pebble");
   await captureScreenshot(page, testInfo, "agent-import-preview");
 
@@ -318,15 +320,16 @@ test("imports an OpenClaw folder and another assistant's document as new bots", 
   await expect(page.getByPlaceholder("Message Pebble")).toBeVisible();
   const pebbleId = activeBotId(page);
   const pebble = await rpc<Bot>(page, "bots/get", { botId: pebbleId });
-  expect(pebble.instructions).toBe(
-    "# Persona\n\nCalm and direct.\n\n# Working instructions\n\nCheck the calendar before suggesting a time.",
-  );
+  expect(pebble.instructions).toBe("Check the calendar before suggesting a time.");
   expect(pebble.description).toBe("calm and practical");
   const pebbleSkills = await rpc<{ name: string }[]>(page, "agentSkills/list", {});
   expect(pebbleSkills.some((item) => item.name === "weekly-review")).toBe(false);
   const pebbleMemory = await rpc<MemoryDocument[]>(page, "memory/list", { botId: pebbleId });
-  expect(pebbleMemory.map((doc) => [doc.path, doc.content])).toEqual([
+  // USER.md was unticked, so the bot has no profile of its owner.
+  expect(pebbleMemory.map((doc) => [doc.path, doc.content]).sort()).toEqual([
+    ["IDENTITY.md", workspaceFiles["IDENTITY.md"]],
     ["MEMORY.md", "The garden project starts in spring.\n"],
+    ["SOUL.md", "Calm and direct.\n"],
   ]);
   const spaceMemory = await rpc<MemoryDocument[]>(page, "memory/list", { scope: "user" });
   expect(spaceMemory.some((doc) => doc.content.includes("Prefers metric units."))).toBe(false);

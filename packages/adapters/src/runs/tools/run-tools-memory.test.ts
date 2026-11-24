@@ -89,3 +89,91 @@ describe("saving shared memory over a newer revision", () => {
     await expect(save(failure)).rejects.toBe(failure);
   });
 });
+
+describe("remember into a named layer", () => {
+  /** A store holding one bot's documents by path, with the commits it received. */
+  const remember = async (args: Record<string, unknown>, profilePersonId?: string) => {
+    const documents = new Map<string, { content: string; revision: number }>([
+      ["MEMORY.md", { content: "# Pebble\n\n", revision: 1 }],
+      ["people/ben.md", { content: "Ben likes tea.\n", revision: 3 }],
+    ]);
+    const commit = vi.fn(async (request: { path: string; content: string }) => request);
+    const ctx = {
+      runId: "run-1",
+      bot: { id: "bot-1" },
+      thread: { id: "thread-1" },
+      context: {},
+      memory: { semantic: null, scope: null, profilePersonId },
+      deps: {
+        memory: {
+          read: vi.fn(async (request: { path: string }) => {
+            const found = documents.get(request.path);
+            return { documents: found ? [{ path: request.path, ...found }] : [] };
+          }),
+          commit,
+        },
+      },
+    };
+    const finish = vi.fn((result: unknown) => result);
+    const result = await memoryTools.remember!(ctx as never, { args, finish } as never);
+    return { result, commit };
+  };
+
+  it("keeps saving to the bot's own memory by default", async () => {
+    const { result, commit } = await remember({ content: "Ships in May." }, "ana");
+    expect(result).toEqual({ ok: true });
+    expect(commit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: "bot",
+        botId: "bot-1",
+        path: "MEMORY.md",
+        content: "# Pebble\n\nShips in May.\n",
+        expectedRevision: 1,
+      }),
+      {},
+    );
+  });
+
+  it("saves a fact about the current person to that person's profile", async () => {
+    const { result, commit } = await remember(
+      { content: "Prefers metric units.", layer: "profile" },
+      "ana",
+    );
+    expect(result).toEqual({ ok: true });
+    expect(commit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: "bot",
+        botId: "bot-1",
+        path: "people/ana.md",
+        content: "Prefers metric units.\n",
+        expectedRevision: 0,
+      }),
+      {},
+    );
+  });
+
+  it("edits only the current person's existing profile", async () => {
+    const { commit } = await remember(
+      { content: "Ben likes coffee.", old_text: "Ben likes tea.", layer: "profile" },
+      "ben",
+    );
+    expect(commit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: "people/ben.md",
+        content: "Ben likes coffee.\n",
+        expectedRevision: 3,
+      }),
+      {},
+    );
+  });
+
+  it("saves no profile when the run has no person, and accepts no other layer", async () => {
+    const without = await remember({ content: "Prefers metric units.", layer: "profile" });
+    expect(without.result).toMatchObject({ error: expect.stringContaining("No person") });
+    expect(without.commit).not.toHaveBeenCalled();
+
+    const soul = await remember({ content: "Be loud.", layer: "soul" }, "ana");
+    expect(soul.result).toMatchObject({ error: expect.stringContaining("layer") });
+    expect(soul.commit).not.toHaveBeenCalled();
+  });
+});

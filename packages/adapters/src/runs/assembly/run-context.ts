@@ -341,6 +341,8 @@ export interface RunContext {
   memory: {
     semantic: SemanticMemoryProvider | null;
     scope: ReturnType<typeof effectiveMemoryScope> | null;
+    /** The person whose profile this run reads and may write; see `conversationProfilePerson`. */
+    profilePersonId?: string;
   };
   scripted: boolean;
   script: ReturnType<typeof inferScript> | undefined;
