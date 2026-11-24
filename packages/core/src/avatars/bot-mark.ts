@@ -393,9 +393,8 @@ export const BOT_MARK_PICKER_INKS: readonly BotMarkInk[] = [
 ];
 
 /** The bodies the editor offers; the pumpkin is a seasonal body the editor leaves out. */
-export const BOT_MARK_PICKER_SHAPES: readonly BotMarkShape[] = BOT_MARK_SHAPES.filter(
-  (shape) => shape !== "pumpkin",
-);
+export const BOT_MARK_PICKER_SHAPES: readonly BotMarkShape[] =
+  /* @__PURE__ */ BOT_MARK_SHAPES.filter((shape) => shape !== "pumpkin");
 
 /** Picking one of these bodies also picks its ink. */
 const SHAPE_INKS: Partial<Record<BotMarkShape, BotMarkInk>> = { pumpkin: "orange" };
@@ -443,7 +442,7 @@ const INK_HUES: [Exclude<BotMarkInk, "neutral" | "gray" | "brown">, number][] = 
 ];
 
 /** The inks a bot with no colour of its own is given, by its identity, as the reference does. */
-const IDENTITY_INKS: readonly BotMarkInk[] = BOT_MARK_PICKER_INKS.filter(
+const IDENTITY_INKS: readonly BotMarkInk[] = /* @__PURE__ */ BOT_MARK_PICKER_INKS.filter(
   (ink) => ink !== "neutral",
 );
 
