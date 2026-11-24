@@ -1,4 +1,5 @@
 import type { AgentRuntimeEvent } from "@rakazo/adapter-kit";
+import { expectLinearTime } from "@rakazo/contracts/test-timing";
 import { buildBotMessageWakePrompt, STEERING_CONTINUATION_PROMPT } from "@rakazo/core";
 import { describe, expect, it, vi } from "vitest";
 import { helperPrompt, resultPrompt } from "../tasks/background-helpers.prompt.js";
@@ -71,6 +72,39 @@ describe("inferScript save_page", () => {
         expect.objectContaining({ name: "save_page" }),
       );
     }
+  });
+
+  it("calls the app tools the same way, after a mention, and says the words after the first then say", () => {
+    expect(
+      inferScript(
+        '@Planner\n call run_app_action with {"action":"add"}\nthen say Added.\nthen say more',
+      ),
+    ).toEqual([
+      {
+        assistant: "Added.\nthen say more",
+        toolCalls: [{ name: "run_app_action", args: { action: "add" } }],
+        complete: true,
+      },
+    ]);
+    expect(inferScript('call read_app_state with {"pageId":"p1"}')[0]).toEqual({
+      assistant: undefined,
+      toolCalls: [{ name: "read_app_state", args: { pageId: "p1" } }],
+      complete: true,
+    });
+    for (const text of ['@ call save_page with {"a":1}', 'call save_page with {"a":1}\nthen say']) {
+      expect(inferScript(text)[0]?.toolCalls ?? []).not.toContainEqual(
+        expect.objectContaining({ name: "save_page" }),
+      );
+    }
+  });
+
+  it("reads a long call in linear time", () => {
+    const markers = `call save_page with {${"\nthen say ".repeat(100_000)}x`;
+    const mention = `@${"x".repeat(200_000)}${" \t".repeat(100_000)}call save_page with {"a":1}`;
+    expectLinearTime(() => {
+      expect(inferScript(markers)[0]?.toolCalls ?? []).toEqual([]);
+      expect(inferScript(mention)[0]?.toolCalls).toEqual([{ name: "save_page", args: { a: 1 } }]);
+    });
   });
 });
 
