@@ -13,6 +13,7 @@ import { CallLayout } from "./components/call/CallLayout";
 import { VoiceConsentPrompt } from "./components/call/VoiceConsentPrompt";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { MarkdownLinkPrompt } from "./components/messages/markdown-link-prompt";
+import { OverlayScrollbars } from "./components/OverlayScrollbars";
 import { PageLoading } from "./components/PageLoading";
 import { WindowControls } from "./components/WindowControls";
 import { authClient } from "./lib/auth/auth";
@@ -108,6 +109,7 @@ export function App() {
           )}
         </ErrorBoundary>
         <WindowControls />
+        <OverlayScrollbars />
       </LinkFaviconsContext.Provider>
     </RemoteImagesContext.Provider>
   );

@@ -85,6 +85,12 @@ body,
 .rk-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-hover);
 }
+/* Where the platform's scrollbars take room beside the content, the page draws its own over it
+   (OverlayScrollbars), as the reference does. */
+:root[data-overlay-scrollbars],
+:root[data-overlay-scrollbars] * {
+  scrollbar-width: none;
+}
 
 .app-drag {
   -webkit-app-region: drag;
