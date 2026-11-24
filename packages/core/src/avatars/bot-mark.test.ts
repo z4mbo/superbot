@@ -1,5 +1,9 @@
+import { BOT_COLOR_LIST } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
+import type { BotMarkInk, BotMarkShape } from "./bot-mark.js";
 import {
+  BOT_MARK_PICKER_INKS,
+  BOT_MARK_PICKER_SHAPES,
   BOT_MARK_SHAPES,
   BOT_MARK_STATES,
   botMarkInkFor,
@@ -7,6 +11,7 @@ import {
   botMarkRestFrame,
   botMarkRestPath,
   botMarkShapeFor,
+  botMarkShapeInk,
   botMarkStateFor,
 } from "./bot-mark.js";
 import {
@@ -229,6 +234,38 @@ describe("bot mark", () => {
     expect(botMarkInkFor(null, "#fb2b3e")).toBe("red");
     expect(botMarkInkFor(null, "#a06b39")).toBe("brown");
     expect(botMarkInkFor(null, "#111111")).toBe("neutral");
+  });
+
+  it("draws every palette colour in its own ink, and a bot with none in its identity's", () => {
+    for (const color of BOT_COLOR_LIST) {
+      const ink = botMarkInkFor(null, color.hex);
+      expect(ink).toBe(
+        color.id === "white" ? "neutral" : color.id === "violet" ? "purple" : color.id,
+      );
+      if (color.previousHex) expect(botMarkInkFor(null, color.previousHex)).toBe(ink);
+    }
+    // Ids the reference gives these inks and bodies when nobody picked any.
+    const reference: [string, BotMarkInk, BotMarkShape][] = [
+      ["bot-1", "purple", "squircle"],
+      ["bot-2", "magenta", "tablet"],
+      ["agent-7", "orange", "teardrop"],
+      ["cm3x9", "cyan", "wedge"],
+      ["superbot", "red", "hex"],
+      ["c", "red", "cloud"],
+    ];
+    for (const [id, ink, shape] of reference) {
+      expect(botMarkInkFor(null, "", id)).toBe(ink);
+      expect(botMarkShapeFor(id)).toBe(shape);
+    }
+  });
+
+  it("offers the editor's colours and bodies in its order, the pumpkin bringing orange", () => {
+    expect(BOT_MARK_PICKER_INKS[0]).toBe("neutral");
+    expect(BOT_MARK_PICKER_INKS.at(-1)).toBe("gray");
+    expect(BOT_MARK_PICKER_SHAPES).toHaveLength(25);
+    expect(BOT_MARK_PICKER_SHAPES).not.toContain("pumpkin");
+    expect(botMarkShapeInk("pumpkin")).toBe("orange");
+    expect(botMarkShapeInk("blob")).toBeNull();
   });
 
   it("maps statuses to looks, with sleeping and unreachable bots asleep", () => {

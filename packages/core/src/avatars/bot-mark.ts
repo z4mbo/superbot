@@ -10,6 +10,7 @@
  * a renderer loads it once something on screen moves.
  */
 
+import { BOT_COLOR_LIST } from "@rakazo/contracts";
 import { bodyEyes, bodySilhouette, bodyTurn, turnStep } from "./bot-mark-bodies.js";
 import type { BotMarkBodyShape } from "./bot-mark-body-data.js";
 import { BOT_MARK_BODY_SPECS } from "./bot-mark-body-data.js";
@@ -351,8 +352,6 @@ function pathPoints(d: string): Point[][] {
 }
 
 /** The mark resting with open eyes, for still pictures such as pickers and notifications. */
-
-/** The mark resting with open eyes, for still pictures such as pickers and notifications. */
 export function botMarkRestPath(shape: BotMarkShape): string {
   return botMarkDrawingPath(shape, botMarkRestDrawing(shape));
 }
@@ -378,11 +377,64 @@ export const BOT_MARK_INKS = [
 
 export type BotMarkInk = (typeof BOT_MARK_INKS)[number];
 
-const INK_HUES: [Exclude<BotMarkInk, "neutral" | "gray">, number][] = [
+/** The colours a person can pick in the editor, in its order; `neutral` is the bot's own ink. */
+export const BOT_MARK_PICKER_INKS: readonly BotMarkInk[] = [
+  "neutral",
+  "brown",
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "cyan",
+  "blue",
+  "purple",
+  "magenta",
+  "gray",
+];
+
+/** The bodies the editor offers; the pumpkin is a seasonal body the editor leaves out. */
+export const BOT_MARK_PICKER_SHAPES: readonly BotMarkShape[] = BOT_MARK_SHAPES.filter(
+  (shape) => shape !== "pumpkin",
+);
+
+/** Picking one of these bodies also picks its ink. */
+const SHAPE_INKS: Partial<Record<BotMarkShape, BotMarkInk>> = { pumpkin: "orange" };
+
+/** The ink picking `shape` brings with it, if any. */
+export function botMarkShapeInk(shape: string | null | undefined): BotMarkInk | null {
+  return isBotMarkShape(shape) ? (SHAPE_INKS[shape] ?? null) : null;
+}
+
+/** The ink each colour of the bot palette draws in, by the palette's ids. */
+const PALETTE_INKS: Record<string, BotMarkInk> = {
+  white: "neutral",
+  violet: "purple",
+  green: "green",
+  orange: "orange",
+  cyan: "cyan",
+  blue: "blue",
+  yellow: "yellow",
+  brown: "brown",
+  red: "red",
+  magenta: "magenta",
+  gray: "gray",
+};
+
+const PALETTE_BY_HEX = /* @__PURE__ */ (() => {
+  const byHex = new Map<string, BotMarkInk>();
+  for (const color of BOT_COLOR_LIST) {
+    const ink = PALETTE_INKS[color.id];
+    if (!ink) continue;
+    byHex.set(color.hex.toLowerCase(), ink);
+    if (color.previousHex) byHex.set(color.previousHex.toLowerCase(), ink);
+  }
+  return byHex;
+})();
+
+const INK_HUES: [Exclude<BotMarkInk, "neutral" | "gray" | "brown">, number][] = [
   ["red", 354],
   ["orange", 23],
   ["yellow", 35],
-  ["brown", 30],
   ["green", 151],
   ["cyan", 172],
   ["blue", 212],
@@ -390,13 +442,38 @@ const INK_HUES: [Exclude<BotMarkInk, "neutral" | "gray">, number][] = [
   ["magenta", 327],
 ];
 
-/** The picked ink when it is one of ours; else the ink nearest the bot's colour. */
-export function botMarkInkFor(picked: string | null | undefined, colorHex: string): BotMarkInk {
+/** The inks a bot with no colour of its own is given, by its identity, as the reference does. */
+const IDENTITY_INKS: readonly BotMarkInk[] = BOT_MARK_PICKER_INKS.filter(
+  (ink) => ink !== "neutral",
+);
+
+/** The ink a bot with no colour of its own draws in: one of the bright inks or gray, by its id. */
+export function botMarkIdentityInk(identity: string): BotMarkInk {
+  // The reference salts its seed twice with the same constant, which cancels out.
+  const state = (botMarkSeed(identity) + 1831565813) | 0;
+  let next = Math.imul(state ^ (state >>> 15), 1 | state);
+  next = (next + Math.imul(next ^ (next >>> 7), 61 | next)) ^ next;
+  const unit = ((next ^ (next >>> 14)) >>> 0) / 4294967296;
+  return IDENTITY_INKS[Math.floor(unit * IDENTITY_INKS.length)] ?? "neutral";
+}
+
+/**
+ * The picked ink when it is one of ours; else the ink of the bot's palette colour, the ink
+ * nearest a colour from outside the palette, or, for a bot with no colour, the one its identity
+ * gives it.
+ */
+export function botMarkInkFor(
+  picked: string | null | undefined,
+  colorHex: string,
+  identity?: string,
+): BotMarkInk {
   if ((BOT_MARK_INKS as readonly string[]).includes(picked ?? "")) return picked as BotMarkInk;
   if (picked === "violet") return "purple";
   if (picked === "black") return "neutral";
   const match = /^#?([0-9a-f]{6})/i.exec(colorHex);
-  if (!match) return "neutral";
+  if (!match) return identity === undefined ? "neutral" : botMarkIdentityInk(identity);
+  const palette = PALETTE_BY_HEX.get(`#${match[1]!.toLowerCase()}`);
+  if (palette) return palette;
   const value = Number.parseInt(match[1]!, 16);
   const r = ((value >> 16) & 255) / 255;
   const g = ((value >> 8) & 255) / 255;
@@ -416,7 +493,6 @@ export function botMarkInkFor(picked: string | null | undefined, colorHex: strin
   let best: BotMarkInk = "blue";
   let distance = Infinity;
   for (const [ink, inkHue] of INK_HUES) {
-    if (ink === "brown") continue;
     const delta = Math.min(Math.abs(hue - inkHue), 360 - Math.abs(hue - inkHue));
     if (delta < distance) {
       distance = delta;
