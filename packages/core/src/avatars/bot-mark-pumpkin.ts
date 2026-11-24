@@ -14,7 +14,21 @@ import { convexHull, insidePolygon, rotate } from "./bot-mark-geometry.js";
 
 const PI = Math.PI;
 const TAU = PI * 2;
-const { abs, acos, asin, atan2, ceil, cos, exp, floor, hypot, max, min, pow, sin, sqrt } = Math;
+// One binding each, so a bundle that never draws a pumpkin can drop them.
+const abs = Math.abs;
+const acos = Math.acos;
+const asin = Math.asin;
+const atan2 = Math.atan2;
+const ceil = Math.ceil;
+const cos = Math.cos;
+const exp = Math.exp;
+const floor = Math.floor;
+const hypot = Math.hypot;
+const max = Math.max;
+const min = Math.min;
+const pow = Math.pow;
+const sin = Math.sin;
+const sqrt = Math.sqrt;
 
 /** The pumpkin's size against the sphere, as for the other bodies. */
 const SIZE = 1.17;
@@ -92,10 +106,12 @@ export function pumpkinUnit(size: number): number {
 // ── Outline ────────────────────────────────────────────────────────────────────────────────────
 
 const RAYS = 256;
-const TILTS = Array.from({ length: 49 }, (_, k) => {
-  const a = ((k - 24) / 24) * 1.25;
-  return [cos(a), sin(a)] as const;
-}).sort((p, q) => q[0] - p[0]);
+// Built in a call marked pure, so a bundle that never draws a pumpkin can drop it.
+const TILTS = /* @__PURE__ */ (() =>
+  Array.from({ length: 49 }, (_, k) => {
+    const a = ((k - 24) / 24) * 1.25;
+    return [cos(a), sin(a)] as const;
+  }).sort((p, q) => q[0] - p[0]))();
 
 export type PumpkinShape = {
   /** How far the outline reaches along each of 256 directions, in body units. */
