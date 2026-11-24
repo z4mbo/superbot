@@ -143,6 +143,27 @@ const NO_BLINK = new Set<BotMarkFace>(["sad", "happy", "confused", "squinted", "
 export const FACE_MORPH_SECONDS = 0.28;
 const FACE_EASE = [0.4, 0.06, 0.18, 1] as const;
 
+/** Each eye's centre in eye space: shaped bodies spread the centres apart separately from the eyes' size. */
+export function faceOffsets(face: BotMarkFace): readonly [Point, Point] {
+  const [left, right] = BOT_MARK_FACE_EYES[face];
+  return [left.off, right.off];
+}
+
+/** The eye centres partway from one face to another, eased as the outlines are. */
+export function morphOffsets(
+  from: BotMarkFace,
+  to: BotMarkFace,
+  progress: number,
+): readonly [Point, Point] {
+  if (progress >= 1 || from === to) return faceOffsets(to);
+  const t = cubicEase(FACE_EASE, Math.max(0, progress));
+  const a = faceOffsets(from);
+  const b = faceOffsets(to);
+  const blend = (p: Point, q: Point) =>
+    [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t] as const;
+  return [blend(a[0], b[0]), blend(a[1], b[1])];
+}
+
 /** The eyes partway from one face to another. */
 export function morphFaces(
   from: BotMarkFace,

@@ -9,23 +9,26 @@
  * path it returns, once per bot, wherever that bot appears.
  */
 
-import { bodyEyes, bodyGaze, bodyMatrix, bodySilhouette, keepInside } from "./bot-mark-bodies.js";
+import { bodyEyes, bodySilhouette, bodyTurn, turnStep } from "./bot-mark-bodies.js";
 import type { BotMarkBodyShape } from "./bot-mark-body-data.js";
+import { BOT_MARK_BODY_SPECS } from "./bot-mark-body-data.js";
 import type { BotMarkFace } from "./bot-mark-faces.js";
 import {
   blinkEye,
   canBlink,
   FACE_MORPH_SECONDS,
+  faceOffsets,
   faceOutlines,
   morphFaces,
+  morphOffsets,
 } from "./bot-mark-faces.js";
 import type { EyeFrame, Point } from "./bot-mark-geometry.js";
 import {
   ellipsePath,
   fmt,
+  insidePolygon,
   polylinePath,
   rotationMatrix,
-  smoothPath,
   sphereEye,
 } from "./bot-mark-geometry.js";
 import type { BotMarkPlaylistName, BotMarkPoke, BotMarkPose } from "./bot-mark-motion.js";
@@ -39,6 +42,7 @@ import {
   REST_ROTATION,
   REST_ZOOM,
 } from "./bot-mark-motion.js";
+import { pumpkinEyes, pumpkinShape } from "./bot-mark-pumpkin.js";
 
 export type { BotMarkFace } from "./bot-mark-faces.js";
 export { BOT_MARK_FACES } from "./bot-mark-faces.js";
@@ -178,6 +182,8 @@ export type BotMarkFrame = {
   zoom: number;
   /** Each eye's outline in eye space (x away from the face's middle, y up), or none. */
   eyes: readonly [readonly Point[], readonly Point[]] | null;
+  /** Each eye's centre in eye space; shaped bodies spread the centres apart by their own gap. */
+  eyeOffsets: readonly [Point, Point];
 };
 
 /** Where the pointer holds the face: x right and y up, each -1 to 1, and how firmly (0 to 1). */
@@ -223,6 +229,16 @@ function playlistFor(
   return { name: state as BotMarkPlaylistName, seconds };
 }
 
+/** How far a held gaze turns a body (degrees) and moves it (body radii), per unit of gaze. */
+function gazeTurn(shape: BotMarkShape | undefined) {
+  if (shape === undefined || shape === "blob") return { pitch: 14, yaw: 18, x: 0.03, y: 0.024 };
+  const k = GAZE_SCALE[shape] ?? 1;
+  return { pitch: 19 * k, yaw: 26 * k, x: 0.07, y: 0.055 };
+}
+
+/** Bodies that turn less toward a gaze. */
+const GAZE_SCALE: Partial<Record<BotMarkShape, number>> = { heart: 0.6, wedge: 0.55 };
+
 function eyesFor(face: { from: BotMarkFace; to: BotMarkFace; since: number }, lids: number) {
   const [left, right] = morphFaces(face.from, face.to, face.since / FACE_MORPH_SECONDS);
   const settled = face.since >= FACE_MORPH_SECONDS;
@@ -238,14 +254,14 @@ function eyesFor(face: { from: BotMarkFace; to: BotMarkFace; since: number }, li
 export function botMarkFrame(input: BotMarkFrameInput): BotMarkFrame {
   const seconds = Math.max(0, input.time / 1000);
   const play = playlistFor(input.state, input.emotion, seconds);
-  const shaped = input.shape !== undefined && input.shape !== "blob";
   let pose: BotMarkPose;
   let eyes: readonly [readonly Point[], readonly Point[]];
+  let eyeOffsets: readonly [Point, Point];
   if (!play) {
     pose = REST_POSE;
     const gaze = input.gaze;
     if (gaze && gaze.hold > 0) {
-      const turn = bodyGaze(shaped ? (input.shape as BotMarkBodyShape) : "sphere");
+      const turn = gazeTurn(input.shape);
       const h = Math.min(1, gaze.hold);
       const target: [number, number, number] = [-turn.pitch * gaze.y, turn.yaw * gaze.x, 0];
       pose = {
@@ -259,6 +275,7 @@ export function botMarkFrame(input: BotMarkFrameInput): BotMarkFrame {
       };
     }
     eyes = faceOutlines("neutral");
+    eyeOffsets = faceOffsets("neutral");
   } else {
     const playlist = BOT_MARK_PLAYLISTS[play.name];
     const step = playlistAt(playlist.clips, play.seconds, input.seed);
@@ -269,6 +286,7 @@ export function botMarkFrame(input: BotMarkFrameInput): BotMarkFrame {
       ? { from: "neutral" as BotMarkFace, to: held, since: play.seconds }
       : clipFace(step.clip, step.time);
     eyes = eyesFor(face, pose.lids);
+    eyeOffsets = morphOffsets(face.from, face.to, face.since / FACE_MORPH_SECONDS);
   }
   const poke = pokeEffect(input.pokes ?? []);
   return {
@@ -278,6 +296,7 @@ export function botMarkFrame(input: BotMarkFrameInput): BotMarkFrame {
     anchor: pose.anchor,
     zoom: pose.zoom,
     eyes,
+    eyeOffsets,
   };
 }
 
@@ -305,6 +324,11 @@ export function botMarkBlend(from: BotMarkFrame, to: BotMarkFrame, progress: num
           ),
         ) as unknown as readonly [Point[], Point[]])
       : to.eyes;
+  const eyeOffsets = [0, 1].map((side) => {
+    const [ax, ay] = from.eyeOffsets[side]!;
+    const [bx, by] = to.eyeOffsets[side]!;
+    return [ax + (bx - ax) * t, ay + (by - ay) * t] as const;
+  }) as unknown as readonly [Point, Point];
   return {
     rotation: blended.rot,
     offset: blended.pos,
@@ -312,6 +336,7 @@ export function botMarkBlend(from: BotMarkFrame, to: BotMarkFrame, progress: num
     anchor: blended.anchor,
     zoom: blended.zoom,
     eyes,
+    eyeOffsets,
   };
 }
 
@@ -334,53 +359,105 @@ const SPHERE_EYES: readonly [EyeFrame, EyeFrame] = (() => {
   ];
 })();
 
+/** A drawn mark: the body's outline, and the eye holes cut out of it. */
+export type BotMarkDrawing = {
+  body: string;
+  /** The eye holes, to cut from the body with a mask: they may reach over its edge. */
+  eyes: string;
+  /** The pumpkin's stem, over the body in two greys of its own: the whole stem, then its cap. */
+  stem: readonly { d: string; tone: "stem" | "cap" }[];
+};
+
 /**
- * The single even-odd path for a body and a frame, in box units: the body's silhouette, then
- * each visible eye, which the even-odd rule turns into a hole.
+ * The body's outline and its eye holes for a frame, in box units. A renderer fills the body and
+ * cuts the eyes out of it with a mask, as the reference does, so an eye reaching over the body's
+ * edge only ever removes ink.
  */
-export function botMarkPath(shape: BotMarkShape, frame: BotMarkFrame): string {
+export function botMarkDrawing(shape: BotMarkShape, frame: BotMarkFrame): BotMarkDrawing {
   const radius = (frame.zoom * BOT_MARK_BOX) / 2;
   const [sx, sy] = [Math.abs(frame.squash[0]), Math.abs(frame.squash[1])];
+  if (radius <= 0 || sx === 0 || sy === 0) return { body: "", eyes: "", stem: [] };
+  // Squash holds the anchor still: -1 keeps the bottom of the body where it was.
   const cx = CENTER + frame.offset[0] * radius;
   const cy = CENTER - (frame.anchor * (1 - sy) + frame.offset[1]) * radius;
-  if (radius <= 0 || sx === 0 || sy === 0) return "";
   const eyes: Point[][] = [];
+  const offsets = frame.eyeOffsets;
+  const pair = frame.eyes
+    ? [
+        { outline: frame.eyes[0], off: offsets[0] },
+        { outline: frame.eyes[1], off: offsets[1] },
+      ]
+    : null;
+  // Shaped bodies are drawn on a whole-pixel sprite at least 144 across, then scaled to fit.
+  const exact = Math.max(8, Math.round((BOT_MARK_BOX * frame.zoom) / (184 / 256)));
+  const sprite = Math.max(exact, 144);
   let body: string;
-  if (shape === "blob") {
+  let stem: BotMarkDrawing["stem"] = [];
+  if (shape === "pumpkin") {
+    const k = exact / sprite;
+    const toBox = ([x, y]: Point): Point => [
+      cx + (x - sprite / 2) * k * sx,
+      cy + (y - sprite / 2) * k * sy,
+    ];
+    const turn = bodyTurn(frame.rotation, turnStep(frame.zoom), false);
+    const look = pumpkinShape(turn, sprite);
+    body = polylinePath(look.outline.map(toBox));
+    if (pair) for (const eye of pumpkinEyes(turn, sprite, look, pair)) eyes.push(eye.map(toBox));
+    stem = look.stem.map(({ d, tone }) => ({
+      d: d.map((loop) => polylinePath(loop.map(toBox))).join(""),
+      tone,
+    }));
+  } else if (shape === "blob") {
     body = ellipsePath(cx, cy, sx * radius, sy * radius);
     if (frame.eyes) {
       const turn = rotationMatrix(frame.rotation);
       frame.eyes.forEach((outline, side) => {
         const eye = sphereEye(outline, SPHERE_EYES[side]!, turn);
-        if (!eye) return;
-        // A squashed body keeps its eyes where they were, inside its narrower outline.
-        const kept =
-          sx < 1 || sy < 1
-            ? eye.map(([x, y]) => {
-                const reach = Math.hypot(x / sx, y / sy);
-                return reach > 0.985
-                  ? ([(x / reach) * 0.985, (y / reach) * 0.985] as const)
-                  : ([x, y] as const);
-              })
-            : eye;
-        eyes.push(kept.map(([x, y]) => [cx + x * radius, cy - y * radius] as const));
+        if (eye)
+          eyes.push(eye.map(([x, y]) => [cx + x * sx * radius, cy - y * sy * radius] as const));
       });
     }
   } else {
-    const turn = bodyMatrix(frame.rotation);
-    const anchorY = cy + frame.anchor * (1 - sy) * radius;
-    const toBox = ([x, y]: Point): Point => [
-      cx + x * sx * radius,
-      anchorY + (cy - y * radius - anchorY) * sy,
-    ];
-    const silhouette = bodySilhouette(shape, turn);
-    body = smoothPath(silhouette.map(toBox));
-    if (frame.eyes) {
-      const inside = keepInside(bodyEyes(shape, frame.eyes, turn), silhouette);
-      for (const eye of inside) eyes.push(eye.map(toBox));
-    }
+    const body3d = shape as BotMarkBodyShape;
+    const spec = BOT_MARK_BODY_SPECS[body3d];
+    // A body of size 1 is 1.18 body units across the sphere's radius, drawn on a whole-pixel sprite.
+    const unit = (spec.size * 0.36 * exact) / 1.18;
+    const toBox = ([x, y]: Point): Point => [cx + x * sx * unit, cy - y * sy * unit];
+    const turn = bodyTurn(frame.rotation, turnStep(frame.zoom));
+    body = polylinePath(bodySilhouette(body3d, turn).map(toBox));
+    if (pair) for (const eye of bodyEyes(body3d, pair, turn)) eyes.push(eye.map(toBox));
   }
-  return body + eyes.map(polylinePath).join("");
+  return { body, eyes: eyes.map(polylinePath).join(""), stem };
+}
+
+/**
+ * The mark as one even-odd path, for still pictures drawn without a mask: the body, then each eye
+ * as a hole. Eyes that reach over the body's edge are left out of it.
+ */
+export function botMarkPath(shape: BotMarkShape, frame: BotMarkFrame): string {
+  const drawing = botMarkDrawing(shape, frame);
+  // The sphere's eyes always stay on its disc.
+  if (shape === "blob") return drawing.body + drawing.eyes;
+  const outline = pathPoints(drawing.body)[0] ?? [];
+  const inside = pathPoints(drawing.eyes).filter((eye) =>
+    eye.every((point) => insidePolygon(point, outline)),
+  );
+  return drawing.body + inside.map(polylinePath).join("");
+}
+
+/** The corner points of each closed run in a path written as straight lines. */
+function pathPoints(d: string): Point[][] {
+  return d
+    .split("M")
+    .slice(1)
+    .map((part) => {
+      const numbers = part.match(/-?[\d.]+/g)?.map(Number) ?? [];
+      const out: Point[] = [];
+      for (let index = 0; index + 1 < numbers.length; index += 2) {
+        out.push([numbers[index]!, numbers[index + 1]!]);
+      }
+      return out;
+    });
 }
 
 /** The mark resting with open eyes, for still pictures such as pickers and notifications. */

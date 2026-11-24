@@ -1,184 +1,409 @@
 /**
- * Measured bodies for the bot mark. Each entry is a body's front outline (128 radii, in body
- * radii, packed two base-64 characters per radius at 1/2000 steps, counter-clockwise from the
- * right), how it fills out in depth, and where its eyes sit. Written from local measurements of
- * the reference's silhouettes at several turns; edit by re-measuring, not by hand.
+ * Measured bodies for the bot mark, in body units (the sphere's radius is 1.18 of them at size 1).
+ * Each body is built the way it is drawn: turned on a lathe from a profile, pushed back from an
+ * outline with bevelled edges, lofted from an outline into a pillow, made of overlapping balls, or
+ * a rounded gem. Packed numbers are two base-64 characters each, at 1/2000 steps from -1.024.
+ * Written from local measurements of the reference; edit by re-measuring, not by hand.
  */
 
-export type BotMarkBodyKind =
-  | { type: "lathe"; axis: "x" | "y"; squeeze: number }
-  | { type: "slab"; depth: number; bevel: number };
+/** Eye placement on a body: eye width and height, the gap between the eyes and how far down they sit. */
+export type BotMarkEyePlacement = readonly [
+  width: number,
+  height: number,
+  gap: number,
+  shift: number,
+];
 
-/** Eyes sit `gap` either side of the middle at height `y`, on a flat face `front` deep or around a column of radius `wrap`, scaled from the sphere's eyes. */
-export type BotMarkBodySeat = {
-  gap: number;
-  y: number;
-  scaleX: number;
-  scaleY: number;
-  front?: number;
-  wrap?: number;
-};
+/** Where the eyes wrap: around the body's height between two heights, or along its length. */
+export type BotMarkWrapSeat = { wrap: readonly [y0: number, y1: number, eyeY: number] };
+export type BotMarkWrapXSeat = { wrapX: readonly [x0: number, x1: number] };
 
-export type BotMarkBodySpec = {
-  outline: string;
-  kind: BotMarkBodyKind;
-  seat: BotMarkBodySeat;
-  gazeScale?: number;
-};
+type Common = { size: number; eyes: BotMarkEyePlacement };
+
+export type BotMarkBodySpec = Common &
+  (
+    | { kind: "revolve"; top: number; bottom: number; radii: string; seat: BotMarkWrapSeat }
+    | {
+        kind: "extrusion";
+        halfDepth: number;
+        bevel: number;
+        convex: boolean;
+        face: number;
+        outline?: string;
+      }
+    | { kind: "loft"; depth: number; outline: string }
+    | { kind: "slab"; halfDepth: number; edge: number; outline: string; face: number }
+    | { kind: "crystal"; face: number }
+    | {
+        kind: "pill";
+        axis: "x" | "y";
+        reach: number;
+        radius: number;
+        seat: BotMarkWrapSeat | BotMarkWrapXSeat;
+      }
+    | {
+        kind: "balls";
+        balls: string;
+        top: number;
+        bottom: number;
+        radii: string;
+        seat: BotMarkWrapSeat;
+      }
+  );
 
 export const BOT_MARK_BODY_SPECS = {
   arch: {
-    outline:
-      "U1U3U7VEVPVeVxWIWjXCXlYJYrZNZvaPaubNbpcFcfc3dOdjd1eGeVeiese0e5e9e-e9e5e0eseieVeGd1djdOc3cfcFbpbNauaPZvZNYrYJXlXCWjWIVxVeVPVEU7U3U1U3U7VEVPVeVxWIWjXDXnYSZDZ8a8cHdde_griQjQjVi2iLhgg5gXf8flfUfIfBe-fBfIfUflf8gXg5hgiLi2jVjQiQgre_ddcHa8Z8ZDYSXnXDWjWIVxVeVPVEU7U3",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.216, y: 0.001, scaleX: 0.69, scaleY: 0.734, front: 0.62 },
+    size: 1.17,
+    eyes: [0.1924, 0.4218, 0.448, 0.16],
+    kind: "revolve",
+    top: 0.99956,
+    bottom: -0.99955,
+    radii:
+      "gAguhpigjXkNlDl4mrneoRpCpzqjrSsAsttYuCuqvRv3wbw9xdx8yZy0zMzjz30J0Z0m0w04091A1B1B1B1B1B1B1B1B" +
+      "1B1B1B1B1B1B1B1B1B1B1B1B1B1B1B1B1B1B1B1B1B1B1B1A1A1A1A0_0-090604000v0q0i0Z0O0BzxzezIyryKxhww" +
+      "v0unsypa",
+    seat: { wrap: [-0.99955, 0.99956, 0.15993] },
   },
   bean: {
-    outline:
-      "XtXvXyXzX1X2X4X9YCYHYMYRYaYkYuY4ZFZSZhZyaDaWaqa_bTbrcGcfc2dMdmeBeZeufAfPfbfqf2f_gFgFgBf6fvfffLe1ead7dZczcKbea2aOZjY9YYX1XWW8WqWfWaWfWqW8XWX1YYY9ZjaOa2becKczdZd7eae1fLfffvf6gBgFgFf_f2fqfbfPfAeueZeBdmdMc2cfcGbrbTa_aqaWaDZyZhZSZFY4YuYkYaYRYMYHYCX9X4X2X1XzXyXv",
-    kind: { type: "lathe", axis: "y", squeeze: 0.9 },
-    seat: { gap: 0.222, y: -0.117, scaleX: 0.735, scaleY: 0.747, front: 0.68 },
+    size: 1.17,
+    eyes: [0.2028, 0.4446, 0.4608, 0.12],
+    kind: "balls",
+    balls:
+      "gPiW26gPdq26gPgy22gPfO22gPj62egPcG2ehzfO2Ihzgy2IerY-1wernC1whzdq1whziW1werle1qerai1qgPai1mgP" +
+      "le1merj61eercG1eerom0nerXa0ngPY-0ngPnC0ndHom0mdHXa0mdHV20SdHqK0SbjruzdbjUSzdbjqKzUbjV2zUZ_Su" +
+      "xyZ_tSxy",
+    top: 0.99956,
+    bottom: -0.99955,
+    radii:
+      "gog2heiijXkPlFl6mvnjoXpKp8qtresNs7tpuVvAvqwTw6xgyFyozJzp0G0i091V1r1_2R2h2v273E3L3R3U3W3W3W3U" +
+      "3T3T3T3T3U3W3W3W3U3R3L3E272v2h2R1_1r1V090i0GzpzJyoyFxgw6wTvqvAuVtps7sNreqtp8pKoXnjmvl6lFkPjY" +
+      "iiheg2go",
+    seat: { wrap: [-0.99955, 0.99956, 0] },
   },
   capsule: {
-    outline:
-      "TvTwT1T9UIUWUoU9VXV1WYW_XoYPY2ZcaBakbFblcEcgc6dTdpd8eNecepeye4e8e-e8e4eyepeceNd8dpdTc6cgcEblbFakaBZcY2YPXoW_WYV1VXU9UoUWUIT9T1TwTvTwT1T9UIUWUoU9VXV1WYW_XoYPY2ZcaBakbFblcEcgc6dTdpd8eNecepeye4e8e-e8e4eyepeceNd8dpdTc6cgcEblbFakaBZcY2YPXoW_WYV1VXU9UoUWUIT9T1Tw",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.174, y: -0.119, scaleX: 0.768, scaleY: 0.803, front: 0.6 },
+    size: 1.17,
+    eyes: [0.2106, 0.4617, 0.36045, 0.12],
+    kind: "pill",
+    axis: "y",
+    reach: 0.36265,
+    radius: 0.63691,
+    seat: { wrap: [-0.99955, 0.99956, 0] },
   },
   cloud: {
+    size: 1.3455,
+    eyes: [0.21294, 0.46683, 0.47002, 0.07],
+    kind: "loft",
+    depth: 0.72,
     outline:
-      "h5hBgAe6dpdPdld_eVeme0e8fCfDfAe4erebeHdvdTczcObna7aNZbYnY5ZiaIatbQbycRcudIdfd0eHeWejeteze2e3e1evenebeOd8dodRc4ccb-bebXcud-fIgMhHh-itjVj4kTkpk3k-k_k5ktkakAjgi5iLhXgdfaeUdEbva4bBbVbmb2cDcPcZcfckcncnclchcbcScHb6brbZbFbFcDddeuf1g3hwijjPjykQklk0k8k8k2kokTj4jVir",
-    kind: { type: "slab", depth: 1.8, bevel: 0.9 },
-    seat: { gap: 0.268, y: -0.08, scaleX: 0.934, scaleY: 0.934, front: 0.82 },
+      "9dgi97fn-Vep-uda-9ca_KbJ_OaI_OY2_IX1-7Wl-rVm-RUZ93Td9ZSj8vRe8IQp7TPs6kO-5lOJ4wNj3pM52tMc1gL9" +
+      "0gLqzfLbyLLPxHLLvwLOurLVtfLmskLwrjLbq2Kup4J-pDJboMI7nFIYmKH_k-HmkAHViyHGhyG-ghG6fhG7eRHCdRHL" +
+      "cSHZbFHvaJIFZAIlYIJDXEJsWRKRVULDUcLaTULGSaK5RMKuQGKpPBKqNsKyMpK-LXLTKXLpJKMKIPMqHINWGTN_FVO2" +
+      "EnPlD8QYDMRbCqSUCFTeBsUbBTVqBDWqA3X8AyY-AyaRA3bUBBcWBUdnBoenCIf1CmgxDSh6D6ixEyjyFjkjGmlcHYmA" +
+      "ILmfJMnDJUn_JVpQJZqRJlriJzsjKKtyKhuxLEv9Ljw3MHxwM4y0NkznOe0kPR1QQU2ERM2pSV3STS3vUg4NVg4hWx4z" +
+      "Xz4-Y15EaH5GbJ5Dca45da4ueo4Zfl4Fgu3nhn3Liq2kjd2CkO1clK06mH1PnV1koV1vpm14qo15r610s81ruN1ZvM1F" +
+      "wK0txV0IyPzmzTy10GyK1CxP1twc2evY3Bue3mtT3_sV4UrV4mqE4wpB41nu4ymr5Bld5uk66tkF7djV8UiT87hc",
   },
   clover: {
+    size: 1.0881,
+    eyes: [0.23296, 0.51072, 0.5591, -0.02],
+    kind: "extrusion",
+    halfDepth: 0.36,
+    bevel: 0.22,
+    convex: false,
+    face: 0.36,
     outline:
-      "YjZkajbdcVdId4ejfLftgMgmg8hMhYhfhihfhYhMg8gmgMftfLejd4dIcVbdajZkYjZkajbdcVdId4ejfLftgMgmg8hMhYhfhhhfhYhMg8gmgMftfLejd4dIcVbdajZkYjZkajbdcVdId4ejfLftgMgmg8hMhYhfhihfhYhMg8gmgMftfLejd4dIcVbdajZkYjZkajbdcVdId4ejfLftgMgmg8hMhYhfhihfhYhMg8gmgMftfLejd4dIcVbdajZk",
-    kind: { type: "slab", depth: 0.7, bevel: 0.21 },
-    seat: { gap: 0.258, y: 0.018, scaleX: 0.826, scaleY: 0.826, front: 0.34 },
+      "6ogA69fe7ge775eX8Sdy8pdL8_ck9Ub89nbU94ar-IaA-XZW-jYr-vX_-4XT_AWm_GV5_LVM_OUf_PTy_OTE_MSX_IRp" +
+      "_DQ8-7QQ-yPj-oO3-bOL-NNf9-M09sMK9ZLh9FK48vKQ8YJp7_JC7kId7JH56sHV6NG05tGT5MFz4rFU4HE33jEc2-EB" +
+      "2XDo1wDR1IC70fCnz2CUzMCCyhBzx1BlxJBYwdBOvwBFvEA9uXA4tpA0s8AysOAxrhAyq0A1qHA6paBAotBIoBBRnVBd" +
+      "mqBpmAB4lVCIksCZkECsjcDBi1DXiODuhpEHhFEggiFDgAFYfeFDe7EgeXEHdyDudLDXclDBb9CsbUCZarCIaAB4ZWBp" +
+      "YrBdX_BRXTBIWmBAV5A6VMA1UfAyTyAxTEAySXA0RpA4Q8A9QQBFPjBOO3BYOLBlNfBzM0CCMKCULhCnK4C7KQDRJpDo" +
+      "JCEBIdEcH5E3HWFUG0FzGTGTFzG0FVHVE3H5EcIdEBJCDoJpDRKQC7K4CmLhCUMKCCM0BzNfBlOLBYO3BOPjBFQQA9Q8" +
+      "A4RpA0SXAyTEAxTyAyUfA1VMA6V5BAWmBIXTBRX_BdYrBpZWB4aACIarCZbUCsb8DBckDXdLDudyEHeXEhe7FDfeFYgA" +
+      "FDgiEhhFEHhpDuiODXi1DBjbCskDCZksCIlVB4mABpmqBdnVBRoBBIotBApaA6qHA1q0AyrhAxsOAys8A0tpA4uXA9vE" +
+      "BFvwBOwdBYxJBlx1BzyhCCzMCUz2Cm0fC71IDR1wDo2XEB2-Ec3jE34HFV4qFz5MGT5tG06NHW6rH57JId7kJC7_Jp8Y" +
+      "KQ8vK49FLh9aMK9sM09-Nf-NOL-bO3-oPj-yQQ-7Q8_DRp_ISX_MTE_OTy_PUf_OVM_LV5_GWm_AXT-4X_-vYr-jZW-X" +
+      "aA-Iar94bU9nb99Ucl8_dL8pdy8SeX75e77ffe69gA6ogi69hF7fhp75iO8Si18pjc8_kE9Uks9nlV94mA-Imq-XnV-j" +
+      "oB-vot-4pa_AqH_Gq0_Lrh_OsO_Ps8_Otp_MuX_IvE_Dvw-7wd-yxJ-ox1-byh-NzM9-z29s0f9a1I9F1w8v2X8Y2-7_" +
+      "3j7k4H7J4r6r5M6N5t5t6N5M6s4q7J4H7k3j7_2-8Y2X8v1w9F1I9Z0f9sz29-zM-Nyh-bx1-oxJ-ywd-7vw_DvE_IuX" +
+      "_Mtp_Os8_PsO_Orh_Lq0_GqH_Apa-4ot-voB-jnV-Xmq-ImA94lV9nks9UkD8_jb8pi18SiO75hp7ghF69gi6ogA",
   },
   crystal: {
-    outline:
-      "XTXUXaXjXwYBYWYvZNZxaabKcBdAeCeue-fBfJfWfogAgdhAhqiajTkUlfm1oYp2qap2oYm1lfkUjTiahqhAgdgAfofWfJfBe-eueCdAcBbKaaZxZNYvYWYBXwXjXaXUXTXUXaXjXwYBYWYvZNZxaabKcBdAeCeue-fBfJfWfogAgdhAhqiajTkUlfm1oYp2qap2oYm1lfkUjTiahqhAgdgAfofWfJfBe-eueCdAcBbKaaZxZNYvYWYBXwXjXaXU",
-    kind: { type: "lathe", axis: "y", squeeze: 0.9 },
-    seat: { gap: 0.221, y: -0.14, scaleX: 0.765, scaleY: 0.725, wrap: 0.68 },
+    size: 1.3806,
+    eyes: [0.1612, 0.3534, 0.3712, 0.12],
+    kind: "crystal",
+    face: 0.55426,
   },
   cylinder: {
-    outline:
-      "aeagamaxa_bSbqcHcqdSeBe3f0gnhEhThXhThLhAgygjgUgGf4frfgfWfNfHfCe_e-e_fCfHfNfWfgfrf4gGgUgjgyhAhLhThXhThEgnf0e3eBdScqcHbqbSa_axamagaeagamaxa_bSbqcHcqdSeBe3f0gnhEhShXhThLhAgygjgUgGf4frfgfWfNfHfCe_e-e_fCfHfNfWfgfrf4gGgUgjgyhAhLhThXhShEgnf0e3eBdScqcHbqbSa_axamag",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.235, y: -0.119, scaleX: 0.909, scaleY: 0.912, wrap: 0.84 },
+    size: 1.17,
+    eyes: [0.2392, 0.5244, 0.47872, 0.12],
+    kind: "revolve",
+    top: 0.99956,
+    bottom: -0.99955,
+    radii:
+      "gAhVipkBlVmpn7pNqdrrs4uDvNwUxZybza0W1P2E223l4P405V5x6J6a6m6r6s6s6s6s6s6s6s6s6s6s6s6s6s6s6s6s" +
+      "6s6s6s6s6s6s6s6s6s6s6s6s6s6s6s6s6s6s6s6s6r6m6a6J5x5V404P3l222E1P0WzaybxZwUvNuDs4rrqdpNn7mplV" +
+      "kBiphVgA",
+    seat: { wrap: [-0.99955, 0.99956, 0] },
   },
   dome: {
-    outline:
-      "cQbxbTa3adaEZuZYZEYyYhYRYCX1XpXeXTXKXBW6WzWtWnWiWeWaWYWVWSWRWQWPWPWPWQWRWSWVWYWaWeWiWnWtWzW6XBXKXTXeXpX1YCYRYhYyZEZYZuaEada3bTbxcQcydWd7ejfNf6gohZiMjDj-kwkki-hGfceAcxbsavZ7ZNYmYEXnXPW7WrWeWWWRWPWRWWWeWrW7XPXnYEYmZNZ7avbscxeAfchGi-kkkwj-jDiMhZgof6fNejd7dWcy",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.234, y: -0.105, scaleX: 0.788, scaleY: 0.813, front: 0.9 },
+    size: 1.17,
+    eyes: [0.2132, 0.4674, 0.47872, 0.106],
+    kind: "revolve",
+    top: 0.7176,
+    bottom: -0.71759,
+    radii:
+      "gAgshjiXjKj-kxljmVnGn3oopYqIq4rnsVtCtvucvHvywdxGxvyXy-zk0K0u1S102W233X314T4w5M5n6A6Z6x7H7d7x" +
+      "8F8X8p859I9X9k9x98-H-R-a-i-p-v-1-6--_C_F_H_J_K_L_L_L_L_L_L_K_K_I_G_E_B---4-z-r-i-X-J949l9L8v" +
+      "8H7R6G4E",
+    seat: { wrap: [-0.71759, 0.7176, 0] },
   },
   egg: {
-    outline:
-      "ZYZRZLZHZDZBZAZAZDZGZLZRZaZkZvZ8aLacaubCbXbucGcec4dRdpeAeUemeze7e-e7ezemeUeAdpdRc4cecGbubXbCauacaLZ8ZvZkZaZRZLZGZDZAZAZBZDZHZLZRZYZgZqZ0Z-aKaWajawa-bMbbbqb5cIcWcmc0dDdRdfdsd4eFePeaejerexe3e7e9e-e9e7e3exerejeaePeFd4dsdfdRdDc0cmcWcIb5bqbbbMa-awajaWaKZ-Z0ZqZg",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.213, y: -0.112, scaleX: 0.909, scaleY: 0.912, wrap: 0.8 },
+    size: 1.17,
+    eyes: [0.2392, 0.5244, 0.43366, 0.113],
+    kind: "revolve",
+    top: 0.99956,
+    bottom: -0.99955,
+    radii:
+      "gAgqhYiGiyjfkMk4llmRm9nqoWpBptqZrErvsZtDttuXu_vowPw2xcyCymzKzs0O0u1N1r2I2j293V3s4B4V4m425E5Q" +
+      "5b5j5p5t5w5w5u5q5k5c5S5F434n4U4A3q3R232b191d080Zz0zOymx9xSwmv5vKubtqs5sGrSqeppoyn8nFmNlWkdjk" +
+      "ishxg2gA",
+    seat: { wrap: [-0.99955, 0.99956, 0] },
   },
   flower: {
-    outline:
-      "YVaRb2dLeSfOf_glhDhXhhhihbhKgwgNfgendkcUa0ZAZqbXcxd8e7fvgZg6hRhfhkhfhRg6gZfve7d8cxbXZqZAa0cUdkenfggNgwhKhbhihhhXhDglf_fOeSdLb2aRYVaRb2dLeSfOf_glhDhXhhhihbhKgwgNfgendkcUa0ZAZqbXcxd8e7fvgZg6hRhfhkhfhRg6gZfve7d8cxbXZqZAa0cUdkenfggNgwhKhbhihhhXhDglf_fOeSdLb2aR",
-    kind: { type: "slab", depth: 0.9, bevel: 0.27 },
-    seat: { gap: 0.226, y: -0.141, scaleX: 0.875, scaleY: 0.876, front: 0.42 },
+    size: 1.3923,
+    eyes: [0.19292, 0.42294, 0.38298, 0.12],
+    kind: "extrusion",
+    halfDepth: 0.36,
+    bevel: 0.22,
+    convex: false,
+    face: 0.36,
   },
   gem: {
-    outline:
-      "eqeheOd6dmdRc-cscccNcAb2bsbmbhbebebfbjbpbxb7cHcVclc3dKdfd0eKefeye-eyefeKd0dfdKc3clcVcHb7bxbpbjbfbebebhbmbsb2cAcNcccsc-dRdmd6eOeheqeheOd7dmdRc-cscccNcAb2btbmbhbebebfbjbpbxb7cHcVclc3dKdfd0eKefeye-eyefeKd0dfdKc3clcVcHb7bxbpbjbfbebebhbmbtb2cAcNcccsc-dRdmd7eOeh",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.244, y: -0.119, scaleX: 0.882, scaleY: 0.912, front: 0.9 },
+    size: 1.17,
+    eyes: [0.2392, 0.5244, 0.50125, 0.12],
+    kind: "revolve",
+    top: 0.99956,
+    bottom: -0.99955,
+    radii:
+      "gAgTgrhKhtiTi8jmkTlBlwmhnToFo4psqhrWsLtAt2urvhwWxKx_yzzm0Y1K172q3Z4G4y5d6G6u7T738Z859W9x-J-e" +
+      "-v-7-7-v-e-J9x9W858Z737T6u6G5d4y4G3Z2q171K0Yzmyzx_xKwWvhurt2tAsLrWqhpso4oFnTmhlwlBkTjmi8iTht" +
+      "hLgrgTgA",
+    seat: { wrap: [-0.99955, 0.99956, 0] },
   },
   heart: {
+    size: 1.3572,
+    eyes: [0.18658, 0.40903, 0.44621, 0.052],
+    kind: "loft",
+    depth: 0.62,
     outline:
-      "hhiPi4jej-kZkwlClOlWlZlWlPlDk0kfkHjsjNiriFhdgzgGfWeldzdAcKbTacZkY2ZlacbTcKc_d0emfWgFgyheiFiqjNjskIkfkzlElPlWlYlWlOlCkxkaj-jei4iOhhguf4e_eCdFcPbga3aUZ2ZeZJY6YuYmYiYiYlYtY4ZHZbZzaQaybXb4cTcmc1c9dAc-c1cmcSb4bYayaQZzZbZHY4YtYlYhYiYmYuY5ZJZeZ2aUa3bfcOdFeCe_f4gu",
-    kind: { type: "slab", depth: 1.4, bevel: 0.7 },
-    seat: { gap: 0.257, y: -0.06, scaleX: 0.825, scaleY: 0.825, front: 0.7 },
-    gazeScale: 0.6,
+      "9NgJ9qhP-CiY-Vjj-iku-rl7-unI-roW-jpj-Wqw-Dr89qtH9NuQ8qvX8Cwc7Vxe6jyc5tzY400Q321E21101w2f0p3G" +
+      "zg3pyU4GxG4ev44yuo5AtY5KsI5Oq55Opq5Ioc4-nP4vmE4ck84Fj13piy3Khx2ngz2Bf51je-2Ld_2wc-3Sb53way4L" +
+      "Zp4hYe4zXR5BWD5KU05OTk5NSU5IRE49P04uOm4ZNZ3_MO3gLF29J-2VI71oH603G-0CGFzJFQyNEfxND0wLDNvFCrt-" +
+      "CPs0B4rpBmqdBapQBUoCBSm1BXloBhkbBwjQCEiGCdg-C7f3Dee0EFdzEwc0Ffb6GRbCHGaOH6ZdIsYuJcYAKKXUK3Wq" +
+      "LiWBMNVZM2UxNfULOHTlOvS_PWSaP9R1QkRQRLQrRyQGSaPhTCO7TqOVUTNuU9NHVnMfWTL1XALKXvKeYfJwZTJEaKId" +
+      "bFH8cCHhdCHMeDG9fFG0gIGyhLG2iNHAjOHQkOHnlKIEmEImm7JPntJ8odKppLLVp4MAqjMprONRr3N4sgOftIPFtwPq" +
+      "uXQQu-Q1vlRZwMR-w0SjxbTJyDTuyrUUzUU7z-Vj0oWL1UW12BXf2wYL3gY54TZp5Iab58bQ6ucI7bdE8GeD8rfE",
   },
   hex: {
+    size: 1.2519,
+    eyes: [0.26, 0.57, 0.64, 0.12],
+    kind: "extrusion",
+    halfDepth: 0.36,
+    bevel: 0.22,
+    convex: true,
+    face: 0.36,
     outline:
-      "eBeDeKeWene9fYf4gcg2hFhIg8glgFfifFetebeOeFeBeCeHeRege0fOftgQgvhChIhCgvgQftfOe1eheSeHeCeBeFeOebetfFfigFglg8hIhFg2gcf4fYe9eneWeKeDeBeDeKeWene9fYf4gcg2hFhIg8glgFfifFetebeOeFeBeCeHeSehe1fOftgQgvhChIhCgvgQftfOe1eheSeIeCeBeFeOebetfFfigFglg8hIhFg2gcf4fYe9eneWeKeD",
-    kind: { type: "slab", depth: 0.8, bevel: 0.24 },
-    seat: { gap: 0.34, y: -0.127, scaleX: 1.061, scaleY: 1.061, front: 0.38 },
+      "8TVZ8QUY8ITa77Sf7pRn7RQy60QA6SPR5rOl4-N84MNW3VMz2aMR1gLv0lLNzqKryvKKx0Jow6JGv_IkvEICuJHgtPG-" +
+      "sUGcrZF6qeFYpkE2opEUnuDymzDQl4Cvk-CNkEBujKBWiQBEhXA4gdAyfjAyepA4dwBEc2BWb8BubCCNaICvZNDQYSDy" +
+      "XXEUWcE2ViFYUnF6TsGcSxG-R3HgQ8ICQBIkPGJGOMJoNRKKMWKrLbLNKgLvJmMRIrMzH0NWHCN8GVOlFuPRFMQAEvQy" +
+      "EXRnEFSfD4TaDwUYDtVZDtWdDtXhDtYlDtZpDtatDtbxDtc0Dtd4Dte8DtgADthEDtiIDtjMDtkPDtlTDtmXDtnbDtof" +
+      "DtpjDtqnDwroD4smEFthEXuZEvvOFMwAFuwvGVxbHCyEH0yqIrzNJmzvKg0RLb0zMW1VNR12OM2YPG26QB3cQ83-R34g" +
+      "Sx5CTs5kUn6GVi6oWc7KXX7sYS8OZN8waI9RbC9zb8-Sc2-qdw-8ep_Ifj_Ogd_OhX_IiQ-8jK-qkE-Sk-9zl49Rmz8w" +
+      "nu8Oop7spk7Kqe6orZ6GsU5ktP5CuJ4gvE3-v_3cw626x02Yyv12zq1V0l0z1g0R2azv3VzN4Myq4-yE5rxb6Swv60wA" +
+      "7RvO7puZ77th8Ism8Qro8Tqn8Tpj8Tof8Tnb8TmX8TlT8TkP8TjM8TiI8ThE8TgA8Te88Td48Tc08Tbx8Tat8TZp8TYl" +
+      "8TXh8TWd8TVZ",
   },
   house: {
+    size: 1.17,
+    eyes: [0.22951, 0.50316, 0.51251, 0.185],
+    kind: "extrusion",
+    halfDepth: 0.36,
+    bevel: 0.22,
+    convex: true,
+    face: 0.36,
     outline:
-      "dWdZdedkdmdldhdZdMc8cocSb5bgbKa5asakagagakasa5bKbfb6cZc_dneKeme4e_e4emeKdnc_cZb6bfbKa5atakagagakata5bKbgb5cScoc8dMdZdhdldmdjdedZdWdZdgdrd7eRerfLfxgehSiOjTkjl3m6ninpnOmZlQkHjIiRhig5gXf8flfUfIfBe-fBfIfUflf8gXg5hiiRjIkHlQmZnOnpnim6l3kjjTiOhSgefxfLereRd7drdgdZ",
-    kind: { type: "slab", depth: 0.7, bevel: 0.21 },
-    seat: { gap: 0.254, y: -0.182, scaleX: 0.875, scaleY: 0.875, front: 0.36 },
+      "CaJWCcIUCiHWCtGcC8FmDPE1DnEIEDDfEjC6FHCaFwB-GdBnHPBTIEBEI-A5J8AzK_AxMEAxNJAxOOAxPTAxQYAxRdAx" +
+      "SiAxTnAxUsAxVxAxW2AxX7AxZAAxaFAxbKAxcPAxdUAxeZAxfeAxgiAxhnAxisAxjxAxk2Axl7AxnAAxoFAxpKAxqPAx" +
+      "rUAxsZAxteAxujAxvoAxwtAxxyAxy3Axz8Ax1BAx2EAz3CA538BE4xBT5jBn6QB-65Ca7dC679Df8ZEI8xE19EFm9TGc" +
+      "9eHW9kIU9nJW9nKb9nLh9nMm9nNr9nOw9nP19nQ79nSA9nTF9nUK9nVP9nWV9nXa9nYf9nZk9nap9nbv9nc09nd59ne-" +
+      "9ngD9nhJ9niO9ljS9gkU9XlU9MmT88nR8qoM8UpG76p-7eq169rq6asd5ztP5Jt_4but3qva21wF1_wv1Jxa0TyEzdyu" +
+      "ynzYxx0Cw70twE1XvO2BuY2rti3Vss4Ar24qrA5UqK5-pU6ooe7Tnn79mx8nl79PlF9xkP-OjZ-mij-4hs_Fg2_NgA_Q" +
+      "fK_NeU_Fdd-4cn-mbx-Oa79xaF9PZP8nYZ79Xi7TWs6oV25-VA5UUK4qTU4ASe3VRo2rQy2BP81XPF0tOP0CNZzYMjyu" +
+      "LtyEK3xaKBwvJLwFIWvaHlutG4t_GNtPFmsdFDrqEjq1EGp-DspGDWoMDEnRC1mTCplUCgkUCbjSCaiOCahJCagDCae-" +
+      "Cad5Cac0CabvCaapCaZkCaYfCaXaCaWVCaVPCaUKCaTFCaSACaQ7CaP1CaOwCaNrCaMmCaLhCaKbCaJW",
   },
   leaf: {
-    outline:
-      "YHYHYIYJYKYMYOYRYUYYYdYiYpYwY5ZDZOZaZoZ3aIaaaubEbcb2cRctdMdreKeoe-eoeKdrdMctcRb2bcbEauaaaIZ3ZoZaZOZDY5YwYpYiYdYYYUYRYOYMYKYJYIYHYHYHYIYJYKYMYOYRYUYYYdYiYpYwY5ZDZOZaZoZ3aIaaaubEbcb2cRcudMdreKeoe-eoeKdrdMcucRb2bcbEauaaaIZ3ZoZaZOZDY5YwYpYiYdYYYUYRYOYMYKYJYIYH",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.221, y: -0.04, scaleX: 0.713, scaleY: 0.714, wrap: 0.76 },
+    size: 1.17,
+    eyes: [0.1872, 0.4104, 0.448, 0.04],
+    kind: "revolve",
+    top: 0.99956,
+    bottom: -0.99955,
+    radii:
+      "gAgKgagwhKhoiIirjQj3kglKl2mjnRn_oupeqNq9rtsdtMt7upvWwDwuxYyByozOzz0V021U1x2M2k263O3f3u374F4N" +
+      "4S4U4U4S4N4F373u3f3O262k2M1x1U020VzzzOyoyBxYwuwDvWupt7tMsdrtq9qNpeoun_nRmjl2lKkgj3jQiriIhohL" +
+      "gwgagKgA",
+    seat: { wrap: [-0.99955, 0.99956, 0] },
   },
   pebble: {
-    outline:
-      "gJgDf9f2fufmfdfUfLfCe5eweneeeVeNeFd-d3dxdrdmdhdedadYdVdTdSdRdQdQdQdQdQdRdSdTdVdYdadedhdmdrdxd3d-eFeNeVeeenewe5fCfLfUfdfmfuf2f9gDgJgOgRgUgVgVgTgQgLgGf_f2fsfifWfKe-exeleZeNeCd5dwdpdidddZdVdTdRdQdQdQdRdTdVdZdddidpdwd5eCeNeZelexe-fKfWfifsf2f_gGgLgQgTgVgVgUgRgO",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.276, y: -0.123, scaleX: 0.912, scaleY: 0.948, front: 0.96 },
-  },
-  pumpkin: {
-    outline:
-      "gXgXgWgVgSgQgMgJgHgHgGf8fyfmfZfLe7eseceMd7dsdedPc_ctcXb8bibcbRbEaubEbRbcbib8cXctc_dPdedsd7eMecese7fLfZfmfyf8gGgHgHgJgMgQgSgVgWgXgXgWgVgQgKf_fyfgfKeweOdld_eMeTeVeUeQeJeBd2dpdadIc2ckcNbybYbRbHawZiawbHbRbYbycNckc2dIdadpd2eBeJeQeUeVeTeMd_dleOewfKfgfyf_gKgQgVgW",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.326, y: -0.12, scaleX: 1.053, scaleY: 1.003, front: 1 },
+    size: 1.2168,
+    eyes: [0.2392, 0.5244, 0.5463, 0.12],
+    kind: "revolve",
+    top: 0.90759,
+    bottom: -0.90758,
+    radii:
+      "gAg-h7i4j3k1lymwnsoppkqgrbsVtPuIvAv4wuxkyYzMz-0u1e2M253k4O425c6B6k7F7k8C8d839P9k94-K-a-n-z-8" +
+      "_E_J_M_N_M_I_D-7-x-l-W-F9y9d9G8s8R7z7T6w6M5l494S3l232G1T0fzpyxx4w9wCvEuHtIsJrJqJpJoJnHmGlGkE" +
+      "jCiBhBgA",
+    seat: { wrap: [-0.90758, 0.90759, 0] },
   },
   shield: {
-    outline:
-      "ZaZoZ6aPanbEbkcJczdheWfRgShcidjDjUjTjFiwiXh6hehCgogRf7fpfafNfFfAe-fAfFfNfafpf7gRgohCheh6iXiwjFjTjUjDidhcgSfReWdhczcJbkbEanaPZ6ZoZaZOZFY_Y7Y7Y8ZAZHZPZaZnZ2aHaZaubDbabxcJcic5dQdld5eKeZemeve2e7e9e-e9e7e2evemeZeKd5dldQc5cicJbxbabDauaZaHZ2ZnZaZPZHZAY8Y7Y7Y_ZFZO",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.215, y: -0.119, scaleX: 0.981, scaleY: 1.022, front: 0.74 },
+    size: 1.17,
+    eyes: [0.2679, 0.58733, 0.44493, 0.12],
+    kind: "revolve",
+    top: 0.99956,
+    bottom: -0.99955,
+    radii:
+      "gAh8j6l3nppZrCsnuGvgw2yFzQ0W1V2Q3G324h5H5o6E6a6s657C7F7G7F7F7E7D7B6_6966636z6v6q6k6e6Y6R6J6A" +
+      "535t5i5W5K484u4f4P3-3t3a3G2x2b2F1t1U060f0DzmzHyoyHxmxDwfv6vUutuFtcsxsGrZqrp9pNocnqm3mElPkZji" +
+      "iqhxg4gA",
+    seat: { wrap: [-0.99955, 0.99956, 0] },
   },
   sparkle: {
+    size: 1.521,
+    eyes: [0.18382, 0.40299, 0.41216, 0],
+    kind: "extrusion",
+    halfDepth: 0.36,
+    bevel: 0.22,
+    convex: false,
+    face: 0.36,
     outline:
-      "h7gde-djcLa5ZtYmXmWsV3VmWZXRYPZUaebudEeff9hbi3kKlPmCmgmkmPljkijTh6gde-dicKa4ZrYlXlWrV2VmWaXSYQZUafbvdFegf-hbi3kKlPmDmgmjmOlikhjSh5gbe8dhcIa2ZqYkXjWqV1VlWYXQYPZTadbtdDedf7hZi0kIlOmBmemimNlikhjSh5gbe9dhcJa3ZrYlXlWqV1VkWXXQYOZSacbtdCedf7hZi1kIlPmDmfmkmPlikjjT",
-    kind: { type: "slab", depth: 1, bevel: 0.3 },
-    seat: { gap: 0.266, y: 0, scaleX: 0.911, scaleY: 0.911, front: 0.46 },
+      "lk9Gmj9Inh8_oc8tpU8QqJ7pqw7DrU6Yr15osT40su37tG2_tb1-tt06t9zzuHy5uQx9uXw-ucv-ugu9uit5ujs0uiru" +
+      "ugqmucpduWoTuWoTuWoTuWoSuWoSvVn0wTnVxQm1yKmVzDl0zElzzFlyzeljz2lUz5lTz7lR0ElM0NlG0RlD0VlA0ck8" +
+      "0jk30ok00skx00ks07kn0-kl1Bkj13j-2pjZ3Ziz4HiM4-hb5wgo6ef17HfB7reN8JdY8icj8jch8jcf8mcZ8ocT8pcP" +
+      "8rcL8scJ8tcG89bN9GaU9HZb9AYl8xXy8bXB7-WT7wWB7hVv7gVu7fVt7aVo7VVi7UVh7TVg7BVP6tU-6sU96rU86lU3" +
+      "6fUy6eUx6cUw6VUr6PUm6OUm6OUl53UW5gUH5bUE5WUB5ST_5OT95FT348Ty45Tx42Tw4wTs4pTp4kTm4fTk4aTi4UTf" +
+      "4QTd4MTb4GTY3_TV37TT33TS3wTP3pTM3nTL3lTK3jTJ3iTJ3aTG3STD3PTC3MTA2qS02HSp2DSo1_Sn16Sl11Sk1ySj" +
+      "1wSi1qSh1lSf1dSd1VSb1RSa1NSZ1FSX08SV04ST0zSS0sSR0kSP0bSN0SSL0JSJ0ASHz6SGz0SFztSDzmSCzdSAzUR_" +
+      "zRR-zNR-zDR8y5R6y2R6yzR5ypR4yeR2ybR2yYR1xpRvw5Rqw0RpwvRpwlRowbRnwXRnwTRmwIRlv9Rlv5Rkv2RkvrRj" +
+      "vfRjvcRjvZRiu1RguRRfuLRfuFRft-Rft3RetuRetlRetdRetVRetMRetDRes8Res2ResqReseResZResVResHRer5Re" +
+      "r2RfrzRfq8RgqERjpLRnoSRrnyQonRPnmvOnmNNqlqMulGL1kiK-j9KJjYJXiyIniMH6hbHEgpGSf3FlfEE8eQEZdcD6" +
+      "coDhbzDOa-DBZ9C6Y9C9YBDKXIDiWSEDVpElVDFNUgF5UAGrTkHiTKIdS3JNSnKASYK2SLLuR_MpR1NnRtOmRmPoRiQs" +
+      "RfRzRdS7ReUFRgVRRlWfRrXvRrXvRrXvRfX1RTX6RMX-REYBQ4YHQtYNQnYQQgYTQWYYQLYdQDYhP7YlPvYrPjYyPhYz" +
+      "PfY0OVZbNPaDMMasLMbWKPb_JWcqIgdUHud_G_eqGUfWFsgBFJgtEphYENiEELiHEJiKEIiLEHiNEDiVD-idDmjNDTj9" +
+      "DTj-DSkADRkEDPkIDPkJDPkKDLkWDIkiC7lkC5mlDCnlDUodDvpSETqEE_qyFzrcF0rdF1reF7riGArmGFrpGKrsGLrt" +
+      "GLrtG1sGHhseIRszIUs0IWs1IYs2Ias3Ies4Ihs6Ils7Ios8Iqs9Iss-JhtRKZtiLUtxMQt-NPuJOQuSPTuZQYueRfui" +
+      "SnujTwujT2ujT8ujUEujUMujUduiUuuiUyuiU2uiVyufWwubXvuWYRveY0wkZYxnZ9yoaizmbI0hbu1acV2Qc83Ddj3z" +
+      "eK4gey5Kfa5xgC6Vgq62he7ciS79jH8Yj78tkw89lk9G",
   },
   square: {
+    size: 1.0413,
+    eyes: [0.25533, 0.55975, 0.52941, 0.12],
+    kind: "extrusion",
+    halfDepth: 0.36,
+    bevel: 0.22,
+    convex: true,
+    face: 0.36,
     outline:
-      "bkbmbtb4cHcbc0dSd2egfQgJhKiUjakKkbkKjaiUhKgJfQegd2dSc0cbcHb4btbmbkbmbtb4cHcbc0dSd2egfQgJhKiUjakKkbkKjaiUhKgJfQegd2dSc0cbcHb4btbmbkbmbtb4cHcbc0dSd2egfQgJhKiUjakKkbkKjaiUhKgJfQegd2dSc0cbcHb4btbmbkbmbtb4cHcbc0dSd2egfQgJhKiUjakKkbkKjaiUhKgJfQegd2dSc0cbcHb4btbm",
-    kind: { type: "slab", depth: 0.6, bevel: 0.18 },
-    seat: { gap: 0.234, y: -0.106, scaleX: 0.866, scaleY: 0.866, front: 0.32 },
+      "Ax3EAz4HA65GBG6ABW62Br7nCF8TCj86DG9dDt97EZ-VFK-qGA-6G6_GH5_NI8_PKB_PLF_PMK_PNP_POT_PPY_PQd_P" +
+      "Rh_PSm_PTr_PUv_PV0_PW4_PX9_PZC_PaG_PbL_PcQ_PdU_PeZ_Pfe_Pgi_Phn_Pis_Pjw_Pk1_Pl6_Pm-_PoD_PpI_P" +
+      "qM_PrR_PsV_Pta_Puf_Pvj_Pwo_Pxt_Pyx_Pz2_P07_P1__P3E_P4H_N5G_G6A-662-q7n-V8T97869d9d86978T-V7n" +
+      "-q62-66A_G5G_N4H_P3E_P1__P07_Pz2_Pyx_Pxt_Pwo_Pvj_Puf_Pta_PsV_PrR_PqM_PpI_PoD_Pm-_Pl6_Pk1_Pjw" +
+      "_Pis_Phn_Pgi_Pfe_PeZ_PdU_PcQ_PbL_PaG_PZC_PX9_PW4_PV0_PUv_PTr_PSm_PRh_PQd_PPY_POT_PNP_PMK_PLF" +
+      "_PKB_PI8_NH5_GG6-6GA-qFK-VEZ97Dt9dDG86Cj8TCF7nBr62BW6ABG5GA64HAz3EAx1_Ax07Axz2AxyxAxxtAxwoAx" +
+      "vjAxufAxtaAxsVAxrRAxqMAxpIAxoDAxm-Axl6Axk1AxjwAxisAxhnAxgiAxfeAxeZAxdUAxcQAxbLAxaGAxZCAxX9Ax" +
+      "W4AxV0AxUvAxTrAxSmAxRhAxQdAxPYAxOTAxNPAxMKAxLFAxKBAxI8AxH5AzG6A6GABGFKBWEZBrDtCFDGCjCjDGCFDt" +
+      "BrEZBWFKBGGAA6G6AzH5AxI8AxKBAxLFAxMKAxNPAxOTAxPYAxQdAxRhAxSmAxTrAxUvAxV0AxW4AxX9AxZCAxaGAxbL" +
+      "AxcQAxdUAxeZAxfeAxgiAxhnAxisAxjwAxk1Axl6Axm-AxoDAxpIAxqMAxrRAxsVAxtaAxufAxvjAxwoAxxtAxyxAxz2" +
+      "Ax07Ax1_Ax3E",
   },
   squircle: {
+    size: 1.17,
+    eyes: [0.2392, 0.5244, 0.5632, 0.12],
+    kind: "slab",
+    halfDepth: 0.28,
+    edge: 0.11,
     outline:
-      "e-fAfHfSfif0gJggg7hVhviJihizjCjMjRjMjCizihiJhvhVg7gggJf0fifSfHfAe-fAfHfSfif0gJggg7hVhviJihizjCjMjRjMjCizihiJhvhVg7gggJf0fifSfHfAe-fAfHfSfif0gJggg7hVhviJihizjCjMjRjMjCizihiJhvhVg7gggJf0fifSfHfAe-fAfHfSfif0gJggg7hVhviJihizjCjMjRjMjCizihiJhvhVg7gggJf0fifSfHfA",
-    kind: { type: "slab", depth: 0.5, bevel: 0.075 },
-    seat: { gap: 0.279, y: -0.119, scaleX: 0.912, scaleY: 0.912, front: 0.28 },
+      "_PgA_Pd9_Ob5_MZz_GXr-8Vg-rTT-SRE9uO289Mq78Kk6rIn5KG23ZFV1cEEzWDDxKCSu8BustBVqgBEoVA6mNA0kHAy" +
+      "iDAxgAAxd9Axb5AyZzA0XrA6VgBETTBVREBuO2CSMqDDKkEEInFVG2G2FVInEEKkDDMqCSO2BuREBVTTBEVgA6XrA0Zz" +
+      "Ayb5Axd9AxgAAxiDAykHA0mNA6oVBEqgBVstBuu8CSxKDDzWEE1cFV3ZG25KIn6rKk78Mq89O29uRE-STT-rVg-8Xr_G" +
+      "Zz_Mb5_Od9_PgA_PiD_PkH_OmN_MoV_Gqg-8st-ru8-SxK9uzW891c783Z6r5K5K6r3Z781c89zW9uxK-Su8-rst-8qg" +
+      "_GoV_MmN_OkH_PiD",
+    face: 0.28,
   },
   star: {
+    size: 1.4976,
+    eyes: [0.18478, 0.44966, 0.41913, 0.12],
+    kind: "extrusion",
+    halfDepth: 0.3,
+    bevel: 0.18,
+    convex: false,
+    face: 0.3,
     outline:
-      "YTYcY6Z1bWdOfciIkMlSlzl5likpi9gRd6b7aQZKYkYVYYYtZbaycjephLjok_lrl5lrk_johLepcjayZbYtYYYVYkZKaQb7d6gRi9kplil5lzlSkMiIfcdObWZ1Y6YcYTYcY6Z1bWdOfciIkMlSlzl5likpi-gSd6b7aQZKYkYVYYYtZcaycjephLjok_lrl5lrk_johLepcjayZcYtYYYVYkZKaQb7d6gSi-kplil5lzlSkMiIfcdObWZ1Y6Yc",
-    kind: { type: "slab", depth: 0.8, bevel: 0.24 },
-    seat: { gap: 0.266, y: -0.152, scaleX: 0.902, scaleY: 0.902, front: 0.38 },
+      "bM6dbk7UcE8Ccp8pdU9IeC9ge09vfm93ga93hM9vh-9gis9IjX8pj88Ckc7Uk06dlL5clh4al43ZmP2Ymm1Wm90VnTzU" +
+      "nsydoNxuo2xFpkwlqYwNrPv-sJv5tEv_uIwMvMwZwQwlxUwyyYw_zcxM0gxZ1cxf2Uxb3IxO35w54kwd5Kv65qvS6Eul" +
+      "6Wt16itD6lsP6frb6Qqn53p05UpE4noQ36nb3Nmn2gly1yk-1FkJ0YjVz1ikzdhwzOg5zJgAzOfHzdeQz1dc0Ycr1Fb3" +
+      "1ybC2gaO3NZZ36Yl4nXw5UW853WM6QVZ6fUl6lTx6iS96WSL6ERb5qQu5KQG4kPj35PH3IOy2UOk1cOh0gOnzcO0yYPB" +
+      "xUPOwQPavMPnuIP0tEQBsJQHrPQCqYPzpkPbo2O7oNOSnsNinTMsm9LrmmKqmPJol4InlhHmlLGkk0FjkcEsj8D-jXDX" +
+      "isC4h-CghMCRgaCJfmCJe0CReCCgdUC4cpDXcED-bkEsbMFja1GkafHmaIInZxJoZaKqZDLrYtMsYUNiXzOSXKO7WcPb" +
+      "VoPzUxQCT3QHS8QBR4P0Q0PnPwPaOsPONoPBMkO0LfOnKkOhJsOkI4OyIHPHHcPjG2QGGWQuF8RbFqSLFeS9FbTxFhUl" +
+      "FwVZGJWMGsW8HZXwIGYlIzZZJgaOKObCK7b3LocrMLdcMjeQMyfHM3gAMyg5MjhwMLikLojVK7kJKOk-JglyIzmnIGnb" +
+      "HZoQGspEGJp0FwqnFhrbFbsPFetDFqt1F8ulGWvSG2v6HcwdIHw5I4xOJsxbKkxfLfxZMkxMNow_OswyPwwlQ0wZR4wM" +
+      "S8v_T3v5Uxv-VowNWcwlXKxFXzxuYUydYtzUZD0VZa1WZx2YaI3Zaf4aa15cbM6d",
   },
   tablet: {
-    outline:
-      "kykwkrkkkakMj7jojSi5idiAhgg-gZfzfMeid4dMcgbybFaaZ2ZXY9YnYWYJYAX6X4X6YAYJYWYnY9ZXZ2aabFbycgdMd4eifMfzgZg-hgiAidi5jSjoj7kMkakkkrkwkykwkrkkkakMj7jojSi5idiAhgg-gZfzfMeid4dMcgbybFaaZ2ZXY9YnYWYJYAX6X4X6YAYJYWYnY9ZXZ2aabFbycgdMd4eifMfzgZg-hgiAidi5jSjoj7kMkakkkrkw",
-    kind: { type: "lathe", axis: "x", squeeze: 1 },
-    seat: { gap: 0.347, y: -0.023, scaleX: 0.968, scaleY: 0.946, front: 0.74 },
+    size: 1.3923,
+    eyes: [0.2132, 0.4674, 0.58778, 0.02],
+    kind: "pill",
+    axis: "x",
+    reach: 0.35005,
+    radius: 0.64759,
+    seat: { wrapX: [-0.97763, 0.97763] },
   },
   teardrop: {
-    outline:
-      "czcicRcAbvbfbPa_awahaTaGZ9Z3Z2Z5Z_aKaZasbEbhcEcsdbeRfMgHg-hviXiwi5iwiXhvg-gHfMeRdbcscEbhbEasaZaKZ_Z4Z2Z3Z9aGaTahawa_bPbfbvcAcRciczdFdXdod6eMeeevfBfSfjf0gEgUgjgyhAhOhbhnhyh9iIiRiZihinitixi1i3i5i5i5i3i1ixitinihiZiRiIh9hyhnhbhOhAgygjgUgEf0fjfSfBeveeeMd6dodXdF",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.251, y: -0.2, scaleX: 0.891, scaleY: 0.893, wrap: 0.92 },
+    size: 1.31812,
+    eyes: [0.20779, 0.45554, 0.45261, 0.18],
+    kind: "revolve",
+    top: 0.99932,
+    bottom: -0.99971,
+    radii:
+      "gAgghAhgiAigjAjfj_kek-ldl8mcm7nan5oYo2pVp1qXq6resDsqtSt7ulvQv8wqxYyHy2zn0Y1I102c3B3j4B4d415K" +
+      "5c5s546C6K6O6R6Q6N6I6A525q5b5K424h4J3w3U222W111R0s0FzcyyyGxZwqv6vJuXtjsur5rCqKpSoZnfmklpkujy" +
+      "i1h3g8gA",
+    seat: { wrap: [-0.99973, 0.9993, -0.00021] },
   },
   wedge: {
-    outline:
-      "ZxZFYfX_XkXNW6WrWgWZWUWUWXWdWnW1XGXcX1YSYxZUZ6aibMb4ckdOd2eYezfEfKfEezeYd2dOckb4bMaiZ6ZUYxYSX1XcXGW1WnWdWXWUWUWYWgWrW6XNXkX_YfZFZwajbccfdrfDgoiekcmboUp6rErprprJqRpLn9mtlekVjViehuhGgkgIfxfgfUfNfKfNfUfgfxgIgkhGhuiejVkVlemtn9pLqRrJrprprEp6oUmbkciegpfDdrcfbcaj",
-    kind: { type: "lathe", axis: "y", squeeze: 1 },
-    seat: { gap: 0.264, y: -0.206, scaleX: 0.911, scaleY: 0.945, front: 0.9 },
-    gazeScale: 0.55,
+    size: 1.35907,
+    eyes: [0.2132, 0.4674, 0.46771, 0.18],
+    kind: "revolve",
+    top: 0.86567,
+    bottom: -0.86566,
+    radii:
+      "gAgbg7hbh6iZi3jWj1kTkylQlumMmqnInmoDoho-pbp4qVqyrOrqsGsis-tZt1uRutvKvowGwkxDxjyCyizCzj0D0k1F" +
+      "1m2H2o3J3q4L4s5M5t6N6t7M7r8K8n9B9a9x-F-X-n-0-__H_M_P_O_L_G-9-x-i-Q979j9I8p8H7i666O5f4s32292A" +
+      "1Az9y3xv",
+    seat: { wrap: [-0.86566, 0.86567, 0] },
   },
 } as const satisfies Record<string, BotMarkBodySpec>;
 
 export type BotMarkBodyShape = keyof typeof BOT_MARK_BODY_SPECS;
+
+/** Unpacks a run of packed numbers. */
+export function unpackBodyNumbers(packed: string): number[] {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  const out: number[] = [];
+  for (let index = 0; index + 1 < packed.length; index += 2) {
+    const value = alphabet.indexOf(packed[index]!) * 64 + alphabet.indexOf(packed[index + 1]!);
+    out.push(value / 2000 - 1.024);
+  }
+  return out;
+}

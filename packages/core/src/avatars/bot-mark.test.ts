@@ -3,6 +3,7 @@ import {
   BOT_MARK_SHAPES,
   BOT_MARK_STATES,
   botMarkBlend,
+  botMarkDrawing,
   botMarkFrame,
   botMarkInkFor,
   botMarkPath,
@@ -11,7 +12,7 @@ import {
   botMarkShowcaseEmotion,
   botMarkStateFor,
 } from "./bot-mark.js";
-import { bodyMatrix, bodySilhouette } from "./bot-mark-bodies.js";
+import { bodySilhouette } from "./bot-mark-bodies.js";
 import { faceOutlines } from "./bot-mark-faces.js";
 import { playlistAt, pokeEffect, REST_ROTATION } from "./bot-mark-motion.js";
 
@@ -88,15 +89,29 @@ describe("bot mark", () => {
   });
 
   it("turns shaped bodies as solids, so their outline changes edge-on", () => {
-    const front = bodySilhouette("square", bodyMatrix([0, 0, 0]));
-    const side = bodySilhouette("square", bodyMatrix([0, 90, 0]));
+    const turn = (yaw: number) => ({ yaw, pitch: 0, roll: 0 });
+    const front = bodySilhouette("square", turn(0));
+    const side = bodySilhouette("square", turn(89.5));
     const width = (outline: readonly (readonly [number, number])[]) =>
       Math.max(...outline.map(([x]) => x)) - Math.min(...outline.map(([x]) => x));
     expect(width(side)).toBeLessThan(width(front) * 0.5);
-    expect(width(bodySilhouette("capsule", bodyMatrix([0, 90, 0])))).toBeCloseTo(
-      width(bodySilhouette("capsule", bodyMatrix([0, 0, 0]))),
-      1,
+    // A pill is round across, so it keeps its width as it turns about its length.
+    expect(width(bodySilhouette("capsule", turn(89.5)))).toBeCloseTo(
+      width(bodySilhouette("capsule", turn(0))),
+      2,
     );
+  });
+
+  it("gives the pumpkin a stem in two greys and cuts eyes out with a mask", () => {
+    const frame = botMarkFrame({ state: "idle", time: 0, seed: 0, shape: "pumpkin" });
+    const drawing = botMarkDrawing("pumpkin", frame);
+    expect(drawing.stem.map(({ tone }) => tone)).toEqual(["stem", "cap"]);
+    expect(subpaths(drawing.eyes)).toBe(2);
+    for (const shape of BOT_MARK_SHAPES) {
+      const plain = botMarkDrawing(shape, botMarkFrame({ state: "idle", time: 0, seed: 0, shape }));
+      if (shape !== "pumpkin") expect(plain.stem).toEqual([]);
+      expect(subpaths(plain.body)).toBe(1);
+    }
   });
 
   it("plays a working bot's clips in a seeded order that differs between bots", () => {

@@ -272,6 +272,28 @@ export function ellipsePath(cx: number, cy: number, rx: number, ry: number): str
   );
 }
 
+/** The convex hull of a set of points, counter-clockwise, without points along its edges. */
+export function convexHull(points: readonly Point[]): Point[] {
+  const sorted = points
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y))
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (sorted.length < 3) return sorted;
+  const cross = (o: Point, a: Point, b: Point) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const chain = (ordered: readonly Point[]) => {
+    const out: Point[] = [];
+    for (const point of ordered) {
+      while (out.length >= 2 && cross(out[out.length - 2]!, out[out.length - 1]!, point) <= 0) {
+        out.pop();
+      }
+      out.push(point);
+    }
+    out.pop();
+    return out;
+  };
+  return [...chain(sorted), ...chain([...sorted].reverse())];
+}
+
 /** Polygon point test, used to keep eyes inside a body. */
 export function insidePolygon([px, py]: Point, polygon: readonly Point[]): boolean {
   let hit = false;
