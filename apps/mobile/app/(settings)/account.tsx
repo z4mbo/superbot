@@ -1,7 +1,7 @@
 import { ph } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import type { PlanLimits, UsageSummary } from "@rakazo/contracts";
-import { hasLab, modelCreditsUsd } from "@rakazo/contracts";
+import { modelCreditsUsd } from "@rakazo/contracts";
 import { accountDisplay, formatTimeUntil } from "@rakazo/core";
 import type { Href } from "expo-router";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -39,6 +39,7 @@ import { ACCOUNT_SETTINGS } from "../../lib/query/settings-target";
 import { useApprovalSettings } from "../../lib/settings/approval-settings";
 import { createSettingsPageStyles } from "../../lib/settings/settings-page-styles";
 import { isSettingsLink, openFromSettingsSheet } from "../../lib/settings/settings-sheet";
+import { shownLabs } from "../../lib/settings/shown-labs";
 import { activeOrganization, useOrganizations } from "../../lib/spaces/organizations";
 import { confirmUnsentSendLoss } from "../../lib/thread/send/unsent-send-warning";
 
@@ -85,7 +86,7 @@ export default function Account() {
       chevron="right"
       disabled={signingOut}
       leading={icon(glyph)}
-      // Artifacts, Board and Members live on the root stack, so they close the sheet first.
+      // Artifacts and Members live on the root stack, so they close the sheet first.
       onPress={() =>
         typeof href === "string" && isSettingsLink(href)
           ? router.push(href)
@@ -243,15 +244,6 @@ export default function Account() {
       href: "/artifacts",
       icon: { ios: "folder", android: "folder-outline" },
     },
-    ...(hasLab(me?.labs, "board")
-      ? [
-          {
-            title: t`Board`,
-            href: "/board",
-            icon: { ios: "rectangle.split.3x1", android: "grid-outline" },
-          } as const,
-        ]
-      : []),
   ];
 
   return (
@@ -362,7 +354,7 @@ export default function Account() {
                   } as const,
                 ]
               : []),
-            ...(me?.labsAvailable?.length
+            ...(shownLabs(me?.labsAvailable).length
               ? [
                   {
                     title: t`Labs`,
