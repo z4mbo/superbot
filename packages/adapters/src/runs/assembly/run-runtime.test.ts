@@ -83,4 +83,17 @@ describe("runRuntimeEnvFromProcess", () => {
     expect(env().workspaceSaveLimits.maxBytes).toBe(5 * 1024 ** 3);
     expect(() => env("0")).toThrow("WORKSPACE_SAVE_MAX_GB");
   });
+
+  it("reads the test plugin hosts outside production only", () => {
+    const source = {
+      SUPERBOT_E2E_ALLOW_PLUGIN_HOSTS: "127.0.0.1",
+      ENCRYPTION_KEY: "offline-encryption-key-at-least-32-chars",
+    };
+    expect(runRuntimeEnvFromProcess({ ...source, NODE_ENV: "test" }).e2ePluginHosts).toEqual([
+      "127.0.0.1",
+    ]);
+    expect(runRuntimeEnvFromProcess({ ...source, NODE_ENV: "production" }).e2ePluginHosts).toEqual(
+      [],
+    );
+  });
 });
