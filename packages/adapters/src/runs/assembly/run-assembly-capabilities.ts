@@ -39,6 +39,7 @@ import {
 import { modelAcceptsImageInput } from "../../models/model-vision.js";
 import { paymentWalletConnected } from "../../payments/payment-wallets.js";
 import { desktopGuardApplies } from "../../providers/computer/desktop/desktop-command-guard.js";
+import { filterNightlyMemoryReviewTools } from "../../routines/nightly-memory-review.js";
 import { backOffRoutineAfterAccountError } from "../../routines/routine-backoff.js";
 import { filterStrategicInitiativeTools } from "../../routines/strategic-initiative.js";
 import {
@@ -771,24 +772,33 @@ export async function selectRunTools(
       ? agentConnectionTools.filter((tool) => !disabledBuiltinTools.has(tool.name))
       : []),
   ];
-  const strategicBuiltins = filterStrategicInitiativeTools(builtins, {
-    trigger: run.trigger,
-    clientNonce: run.clientNonce,
-  });
+  const strategicBuiltins = filterNightlyMemoryReviewTools(
+    filterStrategicInitiativeTools(builtins, {
+      trigger: run.trigger,
+      clientNonce: run.clientNonce,
+    }),
+    run,
+  );
   const exposedConnectorTools = discovered.tools.filter(
     (tool) => !builtinAgentTools.some((builtin) => builtin.name === tool.name),
   );
-  const strategicConnectorTools = filterStrategicInitiativeTools(exposedConnectorTools, {
-    trigger: run.trigger,
-    clientNonce: run.clientNonce,
-  });
+  const strategicConnectorTools = filterNightlyMemoryReviewTools(
+    filterStrategicInitiativeTools(exposedConnectorTools, {
+      trigger: run.trigger,
+      clientNonce: run.clientNonce,
+    }),
+    run,
+  );
   // A tool behind the marketplace catalog is not offered but is known by name: a catalog call
   // to it runs as its direct call would.
   const { marketplaceCatalog } = discovered;
   const connectorTools = new Map(
-    filterStrategicInitiativeTools(
-      [...strategicConnectorTools, ...marketplaceCatalog.map(({ tool }) => tool)],
-      { trigger: run.trigger, clientNonce: run.clientNonce },
+    filterNightlyMemoryReviewTools(
+      filterStrategicInitiativeTools(
+        [...strategicConnectorTools, ...marketplaceCatalog.map(({ tool }) => tool)],
+        { trigger: run.trigger, clientNonce: run.clientNonce },
+      ),
+      run,
     ).map((tool) => [tool.name, tool] as const),
   );
   const trustLoaders = createRunTrustLoaders(deps, {

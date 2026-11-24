@@ -3,9 +3,11 @@ import type { AgentRuntime, JobPublisher, NotificationProvider } from "@rakazo/a
 import { historyCompactJob, runJobKey } from "@rakazo/adapter-kit";
 import {
   CapturingNotificationProvider,
+  dailyNotePath,
   handoffToGroupBot,
   MessagingTeamChatEmulator,
   messageBot,
+  queueNightlyMemoryReviewNow,
 } from "@rakazo/adapters";
 import type { MessageBlock, ModelConnectInput, ReplyMode, RunStatus } from "@rakazo/contracts";
 import {
@@ -265,6 +267,17 @@ export async function runTrial(
           content: scenario.botMemory,
         });
       }
+      // Written as the remember tool would, without running a model to write them.
+      for (const [daysAgo, content] of (scenario.dailyNotes ?? []).entries()) {
+        const day = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+        await prisma.memoryDocument.create({
+          data: { ...persistedBot, botId, scope: "bot", path: dailyNotePath(day), content },
+        });
+      }
+      for (const document of scenario.sharedMemory ?? [])
+        await prisma.memoryDocument.create({
+          data: { ...persistedBot, scope: "user", path: document.path, content: document.content },
+        });
       if (scenario.peer) {
         const created = await rpc<{ id: string }>(app, cookie, "bots/create", {
           name: scenario.peer.name,
@@ -633,7 +646,7 @@ export async function runTrial(
         clearedToolCount = seenTools.size - (await countCurrentTools());
         continue;
       }
-      if (scenario.routine || "wakeRoutine" in step)
+      if (scenario.routine || "wakeRoutine" in step || "reviewMemory" in step)
         await rpc(app, cookie, "threads/markRead", { botId });
       const notificationOffset = notifications.sent.length;
       let runId: string;
@@ -731,6 +744,14 @@ export async function runTrial(
             )?.id,
           deadline,
         );
+      } else if ("reviewMemory" in step) {
+        const queued = await queueNightlyMemoryReviewNow(
+          { prisma, jobs: handles.jobs, billingEnabled: false },
+          botId,
+        );
+        if (!("runId" in queued))
+          throw new EvalFailure("harness", `Memory review not queued: ${queued.skipped}`);
+        runId = queued.runId;
       } else {
         const routines = await prisma.routine.findMany({ where: { botId } });
         // A follow-up the bot cancelled once its loop closed has nothing left to wake.
@@ -794,6 +815,7 @@ export async function runTrial(
               "ask" in next ||
               "slack" in next ||
               "wakeRoutine" in next ||
+              "reviewMemory" in next ||
               "fromPeer" in next ||
               "fromMember" in next,
           )
@@ -1018,7 +1040,7 @@ export async function runTrial(
           reply: returned.length ? returned.join("\n") : null,
         });
       }
-      if ("wakeRoutine" in step) {
+      if ("wakeRoutine" in step || "reviewMemory" in step) {
         const messages = await prisma.message.findMany({
           where: { runId, role: "bot" },
           select: { id: true, blocks: true },
@@ -1141,6 +1163,16 @@ export async function runTrial(
     const memories = await rpc<Array<{ content: string }>>(handles.app, cookie, "memory/list", {
       botId,
     });
+    const memoryDocuments = scenario.steps.some((step) => "reviewMemory" in step)
+      ? (
+          await rpc<Array<{ scope: "bot" | "user"; path: string; content: string }>>(
+            handles.app,
+            cookie,
+            "memory/list",
+            {},
+          )
+        ).map(({ scope, path, content }) => ({ scope, path, content }))
+      : undefined;
     const routines = await prisma.routine.findMany({
       where: { botId },
       select: { name: true, prompt: true, crons: true, active: true, inChat: true },
@@ -1198,6 +1230,7 @@ export async function runTrial(
       routines,
       routinesCreated,
       memory: memories.map((m) => m.content).join("\n"),
+      ...(memoryDocuments ? { memoryDocuments } : {}),
       approvalPending,
       clarificationPending,
       pendingApproval,

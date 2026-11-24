@@ -33,6 +33,8 @@ export type Step =
       /** Skip the wake when the bot has already cancelled the routine it authored. */
       ifScheduled?: true;
     }
+  /** Runs the bot's nightly memory review now, as an operator would. */
+  | { reviewMemory: true }
   /** A request from the case's peer bot, delivered through message_bot's product path. */
   | { fromPeer: string }
   /** A member posts a handoff through the real group delivery path. */
@@ -84,6 +86,8 @@ export type Evidence = {
   /** Routines the bot created during the trial, including ones it later cancelled. */
   routinesCreated?: number;
   memory: string;
+  /** Every memory document in the Space, shared ones too, for cases that review memory. */
+  memoryDocuments?: Array<{ scope: "bot" | "user"; path: string; content: string }>;
   approvalPending: boolean;
   clarificationPending?: boolean;
   pendingApproval: { kind: string; request: unknown } | null;
@@ -131,6 +135,10 @@ export type EvalCase = {
   botSetup?: BotSetup;
   /** The bot's MEMORY.md, written through the memory API before the first step. */
   botMemory?: string;
+  /** The bot's daily notes before the first step, newest first: today's, then yesterday's. */
+  dailyNotes?: string[];
+  /** Space shared memory documents before the first step. */
+  sharedMemory?: Array<{ path: string; content: string }>;
   taughtSkill?: true;
   history?: ReturnType<typeof historyFixture>;
   configure?: (services: EvalServices) => void;
@@ -181,7 +189,8 @@ export type EvalCase = {
 };
 /** A case that wakes a routine, seeded or authored, needs its pushes and completion observed. */
 export const wakesRoutines = (scenario: EvalCase) =>
-  Boolean(scenario.routine) || scenario.steps.some((step) => "wakeRoutine" in step);
+  Boolean(scenario.routine) ||
+  scenario.steps.some((step) => "wakeRoutine" in step || "reviewMemory" in step);
 
 const check = (id: string, pass: boolean): Criterion => ({ id, pass });
 const read = (e: Evidence, name: string) =>

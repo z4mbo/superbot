@@ -76,6 +76,12 @@ import {
   MEMORY_JUDGE_VERSION,
 } from "../evals/suites/memory.js";
 import {
+  MEMORY_REVIEW_EVAL_CASES,
+  MEMORY_REVIEW_FIXTURE_VERSION,
+  MEMORY_REVIEW_JUDGE_CALIBRATION,
+  MEMORY_REVIEW_JUDGE_VERSION,
+} from "../evals/suites/memory-review.js";
+import {
   loadRecallCases,
   RECALL_EVAL_CASES,
   RECALL_FIXTURE_VERSION,
@@ -206,6 +212,14 @@ async function main() {
       cases: MEMORY_EVAL_CASES,
       fixtureVersion: MEMORY_FIXTURE_VERSION,
       judge: { version: MEMORY_JUDGE_VERSION, calibration: MEMORY_JUDGE_CALIBRATION },
+    },
+    "memory-review": {
+      cases: MEMORY_REVIEW_EVAL_CASES,
+      fixtureVersion: MEMORY_REVIEW_FIXTURE_VERSION,
+      judge: {
+        version: MEMORY_REVIEW_JUDGE_VERSION,
+        calibration: MEMORY_REVIEW_JUDGE_CALIBRATION,
+      },
     },
     recall: {
       cases: RECALL_EVAL_CASES,

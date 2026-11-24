@@ -104,6 +104,7 @@ function mapBot(
     teamChatRules?: string;
     crossSpaceCommunication?: boolean;
     dailyCheckIns?: boolean;
+    nightlyMemoryReview?: boolean;
     fleetManagement?: boolean;
     replyMode?: string;
     disabledBuiltinTools?: string[];
@@ -156,6 +157,7 @@ function mapBot(
     teamChatRules: bot.teamChatRules ?? "",
     crossSpaceCommunication: bot.crossSpaceCommunication ?? true,
     dailyCheckIns: bot.dailyCheckIns ?? true,
+    nightlyMemoryReview: bot.nightlyMemoryReview ?? true,
     fleetManagement: bot.fleetManagement ?? true,
     replyMode: bot.replyMode === "messages" ? "messages" : "chat",
     // Stored lists may name a tool that no longer exists; settings resend what they read.
@@ -444,6 +446,7 @@ export function createRepos(
         instructions: string;
         notifyOnFinish: boolean;
         dailyCheckIns?: boolean;
+        nightlyMemoryReview?: boolean;
         fleetManagement?: boolean;
         replyMode?: string;
         color?: string;
@@ -556,6 +559,7 @@ export function createRepos(
               instructions: input.instructions,
               notifyOnFinish: input.notifyOnFinish,
               dailyCheckIns: input.dailyCheckIns,
+              nightlyMemoryReview: input.nightlyMemoryReview,
               fleetManagement: input.fleetManagement,
               replyMode: input.replyMode,
               color: avatar.color,

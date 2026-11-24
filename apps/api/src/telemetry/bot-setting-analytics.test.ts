@@ -8,6 +8,7 @@ const bot = {
   instructions: "Be brief.",
   color: "#8B5CF6",
   dailyCheckIns: true,
+  nightlyMemoryReview: true,
   notifyOnFinish: true,
   modelProvider: "anthropic",
   modelId: "claude",
@@ -51,6 +52,13 @@ describe("changedBotSettings", () => {
       "daily_check_ins",
     ]);
     expect(changedBotSettings(bot, { botId: bot.id, dailyCheckIns: true })).toEqual([]);
+  });
+
+  it("counts the nightly memory review opt-out", () => {
+    expect(changedBotSettings(bot, { botId: bot.id, nightlyMemoryReview: false })).toEqual([
+      "nightly_memory_review",
+    ]);
+    expect(changedBotSettings(bot, { botId: bot.id, nightlyMemoryReview: true })).toEqual([]);
   });
 
   it("leaves sidebar organization out", () => {

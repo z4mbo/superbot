@@ -75,6 +75,7 @@ export const BotSchema = z.object({
   teamChatRules: z.string(),
   crossSpaceCommunication: z.boolean().optional(),
   dailyCheckIns: z.boolean().optional(),
+  nightlyMemoryReview: z.boolean().optional(),
   fleetManagement: z.boolean().default(true),
   replyMode: ReplyModeSchema.default("chat"),
   disabledBuiltinTools: z.array(z.string()).default([]),
@@ -142,6 +143,7 @@ export const CreateBotInput = z.object({
   instructions: z.string().max(BOT_INSTRUCTIONS_MAX_LENGTH).default(""),
   notifyOnFinish: z.boolean().default(true),
   dailyCheckIns: z.boolean().optional(),
+  nightlyMemoryReview: z.boolean().optional(),
   fleetManagement: z.boolean().optional(),
   color: BotAvatarValueSchema.optional(),
   /** Ignored: a new bot takes its owner's set. Older apps still send one. */
@@ -185,6 +187,7 @@ export const UpdateBotInput = z
     teamChatRules: z.string().max(TEAM_CHAT_RULES_MAX_LENGTH).optional(),
     crossSpaceCommunication: z.boolean().optional(),
     dailyCheckIns: z.boolean().optional(),
+    nightlyMemoryReview: z.boolean().optional(),
     fleetManagement: z.boolean().optional(),
     replyMode: ReplyModeSchema.optional(),
     disabledBuiltinTools: DisabledBuiltinToolsSchema.optional(),

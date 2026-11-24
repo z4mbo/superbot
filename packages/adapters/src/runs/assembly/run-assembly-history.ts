@@ -3,6 +3,7 @@ import { isPartialReplyClientNonce, storedMessageBlocks } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { loadAgentMemoryContext } from "../../memory/memory-context.js";
 import { PARTIAL_REPLY_NOTE } from "../../messaging/automated-messages.prompt.js";
+import { isNightlyMemoryReviewRun } from "../../routines/nightly-memory-review.js";
 import {
   historyWindowSize,
   selectCompactedHistory,
@@ -264,7 +265,9 @@ export async function loadTurnContext(
     );
   }
   return {
-    history,
+    // A memory review reads its notes and memory, not the chat: that keeps it small, and no
+    // replayed tool result makes its saves count as written after outside content.
+    history: isNightlyMemoryReviewRun(run) ? [] : history,
     historyMessages,
     currentTurnMessage,
     turnBlocks,

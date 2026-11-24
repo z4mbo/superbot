@@ -123,6 +123,7 @@ export function createJobReconciler(
     reconcileModelCredits?: () => Promise<void>;
     reconcileRoutineRetryNotices?: () => Promise<void>;
     reconcileStrategicInitiatives?: () => Promise<void>;
+    reconcileNightlyMemoryReviews?: () => Promise<void>;
     reconcileSecurityEventRetention?: () => Promise<void>;
     reconcileAuditLog?: () => Promise<void>;
     reconcileChatHistoryRetention?: () => Promise<void>;
@@ -170,6 +171,7 @@ export function createJobReconciler(
     deps.reconcileComputerUpdates,
     deps.reconcileRoutineRetryNotices,
     deps.reconcileStrategicInitiatives,
+    deps.reconcileNightlyMemoryReviews,
     deps.reconcileSecurityEventRetention,
     deps.reconcileAuditLog,
     deps.reconcileChatHistoryRetention,

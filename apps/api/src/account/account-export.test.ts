@@ -65,6 +65,7 @@ const botRecord = (id: string): Extract<AccountExportRecord, { type: "bot" }> =>
   teamChatRules: "",
   crossSpaceCommunication: false,
   dailyCheckIns: false,
+  nightlyMemoryReview: false,
   fleetManagement: true,
   replyMode: "chat",
   createdAt,
@@ -148,12 +149,20 @@ function stores(): AccountExportStores & { contexts: unknown[] } {
 }
 
 describe("account export archive", () => {
-  it("preserves the check-in opt-out and defaults older archives to on", () => {
+  it("preserves the check-in and memory review opt-outs and defaults older archives to on", () => {
     expect(AccountExportRecordSchema.parse(botRecord("bot-1"))).toMatchObject({
       dailyCheckIns: false,
+      nightlyMemoryReview: false,
     });
-    const { dailyCheckIns: _dailyCheckIns, ...olderRecord } = botRecord("bot-1");
-    expect(AccountExportRecordSchema.parse(olderRecord)).toMatchObject({ dailyCheckIns: true });
+    const {
+      dailyCheckIns: _dailyCheckIns,
+      nightlyMemoryReview: _nightlyMemoryReview,
+      ...olderRecord
+    } = botRecord("bot-1");
+    expect(AccountExportRecordSchema.parse(olderRecord)).toMatchObject({
+      dailyCheckIns: true,
+      nightlyMemoryReview: true,
+    });
   });
 
   it("streams manifest, then each space's records, artifacts and homes", async () => {

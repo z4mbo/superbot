@@ -62,6 +62,7 @@ import {
   PipedreamConnector,
   pipedreamConfigFromEnv,
 } from "../../providers/integration/pipedream/pipedream-connector.js";
+import { createNightlyMemoryReviewReconciler } from "../../routines/nightly-memory-review.js";
 import { createStrategicInitiativeReconciler } from "../../routines/strategic-initiative.js";
 import { localModelsApiKey } from "../../runtime/pi/models/pi-local-provider-id.js";
 import type { SecretCleanupDeps } from "../../secrets/secret-cleanup.js";
@@ -409,6 +410,11 @@ export function createRunReconciler(
       lookupForOffering: (offering) => modelCreditUsageLookup(prisma, deps.secretStore, offering),
     }),
     reconcileStrategicInitiatives: createStrategicInitiativeReconciler({
+      prisma,
+      jobs,
+      billingEnabled: deps.billingEnabled,
+    }),
+    reconcileNightlyMemoryReviews: createNightlyMemoryReviewReconciler({
       prisma,
       jobs,
       billingEnabled: deps.billingEnabled,

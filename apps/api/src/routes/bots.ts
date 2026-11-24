@@ -388,6 +388,7 @@ export function botsRoutes(ctx: RouterContext) {
           instructions: source.instructions,
           notifyOnFinish: source.notifyOnFinish,
           dailyCheckIns: source.dailyCheckIns,
+          nightlyMemoryReview: source.nightlyMemoryReview,
           color: source.color,
           avatarSet: resolveBotAvatarSet(source.avatarSet),
           avatarSetPinned: source.avatarSetPinned,
@@ -465,6 +466,7 @@ export function botsRoutes(ctx: RouterContext) {
             botProfileLabelsChanged(input) ||
             input.expectedSettings !== undefined ||
             input.dailyCheckIns !== undefined ||
+            input.nightlyMemoryReview !== undefined ||
             input.replyMode !== undefined,
           expectedInstructions: input.expectedInstructions,
           expectedSettings: input.expectedSettings,
@@ -496,6 +498,9 @@ export function botsRoutes(ctx: RouterContext) {
               ? { crossSpaceCommunication: input.crossSpaceCommunication }
               : {}),
             ...(input.dailyCheckIns !== undefined ? { dailyCheckIns: input.dailyCheckIns } : {}),
+            ...(input.nightlyMemoryReview !== undefined
+              ? { nightlyMemoryReview: input.nightlyMemoryReview }
+              : {}),
             ...(input.fleetManagement !== undefined
               ? { fleetManagement: input.fleetManagement }
               : {}),

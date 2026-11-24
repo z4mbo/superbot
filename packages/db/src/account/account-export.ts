@@ -166,6 +166,7 @@ async function* spaceRecords(
       teamChatRules: bot.teamChatRules,
       crossSpaceCommunication: bot.crossSpaceCommunication,
       dailyCheckIns: bot.dailyCheckIns,
+      nightlyMemoryReview: bot.nightlyMemoryReview,
       fleetManagement: bot.fleetManagement,
       replyMode: bot.replyMode === "messages" ? "messages" : "chat",
       createdAt: iso(bot.createdAt),
