@@ -42,6 +42,23 @@ describe("memory store contract shape", () => {
     });
   });
 
+  it("leaves out a folder of documents only when asked", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const store = new MarkdownMemoryStore({ memoryDocument: { findMany } } as never);
+
+    await store.read({ scope: "bot", botId: "bot-1", excludePathPrefix: "daily/" }, context);
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        spaceId: "workspace-1",
+        scope: "bot",
+        botId: "bot-1",
+        NOT: { path: { startsWith: "daily/" } },
+      },
+      orderBy: [{ updatedAt: "desc" }, { path: "asc" }],
+    });
+  });
+
   it("removes one document by scope, bot and path inside the caller's space", async () => {
     const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
     const store = new MarkdownMemoryStore({ memoryDocument: { deleteMany } } as never);

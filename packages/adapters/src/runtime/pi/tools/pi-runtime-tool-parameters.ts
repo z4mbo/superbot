@@ -79,7 +79,11 @@ function builtinParameters(tool: ConnectorTool) {
     });
   }
   if (tool.name === "remember") {
-    return Type.Object({ content: Type.String(), old_text: Type.Optional(Type.String()) });
+    return Type.Object({
+      content: Type.String(),
+      old_text: Type.Optional(Type.String()),
+      daily: Type.Optional(Type.Boolean()),
+    });
   }
   if (tool.name === "shell" || tool.name === "user_computer_shell") {
     return Type.Object({

@@ -415,6 +415,8 @@ export interface MemoryReadRequest {
   scope: "bot" | "user";
   botId?: string;
   path?: string;
+  /** Leaves out documents whose path starts with this, such as a folder of dated notes. */
+  excludePathPrefix?: string;
 }
 
 export interface MemorySnapshot {

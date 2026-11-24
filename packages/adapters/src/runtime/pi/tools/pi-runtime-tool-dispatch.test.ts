@@ -1119,6 +1119,48 @@ describe("Pi connector tool dispatch", () => {
     );
   });
 
+  it.each([
+    [
+      { content: "Standup moved to 10:00.", daily: true },
+      { content: "Standup moved to 10:00.", daily: true },
+    ],
+    [{ content: "Prefers tea.", daily: "yes" }, { content: "Prefers tea." }],
+  ])("keeps remember's daily flag only when it is true: %j", async (args, expected) => {
+    const rememberTool = builtinAgentTools.find((tool) => tool.name === "remember");
+    if (!rememberTool) throw new Error("missing remember");
+    fakeAgentState.invoke = { name: "remember", args };
+    const executeTool = vi.fn(async () => ({ ok: true }));
+    for await (const _event of new PiAgentRuntime().run(
+      {
+        botId: "b",
+        threadId: "t",
+        runId: "r",
+        prompt: "note it",
+        instructions: "",
+        history: [],
+        tools: [rememberTool],
+        model: { provider: "test", id: "dispatch-test-model" },
+        executeTool,
+      },
+      {
+        operationId: "1",
+        traceId: "1",
+        spaceId: "w",
+        userId: "u",
+        signal: new AbortController().signal,
+      },
+    )) {
+      // Exhaust the runtime event stream so tool execution completes.
+    }
+    expect(executeTool).toHaveBeenCalledWith(
+      "remember",
+      expected,
+      expect.any(String),
+      undefined,
+      expect.anything(),
+    );
+  });
+
   it("creates a bot when the model leaves out the optional computer_mode", async () => {
     const spawnBotTool = builtinAgentTools.find((tool) => tool.name === "spawn_bot");
     if (!spawnBotTool) throw new Error("missing spawn_bot");
