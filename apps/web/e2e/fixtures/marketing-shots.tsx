@@ -115,8 +115,12 @@ function CreateShot() {
         return;
       }
       fill(name, "Inbox");
-      document.querySelector<HTMLButtonElement>('button[aria-label="Shape 1"]')?.click();
-      document.querySelector<HTMLButtonElement>('button[aria-label="Color #A97EFE"]')?.click();
+      document
+        .querySelector<HTMLButtonElement>('button[aria-label="cloud character shape"]')
+        ?.click();
+      document
+        .querySelector<HTMLButtonElement>('button[aria-label="Violet character color"]')
+        ?.click();
       setReady(true);
     };
     fillWhenOpen();
@@ -124,11 +128,7 @@ function CreateShot() {
   }, []);
   return (
     <main data-ready={ready ? "true" : "false"} className="min-h-screen bg-background">
-      <CreateBotDialog
-        avatarSet="organic"
-        onCreate={async () => undefined}
-        onCancel={() => undefined}
-      />
+      <CreateBotDialog onCreate={async () => undefined} onCancel={() => undefined} />
     </main>
   );
 }

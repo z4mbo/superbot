@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { Bot, BotAvatarSet, BotSection, Group, Space } from "@rakazo/contracts";
+import type { Bot, BotSection, Group, Space } from "@rakazo/contracts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,7 +101,6 @@ export function ShellDialogs({
   openSpaceSettings,
   closeMobileSidebar,
   createBot,
-  botAvatarSet,
   clearOpenThread,
   discardChatAttachments,
   deleteRoutineDialogProps,
@@ -121,8 +120,6 @@ export function ShellDialogs({
   openSpaceSettings: (spaceId: string) => void;
   closeMobileSidebar: () => void;
   createBot: (input: CreateBotDialogInput, client: RpcClient) => Promise<void>;
-  /** The account's set, which a new bot takes. */
-  botAvatarSet: BotAvatarSet;
   clearOpenThread: () => void;
   /** Drops a deleted chat's pending attachments with their previews. */
   discardChatAttachments: (threadKey: string) => void;
@@ -336,11 +333,7 @@ export function ShellDialogs({
       />
 
       {createBotOpen ? (
-        <CreateBotDialog
-          avatarSet={botAvatarSet}
-          onCancel={() => setCreateBotOpen(false)}
-          onCreate={createBot}
-        />
+        <CreateBotDialog onCancel={() => setCreateBotOpen(false)} onCreate={createBot} />
       ) : null}
 
       {newSpaceOpen ? (

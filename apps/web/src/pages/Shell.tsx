@@ -6,7 +6,6 @@ import type {
   ThreadMessage,
   VoiceStatus,
 } from "@rakazo/contracts";
-import { DEFAULT_NEW_BOT_AVATAR_SET } from "@rakazo/contracts";
 import {
   activeThreadRuns,
   answerableAskMessageIds,
@@ -23,6 +22,7 @@ import {
   otherAuthor,
   workingRoutineName,
 } from "@rakazo/core";
+import { bestEffort } from "@rakazo/logging/best-effort";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { BotLookProvider, Button } from "@rakazo/ui-web";
 import { useIsMobile } from "@rakazo/ui-web/hooks/use-mobile";
@@ -985,8 +985,14 @@ function SpaceShell({ threadId }: { threadId?: string }) {
 
   async function createBot(input: CreateBotDialogInput, client: RpcClient) {
     const isFirstBot = botsRef.current.length === 0;
-    const bot = await client.bots.create({ ...input, notifyOnFinish: true });
-    openCreatedBot(bot);
+    const { lookShape, lookColor, ...created } = input;
+    const bot = await client.bots.create({ ...created, notifyOnFinish: true });
+    // Creation has no look fields, so the picked body and ink are saved right after it.
+    const styled = await bestEffort(
+      "bots.update.look",
+      client.bots.update({ botId: bot.id, lookShape, lookColor }),
+    );
+    openCreatedBot(styled ?? bot);
     dialogs.setCreateBotOpen(false);
     await composer.startFocusPrompt(bot.id, isFirstBot);
     await refreshBots().catch(() => undefined);
@@ -1489,7 +1495,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
           openSpaceSettings={openSpaceSettings}
           closeMobileSidebar={() => setMobileSidebarOpen(false)}
           createBot={createBot}
-          botAvatarSet={bootstrapMe?.botAvatarSet ?? DEFAULT_NEW_BOT_AVATAR_SET}
           discardChatAttachments={composer.discardThreadAttachments}
           clearOpenThread={() => {
             thread.resetHistory();
