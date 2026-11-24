@@ -5,9 +5,9 @@
 //   PARITY_BASE_URL=http://127.0.0.1:5183 PARITY_FIXTURE=… PARITY_OUT=/path/to/shots \
 //   node scripts/parity/capture.mjs [shot ...]
 //
-// Shots: chat (reference 20), working (25), settings (50), workspace (50 with the Workspace
-// combobox open; the fixture needs a second workspace), hover, studio, model-menu. With no names,
-// every shot is taken.
+// Shots: chat (reference 20), working (25), settings (50), asleep (68), workspace (50 with the
+// Workspace combobox open; the fixture needs a second workspace), hover, studio, model-menu. With
+// no names, every shot is taken.
 import { mkdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -93,6 +93,17 @@ const shots = {
     await page.goto(`/app/${await botId(page, "main")}?settings=general`);
     await page.getByRole("dialog").first().waitFor({ timeout: 10_000 });
     await settle(page);
+  },
+  async asleep(page) {
+    // The bot panel's computer preview: a fixture bot's computer is never started, so it sleeps.
+    await page.goto(`/app/${await botId(page, "main")}`);
+    await page.getByTestId("composer-bar").waitFor({ timeout: 30_000 });
+    await settle(page);
+    await page.getByTestId("bot-settings-trigger").click();
+    await page
+      .locator('[data-testid="computer-preview"][data-state="idle"]')
+      .waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(1200);
   },
   async hover(page) {
     await page.goto(`/app/${await botId(page, "main")}`);
