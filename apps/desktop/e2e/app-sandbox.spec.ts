@@ -6,8 +6,8 @@ import path from "node:path";
 import type { ElectronApplication } from "@playwright/test";
 import { _electron as electron, expect, test } from "@playwright/test";
 import { pageViewerDocument, withSandboxedArtifactCsp } from "@rakazo/core";
-import { pageViewerCode } from "../../../packages/page-kit/src/compile.js";
-import { buildPageRuntime } from "../../../packages/page-kit/src/runtime-build.js";
+import { pageViewerCode } from "@rakazo/page-kit/compile";
+import { buildPageRuntime } from "@rakazo/page-kit/runtime-build";
 import { shownWindow } from "./shown-window.js";
 
 // An installed app's code, as the store serves it to the viewer once a launch is checked.
