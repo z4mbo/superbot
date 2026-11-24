@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AppManifest } from "@rakazo/contracts";
+import type { AppManifest, AppPermission } from "@rakazo/contracts";
 import { appManifestSchema } from "@rakazo/contracts";
 import { retry } from "@rakazo/core";
 import type { Prisma, PrismaClient } from "@rakazo/db";
@@ -84,6 +84,17 @@ export type AppActionRun =
   | { ok: true; pageId: string; spaceId: string; state: AppState; revision: number }
   | AppActionFailure;
 
+/**
+ * The manifest with only the permissions an install granted as well: a bridge check on it passes
+ * only what both the app and the person allow.
+ */
+export function withinGrant(manifest: AppManifest, granted: readonly AppPermission[]): AppManifest {
+  return {
+    ...manifest,
+    permissions: manifest.permissions.filter((permission) => granted.includes(permission)),
+  };
+}
+
 /** Another write landed between the read and the write; the action runs again on a fresh read. */
 class RevisionMovedError extends Error {}
 
@@ -92,19 +103,21 @@ const WRITE_ATTEMPTS = 3;
 
 /**
  * Runs one declared action for a person or a bot. The bridge check comes first, from the stored
- * manifest; the write is conditional on the revision it read, so two runs never interleave and
- * each one applies to the state it was computed from.
+ * manifest narrowed to `granted` when an install's grant applies; the write is conditional on the
+ * revision it read, so two runs never interleave and each one applies to the state it was
+ * computed from.
  */
 export async function runAppPageAction(
   prisma: PrismaClient,
   where: Prisma.PageWhereInput,
   request: { by: AppBridgeRequest["by"]; action: string; input: unknown },
-  options: { newId?: () => string } = {},
+  options: { newId?: () => string; granted?: readonly AppPermission[] } = {},
 ): Promise<AppActionRun> {
   const once = async (): Promise<AppActionRun> => {
     const app = await readAppPage(prisma, where);
     if (!app) return { ok: false, reason: "not_found", error: "No app with that pageId here." };
-    const allowed = appBridgeAllows(app.manifest, {
+    const surface = options.granted ? withinGrant(app.manifest, options.granted) : app.manifest;
+    const allowed = appBridgeAllows(surface, {
       by: request.by,
       kind: "action",
       action: request.action,
@@ -139,13 +152,19 @@ export async function runAppPageAction(
   }
 }
 
-/** What a bot reads of an app: its name, state and, when allowed, the actions it can run. */
-export function appForAgent(app: AppPage) {
+/**
+ * What a bot reads of an app: its name, state and, when allowed, the actions it can run, after the
+ * reference the bot used for it (`pageId` or `app_id`).
+ */
+export function appForAgent(
+  app: Pick<AppPage, "manifest" | "state" | "revision">,
+  ref: { pageId: string } | { app_id: string },
+) {
   const read = appBridgeAllows(app.manifest, { by: "agent", kind: "read" });
   if (!read.ok) return { error: read.error };
   const canAct = app.manifest.permissions.includes("agent:actions");
   return {
-    pageId: app.pageId,
+    ...ref,
     app: app.manifest.name,
     version: app.manifest.version,
     state: app.state,

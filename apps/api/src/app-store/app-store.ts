@@ -2,6 +2,7 @@ import type { TransactionalEmail } from "@rakazo/adapter-kit";
 import {
   APP_INSTALL_KIND,
   AppChangedError,
+  appInstallSource,
   appReleaseDigest,
   checkAppBundle,
   grantWithin,
@@ -37,8 +38,6 @@ export class AppBundleError extends ClientError {
     super("BAD_REQUEST", problems.join("\n"), "APP_INVALID");
   }
 }
-
-const appSource = (appId: string) => `app:${appId}`;
 
 function manifestOf(release: { id: string; manifest: unknown }): AppManifest {
   return readJsonColumn(
@@ -251,7 +250,7 @@ export async function installApp(
       where: {
         ...availableInSpace(actor),
         kind: APP_INSTALL_KIND,
-        source: appSource(manifest.id),
+        source: appInstallSource(manifest.id),
       },
       select: { id: true },
     });
@@ -263,7 +262,7 @@ export async function installApp(
         userId: actor.userId,
         kind: APP_INSTALL_KIND,
         name: manifest.name,
-        source: appSource(manifest.id),
+        source: appInstallSource(manifest.id),
         version: manifest.version,
         digest: release.digest,
         // In the manifest's order, each once, as the person was shown them.

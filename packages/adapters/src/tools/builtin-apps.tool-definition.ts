@@ -3,17 +3,18 @@ import type { ConnectorTool } from "@rakazo/adapter-kit";
 export const READ_APP_STATE = "read_app_state";
 export const RUN_APP_ACTION = "run_app_action";
 
+const appRef = {
+  pageId: { type: "string", description: "An app page's pageId." },
+  app_id: { type: "string", description: "An installed app's app_id, from find_apps." },
+} as const;
+
 /** A bot uses an app the same way the person does: it reads its state and runs its actions. */
 export const appTools: ConnectorTool[] = [
   {
     name: READ_APP_STATE,
     description:
-      "Read an app's current state and the actions you can run on it. An app is a page saved with an app manifest; pass its pageId. Works only when the app lets bots read it.",
-    inputSchema: {
-      type: "object",
-      properties: { pageId: { type: "string", description: "The app's pageId." } },
-      required: ["pageId"],
-    },
+      "Read an app's current state and the actions you can run on it. An app is a page saved with an app manifest (pass its pageId) or an app the user installed (pass its app_id). Works only when the app lets bots read it.",
+    inputSchema: { type: "object", properties: appRef },
     readOnly: true,
   },
   {
@@ -23,11 +24,11 @@ export const appTools: ConnectorTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        pageId: { type: "string", description: "The app's pageId." },
+        ...appRef,
         action: { type: "string", description: "A declared action name." },
         input: { type: "object", description: "The action's inputs, as it declares them." },
       },
-      required: ["pageId", "action"],
+      required: ["action"],
     },
   },
 ];

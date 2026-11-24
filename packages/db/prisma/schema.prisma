@@ -1891,6 +1891,7 @@ model CapabilityInstall {
   agentSkills AgentSkill[]
   mcpServers  McpServer[]
   availableIn CapabilityInstallSpace[]
+  appPages    Page[]
 
   @@index([spaceId, userId])
   @@map("capability_installs")
@@ -2185,11 +2186,15 @@ model Page {
   appState       Json?
   /// Counts changes to appState, so a stale write fails and viewers drop late answers.
   appRevision    Int           @default(0)
+  /// The installed app whose state this page keeps; removing the app removes the page.
+  appInstallId   String?
+  appInstall     CapabilityInstall? @relation(fields: [appInstallId], references: [id], onDelete: Cascade)
   createdAt      DateTime      @default(now())
   /// Set when the page's content or title changes; pinning or sharing it is not an update.
   updatedAt      DateTime      @default(now())
   versions       PageVersion[]
 
+  @@unique([appInstallId, spaceId])
   @@index([spaceId, userId, updatedAt])
   @@index([botId])
   @@index([groupId])

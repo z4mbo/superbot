@@ -14,6 +14,9 @@ import { appReleaseDigest } from "./app-bundle.js";
 /** `capability_installs.kind` of an installed app. */
 export const APP_INSTALL_KIND = "app";
 
+/** `capability_installs.source` of an installed app: one install per app id in a Space. */
+export const appInstallSource = (appId: string) => `app:${appId}`;
+
 /** What an app install records beside its pinned version: the permissions the person allowed. */
 export const AppInstallConfigSchema = z.object({
   releaseId: z.string(),
@@ -113,13 +116,14 @@ export async function listInstalledApps(prisma: PrismaClient, scope: Scope): Pro
  * The installed app to run, refused unless it is still exactly the version that was installed:
  * the stored manifest, source, compiled code and icon must hash to the digest the install pinned,
  * and the recorded grant must be within what that manifest asks for. The viewer and bridge get
- * only `granted`; everything else an app might ask for is refused by default.
+ * only `granted`; everything else an app might ask for is refused by default. The manifest and
+ * source are for the server; the viewer is sent only the launch.
  */
 export async function readAppLaunch(
   prisma: PrismaClient,
   scope: Scope,
   installId: string,
-): Promise<AppLaunch & { manifest: AppManifest }> {
+): Promise<AppLaunch & { manifest: AppManifest; source: string }> {
   const install = await prisma.capabilityInstall.findFirst({
     where: { ...availableInSpace(scope), id: installId, kind: APP_INSTALL_KIND },
   });
@@ -155,5 +159,6 @@ export async function readAppLaunch(
     code: release.code,
     granted: config.granted,
     manifest,
+    source: release.source,
   };
 }
