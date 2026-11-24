@@ -6,6 +6,7 @@ import {
 } from "@rakazo/contracts";
 import { readHistory, searchHistory } from "@rakazo/db";
 import { redactConnectorPayload } from "../../integrations/connector-safety.js";
+import { appendDailyNote, DAILY_NOTE_EDIT_ERROR, dailyNotePath } from "../../memory/daily-notes.js";
 import { editMemory } from "../../memory/memory-tools.js";
 import { MAX_RECALLED_MEMORIES } from "../../runtime/context/history-compaction.prompt.js";
 import { sharedMemorySaveError } from "../../tools/builtin.tool-definition.js";
@@ -101,17 +102,18 @@ export const memoryTools: ToolHandlers = {
   async remember(ctx, call) {
     const { deps, runId, bot, thread, context } = ctx;
     const { args } = call;
-    // One document per bot keeps the size cap meaningful.
-    const path = MEMORY_INDEX_PATH;
+    const daily = args.daily === true;
+    const oldText = String(args.old_text ?? "");
+    if (daily && oldText.trim()) return call.finish({ error: DAILY_NOTE_EDIT_ERROR });
+    // One document per bot keeps the size cap meaningful; daily notes get one per day.
+    const path = daily ? dailyNotePath(new Date()) : MEMORY_INDEX_PATH;
     // A concurrent save changes the revision, so re-read and apply the edit again.
     for (let attempt = 1; ; attempt += 1) {
       const snapshot = await deps.memory.read({ scope: "bot", botId: bot.id, path }, context);
       const existing = snapshot.documents[0];
-      const edit = editMemory(
-        existing?.content ?? "",
-        String(args.content ?? ""),
-        String(args.old_text ?? ""),
-      );
+      const edit = daily
+        ? appendDailyNote(existing?.content ?? "", String(args.content ?? ""))
+        : editMemory(existing?.content ?? "", String(args.content ?? ""), oldText);
       if ("error" in edit) return call.finish(edit);
       const { content } = edit;
       if (content === (existing?.content ?? "")) return call.finish({ ok: true });

@@ -35,6 +35,9 @@ export class MarkdownMemoryStore implements MemoryStore {
         scope: request.scope,
         ...(request.botId ? { botId: request.botId } : {}),
         ...(request.path ? { path: request.path } : {}),
+        ...(request.excludePathPrefix
+          ? { NOT: { path: { startsWith: request.excludePathPrefix } } }
+          : {}),
       },
       orderBy: [{ updatedAt: "desc" }, { path: "asc" }],
     });

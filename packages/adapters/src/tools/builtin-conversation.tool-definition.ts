@@ -9,6 +9,7 @@ import {
   SecretHttpRequest,
 } from "@rakazo/contracts";
 import { z } from "zod";
+import { DAILY_NOTE_DAYS_IN_PROMPT } from "../memory/daily-notes.js";
 import { messageUserMaxLength } from "../runs/lifecycle/user-progress.js";
 import { allowPrivateHttpSecretOrigins } from "../secrets/bot-secrets.js";
 
@@ -272,6 +273,10 @@ export const conversationTools: ConnectorTool[] = [
       properties: {
         content: { type: "string" },
         old_text: { type: "string" },
+        daily: {
+          type: "boolean",
+          description: `Log content in today's note instead, kept as written. Notes from the last ${DAILY_NOTE_DAYS_IN_PROMPT} days stay in your memory.`,
+        },
       },
       required: ["content"],
     },
