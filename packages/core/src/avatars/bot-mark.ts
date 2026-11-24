@@ -31,16 +31,35 @@ import {
   rotationMatrix,
   sphereEye,
 } from "./bot-mark-geometry.js";
-import type { BotMarkPlaylistName, BotMarkPoke, BotMarkPose } from "./bot-mark-motion.js";
+import type { BotMarkMorph } from "./bot-mark-morph.js";
+import {
+  MORPH_MARK_CENTRE,
+  MORPH_ZOOM_ORIGIN,
+  morphCore,
+  morphDots,
+  morphProgress,
+  morphZoom,
+  roundOutline,
+} from "./bot-mark-morph.js";
+import type {
+  BotMarkPlay,
+  BotMarkPlaylist,
+  BotMarkPlaylistName,
+  BotMarkPoke,
+  BotMarkPose,
+} from "./bot-mark-motion.js";
 import {
   BOT_MARK_PLAYLISTS,
+  BRIDGE_SECONDS,
   blendPose,
+  clipDuration,
   clipFace,
   clipPose,
   playlistAt,
   pokeEffect,
   REST_ROTATION,
   REST_ZOOM,
+  sequenceAt,
 } from "./bot-mark-motion.js";
 import { pumpkinEyes, pumpkinShape } from "./bot-mark-pumpkin.js";
 
@@ -184,6 +203,8 @@ export type BotMarkFrame = {
   eyes: readonly [readonly Point[], readonly Point[]] | null;
   /** Each eye's centre in eye space; shaped bodies spread the centres apart by their own gap. */
   eyeOffsets: readonly [Point, Point];
+  /** The morph the body is folding into or out of, if any. */
+  morph: BotMarkMorph | null;
 };
 
 /** Where the pointer holds the face: x right and y up, each -1 to 1, and how firmly (0 to 1). */
@@ -257,6 +278,9 @@ export function botMarkFrame(input: BotMarkFrameInput): BotMarkFrame {
   let pose: BotMarkPose;
   let eyes: readonly [readonly Point[], readonly Point[]];
   let eyeOffsets: readonly [Point, Point];
+  let morph: BotMarkMorph | null = null;
+  let morphStart: BotMarkPose | null = null;
+  let spin = 0;
   if (!play) {
     pose = REST_POSE;
     const gaze = input.gaze;
@@ -277,26 +301,78 @@ export function botMarkFrame(input: BotMarkFrameInput): BotMarkFrame {
     eyes = faceOutlines("neutral");
     eyeOffsets = faceOffsets("neutral");
   } else {
-    const playlist = BOT_MARK_PLAYLISTS[play.name];
-    const step = playlistAt(playlist.clips, play.seconds, input.seed);
-    pose = clipPose(step.clip, step.time);
-    if (step.bridge) pose = blendPose(step.bridge.from, pose, step.bridge.progress);
-    const held = "face" in playlist ? (playlist.face as BotMarkFace) : null;
-    const face = held
-      ? { from: "neutral" as BotMarkFace, to: held, since: play.seconds }
-      : clipFace(step.clip, step.time);
-    eyes = eyesFor(face, pose.lids);
-    eyeOffsets = morphOffsets(face.from, face.to, face.since / FACE_MORPH_SECONDS);
+    const playlist: BotMarkPlaylist = BOT_MARK_PLAYLISTS[play.name];
+    let step: BotMarkPlay | null;
+    let start: BotMarkPose | null = null;
+    let resting = 0;
+    if (playlist.once) {
+      // Clips that play once, in order, then leave the body resting.
+      const run = sequenceAt(playlist.clips, play.seconds);
+      step = run.play;
+      resting = play.seconds - run.ended;
+    } else if (playlist.morph) {
+      // A morph slows the clip to a stop and holds the body near where the morph began.
+      step = playlistAt(playlist.clips, morphProgress(play.seconds).clipSeconds, input.seed);
+      const first = playlistAt(playlist.clips, 0, input.seed);
+      start = clipPose(first.clip, first.time);
+    } else {
+      step = playlistAt(playlist.clips, play.seconds, input.seed);
+    }
+    if (step) {
+      pose = clipPose(step.clip, step.time);
+      if (step.bridge) pose = blendPose(step.bridge.from, pose, step.bridge.progress);
+      const held = playlist.face ?? null;
+      const face = held
+        ? { from: "neutral" as BotMarkFace, to: held, since: play.seconds }
+        : clipFace(step.clip, step.time);
+      eyes = eyesFor(face, pose.lids);
+      eyeOffsets = morphOffsets(face.from, face.to, face.since / FACE_MORPH_SECONDS);
+    } else {
+      const last = playlist.clips[playlist.clips.length - 1]!;
+      pose = blendPose(clipPose(last, clipDuration(last)), REST_POSE, resting / BRIDGE_SECONDS);
+      eyes = faceOutlines("neutral");
+      eyeOffsets = faceOffsets("neutral");
+    }
+    if (playlist.morph && start) {
+      const { amount } = morphProgress(play.seconds);
+      // The dots' own clock starts on the frame after the spring does.
+      morph = { kind: playlist.morph, amount, clock: Math.max(0, play.seconds - 1 / 60) };
+      morphStart = start;
+      // A morph spins the body half a turn as it folds; a mark's first fold always turns this way.
+      spin = 180 * amount;
+    }
   }
   const poke = pokeEffect(input.pokes ?? []);
+  let rotation: [number, number, number] = [
+    pose.rot[0] + poke.pitch,
+    pose.rot[1] + poke.yaw,
+    pose.rot[2],
+  ];
+  let offset: [number, number] = [pose.pos[0], pose.pos[1] + poke.lift];
+  let squash: [number, number] = [pose.squash[0] * poke.squash[0], pose.squash[1] * poke.squash[1]];
+  let shown: BotMarkFrame["eyes"] = eyes;
+  if (morph && morphStart) {
+    const keep = 1 - morph.amount;
+    const held = morphStart.rot;
+    rotation = [0, 1, 2].map((k) => held[k]! + (rotation[k]! - held[k]!) * keep) as [
+      number,
+      number,
+      number,
+    ];
+    rotation[1] += spin;
+    offset = [offset[0] * keep, offset[1] * keep];
+    squash = [1 + (squash[0] - 1) * keep, 1 + (squash[1] - 1) * keep];
+    if (morph.amount >= 0.5) shown = null;
+  }
   return {
-    rotation: [pose.rot[0] + poke.pitch, pose.rot[1] + poke.yaw, pose.rot[2]],
-    offset: [pose.pos[0], pose.pos[1] + poke.lift],
-    squash: [pose.squash[0] * poke.squash[0], pose.squash[1] * poke.squash[1]],
+    rotation,
+    offset,
+    squash,
     anchor: pose.anchor,
     zoom: pose.zoom,
-    eyes,
+    eyes: shown,
     eyeOffsets,
+    morph,
   };
 }
 
@@ -329,14 +405,18 @@ export function botMarkBlend(from: BotMarkFrame, to: BotMarkFrame, progress: num
     const [bx, by] = to.eyeOffsets[side]!;
     return [ax + (bx - ax) * t, ay + (by - ay) * t] as const;
   }) as unknown as readonly [Point, Point];
+  // Folding out of a morph eases its dots away; folding in starts from nothing anyway.
+  const morph =
+    to.morph ?? (from.morph ? { ...from.morph, amount: from.morph.amount * (1 - t) } : null);
   return {
     rotation: blended.rot,
     offset: blended.pos,
     squash: blended.squash,
     anchor: blended.anchor,
     zoom: blended.zoom,
-    eyes,
+    eyes: morph && morph.amount >= 0.5 ? null : eyes,
     eyeOffsets,
+    morph,
   };
 }
 
@@ -366,7 +446,23 @@ export type BotMarkDrawing = {
   eyes: string;
   /** The pumpkin's stem, over the body in two greys of its own: the whole stem, then its cap. */
   stem: readonly { d: string; tone: "stem" | "cap" }[];
+  /** How opaque the stem is: it fades as a morph rounds the body off. */
+  stemOpacity: number;
+  /** How opaque the body is: a thinking body lightens between hops. */
+  opacity: number;
+  /** Dots a morph adds around the body, drawn behind it in the body's ink. */
+  dots: readonly { cx: number; cy: number; r: number; opacity: number }[];
 };
+
+/** How far the morph layout is scaled to fit the box. */
+const MARK_SCALE = (REST_ZOOM * BOT_MARK_BOX) / 2 / MORPH_MARK_CENTRE;
+/** The point a morphed mark grows about, in box units. */
+export const BOT_MARK_ZOOM_ORIGIN = CENTER + (MORPH_ZOOM_ORIGIN - MORPH_MARK_CENTRE) * MARK_SCALE;
+
+/** How much a morphed mark grows on an avatar `pixels` across, about `BOT_MARK_ZOOM_ORIGIN`. */
+export function botMarkZoom(frame: BotMarkFrame, pixels: number): number {
+  return morphZoom(frame.morph, pixels);
+}
 
 /**
  * The body's outline and its eye holes for a frame, in box units. A renderer fills the body and
@@ -374,13 +470,15 @@ export type BotMarkDrawing = {
  * edge only ever removes ink.
  */
 export function botMarkDrawing(shape: BotMarkShape, frame: BotMarkFrame): BotMarkDrawing {
+  const empty = { body: "", eyes: "", stem: [], stemOpacity: 1, opacity: 1, dots: [] };
   const radius = (frame.zoom * BOT_MARK_BOX) / 2;
   const [sx, sy] = [Math.abs(frame.squash[0]), Math.abs(frame.squash[1])];
-  if (radius <= 0 || sx === 0 || sy === 0) return { body: "", eyes: "", stem: [] };
+  if (radius <= 0 || sx === 0 || sy === 0) return empty;
   // Squash holds the anchor still: -1 keeps the bottom of the body where it was.
   const cx = CENTER + frame.offset[0] * radius;
   const cy = CENTER - (frame.anchor * (1 - sy) + frame.offset[1]) * radius;
-  const eyes: Point[][] = [];
+  const morph = frame.morph && frame.morph.amount > 0 ? frame.morph : null;
+  let eyes: Point[][] = [];
   const offsets = frame.eyeOffsets;
   const pair = frame.eyes
     ? [
@@ -391,8 +489,8 @@ export function botMarkDrawing(shape: BotMarkShape, frame: BotMarkFrame): BotMar
   // Shaped bodies are drawn on a whole-pixel sprite at least 144 across, then scaled to fit.
   const exact = Math.max(8, Math.round((BOT_MARK_BOX * frame.zoom) / (184 / 256)));
   const sprite = Math.max(exact, 144);
-  let body: string;
-  let stem: BotMarkDrawing["stem"] = [];
+  let outline: Point[] | null = null;
+  let stem: { loops: Point[][]; tone: "stem" | "cap" }[] = [];
   if (shape === "pumpkin") {
     const k = exact / sprite;
     const toBox = ([x, y]: Point): Point => [
@@ -401,18 +499,22 @@ export function botMarkDrawing(shape: BotMarkShape, frame: BotMarkFrame): BotMar
     ];
     const turn = bodyTurn(frame.rotation, turnStep(frame.zoom), false);
     const look = pumpkinShape(turn, sprite);
-    body = polylinePath(look.outline.map(toBox));
+    outline = look.outline.map(toBox);
     if (pair) for (const eye of pumpkinEyes(turn, sprite, look, pair)) eyes.push(eye.map(toBox));
-    stem = look.stem.map(({ d, tone }) => ({
-      d: d.map((loop) => polylinePath(loop.map(toBox))).join(""),
-      tone,
-    }));
+    stem = look.stem.map(({ d, tone }) => ({ loops: d.map((loop) => loop.map(toBox)), tone }));
   } else if (shape === "blob") {
-    body = ellipsePath(cx, cy, sx * radius, sy * radius);
+    if (morph) {
+      outline = Array.from({ length: 192 }, (_, index) => {
+        const a = (index / 192) * Math.PI * 2;
+        const [c, s] = [Math.cos(a), Math.sin(a)];
+        const r = 1 / Math.hypot(c / (sx * radius), s / (sy * radius));
+        return [cx + c * r, cy + s * r] as const;
+      });
+    }
     if (frame.eyes) {
       const turn = rotationMatrix(frame.rotation);
-      frame.eyes.forEach((outline, side) => {
-        const eye = sphereEye(outline, SPHERE_EYES[side]!, turn);
+      frame.eyes.forEach((eyeOutline, side) => {
+        const eye = sphereEye(eyeOutline, SPHERE_EYES[side]!, turn);
         if (eye)
           eyes.push(eye.map(([x, y]) => [cx + x * sx * radius, cy - y * sy * radius] as const));
       });
@@ -420,14 +522,45 @@ export function botMarkDrawing(shape: BotMarkShape, frame: BotMarkFrame): BotMar
   } else {
     const body3d = shape as BotMarkBodyShape;
     const spec = BOT_MARK_BODY_SPECS[body3d];
-    // A body of size 1 is 1.18 body units across the sphere's radius, drawn on a whole-pixel sprite.
+    // A body of size 1 is 1.18 body units across the sphere's radius.
     const unit = (spec.size * 0.36 * exact) / 1.18;
     const toBox = ([x, y]: Point): Point => [cx + x * sx * unit, cy - y * sy * unit];
     const turn = bodyTurn(frame.rotation, turnStep(frame.zoom));
-    body = polylinePath(bodySilhouette(body3d, turn).map(toBox));
+    outline = bodySilhouette(body3d, turn).map(toBox);
     if (pair) for (const eye of bodyEyes(body3d, pair, turn)) eyes.push(eye.map(toBox));
   }
-  return { body, eyes: eyes.map(polylinePath).join(""), stem };
+  let opacity = 1;
+  let stemOpacity = 1;
+  let dots: BotMarkDrawing["dots"] = [];
+  if (morph && outline) {
+    // The body rounds into a disc and shrinks about its middle; the dots grow out beside it.
+    const core = morphCore(morph);
+    const amount = Math.min(1, morph.amount);
+    const scale = 1 - amount + (REST_ZOOM / frame.zoom) * core.disc * amount;
+    const lift = core.lift * MARK_SCALE;
+    const place = ([x, y]: Point): Point => [cx + (x - cx) * scale, cy - lift + (y - cy) * scale];
+    outline = roundOutline(outline, [cx, cy], radius, core.round).map(place);
+    eyes = eyes.map((eye) => eye.map(place));
+    stem = stem.map(({ loops, tone }) => ({ loops: loops.map((loop) => loop.map(place)), tone }));
+    opacity = core.opacity;
+    stemOpacity = 1 - core.round;
+    dots = morphDots(morph).map((dot) => ({
+      cx: CENTER + (dot.cx - MORPH_MARK_CENTRE) * MARK_SCALE,
+      cy: CENTER + (dot.cy - MORPH_MARK_CENTRE) * MARK_SCALE,
+      r: dot.r * MARK_SCALE,
+      opacity: dot.opacity,
+    }));
+  }
+  return {
+    body: outline ? polylinePath(outline) : ellipsePath(cx, cy, sx * radius, sy * radius),
+    eyes: eyes.map(polylinePath).join(""),
+    stem: stem
+      .map(({ loops, tone }) => ({ d: loops.map(polylinePath).join(""), tone }))
+      .filter(({ d }) => d !== ""),
+    stemOpacity,
+    opacity,
+    dots,
+  };
 }
 
 /**

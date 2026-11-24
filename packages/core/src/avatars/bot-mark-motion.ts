@@ -6,6 +6,7 @@
 import type { BotMarkFace } from "./bot-mark-faces.js";
 import { botMarkFaceNamed } from "./bot-mark-faces.js";
 import { cubicEase } from "./bot-mark-geometry.js";
+import type { BotMarkMorphKind } from "./bot-mark-morph.js";
 
 type Key = readonly number[];
 
@@ -398,17 +399,21 @@ export type BotMarkClipName = keyof typeof CLIPS;
 export type BotMarkPlaylist = {
   clips: readonly BotMarkClipName[];
   face?: BotMarkFace;
+  /** A morph the body folds into while the state lasts. */
+  morph?: BotMarkMorphKind;
+  /** Plays the clips once, in order, and then rests. */
+  once?: true;
 };
 
 export const BOT_MARK_PLAYLISTS = {
   idle: { clips: ["idle"] },
   working: { clips: ["workSpin", "workInspect", "workSway", "workScan", "workLook", "workFlip"] },
-  thinking: { clips: ["idle"], face: "sad" },
-  waiting: { clips: ["idleGlance"], face: "calm" },
+  thinking: { clips: ["idle"], morph: "dots" },
+  waiting: { clips: ["idle"], morph: "orbit" },
   blocked: { clips: ["stuck"] },
   drowsy: { clips: ["doze"] },
-  done: { clips: ["wiggle", "cheer"], face: "happy" },
-  error: { clips: ["sulk"] },
+  done: { clips: ["wiggle", "cheer"], face: "happy", once: true },
+  error: { clips: ["sulk"], once: true },
   asleep: { clips: ["idle"], face: "sleepy" },
   waking: { clips: ["idle"], face: "surprised" },
   playful: { clips: ["idleLook"] },
@@ -603,6 +608,41 @@ export function playlistAt(
   }
   const name = order[order.length - 1]!;
   return { clip: name, time: clipDuration(name), bridge: null };
+}
+
+/**
+ * Where a once-through playlist is `time` seconds in: its clips in order with the same short
+ * moves between them, or null once the last clip has ended, with when that was.
+ */
+export function sequenceAt(
+  clips: readonly BotMarkClipName[],
+  time: number,
+): { play: BotMarkPlay | null; ended: number } {
+  let at = Math.max(0, time);
+  let elapsed = 0;
+  let last: BotMarkClipName | null = null;
+  for (const name of clips) {
+    if (last) {
+      const from = clipPose(last, clipDuration(last));
+      const moves = posesDiffer(from, clipPose(name, 0));
+      if (moves && at < BRIDGE_SECONDS) {
+        return {
+          play: { clip: name, time: 0, bridge: { from, progress: at / BRIDGE_SECONDS } },
+          ended: 0,
+        };
+      }
+      if (moves) {
+        at -= BRIDGE_SECONDS;
+        elapsed += BRIDGE_SECONDS;
+      }
+    }
+    const duration = clipDuration(name);
+    if (at < duration) return { play: { clip: name, time: at, bridge: null }, ended: 0 };
+    at -= duration;
+    elapsed += duration;
+    last = name;
+  }
+  return { play: null, ended: elapsed };
 }
 
 // ── Pokes ───────────────────────────────────────────────────────────────────────────────────

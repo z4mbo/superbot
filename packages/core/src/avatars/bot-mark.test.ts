@@ -11,6 +11,7 @@ import {
   botMarkShapeFor,
   botMarkShowcaseEmotion,
   botMarkStateFor,
+  botMarkZoom,
 } from "./bot-mark.js";
 import { bodySilhouette } from "./bot-mark-bodies.js";
 import { faceOutlines } from "./bot-mark-faces.js";
@@ -147,6 +148,32 @@ describe("bot mark", () => {
     );
     const frame = botMarkFrame({ state: "asleep", time: 900, seed: 0 });
     expect(frame.eyes).not.toBeNull();
+  });
+
+  it("folds a thinking bot into three dots and a waiting one into a circling orbit", () => {
+    const early = botMarkFrame({ state: "thinking", time: 100, seed: 0, shape: "egg" });
+    expect(early.morph?.kind).toBe("dots");
+    expect(early.eyes).not.toBeNull();
+    const thinking = botMarkFrame({ state: "thinking", time: 2000, seed: 0, shape: "egg" });
+    expect(thinking.morph?.amount).toBeGreaterThan(0.99);
+    expect(thinking.eyes).toBeNull();
+    const dots = botMarkDrawing("egg", thinking).dots;
+    expect(dots).toHaveLength(2);
+    // Two dots either side of the folded body, hopping in turn.
+    expect(dots[0]!.cx + dots[1]!.cx).toBeCloseTo(2 * 96, 0);
+    const waiting = botMarkDrawing("egg", botMarkFrame({ state: "waiting", time: 2000, seed: 0 }));
+    expect(waiting.dots).toHaveLength(5);
+    expect(botMarkZoom(thinking, 24)).toBeCloseTo(1.5, 2);
+    expect(botMarkZoom(thinking, 200)).toBe(1);
+  });
+
+  it("plays a finished or failed bot's clips once, then rests", () => {
+    for (const state of ["done", "error"] as const) {
+      const late = botMarkFrame({ state, time: 20_000, seed: 0 });
+      late.rotation.forEach((angle, k) => expect(angle).toBeCloseTo(REST_ROTATION[k]!, 6));
+    }
+    const playing = botMarkFrame({ state: "done", time: 500, seed: 0 });
+    expect(playing.rotation).not.toEqual([...REST_ROTATION]);
   });
 
   it("rests idle bots in the reference's turned pose without moving", () => {
