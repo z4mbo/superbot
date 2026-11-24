@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RAKAZO_CLOUD_URL } from "../setup/setup-config.js";
+
+// A release build inlines its passkey domain; these tests build as one associated with this domain.
+vi.hoisted(() => {
+  process.env.SUPERBOT_PASSKEY_RP_ID = "superbot.example.org";
+});
+
 import { associatedPasskeyRpIds, PASSKEY_RP_ID, passkeyEntitlements } from "./passkeys.js";
 
 const root = path.resolve(import.meta.dirname, "../../..");
@@ -11,8 +16,8 @@ const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as
 const base = readFileSync(path.join(root, pkg.build.mac.entitlements), "utf8");
 
 describe("associatedPasskeyRpIds", () => {
-  const resourcesPath = "/Applications/Rakazo.app/Contents/Resources";
-  const profile = "/Applications/Rakazo.app/Contents/embedded.provisionprofile";
+  const resourcesPath = "/Applications/Superbot.app/Contents/Resources";
+  const profile = "/Applications/Superbot.app/Contents/embedded.provisionprofile";
 
   it("lists the hosted domain only for a packaged macOS app with an embedded profile", () => {
     const exists = (file: string) => file === profile;
@@ -41,7 +46,7 @@ describe("passkeyEntitlements", () => {
     const plist = passkeyEntitlements(base, "ABCDE12345", pkg.build.appId);
     expect(plist.startsWith(base.slice(0, base.lastIndexOf("</dict>")).trimEnd())).toBe(true);
     expect(plist).toContain(
-      "<key>com.apple.application-identifier</key>\n    <string>ABCDE12345.dev.rakazo.desktop</string>",
+      "<key>com.apple.application-identifier</key>\n    <string>ABCDE12345.com.superbot.desktop</string>",
     );
     expect(plist).toContain(
       `<key>com.apple.developer.associated-domains</key>\n    <array>\n      <string>webcredentials:${PASSKEY_RP_ID}</string>\n    </array>\n  </dict>\n</plist>`,
@@ -79,23 +84,40 @@ describe("self-hosted passkey domain", () => {
     vi.resetModules();
   });
 
-  async function load(rpId: string) {
-    vi.stubEnv("RAKAZO_PASSKEY_RP_ID", rpId);
+  async function load(rpId: string, legacyRpId = "") {
+    vi.stubEnv("SUPERBOT_PASSKEY_RP_ID", rpId);
+    vi.stubEnv("RAKAZO_PASSKEY_RP_ID", legacyRpId);
     vi.resetModules();
     return import("./passkeys.js");
   }
 
-  it("defaults to the hosted server's domain", async () => {
+  it("has no passkey domain unless the build names one", async () => {
     const passkeys = await load("");
-    expect(passkeys.PASSKEY_RP_ID).toBe(new URL(RAKAZO_CLOUD_URL).hostname);
+    expect(passkeys.PASSKEY_RP_ID).toBe("");
+    expect(
+      passkeys.associatedPasskeyRpIds({
+        platform: "darwin",
+        packaged: true,
+        resourcesPath: "/Applications/Superbot.app/Contents/Resources",
+        exists: () => true,
+      }),
+    ).toEqual([]);
+    expect(() => passkeys.passkeyEntitlements(base, "ABCDE12345", pkg.build.appId)).toThrow(
+      "SUPERBOT_PASSKEY_RP_ID",
+    );
   });
 
-  it("associates the build with RAKAZO_PASSKEY_RP_ID", async () => {
-    const passkeys = await load(" Rakazo.Example.org ");
-    expect(passkeys.PASSKEY_RP_ID).toBe("rakazo.example.org");
+  it("associates the build with SUPERBOT_PASSKEY_RP_ID", async () => {
+    const passkeys = await load(" Superbot.Example.org ", "legacy.example.org");
+    expect(passkeys.PASSKEY_RP_ID).toBe("superbot.example.org");
     expect(passkeys.passkeyEntitlements(base, "ABCDE12345", pkg.build.appId)).toContain(
-      "<string>webcredentials:rakazo.example.org</string>",
+      "<string>webcredentials:superbot.example.org</string>",
     );
+  });
+
+  it("still reads the legacy RAKAZO_PASSKEY_RP_ID", async () => {
+    const passkeys = await load("", "legacy.example.org");
+    expect(passkeys.PASSKEY_RP_ID).toBe("legacy.example.org");
   });
 
   it.each(["https://rakazo.example.org", "localhost", "192.168.1.20", "rakazo.example.org:8443"])(
@@ -103,7 +125,7 @@ describe("self-hosted passkey domain", () => {
     async (rpId) => {
       const passkeys = await load(rpId);
       expect(() => passkeys.passkeyEntitlements(base, "ABCDE12345", pkg.build.appId)).toThrow(
-        "RAKAZO_PASSKEY_RP_ID",
+        "SUPERBOT_PASSKEY_RP_ID",
       );
     },
   );

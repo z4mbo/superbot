@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { realpath } from "node:fs/promises";
 import path from "node:path";
 import type { DesktopSetupLink } from "@rakazo/contracts";
+import { brandEnv } from "@rakazo/core";
 
 export function isDesktopSetupLink(value: unknown): value is DesktopSetupLink {
   return value === "docker-download";
@@ -122,7 +123,7 @@ export function dockerBinaryCandidates(platform: string, env: NodeJS.ProcessEnv)
 }
 
 /**
- * `RAKAZO_DOCKER_BINARY` is a test hook and the only candidate when set, so a
+ * `SUPERBOT_DOCKER_BINARY` (or `RAKAZO_DOCKER_BINARY`) is a test hook and the only candidate when set, so a
  * fake docker in CI can never fall through to a real daemon.
  */
 export function resolveDockerBinary(
@@ -130,7 +131,7 @@ export function resolveDockerBinary(
   env: NodeJS.ProcessEnv,
   exists: (file: string) => boolean,
 ): string | null {
-  const override = env.RAKAZO_DOCKER_BINARY?.trim();
+  const override = brandEnv("DOCKER_BINARY", env)?.trim();
   if (override) return exists(override) ? override : null;
   return dockerBinaryCandidates(platform, env).find((candidate) => exists(candidate)) ?? null;
 }

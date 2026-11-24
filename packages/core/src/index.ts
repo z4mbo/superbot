@@ -108,6 +108,7 @@ export * from "./peers/peer-exchanges.js";
 export * from "./peers/peer-history.js";
 export * from "./peers/peer-messages.js";
 export * from "./primitives/async.js";
+export * from "./primitives/brand-env.js";
 export * from "./primitives/client-error.js";
 export * from "./primitives/client-id.js";
 export * from "./primitives/format-file-size.js";

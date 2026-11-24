@@ -29,6 +29,9 @@ describe("secrets-guard", () => {
     expect(resolveAuthSecret({ NODE_ENV: "production", RAKAZO_ALLOW_DEV_SECRETS: "1" })).toBe(
       DEV_AUTH_SECRET_PLACEHOLDER,
     );
+    expect(resolveAuthSecret({ NODE_ENV: "production", SUPERBOT_ALLOW_DEV_SECRETS: "1" })).toBe(
+      DEV_AUTH_SECRET_PLACEHOLDER,
+    );
   });
 
   it("rejects missing secrets outside local/test", () => {
@@ -284,6 +287,9 @@ describe("resolveContentEncryption", () => {
     expect(resolveContentEncryption({ NODE_ENV: "development" })).toBe(false);
     expect(
       resolveContentEncryption({ NODE_ENV: "production", RAKAZO_ALLOW_DEV_SECRETS: "1" }),
+    ).toBe(false);
+    expect(
+      resolveContentEncryption({ NODE_ENV: "production", SUPERBOT_ALLOW_DEV_SECRETS: "1" }),
     ).toBe(false);
   });
 
