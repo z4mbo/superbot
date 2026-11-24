@@ -170,7 +170,9 @@ describe("bot mark", () => {
   it("plays a finished or failed bot's clips once, then rests", () => {
     for (const state of ["done", "error"] as const) {
       const late = botMarkFrame({ state, time: 20_000, seed: 0 });
-      late.rotation.forEach((angle, k) => expect(angle).toBeCloseTo(REST_ROTATION[k]!, 6));
+      for (const [k, angle] of late.rotation.entries()) {
+        expect(angle).toBeCloseTo(REST_ROTATION[k]!, 6);
+      }
     }
     const playing = botMarkFrame({ state: "done", time: 500, seed: 0 });
     expect(playing.rotation).not.toEqual([...REST_ROTATION]);

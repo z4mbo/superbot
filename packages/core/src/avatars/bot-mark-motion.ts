@@ -3,397 +3,21 @@
  * its face; each state plays its clips in a seeded order, and a click adds a spin, a bounce or a
  * nod on top. Every function is pure: it answers for a time, so any renderer can draw a frame.
  */
+
+import type { BotMarkClip, BotMarkClipKey, BotMarkClipName } from "./bot-mark-clips.js";
 import type { BotMarkFace } from "./bot-mark-faces.js";
 import { botMarkFaceNamed } from "./bot-mark-faces.js";
+
+export type { BotMarkClipName } from "./bot-mark-clips.js";
+
+import { BOT_MARK_CLIPS } from "./bot-mark-clips.js";
 import { cubicEase } from "./bot-mark-geometry.js";
 import type { BotMarkMorphKind } from "./bot-mark-morph.js";
-
-type Key = readonly number[];
-
-/**
- * A clip: keys are `[seconds, ...values]`. `rot` is pitch, yaw and roll in degrees from facing
- * straight ahead, `pos` moves the body in radii (y up), `squash` scales x and y about `anchor`
- * (-1 is the bottom, 0 the middle), `zoom` is the body's diameter as a share of the box, `faces`
- * changes the face, and `blinks` are moments the eyes blink.
- */
-export type BotMarkClip = {
-  duration: number;
-  anchor?: number;
-  rot?: readonly Key[];
-  pos?: readonly Key[];
-  squash?: readonly Key[];
-  zoom?: readonly Key[];
-  lids?: readonly Key[];
-  faces?: readonly (readonly [number, string])[];
-  blinks?: readonly number[];
-};
 
 /** The pose a body holds when nothing plays: turned up and to the right, as if glancing aside. */
 export const REST_ROTATION = [-15.9, 33.3, 25.4] as const;
 /** The body's diameter as a share of the box. */
 export const REST_ZOOM = 0.6;
-
-// Superbot's clips, written to move the way the reference's do at the same moments.
-const CLIPS = {
-  idle: {
-    duration: 4,
-    rot: [
-      [0.9, 0, 0, 0],
-      [1.62, 0.1, -8.7, -2.5],
-      [2.49, 1, 5.7, 1.7],
-      [3.46, 0, 0, 0],
-    ],
-    zoom: [
-      [0, 0.6],
-      [1.61, 0.64],
-      [3.84, 0.6],
-    ],
-    blinks: [1.48, 3.46],
-  },
-  idleLook: {
-    duration: 6,
-    pos: [
-      [0.49, 0, 0],
-      [1.38, -0.15, 0.03],
-      [1.78, -0.15, 0.03],
-      [2.75, -0.07, -0.17],
-      [2.93, -0.07, -0.17],
-      [4.08, 0, 0],
-    ],
-    rot: [
-      [0.49, 0, 0, 0],
-      [1.38, -16.1, -32.7, -11],
-      [1.78, -13.5, -31.7, -11.6],
-      [2.75, 10.4, 13.6, 10.7],
-      [2.93, 22.8, 5.3, 5.2],
-      [4.08, -24.9, 31.8, 15.1],
-      [5.75, 0, 360, 0],
-    ],
-    blinks: [1.16, 4],
-  },
-  idleGlance: {
-    duration: 6,
-    rot: [
-      [0, -15.9, 33.3, 25.4],
-      [0.59, -34.3, 16.9, 15.1],
-      [1.08, -34.3, 16.9, 15.1],
-      [1.96, -6.2, 3.1, 14.4],
-      [2.67, -6.2, 3.1, 14.4],
-      [3.91, 7.6, 40.4, 25.5],
-      [4.79, 7.6, 40.4, 25.5],
-      [5.63, -15.9, 33.3, 25.4],
-    ],
-    blinks: [0.59, 2.07, 2.37, 4.25],
-  },
-  workSpin: {
-    duration: 8,
-    pos: [
-      [0.49, 0, 0],
-      [1.38, -0.15, 0.03],
-      [1.78, -0.15, 0.03],
-      [2.6, 0.06, 0.04],
-      [3.07, -0.02, 0.08],
-      [3.43, -0.01, -0.21],
-      [4, -0.01, -0.13],
-      [5.01, 0, 0],
-      [6.3, 0.04, -0.02],
-      [6.95, -0.25, 0],
-      [7.9, 0, 0],
-    ],
-    rot: [
-      [0.49, 0, 0, 0],
-      [1.38, -11, -20.1, -12.9],
-      [1.78, -17.5, -18.7, -12.7],
-      [2.6, -14.6, 17.2, 9.4],
-      [3.18, -24.6, 0.1, -0.8],
-      [3.47, -1.1, -1.1, -0.7],
-      [4, -147.1, -0.7, -0.4],
-      [5.01, -360, 0, 0],
-      [6.3, -364.9, 18.6, -0.3],
-      [6.95, -366.8, -23.4, -3.3],
-      [7.9, -360, 0, 0],
-    ],
-    faces: [
-      [1.78, "surprised"],
-      [5.64, "neutral"],
-      [6.3, "inspecting"],
-      [7.31, "neutral"],
-    ],
-    blinks: [1.17],
-  },
-  workInspect: {
-    duration: 4.8,
-    pos: [
-      [0.18, 0, 0],
-      [1.41, -0.1, 0],
-      [2.75, 0.1, 0],
-      [4.78, 0, 0],
-    ],
-    rot: [
-      [0.18, 0, 0, 0],
-      [1.41, 1.4, -16.1, -36.1],
-      [2.75, -3.8, 16.2, 23.1],
-      [3.3, -0.7, 32.1, 23],
-      [3.9, 0, -273, 5.8],
-      [4.78, 0, -360, 0],
-    ],
-    zoom: [
-      [0.18, 0.6],
-      [1.41, 0.42],
-      [2.25, 0.53],
-      [2.99, 0.62],
-      [4.61, 0.6],
-    ],
-    faces: [
-      [0.75, "inspecting"],
-      [2.56, "surprised"],
-      [3.76, "neutral"],
-    ],
-  },
-  workSway: {
-    duration: 5,
-    pos: [
-      [0.17, -0.07, 0],
-      [1.51, 0.03, 0],
-      [1.8, -0.07, 0],
-      [3.13, 0.03, 0],
-      [3.41, -0.07, 0],
-      [4.78, 0.03, 0],
-      [5, -0.07, 0],
-    ],
-    rot: [
-      [0.17, 22.8, -5.5, -34.9],
-      [1.51, 25.8, 8.2, 36.4],
-      [1.8, 22.8, -5.5, -34.9],
-      [3.13, 25.8, 8.2, 36.4],
-      [3.41, 22.8, -5.5, -34.9],
-      [4.78, 25.8, 8.2, 36.4],
-      [5, 22.8, -5.5, -34.9],
-    ],
-    faces: [[0, "surprised"]],
-  },
-  workScan: {
-    duration: 5,
-    pos: [
-      [1.53, 0, 0],
-      [2.25, 0.13, 0.09],
-      [2.64, 0, 0],
-    ],
-    rot: [
-      [0, 2.5, -24.9, 2.8],
-      [0.52, 20.2, -20.6, 22.5],
-      [1.53, -21, -21.3, -6.2],
-      [2.25, -23.8, 24.8, 18.8],
-      [2.64, 8.3, -27.4, -9.5],
-      [3.49, 6.3, -0.2, 0.7],
-      [4.25, 8.2, 24.7, 10.4],
-      [4.97, 2.5, -24.9, 2.8],
-    ],
-    faces: [[0, "calm"]],
-  },
-  workLook: {
-    duration: 4,
-    pos: [
-      [0.62, 0, 0],
-      [1.42, -0.16, 0],
-      [2.27, -0.16, 0.06],
-      [3.16, 0, 0],
-    ],
-    rot: [
-      [0.62, -15.9, 33.3, 25.4],
-      [1.42, -3, -26.2, -3.3],
-      [2.27, -31.6, -3.7, 24.1],
-      [2.8, -27.9, 0.7, 5],
-      [3.27, -19.3, -17.4, -7],
-      [3.84, -10.1, 13, 19.2],
-      [3.98, -15.9, 33.3, 25.4],
-    ],
-    faces: [
-      [0.06, "neutral"],
-      [2.24, "surprised"],
-    ],
-  },
-  workFlip: {
-    duration: 5,
-    pos: [
-      [0.49, 0, 0],
-      [1.38, -0.15, 0.03],
-      [1.78, -0.15, 0.03],
-      [2.6, 0.06, 0.04],
-      [3.07, -0.02, 0.08],
-      [3.43, -0.01, -0.21],
-      [4, -0.01, -0.13],
-      [4.89, 0, 0],
-    ],
-    rot: [
-      [0.49, 0, 0, 0],
-      [1.38, -11, -20.1, -12.9],
-      [1.78, -17.5, -18.7, -12.7],
-      [2.6, -14.6, 17.2, 9.4],
-      [3.18, -24.6, 0.1, -0.8],
-      [3.47, -1.1, -1.1, -0.7],
-      [4, -147.1, -0.7, -0.4],
-      [4.89, -360, 0, 0],
-    ],
-    lids: [
-      [1.17, 0],
-      [1.28, 1],
-      [1.42, 0],
-    ],
-    faces: [
-      [1.85, "surprised"],
-      [4.89, "neutral"],
-    ],
-  },
-  stuck: {
-    duration: 2.12,
-    pos: [
-      [0, 0, 0],
-      [0.39, 0.02, 0.03],
-      [0.75, -0.13, 0.05],
-      [0.87, 0, 0.05],
-      [1.05, -0.12, 0.04],
-      [1.3, 0, 0.05],
-      [1.76, 0, 0],
-    ],
-    rot: [
-      [0, 0, 0, 0],
-      [0.39, 6.6, 26.3, 6.1],
-      [0.75, 4, -14.1, -8.1],
-      [0.87, 10.3, 14, 7.5],
-      [1.05, 8, -9.3, -8.5],
-      [1.3, 10.3, 14, 7.5],
-      [1.76, 0, 0, 0],
-    ],
-    zoom: [
-      [0, 0.6],
-      [0.39, 0.6],
-      [1.15, 0.5],
-      [1.9, 0.6],
-    ],
-    faces: [
-      [0.47, "confused"],
-      [1.61, "neutral"],
-    ],
-  },
-  sulk: {
-    duration: 3,
-    pos: [[1.26, 0, -0.22]],
-    rot: [[1.26, 22.4, -0.1, -1.3]],
-    faces: [[0, "sad"]],
-  },
-  doze: {
-    duration: 1.4,
-    pos: [
-      [0, -0.1, 0],
-      [0.68, 0.07, 0],
-      [1.39, -0.1, 0],
-    ],
-    rot: [
-      [0, 22.1, -15.7, -4.7],
-      [0.68, 21.9, 11.4, 0.7],
-      [1.39, 22.1, -15.7, -4.7],
-    ],
-    faces: [[0, "sleepy"]],
-  },
-  cheer: {
-    duration: 3.7,
-    anchor: -1,
-    squash: [
-      [0.03, 1, 1],
-      [0.17, 1.09, 0.95],
-      [0.25, 1, 1.1],
-      [0.59, 1, 1],
-      [0.71, 1, 1],
-      [0.77, 1.09, 0.95],
-      [0.99, 1, 1.05],
-      [1.2, 1, 1],
-      [1.24, 1.02, 0.95],
-      [1.37, 1, 1.05],
-      [1.57, 1, 1.05],
-      [1.72, 1, 1],
-    ],
-    rot: [
-      [0.08, 0, 0, 0],
-      [0.59, -30.1, -0.3, 14.2],
-      [1.14, -22.6, 6.4, -21.7],
-      [1.97, -2.1, 2.8, -1.1],
-      [2.27, 0, 0, 0],
-    ],
-    pos: [
-      [0.22, 0, 0],
-      [0.41, 0, 0.27],
-      [0.77, 0, 0],
-      [0.99, 0, 0.27],
-      [1.25, 0, 0],
-      [1.43, 0, 0.21],
-      [1.62, 0, 0],
-      [1.69, 0, 0.13],
-      [1.84, 0, 0],
-      [1.87, 0, 0.08],
-      [1.95, 0, 0],
-    ],
-    faces: [
-      [0.54, "happy"],
-      [1.1, "neutral"],
-    ],
-  },
-  wiggle: {
-    duration: 1.8,
-    anchor: -1,
-    squash: [
-      [0, 1, 1],
-      [0.24, 1.12, 0.88],
-      [0.46, 0.93, 1.09],
-      [0.68, 1.04, 0.97],
-      [0.92, 1, 1],
-    ],
-    faces: [[0.1, "happy"]],
-  },
-  hop: {
-    duration: 2,
-    anchor: -1,
-    pos: [
-      [0, 0, 0],
-      [0.38, -0.11, 0.12],
-      [0.94, 0.11, 0.16],
-      [1.38, 0, -0.17],
-      [1.58, 0, 0.02],
-      [1.75, 0, -0.09],
-      [1.96, 0, 0],
-    ],
-    rot: [
-      [0, 0, 0, 0],
-      [0.38, -31.3, -5.5, 13.7],
-      [0.94, -30.6, 14.1, -12.7],
-      [1.4, 19.4, 0.1, -1.7],
-      [1.59, -5, -1.4, -0.1],
-      [1.76, 12.9, -1, -1.4],
-      [1.96, 0, 0, 0],
-    ],
-    faces: [
-      [0, "happy"],
-      [1.19, "neutral"],
-    ],
-  },
-  pose: {
-    duration: 4,
-    rot: [
-      [0, -15.9, 33.3, 25.4],
-      [0.62, -15.9, 33.3, 25.4],
-      [1.42, -3, -26.2, -3.3],
-      [2.27, 20.2, -20.6, 22.5],
-      [3.27, -21, -21.2, -6.2],
-      [4, -23.8, 24.8, 18.8],
-    ],
-    faces: [
-      [0, "neutral"],
-      [1.45, "calm"],
-    ],
-  },
-} satisfies Record<string, BotMarkClip>;
-
-export type BotMarkClipName = keyof typeof CLIPS;
 
 /** What each state plays, and the face it holds over its clips. */
 export type BotMarkPlaylist = {
@@ -416,7 +40,7 @@ export const BOT_MARK_PLAYLISTS = {
   error: { clips: ["sulk"], once: true },
   asleep: { clips: ["idle"], face: "sleepy" },
   waking: { clips: ["idle"], face: "surprised" },
-  playful: { clips: ["idleLook"] },
+  playful: { clips: ["dance"] },
   excited: { clips: ["hop"] },
   listening: { clips: ["idleGlance"], face: "calm" },
   proud: { clips: ["pose"] },
@@ -436,18 +60,21 @@ const BRIDGE_EASE = [0.4, 0, 0.2, 1] as const;
 export const BRIDGE_SECONDS = 0.35;
 const BLINK_SECONDS = 0.26;
 
-function sample(keys: readonly Key[] | undefined, time: number): number[] | null {
+/** A track's values at `time`, eased from each key to the next by that key's own curve. */
+function sample(keys: readonly BotMarkClipKey[] | undefined, time: number): number[] | null {
   if (!keys || keys.length === 0) return null;
+  const values = (key: BotMarkClipKey) => key.slice(1, -4);
   const first = keys[0]!;
-  if (time <= first[0]!) return first.slice(1);
+  if (time <= first[0]!) return values(first);
   const last = keys[keys.length - 1]!;
-  if (time >= last[0]!) return last.slice(1);
+  if (time >= last[0]!) return values(last);
   let index = 0;
   while (index < keys.length - 2 && keys[index + 1]![0]! <= time) index += 1;
   const a = keys[index]!;
   const b = keys[index + 1]!;
-  const t = cubicEase(EASE, (time - a[0]!) / Math.max(b[0]! - a[0]!, 1e-9));
-  return a.slice(1).map((value, k) => value + (b[k + 1]! - value) * t);
+  const t = cubicEase(a.slice(-4), (time - a[0]!) / Math.max(b[0]! - a[0]!, 1e-9));
+  const to = values(b);
+  return values(a).map((value, k) => value + (to[k]! - value) * t);
 }
 
 /** A body's pose: rotation in degrees, offset in radii, squash, zoom and how shut the lids are. */
@@ -461,7 +88,7 @@ export type BotMarkPose = {
 };
 
 export function clipPose(name: BotMarkClipName, time: number): BotMarkPose {
-  const clip: BotMarkClip = CLIPS[name];
+  const clip: BotMarkClip = BOT_MARK_CLIPS[name];
   const rot = sample(clip.rot, time);
   const pos = sample(clip.pos, time);
   const squash = sample(clip.squash, time);
@@ -489,7 +116,7 @@ export function clipFace(
   name: BotMarkClipName,
   time: number,
 ): { from: BotMarkFace; to: BotMarkFace; since: number } {
-  const clip: BotMarkClip = CLIPS[name];
+  const clip: BotMarkClip = BOT_MARK_CLIPS[name];
   let from: BotMarkFace = "neutral";
   let to: BotMarkFace = "neutral";
   let since = Infinity;
@@ -503,7 +130,7 @@ export function clipFace(
 }
 
 export function clipDuration(name: BotMarkClipName): number {
-  return CLIPS[name].duration;
+  return BOT_MARK_CLIPS[name].duration;
 }
 
 /** Turns `to` by whole turns so it lands nearest `from`, so a body never unwinds a spin. */

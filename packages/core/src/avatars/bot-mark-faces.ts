@@ -137,6 +137,38 @@ export function faceOutlines(face: BotMarkFace): readonly [Point[], Point[]] {
   return pair;
 }
 
+/** How much a face is the inspecting one, partway through a change of face. */
+export function inspectWeight(from: BotMarkFace, to: BotMarkFace, progress: number): number {
+  const t = progress >= 1 ? 1 : cubicEase(FACE_EASE, Math.max(0, progress));
+  const [a, b] = [from === "inspecting" ? 1 : 0, to === "inspecting" ? 1 : 0];
+  return a + (b - a) * t;
+}
+
+/**
+ * An inspecting face peers with one big eye and one small, and the big eye is the one on the
+ * side the body turns toward: past 20° of yaw either way they have fully swapped. `weight` is
+ * how much the face is the inspecting one; each eye is scaled about its own centre.
+ */
+export function inspectEyes(
+  eyes: readonly [readonly Point[], readonly Point[]],
+  offsets: readonly [Point, Point],
+  yaw: number,
+  weight: number,
+): readonly [Point[], Point[]] {
+  if (weight < 1e-3) return [[...eyes[0]], [...eyes[1]]];
+  const [big, small] = BOT_MARK_FACE_EYES.inspecting;
+  const ratio = Math.max(1e-4, small.half) / Math.max(1e-4, big.half);
+  const share = (1 + Math.min(1, Math.max(-1, yaw / 20))) / 2;
+  const scale = (outline: readonly Point[], [ox, oy]: Point, by: number) => {
+    const k = 1 + (by - 1) * weight;
+    return outline.map(([x, y]) => [ox + (x - ox) * k, oy + (y - oy) * k] as const);
+  };
+  return [
+    scale(eyes[0], offsets[0], ratio ** share),
+    scale(eyes[1], offsets[1], (1 / ratio) ** share),
+  ];
+}
+
 /** Faces a blink skips: their eyes are already narrow or curved. */
 const NO_BLINK = new Set<BotMarkFace>(["sad", "happy", "confused", "squinted", "sleepy", "calm"]);
 

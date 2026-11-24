@@ -19,6 +19,8 @@ import {
   FACE_MORPH_SECONDS,
   faceOffsets,
   faceOutlines,
+  inspectEyes,
+  inspectWeight,
   morphFaces,
   morphOffsets,
 } from "./bot-mark-faces.js";
@@ -279,6 +281,7 @@ export function botMarkFrame(input: BotMarkFrameInput): BotMarkFrame {
   let eyes: readonly [readonly Point[], readonly Point[]];
   let eyeOffsets: readonly [Point, Point];
   let morph: BotMarkMorph | null = null;
+  let inspecting = 0;
   let morphStart: BotMarkPose | null = null;
   let spin = 0;
   if (!play) {
@@ -327,6 +330,7 @@ export function botMarkFrame(input: BotMarkFrameInput): BotMarkFrame {
         : clipFace(step.clip, step.time);
       eyes = eyesFor(face, pose.lids);
       eyeOffsets = morphOffsets(face.from, face.to, face.since / FACE_MORPH_SECONDS);
+      inspecting = inspectWeight(face.from, face.to, face.since / FACE_MORPH_SECONDS);
     } else {
       const last = playlist.clips[playlist.clips.length - 1]!;
       pose = blendPose(clipPose(last, clipDuration(last)), REST_POSE, resting / BRIDGE_SECONDS);
@@ -350,7 +354,7 @@ export function botMarkFrame(input: BotMarkFrameInput): BotMarkFrame {
   ];
   let offset: [number, number] = [pose.pos[0], pose.pos[1] + poke.lift];
   let squash: [number, number] = [pose.squash[0] * poke.squash[0], pose.squash[1] * poke.squash[1]];
-  let shown: BotMarkFrame["eyes"] = eyes;
+  let shown: BotMarkFrame["eyes"] = inspectEyes(eyes, eyeOffsets, rotation[1], inspecting);
   if (morph && morphStart) {
     const keep = 1 - morph.amount;
     const held = morphStart.rot;
