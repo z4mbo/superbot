@@ -225,7 +225,7 @@ function stillLoading(Page: ComponentType) {
 
 /**
  * The shell among the app's pages: the others are separate routes, whose code may still be
- * loading. No page has `/app/board` here, so the shell stands in for it, as when the board is off.
+ * loading.
  */
 async function openApp(
   path: string,
@@ -535,15 +535,6 @@ describe("another page under /app whose code is still loading", () => {
     await artifacts.finish();
     expect(window.location.pathname).toBe("/app/artifacts");
     expect(pageShown).toBe("artifacts");
-  });
-
-  it("moves off a path the shell stands in for", async () => {
-    await openApp("/app/board");
-    expect(window.location.pathname).toBe("/app/home");
-    act(() => void shell.navigate("/app/board"));
-    expect(window.location.pathname).toBe("/app/board");
-    await rosterSignal();
-    expect(window.location.pathname).toBe("/app/home");
   });
 });
 

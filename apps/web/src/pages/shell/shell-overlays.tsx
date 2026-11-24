@@ -15,6 +15,7 @@ import { invalidateVoiceConsent } from "../../lib/calls/voice-consent";
 import type { SpaceQueries } from "../../lib/query/query";
 import { queryClient } from "../../lib/query/query";
 import type { createSpaceRpc, RpcClient } from "../../lib/query/rpc";
+import { shownLabs } from "../settings/shown-labs";
 import { FALLBACK_BOT_COLOR } from "./chat/chat-shared";
 import type { ShellOverlay } from "./shell-overlay-url";
 import { storeOverlay, storeSection } from "./shell-overlay-url";
@@ -207,7 +208,7 @@ export function SettingsOverlays({
             void refreshSpaces().catch(() => undefined);
           }}
           labs={parseLabs(bootstrapMe?.labs)}
-          labsAvailable={parseLabs(bootstrapMe?.labsAvailable)}
+          labsAvailable={shownLabs(parseLabs(bootstrapMe?.labsAvailable))}
           onLabsChange={async (labs, client) => {
             const previous = parseLabs(bootstrapMe?.labs);
             const apply = (next: LabFeature[]) => {

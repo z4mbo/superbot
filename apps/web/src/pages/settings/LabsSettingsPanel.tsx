@@ -6,6 +6,7 @@ import { useId } from "react";
 import { SettingsGroup, SettingsRow } from "../../components/settings/SettingsRows";
 import { useSave } from "../../lib/query/query";
 import type { RpcClient } from "../../lib/query/rpc";
+import { shownLabs } from "./shown-labs";
 
 export function LabsSettingsPanel({
   labs,
@@ -20,14 +21,12 @@ export function LabsSettingsPanel({
   const { t } = useLingui();
   const id = useId();
   const save = useSave({ save: (next: LabFeature[], client) => onLabsChange(next, client) });
-  const copy: Record<LabFeature, { title: string; description: string }> = {
-    board: { title: t`Board`, description: t`A kanban board of tickets your bots can work on` },
-  };
+  const copy: Partial<Record<LabFeature, { title: string; description: string }>> = {};
 
   return (
     <div className="space-y-2">
       <SettingsGroup data-testid="settings-labs">
-        {available.map((feature) => (
+        {shownLabs(available).map((feature) => (
           <SettingsRow
             key={feature}
             label={
@@ -36,13 +35,13 @@ export function LabsSettingsPanel({
                   htmlFor={`${id}-${feature}`}
                   className="text-body-sm font-normal text-foreground"
                 >
-                  {copy[feature].title}
+                  {copy[feature]?.title}
                 </Label>
                 <p
                   id={`${id}-${feature}-description`}
                   className="mt-0.5 text-body-sm text-muted-foreground"
                 >
-                  {copy[feature].description}
+                  {copy[feature]?.description}
                 </p>
               </>
             }
