@@ -1,4 +1,6 @@
 export { AppMarkStack } from "./app-mark-stack.js";
+export type { AvatarCutoutHole } from "./avatar-cutout.js";
+export { avatarCutoutStyle } from "./avatar-cutout.js";
 export {
   BOT_COLORS,
   BotAvatar,

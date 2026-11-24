@@ -1,7 +1,10 @@
 import type { BotAvatarSet } from "@rakazo/contracts";
-import type { CSSProperties } from "react";
+import type { BotMarkShape } from "@rakazo/core";
+import { botMarkShapeFor } from "@rakazo/core";
 import { memo } from "react";
-import { BotAvatar } from "./bot-avatar.js";
+import type { AvatarCutoutHole } from "./avatar-cutout.js";
+import { avatarCutoutStyle } from "./avatar-cutout.js";
+import { BotAvatar, parseBotAvatar, usePickedBotLooks } from "./bot-avatar.js";
 import { cn } from "./lib/utils.js";
 
 export interface GroupAvatarMember {
@@ -18,11 +21,57 @@ export interface GroupAvatarProps {
   className?: string;
 }
 
+/** A group shows its first four members, as the reference does. */
+const MAX_MEMBERS = 4;
+
+type Place = { x: number; y: number; size: number };
+
+function groupPlaces(count: number, frame: number): Place[] {
+  if (count <= 1) return [{ x: 0, y: 0, size: frame }];
+  if (count === 2) {
+    const size = (frame * 2) / 3;
+    return [
+      { x: 0, y: 0, size },
+      { x: frame - size, y: frame - size, size },
+    ];
+  }
+  const size = (frame * 5) / 9;
+  const far = frame - size;
+  return count === 3
+    ? [
+        { x: far / 2, y: 0, size },
+        { x: 0, y: far, size },
+        { x: far, y: far, size },
+      ]
+    : [
+        { x: 0, y: 0, size },
+        { x: far, y: 0, size },
+        { x: 0, y: far, size },
+        { x: far, y: far, size },
+      ];
+}
+
+/** The body a member's mark draws, so the gap around it follows its outline; none for a photo. */
+function memberShape(
+  member: GroupAvatarMember,
+  looks: ReturnType<typeof usePickedBotLooks>,
+): BotMarkShape | null {
+  const parsed = parseBotAvatar(member.color);
+  if (parsed.isImage) return null;
+  const identity = member.botId ?? member.name ?? "";
+  return botMarkShapeFor(
+    identity || parsed.color || "agent",
+    looks.get(identity)?.lookShape,
+    parsed.shapeIndex,
+  );
+}
+
 export const GroupAvatar = memo(function GroupAvatar({
   members,
   size = 38,
   className,
 }: GroupAvatarProps) {
+  const looks = usePickedBotLooks();
   const firstMember = members[0];
   if (!firstMember) {
     return (
@@ -65,57 +114,55 @@ export const GroupAvatar = memo(function GroupAvatar({
     );
   }
 
-  const pair = members.length === 2;
-  const miniSize = Math.round(size * (pair ? 0.65 : 0.54));
-  const positions: CSSProperties[] = pair
-    ? [
-        { top: 0, left: 0 },
-        { right: 0, bottom: 0 },
-      ]
-    : [
-        { top: 0, left: (size - miniSize) / 2 },
-        { bottom: 0, left: 0 },
-        { right: 0, bottom: 0 },
-      ];
-  const visibleMembers = members.slice(0, pair || members.length === 3 ? members.length : 2);
-
+  // The reference's layout: two members at two thirds of the box, corner to corner; three or four
+  // at five ninths. Each member is cut where a later one overlaps it, so the surface shows
+  // between them; nothing is shaded.
+  const shown = members.slice(0, MAX_MEMBERS);
+  const places = groupPlaces(shown.length, size);
+  const gap = (2 * size) / 36;
   return (
     <div
-      className={cn("rakazo-group-avatar relative rounded-full select-none", className)}
+      className={cn("rakazo-group-avatar relative select-none", className)}
       style={{ width: size, height: size, flex: "none" }}
     >
-      {visibleMembers.map((member, index) => (
-        <div
-          key={member.botId ?? index}
-          className="absolute"
-          style={{
-            ...positions[index],
-            zIndex: index + 1,
-            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.6))",
-          }}
-        >
-          <BotAvatar
-            color={member.color}
-            avatarSet={member.avatarSet}
-            identity={member.botId ?? member.name}
-            size={miniSize}
-            status={member.status}
-          />
-        </div>
-      ))}
-      {members.length > 3 ? (
-        <div
-          aria-hidden="true"
-          // off-scale: count must fit the mini avatar dot
-          className="absolute right-0 bottom-0 z-[3] flex items-center justify-center rounded-full bg-secondary border border-border text-[10px] font-semibold text-secondary-foreground shadow-md"
-          style={{
-            width: miniSize,
-            height: miniSize,
-          }}
-        >
-          {`+${members.length - 2}`}
-        </div>
-      ) : null}
+      {shown.map((member, index) => {
+        const place = places[index]!;
+        const holes: AvatarCutoutHole[] = [];
+        for (let later = index + 1; later < shown.length; later += 1) {
+          const other = places[later]!;
+          const reach = Math.hypot(
+            place.x + place.size / 2 - (other.x + other.size / 2),
+            place.y + place.size / 2 - (other.y + other.size / 2),
+          );
+          if (reach >= place.size / 2 + other.size / 2 + gap) continue;
+          holes.push({
+            x: other.x - place.x,
+            y: other.y - place.y,
+            width: other.size,
+            height: other.size,
+            shape: memberShape(shown[later]!, looks) ?? undefined,
+          });
+        }
+        return (
+          <div
+            key={member.botId ?? index}
+            className="absolute flex"
+            style={{
+              left: place.x,
+              top: place.y,
+              ...avatarCutoutStyle(place.size, holes, gap),
+            }}
+          >
+            <BotAvatar
+              color={member.color}
+              avatarSet={member.avatarSet}
+              identity={member.botId ?? member.name}
+              size={place.size}
+              status={member.status}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 });

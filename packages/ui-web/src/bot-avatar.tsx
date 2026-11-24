@@ -74,6 +74,11 @@ export function BotLookProvider({
   return <BotLooks value={looks}>{children}</BotLooks>;
 }
 
+/** The shapes and inks people picked, by bot id. */
+export function usePickedBotLooks(): ReadonlyMap<string, BotLook> {
+  return useContext(BotLooks);
+}
+
 export interface BotAvatarProps {
   color: string;
   avatarSet?: BotAvatarSet;
