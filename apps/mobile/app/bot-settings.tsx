@@ -4,6 +4,7 @@ import type { Bot, BotAvatarSet, ComputerMode, ThinkingLevel } from "@rakazo/con
 import {
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_INSTRUCTIONS_MAX_LENGTH,
+  BOT_LABEL_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
   resolveBotAvatarSet,
 } from "@rakazo/contracts";
@@ -23,6 +24,7 @@ import type { Voice } from "expo-speech";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ScrollViewInstance } from "react-native";
 import { Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { canPickAvatarPhoto, pickAvatarPhoto } from "../components/bots/avatar-photo";
 import { BotAvatar } from "../components/bots/bot-avatar";
 import { BotContextCards } from "../components/bots/bot-context-cards";
 import { BotLookPicker } from "../components/bots/bot-look-picker";
@@ -77,6 +79,7 @@ export default function BotSettingsScreen() {
   const [bot, setBot] = useState<Bot | null>(null);
   const threadId = useRef<string | undefined>(undefined);
   const [name, setName] = useState("");
+  const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
   const [color, setColor] = useState<string>(DEFAULT_BOT_AVATAR_COLOR);
@@ -199,6 +202,7 @@ export default function BotSettingsScreen() {
         setBot(next);
         setName(next.name);
         nameSave.reset(next.name);
+        setLabel(next.label ?? "");
         notifySave.reset(next.notifyOnFinish ?? true);
         setDescription(next.description ?? "");
         setInstructions(next.instructions ?? "");
@@ -411,6 +415,7 @@ export default function BotSettingsScreen() {
       const selected = selectedModel;
       const input: {
         botId: string;
+        label?: string;
         description?: string;
         instructions?: string;
         expectedInstructions?: string;
@@ -424,6 +429,7 @@ export default function BotSettingsScreen() {
       if (profile.description !== (bot.description ?? "")) {
         input.description = profile.description;
       }
+      if (label !== (bot.label ?? "")) input.label = label;
       if (instructions !== bot.instructions) {
         input.instructions = instructions;
         input.expectedInstructions = bot.instructions;
@@ -479,6 +485,7 @@ export default function BotSettingsScreen() {
   const dirty =
     bot &&
     (description.trim() !== (bot.description ?? "") ||
+      label !== (bot.label ?? "") ||
       instructions !== (bot.instructions ?? "") ||
       color !== bot.color ||
       avatarSet !== resolveBotAvatarSet(bot.avatarSet) ||
@@ -582,6 +589,14 @@ export default function BotSettingsScreen() {
             onCommit={async (value) => {
               if (value && botId) nameSave.update(value);
             }}
+          />
+          <ProfileEditDialog
+            label={t`Label`}
+            editLabel={t`Edit label`}
+            placeholder={t`Add label`}
+            value={label}
+            maxLength={BOT_LABEL_MAX_LENGTH}
+            onCommit={async (value) => setLabel(value)}
           />
         </View>
         <View style={{ marginTop: 24 }}>
@@ -868,6 +883,19 @@ export default function BotSettingsScreen() {
             style={{ backgroundColor: tokens.background }}
           >
             <NativeActionButton label={t`Done`} onPress={() => setAvatarOpen(false)} />
+            {canPickAvatarPhoto() ? (
+              <NativeActionButton
+                label={t`Choose photo`}
+                prominence="plain"
+                onPress={() =>
+                  void pickAvatarPhoto()
+                    .then((photo) => {
+                      if (photo) setColor(photo);
+                    })
+                    .catch((err) => setError(errorText(err)))
+                }
+              />
+            ) : null}
             {bot && botLookState(color).photo ? (
               <Pressable
                 accessibilityRole="button"

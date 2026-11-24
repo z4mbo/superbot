@@ -85,9 +85,12 @@ export function ProfileEditDialog({
   maxLength,
   large = false,
   icon,
+  placeholder,
   onCommit,
 }: {
   value: string;
+  /** Shown while the value is empty. */
+  placeholder?: string;
   label: string;
   editLabel: string;
   maxLength: number;
@@ -123,7 +126,7 @@ export function ProfileEditDialog({
               color: large ? tokens.foreground : tokens.mutedForeground,
             }}
           >
-            {value}
+            {value || placeholder}
           </Text>
         )}
       </Pressable>

@@ -13,6 +13,7 @@ export * from "./asks/answerable-ask.js";
 export * from "./asks/ask-replies.js";
 export * from "./asks/chat-app-asks.js";
 export * from "./avatars/avatar-clips.js";
+export * from "./avatars/avatar-crop.js";
 export * from "./avatars/avatar-life.js";
 export * from "./avatars/avatar-shape.js";
 export * from "./avatars/bot-avatar-colors.js";

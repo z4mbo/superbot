@@ -470,6 +470,7 @@ export function botsRoutes(ctx: RouterContext) {
           expectedSettings: input.expectedSettings,
           data: {
             name: input.name,
+            ...(input.label !== undefined ? { label: input.label || null } : {}),
             description: input.description,
             instructions: input.instructions,
             notifyOnFinish: input.notifyOnFinish,

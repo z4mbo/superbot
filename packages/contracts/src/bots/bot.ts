@@ -38,6 +38,8 @@ export const BotSchema = z.object({
   name: z.string(),
   /** Always empty; installed mobile apps still read it. */
   title: z.string(),
+  /** Short line under the name on the profile. Absent from servers that predate it. */
+  label: z.string().nullable().optional(),
   description: z.string(),
   instructions: z.string(),
   instructionHistory: z.array(InstructionVersionSchema).optional(),
@@ -125,6 +127,7 @@ export const BotSectionSchema = z.object({
 export type BotSection = z.infer<typeof BotSectionSchema>;
 
 export const BOT_NAME_MAX_LENGTH = 80;
+export const BOT_LABEL_MAX_LENGTH = 40;
 export const BOT_DESCRIPTION_MAX_LENGTH = 4000;
 export const BOT_INSTRUCTIONS_MAX_LENGTH = 20000;
 
@@ -156,6 +159,8 @@ export const UpdateBotInput = z
   .object({
     botId: Id,
     name: z.string().trim().min(1).max(BOT_NAME_MAX_LENGTH).optional(),
+    /** Empty or null clears it. */
+    label: z.string().trim().max(BOT_LABEL_MAX_LENGTH).nullable().optional(),
     description: z.string().trim().max(BOT_DESCRIPTION_MAX_LENGTH).optional(),
     instructions: z.string().trim().max(BOT_INSTRUCTIONS_MAX_LENGTH).optional(),
     expectedInstructions: z.string().max(BOT_INSTRUCTIONS_MAX_LENGTH).optional(),
