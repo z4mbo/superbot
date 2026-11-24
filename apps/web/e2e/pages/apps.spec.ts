@@ -12,11 +12,14 @@ const example = path.resolve(
 const manifest = JSON.parse(readFileSync(path.join(example, "app.json"), "utf8"));
 const source = readFileSync(path.join(example, "src/app.jsx"), "utf8").replace(/\r\n/g, "\n");
 
-/** The app document, two sandboxed frames down. */
+/**
+ * The open app's document, two sandboxed frames down. The chat's page card draws the same page,
+ * with its controls off, so the frame is looked for only inside the opened page.
+ */
 function appFrame(page: Page, title: string) {
   return page
+    .getByTestId("page-view")
     .locator(`iframe[title="${title}"]`)
-    .last()
     .contentFrame()
     .locator("iframe#preview")
     .contentFrame();
