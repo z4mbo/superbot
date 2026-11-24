@@ -2,9 +2,7 @@ import type { BotAvatarSet, BotColorDef } from "@rakazo/contracts";
 import { BOT_COLOR_LIST, BOT_COLORS } from "@rakazo/contracts";
 import type { BotMarkState, LogoAvatarActivity } from "@rakazo/core";
 import {
-  BOT_MARK_VIEWBOX,
   botMarkInkFor,
-  botMarkRestPath,
   botMarkShapeFor,
   botMarkStateFor,
   DEFAULT_BOT_AVATAR_COLOR,
@@ -16,7 +14,7 @@ import {
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, memo, useContext, useMemo } from "react";
 import { useBotAvatarActivity } from "./bot-avatar-activity.js";
-import { BotMark, BotMarkSleep } from "./bot-mark.js";
+import { BotMark, BotMarkSleep, BotMarkStill } from "./bot-mark.js";
 import { cn } from "./lib/utils.js";
 import "./styles.css";
 
@@ -162,7 +160,7 @@ export const BotAvatar = memo(function BotAvatar({
   const statusState = botMarkStateFor(status);
   const fixed =
     state ?? (statusState === "asleep" || statusState === "waking" ? statusState : undefined);
-  const ink = fixed === "asleep" ? "gray" : botMarkInkFor(inkName, colorDef.hex);
+  const ink = fixed === "asleep" ? "gray" : botMarkInkFor(inkName, colorDef.hex, effectiveId);
   if (fixed === "asleep") {
     return (
       <BotMarkSleep className={className}>
@@ -243,7 +241,7 @@ export function BotShapePreview({
   onClick?: () => void;
 }) {
   const key = shapeIndex === undefined ? undefined : botMarkShapeFor("", null, shapeIndex);
-  const colorDef = resolvePersonaColorDef("preview", color);
+  const ink = botMarkInkFor(null, resolvePersonaColorDef("preview", color).hex);
 
   return (
     <button
@@ -258,16 +256,10 @@ export function BotShapePreview({
           : "hover:bg-white/5",
       )}
     >
-      {shapeIndex === undefined ? (
+      {key === undefined ? (
         <BotAvatar color={color} identity={identity} size={32} />
       ) : (
-        <svg viewBox={BOT_MARK_VIEWBOX} className="size-8 overflow-visible" aria-hidden="true">
-          <path
-            d={botMarkRestPath(botMarkShapeFor("", null, shapeIndex))}
-            fill={colorDef.hex}
-            fillRule="evenodd"
-          />
-        </svg>
+        <BotMarkStill shape={key} ink={ink} size={32} />
       )}
     </button>
   );

@@ -15,7 +15,7 @@ import {
 } from "@rakazo/core";
 import type { BotMarkGazeHold } from "@rakazo/core/bot-mark-animation";
 import type { CSSProperties, ReactNode } from "react";
-import { memo, useEffect, useId, useLayoutEffect, useRef } from "react";
+import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { cn } from "./lib/utils.js";
 
 /**
@@ -408,6 +408,46 @@ export const BotMark = memo(function BotMark({
     </svg>
   );
 });
+
+/**
+ * A mark resting and still, for pictures that never move such as pickers: the same body, eyes and
+ * stem the live mark first paints, cut and filled the same way.
+ */
+export function BotMarkStill({
+  shape,
+  ink,
+  size,
+  className,
+}: {
+  shape: BotMarkShape;
+  ink: BotMarkInk;
+  /** Pixels across; leave it out to size the mark with `className`. */
+  size?: number;
+  className?: string;
+}) {
+  const holes = `${useId().replace(/[^a-zA-Z0-9_-]/g, "")}-holes`;
+  const drawing = useMemo(() => botMarkRestDrawing(shape), [shape]);
+  const [low, span] = [-BOT_MARK_BOX / 2, BOT_MARK_BOX * 2];
+  return (
+    <svg
+      viewBox={BOT_MARK_VIEWBOX}
+      aria-hidden="true"
+      data-bot-mark={shape}
+      data-bot-mark-ink={ink}
+      className={cn("shrink-0 overflow-visible select-none", className)}
+      style={{ width: size, height: size, color: `var(--bot-ink-${ink})` }}
+    >
+      <mask id={holes} maskUnits="userSpaceOnUse" x={low} y={low} width={span} height={span}>
+        <rect x={low} y={low} width={span} height={span} fill="white" />
+        <path d={drawing.eyes} fill="black" />
+      </mask>
+      <path d={drawing.body} fill="currentColor" mask={`url(#${holes})`} />
+      {drawing.stem.map(({ d, tone }, index) => (
+        <path key={index} d={d} fill={STEM_FILL[tone]} />
+      ))}
+    </svg>
+  );
+}
 
 /**
  * A sleeping bot's mark, breathing slowly with z's drifting up from its corner. The mark inside

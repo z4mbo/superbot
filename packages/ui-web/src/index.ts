@@ -13,7 +13,7 @@ export {
 export type { BotAvatarActivitySource } from "./bot-avatar-activity.js";
 export { BotAvatarActivityProvider } from "./bot-avatar-activity.js";
 export type { BotMarkProps } from "./bot-mark.js";
-export { BotMark, BotMarkSleep } from "./bot-mark.js";
+export { BotMark, BotMarkSleep, BotMarkStill } from "./bot-mark.js";
 export * from "./components/ui/alert-dialog.js";
 export * from "./components/ui/badge.js";
 export * from "./components/ui/button.js";
