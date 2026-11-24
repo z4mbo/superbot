@@ -184,7 +184,6 @@ export const KO_MESSAGES: Record<string, string> = {
   "Next Bot": "다음 봇",
   "Previous Bot": "이전 봇",
   "Command Menu…": "명령 메뉴…",
-  "Toggle Sidebar": "사이드바 전환",
   "Find…": "찾기…",
   "Search Bots…": "Bot 검색…",
   "The window closed before the app loaded.": "앱을 불러오기 전에 윈도우가 닫혔습니다.",
@@ -233,4 +232,6 @@ export const KO_MESSAGES: Record<string, string> = {
   "Restart Superbot": "Superbot 재시동",
   "Not Now": "나중에",
   "Restart Superbot to finish setup": "Superbot를 재시동하여 설정 완료",
+  Maximize: "최대화",
+  Restore: "이전 크기로 복원",
 };

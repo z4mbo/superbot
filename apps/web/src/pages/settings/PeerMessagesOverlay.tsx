@@ -111,8 +111,11 @@ export function PeerMessagesOverlay({
               ? "grid-cols-[72px_minmax(0,1fr)_72px]"
               : "grid-cols-[1.75rem_minmax(0,1fr)_1.75rem]"
           }`}
+          style={{ paddingInlineEnd: "calc(18px + var(--window-controls-inset, 0px))" }}
         >
-          <div>{desktop ? <WindowChrome /> : null}</div>
+          <div>
+            <WindowChrome />
+          </div>
           <DialogTitle
             className="flex min-w-0 max-w-full items-center justify-self-center gap-2 rounded-full bg-muted px-4 py-2 text-body-sm font-medium"
             dir="auto"

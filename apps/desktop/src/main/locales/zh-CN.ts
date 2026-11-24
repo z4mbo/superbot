@@ -172,7 +172,6 @@ export const ZH_CN_MESSAGES: Record<string, string> = {
   "Next Bot": "下一个 Bot",
   "Previous Bot": "上一个 Bot",
   "Command Menu…": "命令菜单…",
-  "Toggle Sidebar": "切换边栏",
   "Find…": "查找…",
   "Search Bots…": "搜索 Bot…",
   "The window closed before the app loaded.": "应用加载完成前窗口已关闭。",
@@ -219,4 +218,6 @@ export const ZH_CN_MESSAGES: Record<string, string> = {
   "Restart Superbot": "重新启动 Superbot",
   "Not Now": "暂不",
   "Restart Superbot to finish setup": "重新启动 Superbot 以完成设置",
+  Maximize: "最大化",
+  Restore: "还原",
 };

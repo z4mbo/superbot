@@ -115,6 +115,14 @@ export const ipcChannels = {
   "desktop.setup.stack.state": setupPage<RakazoSetup["stack"]["state"]>(REJECTS),
   "desktop.setup.state": setupPage<RakazoSetup["state"]>(REJECTS),
   "desktop.setup.test": setupPage<RakazoSetup["test"]>(SETUP_NOT_ACTIVE),
+  "desktop.setup.window.minimize": setupPage<RakazoSetup["window"]["minimize"]>(undefined),
+  "desktop.setup.window.state": setupPage<RakazoSetup["window"]["state"]>({
+    minimized: false,
+    maximized: false,
+    fullScreen: false,
+  }),
+  "desktop.setup.window.toggleMaximize":
+    setupPage<RakazoSetup["window"]["toggleMaximize"]>(undefined),
 };
 
 export type IpcChannelName = keyof typeof ipcChannels;

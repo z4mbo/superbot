@@ -10,7 +10,7 @@ import type { PageAppBridge } from "../../lib/pages/page-app-bridge";
 import {
   DARWIN_WINDOW_CONTROLS_WIDTH_PX,
   desktopBridge,
-  windowChromeKind,
+  windowControlsKind,
 } from "../../lib/platform/desktop";
 import { DownloadPdfButton } from "./DownloadPdfButton";
 import { PageFrame } from "./PageFrame";
@@ -78,7 +78,7 @@ export function PageView({
   const onDrawn = useCallback(() => setDrawn(true), []);
   // In the macOS app the window controls sit in the top-left corner over a full-window page, so
   // its top row starts below them, as the main window's rows do.
-  const macChrome = !compact && windowChromeKind(desktopBridge()) === "darwin";
+  const macChrome = !compact && windowControlsKind(desktopBridge()) === "traffic-lights";
   const control = `grid place-items-center rounded-full p-0 border border-foreground/[0.06] text-foreground outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-ring ${compact ? "size-11" : "size-[35px]"}`;
   // The browser close control sits 11px in. On macOS that inset starts after the traffic-light
   // strip. The sum is a style because Tailwind only emits `left-[…]` from a complete literal.

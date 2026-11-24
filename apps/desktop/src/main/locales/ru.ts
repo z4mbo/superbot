@@ -190,7 +190,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Next Bot": "Следующий бот",
   "Previous Bot": "Предыдущий бот",
   "Command Menu…": "Меню команд…",
-  "Toggle Sidebar": "Показать или скрыть боковую панель",
   "Find…": "Найти…",
   "Search Bots…": "Поиск ботов…",
   "The window closed before the app loaded.": "Окно закрылось до загрузки приложения.",
@@ -239,4 +238,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Restart Superbot": "Перезапустить Superbot",
   "Not Now": "Не сейчас",
   "Restart Superbot to finish setup": "Перезапустите Superbot, чтобы завершить настройку",
+  Maximize: "Развернуть",
+  Restore: "Восстановить",
 };

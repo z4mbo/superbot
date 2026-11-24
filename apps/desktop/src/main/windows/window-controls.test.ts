@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appWindowTargets, desktop } from "../desktop-state.js";
 import type { IpcCaller } from "../ipc/ipc.js";
 import { reportDesktopError } from "../system/monitoring.js";
-import { registerWindowControls } from "./window-controls.js";
+import { registerWindowControls, signalWindowState } from "./window-controls.js";
 
 type Listener = (event: IpcCaller, ...args: unknown[]) => unknown;
 const mocks = vi.hoisted(() => ({
@@ -183,5 +183,46 @@ describe("window controls", () => {
       expect(acted(previous)).toEqual(["minimize"]);
       expect(acted(next)).toEqual([]);
     });
+  });
+});
+
+describe("setup window controls", () => {
+  const setupCall = (control: "minimize" | "toggleMaximize" | "state", event: IpcCaller) =>
+    mocks.invoke.get(`desktop.setup.window.${control}`)?.(event);
+
+  it("act on the setup window for its own page only", () => {
+    const setup = appWindow("file://");
+    desktop.setupWindow = asWindow(setup);
+    setupCall("minimize", setup.event);
+    setupCall("toggleMaximize", setup.event);
+    expect(acted(setup)).toEqual(["minimize", "maximize"]);
+    setup.state.maximized = true;
+    expect(setupCall("state", setup.event)).toEqual({ ...NOTHING_DONE, maximized: true });
+
+    const app = appWindow("https://app.example.com");
+    desktop.mainWindow = asWindow(app);
+    setupCall("minimize", app.event);
+    expect(acted(app)).toEqual([]);
+  });
+});
+
+describe("window state signal", () => {
+  it("tells the page each time maximize or full screen changes, and nothing else", () => {
+    const listeners = new Map<string, () => void>();
+    const send = vi.fn();
+    const win = {
+      isDestroyed: () => false,
+      on: (event: string, listener: () => void) => listeners.set(event, listener),
+      webContents: { send },
+    };
+    signalWindowState(win as unknown as BrowserWindow);
+    expect([...listeners.keys()].sort()).toEqual([
+      "enter-full-screen",
+      "leave-full-screen",
+      "maximize",
+      "unmaximize",
+    ]);
+    for (const listener of listeners.values()) listener();
+    expect(send.mock.calls).toEqual(Array(4).fill(["desktop.window.changed"]));
   });
 });

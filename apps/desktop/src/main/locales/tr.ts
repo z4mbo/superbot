@@ -184,7 +184,6 @@ export const TR_MESSAGES: Record<string, string> = {
   "Next Bot": "Sonraki Bot",
   "Previous Bot": "Önceki Bot",
   "Command Menu…": "Komut Menüsü…",
-  "Toggle Sidebar": "Kenar Çubuğunu Aç/Kapat",
   "Find…": "Bul…",
   "Search Bots…": "Bot Ara…",
   "The window closed before the app loaded.": "Pencere, uygulama yüklenmeden kapandı.",
@@ -233,4 +232,6 @@ export const TR_MESSAGES: Record<string, string> = {
   "Restart Superbot": "Superbot’yu yeniden başlat",
   "Not Now": "Şimdi değil",
   "Restart Superbot to finish setup": "Kurulumu tamamlamak için Superbot’yu yeniden başlatın",
+  Maximize: "Ekranı kapla",
+  Restore: "Önceki boyuta getir",
 };

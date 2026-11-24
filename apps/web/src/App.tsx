@@ -5,14 +5,7 @@ import { LinkFaviconsContext, RemoteImagesContext } from "@rakazo/chat-ui/web";
 import { mobileMcpOAuthReturnUrl } from "@rakazo/contracts";
 import { analyticsScreen } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
-import {
-  Suspense,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 import { LoadingState } from "./components/ai/primitives";
 import { SubscriptionGate } from "./components/billing/SubscriptionGate";
@@ -21,6 +14,7 @@ import { VoiceConsentPrompt } from "./components/call/VoiceConsentPrompt";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { MarkdownLinkPrompt } from "./components/messages/markdown-link-prompt";
 import { PageLoading } from "./components/PageLoading";
+import { WindowControls } from "./components/WindowControls";
 import { authClient } from "./lib/auth/auth";
 import { hasSignedInBefore, rememberSignedIn } from "./lib/auth/returning-user";
 import {
@@ -39,7 +33,6 @@ import {
 } from "./lib/auth/sign-in-next";
 import { syncLogOutFailure } from "./lib/auth/sign-out";
 import { completeSsoCallback, SSO_CALLBACK_PATH } from "./lib/auth/sso-flow";
-import { getLabs, subscribeLabs } from "./lib/bootstrap";
 import { syncWebLogoAvatarIdentity } from "./lib/bots/logo-avatar-activity";
 import { syncCallIdentity } from "./lib/calls/call-session";
 import { analyticsSurface } from "./lib/platform/desktop";
@@ -55,7 +48,6 @@ import { McpOAuthCallbackPage } from "./pages/integrations/McpOAuthCallback";
 import { SlackInstallCallbackPage } from "./pages/integrations/SlackInstallCallback";
 import { SharedPagePage } from "./pages/SharedPage";
 import { ShellPage } from "./pages/Shell";
-import { AppRailLayout } from "./pages/shell/app-rail";
 
 const AuthPage = lazyComponent(() => import("./pages/auth/Auth").then((module) => module.AuthPage));
 const PasswordResetPage = lazyComponent(() =>
@@ -72,9 +64,6 @@ const NotFoundPage = lazyComponent(() =>
 );
 const ArtifactsPage = lazyComponent(() =>
   import("./pages/space/Artifacts").then((module) => module.ArtifactsPage),
-);
-const BoardPage = lazyComponent(() =>
-  import("./pages/space/Board").then((module) => module.BoardPage),
 );
 const AdminPluginsPage = lazyComponent(() =>
   import("./pages/plugins/AdminPluginsPage").then((module) => module.AdminPluginsPage),
@@ -118,6 +107,7 @@ export function App() {
             <SessionApp />
           )}
         </ErrorBoundary>
+        <WindowControls />
       </LinkFaviconsContext.Provider>
     </RemoteImagesContext.Provider>
   );
@@ -133,11 +123,6 @@ function WelcomeRedirect() {
 function SessionApp() {
   const [searchParams] = useSearchParams();
   const next = signInNext(searchParams.get("next"));
-  const boardEnabled = useSyncExternalStore(
-    subscribeLabs,
-    () => getLabs().includes("board"),
-    () => false,
-  );
   const session = authClient.useSession();
   const { pathname, search } = useLocation();
   const screen = analyticsScreen(pathname);
@@ -341,16 +326,9 @@ function SessionApp() {
                   )
                 }
               >
-                <Route element={<AppRailLayout enabled={boardEnabled} />}>
-                  <Route path="/app" element={<ShellPage />} />
-                  <Route path="/app/g/:groupId" element={<ShellPage />} />
-                  <Route path="/app/:botId" element={<ShellPage />} />
-                  {boardEnabled ? (
-                    <Route element={<CallLayout />}>
-                      <Route path="/app/board" element={<BoardPage />} />
-                    </Route>
-                  ) : null}
-                </Route>
+                <Route path="/app" element={<ShellPage />} />
+                <Route path="/app/g/:groupId" element={<ShellPage />} />
+                <Route path="/app/:botId" element={<ShellPage />} />
                 <Route element={<CallLayout />}>
                   <Route path="/onboarding/:step?" element={<OnboardingPage />} />
                   <Route path="/app/artifacts" element={<ArtifactsPage />} />

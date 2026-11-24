@@ -102,6 +102,12 @@ function mount(
   const bridge: RakazoSetup = {
     platform,
     locale,
+    window: {
+      minimize: () => Promise.resolve(),
+      toggleMaximize: () => Promise.resolve(),
+      state: () => Promise.resolve({ minimized: false, maximized: false, fullScreen: false }),
+      onChange: () => () => undefined,
+    },
     state: () => {
       const call = deferred<DesktopSetupState>();
       stateCalls.push(call);

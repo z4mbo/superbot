@@ -10,7 +10,6 @@ import { useBilling } from "../../../components/billing/SubscriptionGate";
 import { IconTooltip } from "../../../components/IconTooltip";
 import { InviteDialog } from "../../../components/spaces/InviteDialog";
 import { WindowChrome } from "../../../components/WindowChrome";
-import { desktopBridge, windowChromeKind } from "../../../lib/platform/desktop";
 
 const MeetingsDialog = lazy(() => import("../meetings/meetings-dialog"));
 
@@ -40,11 +39,11 @@ export function ChatHeader({
   const { t } = useLingui();
   const referral = useBilling().status?.referral;
   const [inviteOpen, setInviteOpen] = useState(false);
-  const macChrome = windowChromeKind(desktopBridge()) === "darwin";
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 px-3 py-2.5 md:px-[22px] [&_button]:pointer-events-auto">
+    // The toolbar drags the window, as the reference's does.
+    <div className="app-drag pointer-events-none absolute inset-x-0 top-0 z-10 grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 px-3 py-2.5 md:px-[22px] [&_button]:pointer-events-auto">
       <div className="flex items-center">
-        {macChrome ? <WindowChrome className="md:hidden" /> : null}
+        <WindowChrome className="md:hidden" />
         <Button
           variant="floating"
           size="icon-lg"
@@ -109,7 +108,11 @@ export function ChatHeader({
       ) : (
         <div />
       )}
-      <div className="flex items-center justify-self-end gap-2">
+      {/* Clear of window controls at the window's top right, unless the details panel is there. */}
+      <div
+        className="flex items-center justify-self-end gap-2"
+        style={panelOpen ? undefined : { paddingInlineEnd: "var(--window-controls-inset, 0px)" }}
+      >
         {meetingsEnabled && !inGroup && active ? (
           <MeetingsControl key={active.id} botId={active.id} />
         ) : null}

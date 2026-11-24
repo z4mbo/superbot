@@ -72,9 +72,11 @@ afterEach(() => {
 
 function renderHeader({
   inGroup = false,
+  panelOpen = false,
   modelPicker,
 }: {
   inGroup?: boolean;
+  panelOpen?: boolean;
   modelPicker?: ReactNode;
 } = {}) {
   act(() =>
@@ -86,7 +88,7 @@ function renderHeader({
         }
         activeGroup={undefined}
         activeSnapshot={null}
-        panelOpen={false}
+        panelOpen={panelOpen}
         onOpenNavigation={() => undefined}
         onTogglePanel={() => undefined}
         modelPicker={modelPicker}
@@ -109,7 +111,15 @@ it("clears the macOS traffic lights beside Open navigation on a narrow desktop w
 
   delete window.rakazoDesktop;
   renderHeader();
-  expect(container.querySelector(".app-drag")).toBeNull();
+  expect(container.querySelector('[aria-hidden="true"].app-drag')).toBeNull();
+});
+
+it("keeps its right side clear of window controls at the top right, unless the panel is there", () => {
+  renderHeader();
+  const end = () => container.querySelector<HTMLElement>(".justify-self-end")!;
+  expect(end().style.paddingInlineEnd).toBe("var(--window-controls-inset, 0px)");
+  renderHeader({ panelOpen: true });
+  expect(end().style.paddingInlineEnd).toBe("");
 });
 
 it("holds only the bot's name and, beside it, its model", () => {

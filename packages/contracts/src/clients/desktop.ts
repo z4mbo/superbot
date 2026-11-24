@@ -72,7 +72,6 @@ export const DESKTOP_MENU_COMMANDS = [
   "new",
   "command-menu",
   "search",
-  "toggle-sidebar",
   "back",
   "forward",
   "next-bot",
@@ -168,14 +167,12 @@ export interface RakazoDesktop {
     onOAuthCallback: (listener: (callback: RakazoDesktopMcpOAuthCallback) => void) => () => void;
   };
   platform: string;
-  /** Absent on older frameless releases, which still need in-app controls. */
+  /**
+   * The operating system draws the window controls (a native frame or a title bar overlay).
+   * Absent on older frameless releases, which still need in-app controls.
+   */
   nativeWindowFrame?: boolean;
-  window: {
-    close: () => Promise<void>;
-    minimize: () => Promise<void>;
-    toggleMaximize: () => Promise<void>;
-    state: () => Promise<{ minimized: boolean; maximized: boolean; fullScreen: boolean }>;
-  };
+  window: RakazoDesktopWindow;
   update: RakazoDesktopUpdate;
   oauth: {
     /**
@@ -264,9 +261,25 @@ export type DesktopSetupLink = "docker-download";
  * Bridge exposed only to the first-run setup window. The app window keeps the
  * narrower `rakazoDesktop` bridge so a connected server can never re-point the app.
  */
+export interface RakazoDesktopWindow {
+  close: () => Promise<void>;
+  minimize: () => Promise<void>;
+  toggleMaximize: () => Promise<void>;
+  state: () => Promise<{ minimized: boolean; maximized: boolean; fullScreen: boolean }>;
+  /**
+   * Fires when the window is maximized, restored or leaves full screen; read `state` again.
+   * Returns an unsubscribe function. Absent on older desktop releases.
+   */
+  onChange?: (listener: () => void) => () => void;
+}
+
 export interface RakazoSetup {
-  /** Used only to reserve space for native window controls in the local setup UI. */
+  /** Used to place the window controls in the local setup UI. */
   platform: string;
+  /** The setup window's own controls, where the operating system draws none. */
+  window: Omit<RakazoDesktopWindow, "close" | "onChange"> & {
+    onChange: (listener: () => void) => () => void;
+  };
   /** The page's language and its translations, keyed by the English text; empty for English. */
   locale: { lang: string; dir: "ltr" | "rtl"; messages: Readonly<Record<string, string>> };
   state: () => Promise<DesktopSetupState>;

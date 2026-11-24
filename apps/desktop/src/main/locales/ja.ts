@@ -191,7 +191,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Next Bot": "次のボット",
   "Previous Bot": "前のボット",
   "Command Menu…": "コマンドメニュー…",
-  "Toggle Sidebar": "サイドバーを切り替え",
   "Find…": "検索…",
   "Search Bots…": "ボットを検索…",
   "The window closed before the app loaded.": "アプリの読み込み前にウインドウが閉じられました。",
@@ -240,4 +239,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Restart Superbot": "Superbotを再起動",
   "Not Now": "今はしない",
   "Restart Superbot to finish setup": "Superbotを再起動して設定を完了",
+  Maximize: "最大化",
+  Restore: "元に戻す",
 };

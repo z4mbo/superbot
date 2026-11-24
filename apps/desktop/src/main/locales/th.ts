@@ -175,7 +175,6 @@ export const TH_MESSAGES: Record<string, string> = {
   "Next Bot": "บอทถัดไป",
   "Previous Bot": "บอทก่อนหน้า",
   "Command Menu…": "เมนูคำสั่ง…",
-  "Toggle Sidebar": "สลับแถบด้านข้าง",
   "Find…": "ค้นหา…",
   "Search Bots…": "ค้นหาบอท…",
   "The window closed before the app loaded.": "หน้าต่างปิดก่อนที่แอปจะโหลดเสร็จ",
@@ -223,4 +222,6 @@ export const TH_MESSAGES: Record<string, string> = {
   "Restart Superbot": "เริ่ม Superbot ใหม่",
   "Not Now": "ไว้ก่อน",
   "Restart Superbot to finish setup": "เริ่ม Superbot ใหม่เพื่อตั้งค่าให้เสร็จ",
+  Maximize: "ขยายใหญ่สุด",
+  Restore: "คืนค่าขนาด",
 };

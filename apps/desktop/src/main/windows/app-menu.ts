@@ -222,7 +222,6 @@ export function applicationMenuInstaller({
     const viewMenu: Electron.MenuItemConstructorOptions = {
       label: t("View"),
       submenu: [
-        command(t("Toggle Sidebar"), "CmdOrCtrl+B", "toggle-sidebar"),
         command(t("Chat Details"), "CmdOrCtrl+Shift+,", "chat-panel"),
         { type: "separator" },
         { role: "resetZoom", label: t("Actual Size") },
