@@ -31,13 +31,19 @@ import { cn } from "./lib/utils.js";
 
 export type BotMarkInstance = {
   element: SVGSVGElement;
+  /** The bot the avatar shows, which decides the boxes it answers the pointer in. */
+  identity: string;
   visible: boolean;
   /** Where the pointer is while it is inside the avatar's box, in client pixels. */
   pointer: [number, number] | null;
   /** Whether the avatar's box is the open bot, which faces straight ahead. */
   selected: boolean;
+  /** Whether the pointer is over the line the avatar sits in, which surprises its face. */
+  emphasized: boolean;
   /** The avatar's size in pixels: small avatars grow while their bot is morphed. */
   size: number;
+  /** Stops the engine listening to the avatar's boxes. */
+  detach: (() => void) | null;
 };
 
 type Parts = {
@@ -83,6 +89,8 @@ export type BotMarkEngine = {
   schedule: () => void;
   /** Plays the next of a spin, a bounce and a nod. */
   poke: (source: BotMarkSource) => void;
+  /** Listens to the boxes around an avatar; returns what stops listening. */
+  attach: (instance: BotMarkInstance) => () => void;
 };
 
 const sources = new Map<string, BotMarkSource>();
@@ -99,6 +107,7 @@ function loadEngine() {
   void import("./bot-mark-engine.js").then(
     ({ createBotMarkEngine }) => {
       engine = createBotMarkEngine({ sources, paint });
+      for (const instance of instances) instance.detach ??= engine.attach(instance);
     },
     () => {
       engineLoading = false;
@@ -264,46 +273,6 @@ if (typeof document !== "undefined") {
   });
 }
 
-/**
- * The box an avatar answers the pointer in: the nearest element marked `data-bot-mark-host`
- * with this bot's identity, such as its roster row or pinned tile. An avatar with no host of its
- * own, or inside another bot's box, never follows the pointer.
- */
-function hostOf(element: Element, identity: string): HTMLElement | null {
-  const host = element.closest<HTMLElement>("[data-bot-mark-host]");
-  const owner = host?.dataset.botMarkHost;
-  return host && (owner === "" || owner === identity) ? host : null;
-}
-
-/**
- * Follows the pointer while it is inside a host's box, and whether the host is the open bot
- * (`aria-current`), so the avatar's face can turn to either. Returns what stops listening.
- */
-function watchHost(host: HTMLElement, instance: BotMarkInstance): () => void {
-  const move = (event: PointerEvent) => {
-    instance.pointer = [event.clientX, event.clientY];
-    schedule();
-  };
-  const leave = () => {
-    instance.pointer = null;
-    schedule();
-  };
-  const current = () => {
-    instance.selected = (host.getAttribute("aria-current") ?? "false") !== "false";
-    schedule();
-  };
-  current();
-  host.addEventListener("pointermove", move, { passive: true });
-  host.addEventListener("pointerleave", leave);
-  const observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(current);
-  observer?.observe(host, { attributes: true, attributeFilter: ["aria-current"] });
-  return () => {
-    host.removeEventListener("pointermove", move);
-    host.removeEventListener("pointerleave", leave);
-    observer?.disconnect();
-  };
-}
-
 /** Live states share one drawing per bot; the sleeping look draws on its own. */
 function sourceKey(identity: string, shape: BotMarkShape, state: BotMarkState, showcase: boolean) {
   const look = state === "asleep" || state === "waking" ? "sleep" : "live";
@@ -343,20 +312,25 @@ export const BotMark = memo(function BotMark({
   const who = identity || fallbackId;
   const key = sourceKey(who, shape, state, showcase);
   const sourceRef = useRef<BotMarkSource | null>(null);
+  // A new state moves the same drawing on (below); only a new drawing starts from it.
+  const stateRef = useRef(state);
+  stateRef.current = state;
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const source = sourceFor(key, shape, state, who, showcase);
+    const source = sourceFor(key, shape, stateRef.current, who, showcase);
     sourceRef.current = source;
     const instance: BotMarkInstance = {
       element,
+      identity: who,
       visible: true,
       pointer: null,
       selected: false,
+      emphasized: false,
       size,
+      detach: null,
     };
-    const host = hostOf(element, who);
-    const unwatch = host ? watchHost(host, instance) : null;
+    instance.detach = engine?.attach(instance) ?? null;
     source.instances.add(instance);
     instances.add(instance);
     markPaused(instance);
@@ -373,12 +347,12 @@ export const BotMark = memo(function BotMark({
     schedule();
     return () => {
       observer?.disconnect();
-      unwatch?.();
+      instance.detach?.();
       instances.delete(instance);
       release(key, source, instance);
       sourceRef.current = null;
     };
-  }, [key, shape, state, who, showcase, size]);
+  }, [key, shape, who, showcase, size]);
   useEffect(() => {
     if (sourceRef.current) setState(sourceRef.current, state);
   }, [state]);

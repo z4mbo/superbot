@@ -159,3 +159,51 @@ it("faces the open bot straight ahead, and turns it back to rest when another bo
     timeout: 3000,
   });
 });
+
+it("surprises a mark while the pointer is over the line it sits in", async () => {
+  engineLoad.resolve();
+  act(() =>
+    root.render(
+      <div data-bot-mark-emphasis="" data-testid="line">
+        <span data-testid="em">
+          <BotMark identity="em" shape="egg" ink="green" size={28} />
+        </span>
+        Working on it
+      </div>,
+    ),
+  );
+  const rest = botMarkRestDrawing("egg");
+  await vi.waitFor(() => expect(shown("em")).toEqual({ body: rest.body, eyes: rest.eyes }));
+  const line = container.querySelector('[data-testid="line"]')!;
+  const surprised = botMarkDrawing(
+    "egg",
+    botMarkFrame({ state: "idle", time: 0, seed: 0, emphasis: { on: true, seconds: 1 } }),
+  );
+  act(() => {
+    line.dispatchEvent(new MouseEvent("pointerenter"));
+  });
+  await vi.waitFor(() => expect(shown("em").eyes).toBe(surprised.eyes), { timeout: 3000 });
+  act(() => {
+    line.dispatchEvent(new MouseEvent("pointerleave"));
+  });
+  await vi.waitFor(() => expect(shown("em").eyes).toBe(rest.eyes), { timeout: 3000 });
+});
+
+it("keeps a bot that stops working moving for a moment, then rests it", async () => {
+  engineLoad.resolve();
+  const mark = (state: "working" | "idle") => (
+    <span data-testid="settle">
+      <BotMark identity="settle" shape="cloud" ink="blue" state={state} size={36} />
+    </span>
+  );
+  act(() => root.render(mark("working")));
+  const rest = botMarkRestDrawing("cloud");
+  await vi.waitFor(() => expect(shown("settle").body).not.toBe(rest.body), { timeout: 3000 });
+  const stopped = performance.now();
+  act(() => root.render(mark("idle")));
+  await vi.waitFor(() => expect(shown("settle")).toEqual({ body: rest.body, eyes: rest.eyes }), {
+    timeout: 5000,
+  });
+  // It plays on for 1.4s before its 0.35s move to rest.
+  expect(performance.now() - stopped).toBeGreaterThan(1700);
+});

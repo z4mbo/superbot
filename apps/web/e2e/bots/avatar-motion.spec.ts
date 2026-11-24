@@ -222,3 +222,19 @@ test("with reduced motion a hovered mark faces ahead at once and rests when left
   await page.mouse.move(box.x + box.width + 120, box.y);
   await expect.poll(() => eyes(mark)).toBe(rest);
 });
+
+test("a bot that stops working plays on for a moment, then rests exactly as before", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/e2e/fixtures/avatar-motion.html");
+  const avatar = page.locator(".avatar-organic");
+  await expect(avatar).toHaveAttribute("data-bot-mark-state", "idle");
+  const rest = await outline(avatar);
+  const toggle = avatar.locator("xpath=..").getByRole("button");
+  await toggle.click();
+  await expect.poll(() => outline(avatar)).not.toBe(rest);
+  await toggle.click();
+  await expect(avatar).toHaveAttribute("data-bot-mark-state", "idle");
+  await expect.poll(() => outline(avatar)).toBe(rest);
+});

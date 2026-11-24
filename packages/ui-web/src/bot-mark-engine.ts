@@ -1,4 +1,4 @@
-import type { BotMarkEmotion } from "@rakazo/core";
+import type { BotMarkEmotion, BotMarkState } from "@rakazo/core";
 import {
   BOT_MARK_ZOOM_ORIGIN,
   botMarkBlend,
@@ -8,10 +8,11 @@ import {
   botMarkGazeSettled,
   botMarkGazeStep,
   botMarkPointerGaze,
+  botMarkRestsAfter,
   botMarkShowcaseEmotion,
   botMarkZoom,
 } from "@rakazo/core/bot-mark-animation";
-import type { BotMarkEngine, BotMarkHost, BotMarkSource } from "./bot-mark.js";
+import type { BotMarkEngine, BotMarkHost, BotMarkInstance, BotMarkSource } from "./bot-mark.js";
 
 /**
  * What makes the bot marks move, loaded once the first mark is on screen. Until then each mark
@@ -20,6 +21,25 @@ import type { BotMarkEngine, BotMarkHost, BotMarkSource } from "./bot-mark.js";
  */
 
 const BLEND_MS = 350;
+/** How long the face takes to morph in and out of surprise, in milliseconds. */
+const FACE_MORPH_MS = 280;
+
+/**
+ * What the engine remembers of a source between frames: the state it last drew, whether that
+ * state began on screen, and when the pointer last came onto or left the line around it.
+ */
+type Life = { state: BotMarkState; entered: boolean; emphasis: { on: boolean; at: number } };
+
+/**
+ * The box an avatar answers the pointer in: the nearest element marked `data-bot-mark-host`
+ * with this bot's identity, such as its roster row or pinned tile. An avatar with no host of its
+ * own, or inside another bot's box, never follows the pointer.
+ */
+function hostOf(element: Element, identity: string): HTMLElement | null {
+  const host = element.closest<HTMLElement>("[data-bot-mark-host]");
+  const owner = host?.dataset.botMarkHost;
+  return host && (owner === "" || owner === identity) ? host : null;
+}
 
 /** What successive clicks play. */
 const POKES = ["spin", "bounce", "nod"] as const;
@@ -32,6 +52,73 @@ export function createBotMarkEngine({ sources, paint }: BotMarkHost): BotMarkEng
       ? window.matchMedia("(prefers-reduced-motion: reduce)")
       : null;
   let reducedMotion = media?.matches ?? false;
+  const lives = new WeakMap<BotMarkSource, Life>();
+
+  /** The source's life, noting a state that changed on screen and emphasis coming or going. */
+  function lifeOf(source: BotMarkSource, now: number): Life {
+    let life = lives.get(source);
+    if (!life) {
+      life = { state: source.state, entered: false, emphasis: { on: false, at: -Infinity } };
+      lives.set(source, life);
+    }
+    if (life.state !== source.state) {
+      life.state = source.state;
+      life.entered = true;
+    }
+    const on = [...source.instances].some((instance) => instance.emphasized);
+    if (on !== life.emphasis.on) life.emphasis = { on, at: now };
+    return life;
+  }
+
+  /**
+   * Listens to the boxes around an avatar: the pointer inside its own host box and whether that
+   * box is the open bot (`aria-current`) turn its face; the pointer over the line it sits in
+   * (`data-bot-mark-emphasis`) surprises it.
+   */
+  function attach(instance: BotMarkInstance): () => void {
+    const stops: (() => void)[] = [];
+    const on = <K extends keyof HTMLElementEventMap>(
+      target: HTMLElement,
+      type: K,
+      listener: (event: HTMLElementEventMap[K]) => void,
+    ) => {
+      target.addEventListener(type, listener, { passive: true });
+      stops.push(() => target.removeEventListener(type, listener));
+    };
+    const host = hostOf(instance.element, instance.identity);
+    if (host) {
+      on(host, "pointermove", (event) => {
+        instance.pointer = [event.clientX, event.clientY];
+        schedule();
+      });
+      on(host, "pointerleave", () => {
+        instance.pointer = null;
+        schedule();
+      });
+      const current = () => {
+        instance.selected = (host.getAttribute("aria-current") ?? "false") !== "false";
+        schedule();
+      };
+      current();
+      if (typeof MutationObserver !== "undefined") {
+        const observer = new MutationObserver(current);
+        observer.observe(host, { attributes: true, attributeFilter: ["aria-current"] });
+        stops.push(() => observer.disconnect());
+      }
+    }
+    const line = instance.element.closest<HTMLElement>("[data-bot-mark-emphasis]");
+    if (line) {
+      const emphasize = (value: boolean) => () => {
+        instance.emphasized = value;
+        schedule();
+      };
+      on(line, "pointerenter", emphasize(true));
+      on(line, "pointerleave", emphasize(false));
+    }
+    return () => {
+      for (const stop of stops) stop();
+    };
+  }
 
   /** Grows a small avatar while its bot is morphed, so the dots stay legible. */
   function zoomInstances(source: BotMarkSource) {
@@ -76,13 +163,19 @@ export function createBotMarkEngine({ sources, paint }: BotMarkHost): BotMarkEng
       : botMarkGazeStep(aimed, (now - source.drawnAt) / 1000);
   }
 
-  /** Whether the source still moves: a state that plays, a poke in flight, a blend or a gaze. */
+  /**
+   * Whether the source still moves: a state that plays, a poke in flight, a blend, a gaze or the
+   * face morphing in or out of surprise.
+   */
   function moving(source: BotMarkSource, now: number) {
     if (reducedMotion) return false;
-    if (source.showcase || source.state !== "idle") return true;
+    const life = lifeOf(source, now);
+    const rests = botMarkRestsAfter(source.state, life.entered);
+    if (source.showcase || rests === null) return true;
+    if (now - source.stateSince < Math.max(rests * 1000, BLEND_MS)) return true;
     if (source.pokes.length > 0 || source.previous) return true;
-    const gaze = botMarkGazeAim(source.gaze, gazeTarget(source));
-    return !botMarkGazeSettled(gaze) || now - source.stateSince < BLEND_MS;
+    if (now - life.emphasis.at < FACE_MORPH_MS) return true;
+    return !botMarkGazeSettled(botMarkGazeAim(source.gaze, gazeTarget(source)));
   }
 
   function draw(source: BotMarkSource, now: number) {
@@ -92,7 +185,13 @@ export function createBotMarkEngine({ sources, paint }: BotMarkHost): BotMarkEng
     source.pokes = source.pokes.filter((poke) => now - poke.at < 2000);
     const emotion: BotMarkEmotion | null =
       source.showcase && !still ? botMarkShowcaseEmotion(now) : null;
+    const life = lifeOf(source, now);
     let frame = botMarkFrame({
+      entered: life.entered && !still,
+      emphasis: {
+        on: life.emphasis.on,
+        seconds: still ? Infinity : (now - life.emphasis.at) / 1000,
+      },
       state: source.state,
       time: still ? 0 : now - source.stateSince,
       seed: source.seed,
@@ -148,6 +247,7 @@ export function createBotMarkEngine({ sources, paint }: BotMarkHost): BotMarkEng
   return {
     draw,
     schedule,
+    attach,
     poke(source) {
       if (reducedMotion) return;
       const kind = POKES[source.clicks % POKES.length]!;
