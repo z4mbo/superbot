@@ -33,6 +33,7 @@ import {
   discoverMarketplaceTools,
   marketplaceScope,
   marketplaceToolName,
+  NO_MARKETPLACE_TOOLS,
 } from "../../integrations/marketplace-runtime.js";
 import { loadBotMessageContext } from "../../messaging/bot-messages.js";
 import { resolveMemberMainModel } from "../../models/model-roles.js";
@@ -459,11 +460,20 @@ export async function connectRun(
           signal: context.signal,
           appAllowed: marketplaceAppAllowed,
         })
-      : [],
-  ]).then(([connectors, marketplace]) => [
-    ...connectors.filter((tool) => !marketplaceToolName(tool.name)),
-    ...marketplace,
-  ]);
+      : NO_MARKETPLACE_TOOLS,
+  ]).then(([connectors, marketplace]) => {
+    // A connector tool never takes the name of a marketplace tool or of its catalog's tools.
+    const marketplaceNames = new Set(marketplace.offered.map((tool) => tool.name));
+    return {
+      tools: [
+        ...connectors.filter(
+          (tool) => !marketplaceToolName(tool.name) && !marketplaceNames.has(tool.name),
+        ),
+        ...marketplace.offered,
+      ],
+      marketplaceCatalog: marketplace.catalog,
+    };
+  });
   // Awaited steps later: if one before it throws, a rejection here would stop the process.
   void bestEffort("tool discovery", discoveredPromise);
   // A connection that cannot be read now leaves the cloud-agent tools out of this turn only.

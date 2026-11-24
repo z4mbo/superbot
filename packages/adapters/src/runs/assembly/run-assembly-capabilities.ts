@@ -775,14 +775,22 @@ export async function selectRunTools(
     trigger: run.trigger,
     clientNonce: run.clientNonce,
   });
-  const exposedConnectorTools = discovered.filter(
+  const exposedConnectorTools = discovered.tools.filter(
     (tool) => !builtinAgentTools.some((builtin) => builtin.name === tool.name),
   );
   const strategicConnectorTools = filterStrategicInitiativeTools(exposedConnectorTools, {
     trigger: run.trigger,
     clientNonce: run.clientNonce,
   });
-  const connectorTools = new Map(strategicConnectorTools.map((tool) => [tool.name, tool] as const));
+  // A tool behind the marketplace catalog is not offered but is known by name: a catalog call
+  // to it runs as its direct call would.
+  const { marketplaceCatalog } = discovered;
+  const connectorTools = new Map(
+    filterStrategicInitiativeTools(
+      [...strategicConnectorTools, ...marketplaceCatalog.map(({ tool }) => tool)],
+      { trigger: run.trigger, clientNonce: run.clientNonce },
+    ).map((tool) => [tool.name, tool] as const),
+  );
   const trustLoaders = createRunTrustLoaders(deps, {
     run,
     runId,
@@ -842,6 +850,7 @@ export async function selectRunTools(
     teammates,
     strategicBuiltins,
     connectorTools,
+    marketplaceCatalog,
     trustLoaders,
     searchResultUrls,
     initiallyTainted,

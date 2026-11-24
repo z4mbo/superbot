@@ -149,8 +149,10 @@ Use a short description and a JSON object input schema for each MCP tool. Define
 the required fields and validate the arguments again on your server. Use
 structured results for predictable data. Marketplace approvals include the
 remote tool, endpoint and arguments, so keep payloads short enough to review.
-Superbot exposes up to twenty tools per granted endpoint and rechecks the selected
-tool schema before calling it. Publish a new marketplace version when changing
+A bot is offered every tool its granted plugins expose. Up to twenty in total are
+listed directly; above that the bot searches for a tool, loads its schema and runs
+it through a catalog, so give each tool a name and description a search can find.
+Superbot rechecks the selected tool schema before calling it. Publish a new marketplace version when changing
 the manifest or shipping an incompatible tool contract.
 
 The endpoint should support MCP initialization, `tools/list` and `tools/call`

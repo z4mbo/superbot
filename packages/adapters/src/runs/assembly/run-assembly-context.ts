@@ -120,6 +120,7 @@ export async function createRunContext(
   const {
     approvedEffectReplays,
     connectorTools,
+    marketplaceCatalog,
     initiallyTainted,
     initialOutsideText,
     searchResultUrls,
@@ -234,6 +235,7 @@ export async function createRunContext(
       offered: tools,
       builtins: strategicBuiltins,
       connector: connectorTools,
+      marketplaceCatalog,
       disabled: disabledBuiltinTools,
       connectedPlugins,
       approvedReplays: approvedEffectReplays,

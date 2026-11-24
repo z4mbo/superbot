@@ -12,6 +12,8 @@ import {
 import {
   executeMarketplaceTool,
   MARKETPLACE_UNAVAILABLE,
+  marketplaceCatalogResult,
+  marketplaceCatalogRoute,
   marketplaceScope,
   marketplaceToolName,
 } from "../../integrations/marketplace-runtime.js";
@@ -70,6 +72,11 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
             withApp ? (app, result) => showConnectorApp(ctx, call, app, result) : undefined,
           )
         : { error: MARKETPLACE_UNAVAILABLE },
+    );
+  }
+  if (marketplaceCatalogRoute(connectorCall.route)) {
+    return call.finish(
+      await marketplaceCatalogResult({ ...connectorCall, args }, ctx.tools.marketplaceCatalog),
     );
   }
   if (deps.connector) {
