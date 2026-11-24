@@ -11,34 +11,34 @@ dependency of `@rakazo/testkit`, and the spike lives in
 
 ## What the tests prove
 
-| Scenario | Storage | Result |
-| --- | --- | --- |
-| Crash mid-tool, new Harness in the same process | memory | Resumes; the replay-safe call runs again, the finished one does not |
-| `kill` (SIGKILL / TerminateProcess) while a side-effecting tool runs | SQLite, new process | The tool is **not** run again; the model gets an error result `Tool charge_card was interrupted and may have partially run`, and the run goes on |
-| Same, with a host `afterTool` hook | SQLite, new process | The hook sees diagnostic code `interrupted` and replaces the text; Durable still appends its diagnostic |
-| Kill while a replay-safe tool runs | SQLite, new process | The tool runs again and the run finishes |
-| Kill while the answer streams | SQLite, new process | The request is sent again with the same context; the partial answer is not in it |
-| Graceful `close()` mid-tool (drain, deploy) | memory | Same as a crash for a side-effecting tool: aborted, never resumed, reported as interrupted |
-| Model change between turns and mid-run (`configure`) | memory | Next request goes to the new model, with the other model's tool calls in context; the choice survives a reopen |
-| Superbot's `resolveRuntimeModel` output | memory | Runs; a per-run model change (`withOutputBudget`) reaches the request only through a pinned `getModel` |
-| Two processes open one SQLite file | SQLite | **No cross-process lock.** The second recovers the first's live call as crashed and runs it again beside it; the first then fails its Session with `storage_failed: ID … already belongs to entry` and exits. The file stays consistent |
-| A file written by a newer Durable | SQLite | Refused: `SQLite schema version 3 is newer than supported version 2` |
+| Scenario                                                             | Storage             | Result                                                                                                                                                                                                                                  |
+| -------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Crash mid-tool, new Harness in the same process                      | memory              | Resumes; the replay-safe call runs again, the finished one does not                                                                                                                                                                     |
+| `kill` (SIGKILL / TerminateProcess) while a side-effecting tool runs | SQLite, new process | The tool is **not** run again; the model gets an error result `Tool charge_card was interrupted and may have partially run`, and the run goes on                                                                                        |
+| Same, with a host `afterTool` hook                                   | SQLite, new process | The hook sees diagnostic code `interrupted` and replaces the text; Durable still appends its diagnostic                                                                                                                                 |
+| Kill while a replay-safe tool runs                                   | SQLite, new process | The tool runs again and the run finishes                                                                                                                                                                                                |
+| Kill while the answer streams                                        | SQLite, new process | The request is sent again with the same context; the partial answer is not in it                                                                                                                                                        |
+| Graceful `close()` mid-tool (drain, deploy)                          | memory              | Same as a crash for a side-effecting tool: aborted, never resumed, reported as interrupted                                                                                                                                              |
+| Model change between turns and mid-run (`configure`)                 | memory              | Next request goes to the new model, with the other model's tool calls in context; the choice survives a reopen                                                                                                                          |
+| Superbot's `resolveRuntimeModel` output                              | memory              | Runs; a per-run model change (`withOutputBudget`) reaches the request only through a pinned `getModel`                                                                                                                                  |
+| Two processes open one SQLite file                                   | SQLite              | **No cross-process lock.** The second recovers the first's live call as crashed and runs it again beside it; the first then fails its Session with `storage_failed: ID … already belongs to entry` and exits. The file stays consistent |
+| A file written by a newer Durable                                    | SQLite              | Refused: `SQLite schema version 3 is newer than supported version 2`                                                                                                                                                                    |
 
 The same request ID finds the same submission after a restart, so the child process
 that starts a run is also the one that resumes it.
 
 ## The plan's assumptions, checked against the installed package
 
-| Assumed | In 1.6.0 |
-| --- | --- |
-| `Harness.open({ models })` | `Harness.open(storage, { models, registry, settings?, env?, onReport?, readOnly? }, context)`. `models` is a pi-ai `Models` or a function returning one, shared by every conversation of that Harness |
-| `defineTool` with a replay policy | Yes: `replay: "safe" \| "unsafe"`, default `unsafe` |
-| Per-conversation `configure` | Yes: `conversation.configure({ model: { provider, modelId }, thinkingLevel, tools, modelTools, instructions, cwd, maxTurns, compaction }, context)` |
-| `agent.model` / a `pi.agent` document | Yes: stored in the `pi.agent` document; `conversation.agent(context).model` returns `{ provider, modelId }`, not a pi-ai `Model` |
-| `openNodeSqliteStorage` over `node:sqlite` | Yes, from `@earendil-works/pi-durable/storage/sqlite/node`; WAL, `BEGIN IMMEDIATE`, 5 s busy timeout |
-| Every async call | Takes a Chord `Context` (`BACKGROUND_CONTEXT` from `@earendil-works/chord/context`); tool cancellation is `context.abortSignal` |
-| Resume | Not automatic: `harness.resume()`, or any submit or wait, starts the scheduler |
-| A Durable `Agent` replaces pi-agent-core | Durable does not use pi-agent-core at all; it calls `models.getModel()` and `models.streamSimple()` from pi-ai directly |
+| Assumed                                    | In 1.6.0                                                                                                                                                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Harness.open({ models })`                 | `Harness.open(storage, { models, registry, settings?, env?, onReport?, readOnly? }, context)`. `models` is a pi-ai `Models` or a function returning one, shared by every conversation of that Harness |
+| `defineTool` with a replay policy          | Yes: `replay: "safe" \| "unsafe"`, default `unsafe`                                                                                                                                                   |
+| Per-conversation `configure`               | Yes: `conversation.configure({ model: { provider, modelId }, thinkingLevel, tools, modelTools, instructions, cwd, maxTurns, compaction }, context)`                                                   |
+| `agent.model` / a `pi.agent` document      | Yes: stored in the `pi.agent` document; `conversation.agent(context).model` returns `{ provider, modelId }`, not a pi-ai `Model`                                                                      |
+| `openNodeSqliteStorage` over `node:sqlite` | Yes, from `@earendil-works/pi-durable/storage/sqlite/node`; WAL, `BEGIN IMMEDIATE`, 5 s busy timeout                                                                                                  |
+| Every async call                           | Takes a Chord `Context` (`BACKGROUND_CONTEXT` from `@earendil-works/chord/context`); tool cancellation is `context.abortSignal`                                                                       |
+| Resume                                     | Not automatic: `harness.resume()`, or any submit or wait, starts the scheduler                                                                                                                        |
+| A Durable `Agent` replaces pi-agent-core   | Durable does not use pi-agent-core at all; it calls `models.getModel()` and `models.streamSimple()` from pi-ai directly                                                                               |
 
 ## Cross-platform
 
@@ -81,16 +81,16 @@ would still need the lock the two-writer test shows is missing.
 
 ## How Superbot features would map
 
-| Superbot | Durable |
-| --- | --- |
-| Approvals | A `beforeTool` gate that sleeps on a signal keyed by the arguments; the approval card answers with `harness.signal()`. Holds no process while waiting |
-| `ask_user`, takeover | A tool that parks (`{ sleep: { signals, until } }`) and runs again with the answer |
-| Subagents | A task-owned conversation driven from a tool, parked on `SubmissionSettled` |
+| Superbot                                 | Durable                                                                                                                                                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Approvals                                | A `beforeTool` gate that sleeps on a signal keyed by the arguments; the approval card answers with `harness.signal()`. Holds no process while waiting                                                              |
+| `ask_user`, takeover                     | A tool that parks (`{ sleep: { signals, until } }`) and runs again with the answer                                                                                                                                 |
+| Subagents                                | A task-owned conversation driven from a tool, parked on `SubmissionSettled`                                                                                                                                        |
 | Computer, shell, browser, mail, payments | `replay: "unsafe"` (the default). An interrupted call reaches an `afterTool` hook with code `interrupted`, where Superbot decides: report it, ask the person, or check its own effect ledger (`effectOccurrences`) |
-| Steer | `submit({ whenBusy: "steer" })`; follow-ups queue in `pi.inbox` |
-| Stop | `conversation.abort()` |
-| Drain, deploy | Close the Harness when the lease is handed back; the next owner reopens and calls `resume()`. A model request a close stopped is sent again; a side-effecting tool is not |
-| Fallback models | Stay Superbot's (`selectConfiguredModel`). A failed run ends with `runFailure: model_error`; the runtime configures the next model and submits `{ type: "continue" }` |
+| Steer                                    | `submit({ whenBusy: "steer" })`; follow-ups queue in `pi.inbox`                                                                                                                                                    |
+| Stop                                     | `conversation.abort()`                                                                                                                                                                                             |
+| Drain, deploy                            | Close the Harness when the lease is handed back; the next owner reopens and calls `resume()`. A model request a close stopped is sent again; a side-effecting tool is not                                          |
+| Fallback models                          | Stay Superbot's (`selectConfiguredModel`). A failed run ends with `runFailure: model_error`; the runtime configures the next model and submits `{ type: "continue" }`                                              |
 
 ## Versioning risk
 
