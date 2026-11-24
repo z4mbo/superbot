@@ -35,9 +35,13 @@ vi.mock("@rakazo/ui-web", () => ({
   DialogDescription: ({ children }: { children?: ReactNode }) => <p>{children}</p>,
 }));
 
+const generalProps = vi.hoisted(() => ({ last: null as Record<string, unknown> | null }));
 vi.mock("./AccountSettingsOverlay", () => ({
   ComputerSettingsPanel: () => null,
-  GeneralSettingsPanels: () => null,
+  GeneralSettingsPanels: (props: Record<string, unknown>) => {
+    generalProps.last = props;
+    return null;
+  },
   UpdatesSettingsPanel: () => null,
 }));
 
@@ -205,6 +209,20 @@ it("lists the spaces under General and opens the one picked", async () => {
     expect(onOpenSpace).toHaveBeenCalledWith("space-b");
     // Spaces live under General, not in the nav.
     expect(container.querySelector('[data-testid="settings-nav-space"]')).toBeNull();
+  } finally {
+    await cleanup();
+  }
+});
+
+it("gives General the workspaces to switch the whole app between", async () => {
+  const onSwitchSpace = vi.fn();
+  const { cleanup } = await render({ spaces, currentSpaceId: "space-a", onSwitchSpace });
+  try {
+    expect(generalProps.last?.workspace).toEqual({
+      spaces,
+      currentId: "space-a",
+      onSwitch: onSwitchSpace,
+    });
   } finally {
     await cleanup();
   }

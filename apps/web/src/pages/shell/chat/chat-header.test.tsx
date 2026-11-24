@@ -70,7 +70,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderHeader({ inGroup = false } = {}) {
+function renderHeader({
+  inGroup = false,
+  modelPicker,
+}: {
+  inGroup?: boolean;
+  modelPicker?: ReactNode;
+} = {}) {
   act(() =>
     root.render(
       <ChatHeader
@@ -83,6 +89,7 @@ function renderHeader({ inGroup = false } = {}) {
         panelOpen={false}
         onOpenNavigation={() => undefined}
         onTogglePanel={() => undefined}
+        modelPicker={modelPicker}
       />,
     ),
   );
@@ -103,6 +110,21 @@ it("clears the macOS traffic lights beside Open navigation on a narrow desktop w
   delete window.rakazoDesktop;
   renderHeader();
   expect(container.querySelector(".app-drag")).toBeNull();
+});
+
+it("holds only the bot's name and, beside it, its model", () => {
+  renderHeader();
+  const capsule = () => container.querySelector('[data-testid="chat-capsule"]')!;
+  expect(capsule().children).toHaveLength(1);
+  // Alone, the name gets a chevron that shows on hover and keyboard focus.
+  expect(capsule().querySelector('[data-testid="bot-settings-trigger"] svg')).not.toBeNull();
+
+  renderHeader({ modelPicker: <button type="button" data-testid="capsule-model" /> });
+  expect([...capsule().children].map((child) => child.getAttribute("data-testid"))).toEqual([
+    "bot-settings-trigger",
+    "capsule-model",
+  ]);
+  expect(capsule().querySelector('[data-testid="bot-settings-trigger"] svg')).toBeNull();
 });
 
 it("shows no gift when the account cannot invite", () => {

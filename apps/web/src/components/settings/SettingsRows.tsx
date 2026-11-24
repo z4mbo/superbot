@@ -2,6 +2,9 @@ import type { ReactNode } from "react";
 
 export const SETTINGS_CONTENT_WIDTH = "max-w-[640px]";
 
+/** A settings row's combobox, with `size="sm"`: the row's small type and a snug inset. */
+export const SETTINGS_SELECT_CLASS = "gap-1 pr-[5px] pl-[7px] text-body-sm [&_svg]:size-3";
+
 /** A titled list of settings rows sharing one bordered surface. */
 export function SettingsGroup({
   title,

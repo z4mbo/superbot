@@ -77,7 +77,6 @@ import { routineNeedsOneShotArm } from "../lib/routines/routine-draft";
 import type { CreateBotDialogInput } from "./shell/bots/create-bot-dialog";
 import type { ImportSetupTarget } from "./shell/bots/import-setup-card";
 import { useTeaching } from "./shell/bots/use-teaching";
-import { CapsuleWorkspacePicker } from "./shell/chat/capsule-workspace-picker";
 import type { ChatMenuState, ChatMenuTarget } from "./shell/chat/chat-context-menu";
 import { ChatContextMenu } from "./shell/chat/chat-context-menu";
 import { ChatFindBar } from "./shell/chat/chat-find-bar";
@@ -1228,16 +1227,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
                 />
               ) : undefined
             }
-            workspacePicker={
-              threadId === undefined ? (
-                <CapsuleWorkspacePicker
-                  spaces={sidebarSpaces}
-                  currentSpaceId={bootstrapMe?.spaceId}
-                  onSwitch={openSpaceChat}
-                  onInvite={openSpaceSettings}
-                />
-              ) : undefined
-            }
           />
           {linkedChatUnavailable ? (
             <div className="grid flex-1 place-items-center" role="status">
@@ -1560,6 +1549,10 @@ function SpaceShell({ threadId }: { threadId?: string }) {
           settingsSpace={settingsSpace}
           showSettings={settingsSpaceId === null || Boolean(settingsSpace)}
           spaces={spaces}
+          switchSpace={(spaceId) => {
+            const firstBot = sidebarSpaces.find((space) => space.id === spaceId)?.bots[0];
+            openSpaceChat(spaceId, firstBot ? `/app/${firstBot.id}` : "/onboarding");
+          }}
           renameSpace={renameSpace}
           removeSpace={removeSpace}
           leftSpace={leftSpace}

@@ -113,6 +113,7 @@ export function SettingsOverlays({
   settingsSpace,
   showSettings,
   spaces,
+  switchSpace,
   renameSpace,
   removeSpace,
   leftSpace,
@@ -136,6 +137,8 @@ export function SettingsOverlays({
   settingsSpace: Space | null;
   showSettings: boolean;
   spaces: Space[];
+  /** Opens the app in another workspace. */
+  switchSpace: (spaceId: string) => void;
   renameSpace: (spaceId: string, name: string, client: RpcClient) => Promise<void>;
   removeSpace: (spaceId: string) => Promise<void>;
   leftSpace: (spaceId: string, activeSpaceId: string) => Promise<void>;
@@ -160,6 +163,8 @@ export function SettingsOverlays({
           shellRpc={rpc}
           space={settingsSpace}
           spaces={spaces}
+          currentSpaceId={bootstrapMe?.spaceId}
+          onSwitchSpace={switchSpace}
           onRenameSpace={renameSpace}
           onDeleteSpace={async (spaceId) => {
             await removeSpace(spaceId);

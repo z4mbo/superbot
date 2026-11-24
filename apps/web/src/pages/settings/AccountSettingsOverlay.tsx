@@ -31,7 +31,11 @@ import {
 } from "../../components/computers/ComputersUnavailableHint";
 import { DesktopUpdateSection } from "../../components/DesktopUpdates";
 import { AccountDataSettings } from "../../components/settings/AccountDataSettings";
-import { SettingsGroup, SettingsRow } from "../../components/settings/SettingsRows";
+import {
+  SETTINGS_SELECT_CLASS,
+  SettingsGroup,
+  SettingsRow,
+} from "../../components/settings/SettingsRows";
 import { TrustedLinkSitesSettings } from "../../components/settings/TrustedLinkSitesSettings";
 import { authClient } from "../../lib/auth/auth";
 import { fetchAuthCapabilities } from "../../lib/auth/auth-capabilities";
@@ -44,6 +48,7 @@ import { timezoneOptions } from "../../lib/locale/local-timezone";
 import type { UiLocale } from "../../lib/locale/ui-locale";
 import { UI_LOCALES } from "../../lib/locale/ui-locale";
 import { composerModelPickerPreference } from "../../lib/models/composer-model-picker-preference";
+import { desktopBridge } from "../../lib/platform/desktop";
 import type { BotsSidebarDensity } from "../../lib/preferences/bots-sidebar-density-pref";
 import { botsSidebarDensityPreference } from "../../lib/preferences/bots-sidebar-density-pref";
 import { remoteImagesPreference } from "../../lib/preferences/remote-images-preference";
@@ -66,6 +71,15 @@ export type SettingsGeneralProps = {
   onBotAvatarSetChange?: (set: BotAvatarSet) => Promise<void>;
   onAccountImported?: () => Promise<void>;
   onImportAgent?: () => void;
+  /** The workspaces to choose between and the one the whole app shows. */
+  workspace?: SettingsWorkspace;
+};
+
+export type SettingsWorkspace = {
+  spaces: readonly { id: string; name: string }[];
+  currentId: string | undefined;
+  /** Opens the app in another workspace. */
+  onSwitch: (spaceId: string) => void;
 };
 
 export function GeneralSettingsPanels({
@@ -78,6 +92,7 @@ export function GeneralSettingsPanels({
   onBotAvatarSetChange,
   onAccountImported,
   onImportAgent,
+  workspace,
 }: SettingsGeneralProps) {
   const { t } = useLingui();
   const account = accountDisplay({ name, email }, t`You`);
@@ -139,6 +154,9 @@ export function GeneralSettingsPanels({
   const loadRemoteImages = remoteImagesPreference.use();
   const loadRemoteImagesId = useId();
   const timezoneId = useId();
+  const workspaceId = useId();
+  // Only the desktop app can connect to another server; it swaps the whole app.
+  const server = desktopBridge()?.server;
   const showPassword = Boolean(
     accountSecurity?.hasPassword && accountSecurity.passwordChangeEnabled !== false,
   );
@@ -276,6 +294,41 @@ export function GeneralSettingsPanels({
             }
           />
         )}
+        {/* As with Spaces below, one workspace leaves nothing to choose. */}
+        {workspace && workspace.spaces.length > 1 ? (
+          <SettingsRow
+            label={
+              <span id={workspaceId}>
+                <Trans>Workspace</Trans>
+              </span>
+            }
+            control={
+              <OptionSelect
+                aria-labelledby={workspaceId}
+                data-testid="workspace-select"
+                size="sm"
+                value={workspace.currentId ?? null}
+                options={workspace.spaces.map((space) => ({ value: space.id, label: space.name }))}
+                onValueChange={(spaceId) => {
+                  if (spaceId !== workspace.currentId) workspace.onSwitch(spaceId);
+                }}
+                className={`w-auto max-w-56 ${SETTINGS_SELECT_CLASS}`}
+              />
+            }
+          />
+        ) : null}
+        {server ? (
+          <SettingsRow
+            label={<Trans>Server</Trans>}
+            control={
+              <Button variant="ghost" size="sm" onClick={() => void server.change()}>
+                <Trans comment="Opens the screen that connects the desktop app to another server">
+                  Change
+                </Trans>
+              </Button>
+            }
+          />
+        ) : null}
       </SettingsGroup>
 
       <SettingsGroup title={<Trans>Preferences</Trans>}>
@@ -386,6 +439,7 @@ export function GeneralSettingsPanels({
                 <OptionSelect
                   aria-labelledby={timezoneId}
                   data-testid="timezone-select"
+                  size="sm"
                   value={selectedTimezone}
                   disabled={timezonePending}
                   options={timezoneOptions(selectedTimezone).map((zone) => ({
@@ -393,7 +447,7 @@ export function GeneralSettingsPanels({
                     label: zone.replaceAll("_", " "),
                   }))}
                   onValueChange={(zone) => chooseTimezone(zone)}
-                  className="w-56 max-w-full"
+                  className={`w-56 max-w-full ${SETTINGS_SELECT_CLASS}`}
                 />
               }
             >
@@ -798,7 +852,8 @@ function UiLocalePicker({
   const { t } = useLingui();
   return (
     <OptionSelect
-      className="w-56 max-w-full"
+      size="sm"
+      className={`w-56 max-w-full ${SETTINGS_SELECT_CLASS}`}
       data-testid="ui-locale-select"
       aria-label={t`Language`}
       options={UI_LOCALES.map((code) => ({

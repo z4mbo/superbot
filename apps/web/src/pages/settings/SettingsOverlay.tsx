@@ -59,6 +59,8 @@ import { VoiceSettingsOverlay } from "./VoiceSettingsOverlay";
 export function SettingsOverlay({
   space,
   spaces = [],
+  currentSpaceId,
+  onSwitchSpace,
   onOpenSpace,
   onRenameSpace,
   onDeleteSpace,
@@ -93,6 +95,10 @@ export function SettingsOverlay({
   /** The space the Space page edits; it need not be the selected space. */
   space?: SettingsSpace | null;
   spaces?: { id: string; name: string }[];
+  /** The workspace the whole app shows. */
+  currentSpaceId?: string;
+  /** Opens the app in another workspace. */
+  onSwitchSpace?: (spaceId: string) => void;
   onOpenSpace?: (spaceId: string) => void;
   onRenameSpace?: (spaceId: string, name: string, client: RpcClient) => Promise<void>;
   onDeleteSpace?: (spaceId: string) => Promise<void>;
@@ -421,6 +427,11 @@ export function SettingsOverlay({
                         onBotAvatarSetChange={onBotAvatarSetChange}
                         onAccountImported={onAccountImported}
                         onImportAgent={onImportAgent}
+                        workspace={
+                          onSwitchSpace
+                            ? { spaces, currentId: currentSpaceId, onSwitch: onSwitchSpace }
+                            : undefined
+                        }
                       />
                       {/* One space is just the app, so there is nothing to tell apart or manage. */}
                       {spaces.length > 1 && onOpenSpace ? (

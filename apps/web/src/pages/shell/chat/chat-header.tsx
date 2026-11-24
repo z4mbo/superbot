@@ -2,7 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { Bot, Group, ThreadSnapshot } from "@rakazo/contracts";
 import { MEETING_CALENDAR_RETURN_PARAM } from "@rakazo/contracts";
 import { BotAvatar, Button, GroupAvatar } from "@rakazo/ui-web";
-import { Gift, Menu, Video } from "lucide-react";
+import { ChevronRight, Gift, Menu, Video } from "lucide-react";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -25,7 +25,6 @@ export function ChatHeader({
   onOpenNavigation,
   onTogglePanel,
   modelPicker,
-  workspacePicker,
 }: {
   inGroup: boolean;
   active: Bot | undefined;
@@ -37,8 +36,6 @@ export function ChatHeader({
   onTogglePanel: () => void;
   /** The bot's model, shown inside the capsule beside its name. */
   modelPicker?: ReactNode;
-  /** The chat's workspace, shown inside the capsule after the model. */
-  workspacePicker?: ReactNode;
 }) {
   const { t } = useLingui();
   const referral = useBilling().status?.referral;
@@ -60,19 +57,20 @@ export function ChatHeader({
       </div>
       {/* With no bot or group the chip has nothing to open, so it is left out. */}
       {inGroup || active ? (
-        // The chat's capsule: its name opens the details, and beside the name sit the bot's
-        // model and the workspace the chat lives in.
+        // The chat's capsule: its name opens the details, and the bot's model sits beside it.
         <div
           data-testid="chat-capsule"
-          className="app-no-drag pointer-events-auto flex h-[41px] min-w-0 items-center gap-0.5 rounded-full border border-hairline bg-elevated pe-[5.5px] shadow-floating"
+          className={`app-no-drag pointer-events-auto flex h-[41px] min-w-0 items-center gap-0.5 rounded-full border border-hairline bg-elevated shadow-floating ${
+            modelPicker ? "pe-[5.5px]" : ""
+          }`}
         >
           <button
             type="button"
             data-testid="bot-settings-trigger"
             aria-expanded={panelOpen}
             onClick={onTogglePanel}
-            className={`flex h-full min-w-0 items-center gap-2 rounded-full ps-[7.5px] outline-none transition-colors hover:bg-elevated-hover focus-visible:ring-2 focus-visible:ring-ring ${
-              modelPicker || workspacePicker ? "pe-2" : "-me-[5.5px] pe-[13.5px]"
+            className={`group/capsule flex h-full min-w-0 items-center gap-2 rounded-full ps-[7.5px] outline-none transition-colors hover:bg-elevated-hover focus-visible:ring-2 focus-visible:ring-ring ${
+              modelPicker ? "pe-2" : "pe-[13.5px] hover:pe-[9.5px] focus-visible:pe-[9.5px]"
             }`}
           >
             {inGroup ? (
@@ -97,9 +95,16 @@ export function ChatHeader({
                 ? (activeGroup?.name ?? activeSnapshot?.groupName ?? t`Group`)
                 : active?.name}
             </span>
+            {/* Alone in the capsule, the name shows where it leads once pointed at. */}
+            {modelPicker ? null : (
+              <ChevronRight
+                aria-hidden="true"
+                strokeWidth={1.75}
+                className="hidden size-3 shrink-0 text-muted-foreground group-hover/capsule:block group-focus-visible/capsule:block"
+              />
+            )}
           </button>
           {modelPicker}
-          {workspacePicker}
         </div>
       ) : (
         <div />
