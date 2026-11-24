@@ -54,8 +54,10 @@
     0 10px 20px -3px rgb(28 28 28 / 0.1), 0 4px 6px -4px rgb(28 28 28 / 0.1),
     0 0 0 1px rgb(28 28 28 / 0.004);
 }
-[data-theme="dark"] {
-  --shadow-floating: 0 0 #0000;
+/* Tailwind copies the theme value into `.shadow-floating`, so overriding `--shadow-floating`
+   never reaches it: dark clears the utility's own shadow layer instead. */
+[data-theme="dark"] .shadow-floating {
+  --tw-shadow: 0 0 #0000;
 }
 
 /* The system font reads light at 400 on macOS; regular text uses 420 there. Medium and semibold stay. */
