@@ -112,13 +112,13 @@ fn list_label(text: &str) -> String {
 }
 
 /// The target for an agent's conversation; the first one when no ID is given.
-pub(crate) fn target<'a>(agent: &'a Agent, thread_id: Option<&'a str>) -> ThreadTarget<'a> {
+pub(crate) fn target_for<'a>(agent_id: &'a str, thread_id: Option<&'a str>) -> ThreadTarget<'a> {
     match thread_id {
         Some(thread_id) => ThreadTarget::BotConversation {
-            bot_id: &agent.id,
+            bot_id: agent_id,
             thread_id,
         },
-        None => ThreadTarget::Bot(&agent.id),
+        None => ThreadTarget::Bot(agent_id),
     }
 }
 
@@ -129,7 +129,7 @@ pub(crate) async fn show(
     json: bool,
 ) -> Result<()> {
     let snapshot = space
-        .thread(target(agent, thread_id))
+        .thread(target_for(&agent.id, thread_id))
         .await
         .map_err(auth_hint)?;
     if thread_id.is_some_and(|id| id != snapshot.thread_id) {
