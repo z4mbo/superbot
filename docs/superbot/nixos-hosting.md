@@ -56,7 +56,7 @@ tailscale serve --bg http://127.0.0.1:5173
 tailscale serve status
 ```
 
-Serve saves its HTTPS configuration across daemon restarts and reboots. Check that its status shows a tailnet-only endpoint and the same origin saved by `init`. Open that URL on a connected Mac and Windows PC. Use it as the server address in native clients and for all Space invites. If you already use another private HTTPS reverse proxy, set `services.superbot.tailscale.enable = false` and point that proxy at the same loopback port.
+Serve saves its HTTPS configuration across daemon restarts and reboots. Check that its status shows a tailnet-only endpoint and the same origin saved by `init`. Open that URL on a connected Mac and Windows PC. Use it as the server address in the desktop app, the `superbot` command and all Space invites. If you already use another private HTTPS reverse proxy, set `services.superbot.tailscale.enable = false` and point that proxy at the same loopback port.
 
 The generated credentials and origin live in `/var/lib/superbot/host.env`, owned by `root:root` with mode `0600`. Keep it out of your Nix expression, source snapshot and flake. The `init` command refuses to overwrite it. For an origin change, edit `WEB_ORIGIN` and `BETTER_AUTH_URL` together, then restart the service and reissue old invite links.
 
@@ -97,7 +97,7 @@ open the connection form before the operator configures a managed catalog.
 
 ## Connect Mac and Windows
 
-Install the native client on each device, connect both devices to the tailnet, then run the following in each terminal. Use the HTTPS origin reported by `tailscale serve status`. The desktop and CLI share the saved server address on that device. Sign in with the same Superbot account on both devices to open the same Spaces.
+Install the `superbot` command on each device ([desktop and terminal tools](desktop.md)), connect both devices to the tailnet, then run the following in each terminal. Use the HTTPS origin reported by `tailscale serve status`. In the desktop app, choose **Existing instance** and enter the same origin. Sign in with the same Superbot account on both devices to open the same Spaces.
 
 ```sh
 superbot server https://superbot.example-tailnet.ts.net
@@ -111,8 +111,6 @@ To bring an existing list of bot names into the shared Space, run the import fro
 superbot --space "Shared Space" import-bots roster.json --dry-run
 superbot --space "Shared Space" import-bots roster.json
 ```
-
-Fonts and avatar shapes are local to each desktop. Copy the private appearance pack to both clients for the same rendering. [Desktop installation and appearance](desktop.md)
 
 ## Back up and upgrade
 

@@ -24,7 +24,7 @@ The comparison loaded the registries on both revisions and checked tool names, d
 | Personal and shared workspaces | Web, desktop and CLI use the selected server's Space membership. The same account and Space on two devices see the same server-side bots and conversations. [Workspace guide](workspaces.md) |
 | Plugins, record apps and per-agent access | The Store supports agents, skills, plugins and connected apps. A granted hosted bot can read the owner's app records and propose an addition requiring approval. [Plugin guide](build-a-marketplace-plugin.md) |
 | Agent computer | The hosted worker can use allowed terminal, browser and file operations. People can watch or control the desktop. Hardware pairing with a person's own machine uses the Electron client. [Computer guide](agent-computers.md) |
-| Local model CLI chat | The native client sends the configured CLI a prompt. Its separate app-assistance flow lets the owner share bounded records and review a suggestion. Scheduled watches run on the host. [Local and hosted chat](desktop-chat-runs.md) |
+| Local model CLI chat | The `superbot` command sends the configured CLI a prompt. Its separate app-assistance flow lets the owner share bounded records and review a suggestion. Scheduled watches run on the host. [Local and hosted chat](desktop-chat-runs.md) |
 
 ## Verification
 

@@ -17,8 +17,7 @@ web UI, so these rules apply to the web components it renders.
 
 ## 0. What is live and what is not
 
-Two columns matter: whether the **server and CLIs** do it today, and whether the
-**desktop app** has the screen. Nothing marked **Planned** may appear in the shipped app
+The table says whether the **server and CLIs** do it today. Nothing marked **Planned** may appear in the shipped app
 as a teaser, a disabled button or "coming soon" copy; it is designed now so the layout
 leaves room for it.
 
@@ -28,33 +27,32 @@ leaves room for it.
 | **To build** | The backing operation exists and the desktop control is pending.                           |
 | **Planned**  | No server contract. Design only.                                                           |
 
-| Surface                                                   | Server / CLI                                    | Desktop                                                                                                    | Backed by                                                                                 |
-| --------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Sign in (password or email code), saved session           | Live (`superbot login`)                         | Password, signup, email-code entry and saved-session screens implemented. Windows saved sessions verified. | `superbot-client`: `sign_in`, email OTP, `CredentialStore`                                |
-| Space switcher                                            | Live                                            | Live                                                                                                       | `spaces/list`                                                                             |
-| Bot list, history, send, live replies                     | Live (`superbot <agentname>`)                   | Live. The Windows build reads the same conversation and reply as the CLI.                                  | `bots/list`, `threads/{messages,send,subscribe}`                                          |
-| Group conversations (several bots), stop, mark read       | Live                                            | Chat, stop and read controls implemented. Group conversation verified on Windows.                          | `groups/*`, `threads/{send,stop,markRead}`                                                |
-| Space members and invites (multiplayer)                   | Live, cross-account verified                    | People lists members, creates invites and accepts links. Two-account roster verified on Windows.           | `spaces/members/{list,add,remove,leave}`, `spaces/invites/{create,preview,accept,cancel}` |
-| Marketplace: discover, install, per-bot grants, uninstall | Live, full lifecycle verified locally           | Live. Review, discovery, installation and independent grants verified on Windows.                          | `pluginRegistry.*`                                                                        |
-| Remote tools from plugins, approved per call              | Live                                            | Generic action cards supported. The specialized presentation in §9.2 is a design target.                   | marketplace runtime and `threads/answer`                                                  |
-| Installed record apps | Live. People and granted bots can read records. Adding a record from a hosted bot requires approval. | Calorie diary verified in the Windows Store with entries, day totals and removal. | `pluginRegistry/{appRecords,addAppRecord,removeAppRecord}` |
-| Plugin authoring and submission                           | Live (`superbot-plugin`)                        | Live (§10), store form, plugin.json open and save, review status                                           | `pluginRegistry.submit/mine`; `docs/superbot/plugin-toolkit.md`                           |
-| Review queue (deployment admins)                          | Live (`superbot-plugin review`)                 | Live. A verified deployment reviewer approved a different publisher's version in the review queue.         | `pluginRegistry.submissions/review`, admins via `SUPERBOT_ADMIN_EMAILS`                     |
-| Presence ("who is here") and typing                       | Planned                                         | Planned                                                                                                    | no contract                                                                               |
-| Bot colour, avatar, preview line in the sidebar           | The navigation response includes bot summaries. | Live. The sidebar shows a face, identity colour, preview line and unread state.                            | `spaces/list`                                                                             |
-| Routines, approval rules, run activity                    | Live (server)                                   | Available in the workspace management panel with Bots, Groups, People and Files.                           | `routines/*`, `approvalRules/*`, `runs/list`                                              |
-| Board: tickets by status, edit, move, comments            | Live (Labs feature per account)                 | Live in the workspace panel's Board section, following `boards/subscribe`. Verified on Windows (§4.2).     | `boards/{get,subscribe}`, `tickets/{list,create,update,move,comment,comments}`            |
-| Agent computer | Live on hosts with computer provisioning | The Computer tab starts, stops and shows the computer. Watch and Take control use the server's signed screen. The Windows panel was tested against a fixture. | `computer/*` |
-| Voice and calls | Available in the web client on configured hosts | The web workspace handles media. | retained app/API |
+| Surface                                                   | Server / CLI                                    | Backed by                                                                                 |
+| --------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Sign in (password or email code), saved session           | Live (`superbot login`)                         | `sign_in`, email OTP, the system credential store                                |
+| Space switcher                                            | Live                                            | `spaces/list`                                                                             |
+| Bot list, history, send, live replies                     | Live (`superbot <agentname>`)                   | `bots/list`, `threads/{messages,send,subscribe}`                                          |
+| Group conversations (several bots), stop, mark read       | Live                                            | `groups/*`, `threads/{send,stop,markRead}`                                                |
+| Space members and invites (multiplayer)                   | Live, cross-account verified                    | `spaces/members/{list,add,remove,leave}`, `spaces/invites/{create,preview,accept,cancel}` |
+| Marketplace: discover, install, per-bot grants, uninstall | Live, full lifecycle verified locally           | `pluginRegistry.*`                                                                        |
+| Remote tools from plugins, approved per call              | Live                                            | marketplace runtime and `threads/answer`                                                  |
+| Installed record apps | Live. People and granted bots can read records. Adding a record from a hosted bot requires approval. | `pluginRegistry/{appRecords,addAppRecord,removeAppRecord}` |
+| Plugin authoring and submission                           | Live (`superbot-plugin`)                        | `pluginRegistry.submit/mine`; `docs/superbot/plugin-toolkit.md`                           |
+| Review queue (deployment admins)                          | Live (`superbot-plugin review`)                 | `pluginRegistry.submissions/review`, admins via `SUPERBOT_ADMIN_EMAILS`                     |
+| Presence ("who is here") and typing                       | Planned                                         | no contract                                                                               |
+| Bot colour, avatar, preview line in the sidebar           | The navigation response includes bot summaries. | `spaces/list`                                                                             |
+| Routines, approval rules, run activity                    | Live (server)                                   | `routines/*`, `approvalRules/*`, `runs/list`                                              |
+| Board: tickets by status, edit, move, comments            | Live (Labs feature per account)                 | `boards/{get,subscribe}`, `tickets/{list,create,update,move,comment,comments}`            |
+| Agent computer | Live on hosts with computer provisioning | `computer/*` |
+| Voice and calls | Available in the web client on configured hosts | retained app/API |
 
 Asks from design to the client/runtime owners (UI code must not invent these):
 
-1. `Agent { color, avatar_url, last_message_preview, last_activity_at, unread }` in
-   `superbot-client`, or a documented `superbot-features` call that returns them.
+1. `Agent { color, avatar_url, last_message_preview, last_activity_at, unread }` in the
+   client API, or a documented call that returns them.
 2. A typed `ThreadEvent.kind` catalogue (message created/completed, run started/finished/
    failed, approval requested/answered, member joined/left).
-3. The registry client that `superbot-plugin` uses, moved into `superbot-features` so the
-   desktop store and the CLI share one implementation.
+3. One registry client that the store and `superbot-plugin` share.
 4. Presence and typing events, if multiplayer presence is wanted.
 
 ## 1. Provenance rules (security and licensing)
