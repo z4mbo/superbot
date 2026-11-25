@@ -110,6 +110,22 @@ mod navigation_tests {
     }
 
     #[test]
+    fn the_current_space_names_its_roster_sections_and_each_bot_its_own() {
+        let navigation: Navigation = serde_json::from_value(json!({
+            "current": {
+                "id": "personal", "name": "Personal",
+                "bots": [{ "id": "a", "name": "A", "sectionId": "work" }, { "id": "b", "name": "B" }],
+                "botSections": [{ "id": "work", "name": "Work" }]
+            },
+            "spaces": [{ "id": "personal", "name": "Personal" }]
+        }))
+        .unwrap();
+        assert_eq!(navigation.current.bot_sections[0].name, "Work");
+        assert_eq!(navigation.current.bots[0].section_id.as_deref(), Some("work"));
+        assert_eq!(navigation.current.bots[1].section_id, None);
+    }
+
+    #[test]
     fn initial_navigation_retains_the_current_shared_space_or_private_fallback() {
         let mut navigation: Navigation = serde_json::from_value(json!({
             "current": { "id": "current", "name": "Research" },
@@ -134,6 +150,15 @@ pub struct CurrentSpace {
     pub bots: Vec<AgentSummary>,
     #[serde(default)]
     pub groups: Vec<GroupSummary>,
+    /// The roster's named sections, in order; bots name theirs by `sectionId`.
+    #[serde(default, rename = "botSections")]
+    pub bot_sections: Vec<BotSection>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct BotSection {
+    pub id: String,
+    pub name: String,
 }
 
 pub type SpaceSummary = superbot_client::Space;
@@ -152,6 +177,9 @@ pub struct AgentSummary {
     pub look_color: Option<String>,
     #[serde(default)]
     pub pinned: bool,
+    /// The roster section this bot is filed under, if any.
+    #[serde(default)]
+    pub section_id: Option<String>,
     #[serde(default)]
     pub unread: bool,
     #[serde(default)]
@@ -237,6 +265,9 @@ pub struct WireMessage {
     /// When the server stored the message, as RFC 3339.
     #[serde(default)]
     pub created_at: Option<String>,
+    /// The words this message answers, quoted from an earlier one.
+    #[serde(default)]
+    pub reply_quote: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -317,6 +348,8 @@ pub fn message_from_event(event: &ThreadEvent) -> Option<WireMessage> {
         #[serde(default)]
         author: Option<Author>,
         origin: Option<String>,
+        #[serde(default)]
+        reply_quote: Option<String>,
     }
     let payload: Payload = serde_json::from_value(event.data.clone()).ok()?;
     let role = payload.role.unwrap_or_else(|| "bot".into());
@@ -333,6 +366,7 @@ pub fn message_from_event(event: &ThreadEvent) -> Option<WireMessage> {
         origin: payload.origin,
         run_id: event.run_id.clone(),
         created_at: None,
+        reply_quote: payload.reply_quote,
     })
 }
 

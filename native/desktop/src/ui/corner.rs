@@ -12,7 +12,6 @@ pub enum Corner {
     Search,
     New,
     Plugins,
-    Workspace,
 }
 
 impl Corner {
@@ -21,7 +20,6 @@ impl Corner {
             Self::Search => "search-toggle",
             Self::New => "new-agent",
             Self::Plugins => "open-store",
-            Self::Workspace => "open-workspace",
         }
     }
 
@@ -30,7 +28,6 @@ impl Corner {
             Self::Search => ("icons/corner-search.svg", px(16.)),
             Self::New => ("icons/corner-plus.svg", px(20.)),
             Self::Plugins => ("icons/apps.svg", px(16.)),
-            Self::Workspace => ("icons/settings.svg", px(16.)),
         }
     }
 }

@@ -33,12 +33,7 @@ export function groupBotsForSidebar<T extends SectionedBot>(
   if (pinned.length > 0) {
     grouped.push({ key: "pinned", title: options.labels?.pinned ?? "Pinned", bots: pinned });
   }
-  for (const section of sections) {
-    const members = sectionMembers.get(section.id) ?? [];
-    if (members.length > 0 || options.includeEmptySections) {
-      grouped.push({ key: `section:${section.id}`, title: section.name, bots: members });
-    }
-  }
+  // Unassigned bots come first, above the named sections, as on the desktop roster.
   if (unassigned.length > 0) {
     grouped.push({
       key: "unassigned",
@@ -48,6 +43,12 @@ export function groupBotsForSidebar<T extends SectionedBot>(
           : null,
       bots: unassigned,
     });
+  }
+  for (const section of sections) {
+    const members = sectionMembers.get(section.id) ?? [];
+    if (members.length > 0 || options.includeEmptySections) {
+      grouped.push({ key: `section:${section.id}`, title: section.name, bots: members });
+    }
   }
 
   return grouped;

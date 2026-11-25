@@ -64,6 +64,8 @@ pub struct Entry {
     /// When it was said. A message that has just arrived on the live stream takes the moment
     /// it arrived, since the stream names no time for it.
     pub at: Option<Instant>,
+    /// The words this message answers, shown in a pill above it.
+    pub quote: Option<String>,
     pub parts: Vec<Part>,
 }
 
@@ -93,6 +95,7 @@ impl Entry {
             run_id: message.run_id,
             local_cli: message.origin.as_deref() == Some("local_cli"),
             at: message.created_at.as_deref().and_then(clock::instant),
+            quote: message.reply_quote.map(|quote| quote.split_whitespace().collect::<Vec<_>>().join(" ")),
             parts,
         })
     }
@@ -274,6 +277,17 @@ mod tests {
 
     fn words(id: &str, seq: i64, role: &str, text: &str) -> Entry {
         Entry::read(message(id, seq, role, json!([{ "kind": "text", "text": text }]))).unwrap()
+    }
+
+    #[test]
+    fn a_reply_keeps_its_quote_on_one_line() {
+        let wire = json!({
+            "id": "m", "seq": 1, "role": "user", "replyQuote": "Quale\n  font",
+            "blocks": [{ "kind": "text", "text": "Quello" }]
+        });
+        let entry = Entry::read(serde_json::from_value(wire).unwrap()).unwrap();
+        assert_eq!(entry.quote.as_deref(), Some("Quale font"));
+        assert_eq!(words("n", 2, "user", "Hi").quote, None);
     }
 
     fn said_at(mut entry: Entry, rfc3339: &str) -> Entry {

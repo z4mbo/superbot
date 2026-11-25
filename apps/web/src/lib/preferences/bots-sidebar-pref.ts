@@ -21,7 +21,7 @@ export function writeBotsSidebarCollapsed(
 }
 
 export const BOTS_SIDEBAR_MINI_WIDTH = 72;
-export const BOTS_SIDEBAR_DEFAULT_WIDTH = 316;
+export const BOTS_SIDEBAR_DEFAULT_WIDTH = 280;
 export const BOTS_SIDEBAR_MIN_WIDTH = 240;
 export const BOTS_SIDEBAR_MAX_WIDTH = 480;
 export const BOTS_SIDEBAR_SNAP_WIDTH = 160;

@@ -20,8 +20,8 @@ describe("groupBotsForSidebar", () => {
       }).map(({ key, title }) => [key, title]),
     ).toEqual([
       ["pinned", labels.pinned],
-      ["section:custom", "Pinned"],
       ["unassigned", labels.unassigned],
+      ["section:custom", "Pinned"],
     ]);
     expect(groupBotsForSidebar([bots[1]!], [], { labels })[0]?.title).toBeNull();
   });
@@ -38,9 +38,9 @@ describe("groupBotsForSidebar", () => {
 
     expect(groups.map((group) => [group.title, group.bots.map((bot) => bot.id)])).toEqual([
       ["Pinned", ["pinned"]],
+      ["Unassigned", ["loose"]],
       ["Work", ["work"]],
       ["Home", ["home"]],
-      ["Unassigned", ["loose"]],
     ]);
   });
 

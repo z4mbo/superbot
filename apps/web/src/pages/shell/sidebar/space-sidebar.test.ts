@@ -48,8 +48,8 @@ describe("sidebarGroupsForSpaces", () => {
     expect(
       sidebarGroupsForSpaces([sectioned], "").map((group) => [group.title, group.hasGuests]),
     ).toEqual([
-      ["Projects", true],
-      ["Unassigned", false],
+      ["Unassigned", true],
+      ["Projects", false],
     ]);
   });
 
@@ -92,9 +92,9 @@ describe("sidebarGroupsForSpaces", () => {
       ],
     };
     expect(sidebarGroupsForSpaces([input], "").map((group) => group.key)).toEqual([
+      "unassigned",
       "section:s1",
       "section:s2",
-      "unassigned",
     ]);
     expect(sidebarGroupsForSpaces([input], "Alpha").map((group) => group.key)).toEqual([
       "section:s1",

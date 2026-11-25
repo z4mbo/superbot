@@ -26,7 +26,8 @@ async function renderAvatar(bot: { id: string; color: string; avatarSet?: string
   const { default: sharp } = await import("sharp");
   const image = sharp(bytes, { limitInputPixels: 16_777_216 }).rotate();
   // A drawn avatar is two-tone art, which JPEG quality 30 softens around every edge. A small
-  // palette PNG stays sharp within the same payload budget; saved photos keep JPEG.
+  // palette PNG stays sharp within the same payload budget; four colours (the ground, the ink and
+  // two edge shades) keep it at 2 bits a pixel, so every mark fits at 120px. Photos keep JPEG.
   const encode = (size: number) => {
     const resized = image
       .clone()
@@ -34,7 +35,7 @@ async function renderAvatar(bot: { id: string; color: string; avatarSet?: string
       .flatten({ background: "white" });
     return (
       drawn
-        ? resized.png({ palette: true, colours: 16, effort: 10 })
+        ? resized.png({ palette: true, colours: 4, effort: 10 })
         : resized.jpeg({ quality: 30, mozjpeg: true })
     ).toBuffer();
   };

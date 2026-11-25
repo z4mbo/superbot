@@ -56,7 +56,7 @@ test("a missing model opens Models in account Settings from chat", async ({ page
   await expect(page.getByRole("combobox", { name: "Search models" })).toBeVisible();
 });
 
-test("the chat's model can be changed from the message box once turned on", async ({
+test("the chat's model can be changed from the chat capsule, which the setting can hide", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
@@ -92,13 +92,14 @@ test("the chat's model can be changed from the message box once turned on", asyn
     });
   });
 
-  const composer = page.getByTestId("composer-bar");
-  await expect(composer).toBeVisible();
-  // Off by default.
-  await expect(composer.getByRole("button", { name: /^Model/ })).toHaveCount(0);
-
+  const capsule = page.getByTestId("chat-capsule");
+  await expect(page.getByTestId("composer-bar")).toBeVisible();
+  // On by default, beside the bot's name; the setting hides it.
+  await expect(capsule.getByRole("button", { name: /^Model/ })).toBeVisible();
   const settings = await openUserSettings(page);
   const toggle = settings.getByTestId("composer-model-picker-toggle");
+  await expect(toggle).toBeChecked();
+  await toggle.click();
   await expect(toggle).not.toBeChecked();
   await toggle.click();
   await expect(toggle).toBeChecked();
@@ -106,7 +107,7 @@ test("the chat's model can be changed from the message box once turned on", asyn
   await captureScreenshot(page, testInfo, "composer-model-picker-setting");
 
   await page.goto(`/app/${botId}`);
-  const picker = composer.getByRole("button", { name: /^Model/ });
+  const picker = capsule.getByRole("button", { name: /^Model/ });
   await expect(picker).toBeVisible();
   await captureScreenshot(page, testInfo, "composer-model-picker");
   // Hovering names the keys that open the list and step its thinking.

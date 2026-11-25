@@ -19,7 +19,7 @@ test("a new bot keeps its edited name, label, look, and adjusted photo", async (
   await openNewBot(page);
   const create = page.getByTestId("create-bot-dialog");
   await create.getByPlaceholder("Name your Bot").fill("Sample Helper");
-  await create.getByRole("button", { name: "wedge", exact: true }).click();
+  await create.getByRole("button", { name: "capsule", exact: true }).click();
   await create.getByRole("button", { name: "Color #00C972" }).click();
   await captureScreenshot(page, testInfo, "bot-profile-create");
   await create.getByRole("button", { name: "Create", exact: true }).click();
@@ -37,7 +37,7 @@ test("a new bot keeps its edited name, label, look, and adjusted photo", async (
 
   await profile.getByTestId("avatar-studio-trigger").click();
   const studio = page.getByTestId("avatar-studio");
-  await studio.getByRole("button", { name: "Color #2A92FE" }).click();
+  await studio.getByRole("button", { name: "blue", exact: true }).click();
   await studio.getByRole("tab", { name: "Upload", exact: true }).click();
   const photo = await page.evaluate(() => {
     const canvas = document.createElement("canvas");

@@ -2,17 +2,23 @@ import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import type { BotAvatarSet } from "@rakazo/contracts";
 import { resolveBotAvatarSet } from "@rakazo/contracts";
-import type { AvatarCrop } from "@rakazo/core";
+import type { AvatarCrop, BotMarkInk } from "@rakazo/core";
 import {
   AVATAR_CROP_MAX_ZOOM,
   avatarCropSquare,
+  BOT_MARK_SHAPES,
+  BOT_MARK_VIEWBOX,
   botLookState,
   botLookWithColor,
   botLookWithShape,
+  botMarkInkFor,
+  botMarkRestPath,
+  botMarkShapeFor,
   centeredAvatarCrop,
   clampAvatarCrop,
   SHIPPED_BOT_AVATAR_SHAPE_KEYS,
 } from "@rakazo/core";
+import { botInks } from "@rakazo/ui-tokens";
 import {
   BOT_COLORS,
   BotAvatar,
@@ -24,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
   defaultBotAvatarValue,
+  resolvePersonaColorDef,
   Tabs,
   TabsContent,
   TabsList,
@@ -165,6 +172,105 @@ export function BotLookPicker({
   );
 }
 
+/** A bot's picked mark: the shape and ink it is drawn in, by their shared names. */
+export type BotMarkLook = { lookShape: string | null; lookColor: string | null };
+
+const MARK_INKS: BotMarkInk[] = [
+  "neutral",
+  "blue",
+  "cyan",
+  "green",
+  "magenta",
+  "orange",
+  "purple",
+  "red",
+  "yellow",
+  "brown",
+];
+
+/** Every mark shape and ink; a pick saves to the bot's look, which every avatar of it draws. */
+export function MarkLookPicker({
+  identity,
+  color,
+  look,
+  onChange,
+}: {
+  identity: string;
+  color: string;
+  look: BotMarkLook;
+  onChange: (look: BotMarkLook) => void;
+}) {
+  const shape = botMarkShapeFor(
+    identity,
+    look.lookShape,
+    botLookState(color).shapeIndex ?? undefined,
+  );
+  const ink = botMarkInkFor(
+    look.lookColor,
+    resolvePersonaColorDef(identity, botLookState(color).color).hex,
+  );
+  const inkStyle = (name: BotMarkInk) =>
+    name === "neutral" ? undefined : { color: botInks[name] };
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="mb-2 text-caption font-medium tracking-wider text-muted-foreground uppercase">
+          <Trans>Shape</Trans>
+        </div>
+        <div
+          className="grid grid-cols-7 place-items-center gap-1"
+          data-testid="avatar-studio-shapes"
+        >
+          {BOT_MARK_SHAPES.map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-label={name}
+              aria-pressed={shape === name}
+              onClick={() => onChange({ ...look, lookShape: name })}
+              className={`flex size-10 items-center justify-center rounded-lg transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring ${
+                shape === name ? "bg-accent ring-1 ring-foreground/40" : ""
+              } ${ink === "neutral" ? "text-black dark:text-white" : ""}`}
+              style={inkStyle(ink)}
+            >
+              <svg
+                viewBox={BOT_MARK_VIEWBOX}
+                className="size-7 overflow-visible"
+                aria-hidden="true"
+              >
+                <path d={botMarkRestPath(name)} fill="currentColor" fillRule="evenodd" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="mb-2 text-caption font-medium tracking-wider text-muted-foreground uppercase">
+          <Trans>Color</Trans>
+        </div>
+        <div
+          className="grid grid-cols-10 place-items-center gap-1"
+          data-testid="avatar-studio-inks"
+        >
+          {MARK_INKS.map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-label={name}
+              aria-pressed={ink === name}
+              onClick={() => onChange({ ...look, lookColor: name })}
+              className={`size-6 rounded-full bg-current transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring ${
+                ink === name ? "ring-2 ring-foreground ring-offset-2 ring-offset-popover" : ""
+              } ${name === "neutral" ? "text-black dark:text-white ring-1 ring-border" : ""}`}
+              style={inkStyle(name)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export interface AvatarStudioPopoverProps {
   value: string;
   identity?: string;
@@ -172,6 +278,9 @@ export interface AvatarStudioPopoverProps {
   avatarSet?: BotAvatarSet;
   size?: number;
   onChange: (value: string, avatarSet?: BotAvatarSet) => void;
+  /** The bot's picked mark; with `onLookChange` the studio offers every shape and ink. */
+  look?: BotMarkLook;
+  onLookChange?: (look: BotMarkLook) => void;
   disabled?: boolean;
 }
 
@@ -182,6 +291,8 @@ export function AvatarStudioPopover({
   avatarSet = "organic",
   size = 72,
   onChange,
+  look,
+  onLookChange,
   disabled = false,
 }: AvatarStudioPopoverProps) {
   const [open, setOpen] = useState(false);
@@ -193,6 +304,8 @@ export function AvatarStudioPopover({
   function restoreDefaultAvatar() {
     const next = defaultBotAvatarValue(value);
     if (next !== value) onChange(next);
+    if (onLookChange && (look?.lookShape || look?.lookColor))
+      onLookChange({ lookShape: null, lookColor: null });
   }
 
   function processImageFile(file: File) {
@@ -268,6 +381,8 @@ export function AvatarStudioPopover({
           size={size}
           status={status}
           avatarSet={avatarSet}
+          lookShape={look?.lookShape}
+          lookColor={look?.lookColor}
         />
         <div className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full border-2 border-background bg-secondary text-foreground shadow-md opacity-0 transition group-hover:scale-110 group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100">
           <Pencil size={12} strokeWidth={2.2} />
@@ -312,6 +427,8 @@ export function AvatarStudioPopover({
               size={78}
               status={status}
               avatarSet={avatarSet}
+              lookShape={look?.lookShape}
+              lookColor={look?.lookColor}
             />
           </div>
 
@@ -342,13 +459,22 @@ export function AvatarStudioPopover({
             </div>
 
             <TabsContent value="bot" className="pt-1" data-testid="avatar-studio-bot-tab">
-              <BotLookPicker
-                value={value}
-                identity={identity}
-                avatarSet={avatarSet}
-                onChange={(next) => onChange(next)}
-                onAvatarSetChange={(set, next) => onChange(next, set)}
-              />
+              {onLookChange && identity ? (
+                <MarkLookPicker
+                  identity={identity}
+                  color={value}
+                  look={look ?? { lookShape: null, lookColor: null }}
+                  onChange={onLookChange}
+                />
+              ) : (
+                <BotLookPicker
+                  value={value}
+                  identity={identity}
+                  avatarSet={avatarSet}
+                  onChange={(next) => onChange(next)}
+                  onAvatarSetChange={(set, next) => onChange(next, set)}
+                />
+              )}
             </TabsContent>
             <TabsContent value="upload">
               {picked ? (

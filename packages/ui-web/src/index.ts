@@ -3,6 +3,7 @@ export {
   BOT_COLORS,
   BOT_MASCOT_SHAPES,
   BotAvatar,
+  BotLookProvider,
   BotShapePreview,
   DEFAULT_BOT_AVATAR_COLOR,
   defaultBotAvatarValue,
@@ -12,6 +13,8 @@ export {
 } from "./bot-avatar.js";
 export type { BotAvatarActivitySource } from "./bot-avatar-activity.js";
 export { BotAvatarActivityProvider } from "./bot-avatar-activity.js";
+export type { BotMarkProps } from "./bot-mark.js";
+export { BotMark } from "./bot-mark.js";
 export * from "./components/ui/alert-dialog.js";
 export * from "./components/ui/badge.js";
 export * from "./components/ui/button.js";

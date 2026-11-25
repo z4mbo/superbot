@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export const SETTINGS_CONTENT_WIDTH = "max-w-2xl";
+export const SETTINGS_CONTENT_WIDTH = "max-w-[640px]";
 
 /** A titled list of settings rows sharing one bordered surface. */
 export function SettingsGroup({
@@ -18,12 +18,12 @@ export function SettingsGroup({
   return (
     <section data-testid={testId}>
       {title ? (
-        <div className="mb-2 flex items-center justify-between gap-3 px-1">
-          <h3 className="text-body font-medium text-foreground">{title}</h3>
+        <div className="mb-2 flex items-center justify-between gap-3 px-3.5">
+          <h3 className="text-label font-normal text-muted-foreground">{title}</h3>
           {action}
         </div>
       ) : null}
-      <div className="divide-y divide-border rounded-xl border border-border">{children}</div>
+      <div className="rounded-[14px] border border-hairline bg-card py-2">{children}</div>
     </section>
   );
 }
@@ -39,9 +39,9 @@ export function SettingsRow({
   children?: ReactNode;
 }) {
   return (
-    <div className="px-4 py-3">
-      <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0 text-body text-foreground">{label}</div>
+    <div data-slot="settings-row" className="px-3.5 py-2.5">
+      <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 text-body-sm text-foreground">{label}</div>
         {control ? (
           <div className="flex max-w-full min-w-0 items-center gap-2">{control}</div>
         ) : null}

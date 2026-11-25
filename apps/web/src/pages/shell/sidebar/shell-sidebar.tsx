@@ -252,7 +252,7 @@ export function ShellSidebar({
         )}
         <div
           onScroll={resetFadeWhenUnscrollable}
-          className="rk-scroll scroll-fade-y scroll-fade-12 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pb-2.5"
+          className="rk-scroll scroll-fade-y scroll-fade-12 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-2.5"
         >
           {showSpaceSearch && !mini ? (
             <SpaceSearchResults

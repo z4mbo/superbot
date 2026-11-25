@@ -9,7 +9,7 @@ use gpui_kit::*;
 
 use crate::api::{AgentSummary, GroupMember, Target};
 use crate::app::conversation::MentionList;
-use crate::app::{Desktop, View};
+use crate::app::{Desktop, MenuKind, View};
 use crate::clock;
 use crate::outbox;
 use crate::theme::{radius, ActiveTheme, Theme, BUBBLE_MAX, CAPTION_WIDTH, CHAT_COLUMN};
@@ -316,6 +316,28 @@ impl Desktop {
                 );
             focus::control(button, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(choosing), elevated)
         });
+        // The workspace this chat lives in, after the model, as on the web: its menu switches
+        // workspace, starts or joins one, and invites people.
+        let workspace = self.space.as_ref().map(|space| space.name.clone()).map(|space| {
+            let button = div()
+                .id("header-workspace")
+                .min_w_0()
+                .flex()
+                .items_center()
+                .gap_1()
+                .pt(px(9.))
+                .pb(px(8.))
+                .pl(px(9.))
+                .pr(px(11.))
+                .rounded_full()
+                .cursor_pointer()
+                .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
+                    this.open_menu(MenuKind::Spaces, event.position() + point(px(-60.), px(22.)), window, cx)
+                }))
+                .child(div().body().text_color(theme.ink_secondary).truncate().child(space))
+                .child(icon("chevron-down", px(14.), theme.ink_tertiary));
+            focus::control(button, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(false), elevated)
+        });
         let pill = div()
             .max_w_full()
             .flex()
@@ -329,7 +351,8 @@ impl Desktop {
             .child(identity)
             .when_some(model, |pill, model| {
                 pill.child(div().w(px(1.)).h(px(16.)).flex_shrink_0().bg(theme.ink_at(0.12))).child(model)
-            });
+            })
+            .when_some(workspace, |pill, workspace| pill.child(workspace));
         let left = px(20.);
         #[cfg(target_os = "macos")]
         let left = if self.sidebar_hidden(window) { left.max(traffic_lights_reserve(window)) } else { left };
@@ -682,6 +705,21 @@ impl Desktop {
                 .when(!mine, |row| row.items_start())
                 .children(voice.map(|(name, color)| {
                     div().px_3().body().font_weight(FontWeight::SEMIBOLD).text_color(color).child(name)
+                }))
+                .children(entry.quote.clone().map(|quote| {
+                    // The quoted words in a hairline pill above the bubble, as on the web.
+                    div()
+                        .max_w(px(250.))
+                        .h(px(28.))
+                        .px(px(10.))
+                        .flex()
+                        .items_center()
+                        .rounded_full()
+                        .border_1()
+                        .border_color(theme.hairline)
+                        .meta()
+                        .text_color(theme.ink_secondary)
+                        .child(div().truncate().child(quote))
                 }))
                 .children(parts),
         )

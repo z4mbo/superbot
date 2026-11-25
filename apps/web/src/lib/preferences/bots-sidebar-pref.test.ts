@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  BOTS_SIDEBAR_DEFAULT_WIDTH,
   botsSidebarCollapsedStorageKey,
   botsSidebarWidthStorageKey,
   clampBotsSidebarWidth,
@@ -44,14 +45,14 @@ describe("bots sidebar width preference", () => {
       setItem: (key: string, value: string) => store.set(key, value),
     });
     try {
-      expect(readBotsSidebarWidth("first")).toBe(316);
+      expect(readBotsSidebarWidth("first")).toBe(BOTS_SIDEBAR_DEFAULT_WIDTH);
       writeBotsSidebarWidth("first", 420);
       expect(readBotsSidebarWidth("first")).toBe(420);
-      expect(readBotsSidebarWidth("second")).toBe(316);
+      expect(readBotsSidebarWidth("second")).toBe(BOTS_SIDEBAR_DEFAULT_WIDTH);
       writeBotsSidebarWidth("second", 900);
       expect(readBotsSidebarWidth("second")).toBe(480);
       store.set(botsSidebarWidthStorageKey("first")!, "NaN");
-      expect(readBotsSidebarWidth("first")).toBe(316);
+      expect(readBotsSidebarWidth("first")).toBe(BOTS_SIDEBAR_DEFAULT_WIDTH);
       expect(maximumBotsSidebarWidth(768)).toBe(448);
       expect(clampBotsSidebarWidth(480, maximumBotsSidebarWidth(768))).toBe(448);
     } finally {
@@ -69,7 +70,7 @@ describe("bots sidebar width preference", () => {
       },
     });
     try {
-      expect(readBotsSidebarWidth("user")).toBe(316);
+      expect(readBotsSidebarWidth("user")).toBe(BOTS_SIDEBAR_DEFAULT_WIDTH);
       expect(() => writeBotsSidebarWidth("user", 400)).not.toThrow();
     } finally {
       vi.unstubAllGlobals();

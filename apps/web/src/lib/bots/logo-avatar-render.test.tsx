@@ -67,10 +67,11 @@ async function mount(status?: string) {
   );
 }
 const live = () => container.querySelector<SVGSVGElement>('[data-testid="live"] svg')!;
-it("projects production feed events into the live avatar and subscribes only live Rakazo consumers", async () => {
+it("projects production feed events into the live avatar; photos and given activities do not subscribe", async () => {
   const subscribe = vi.spyOn(webLogoAvatarActivity, "subscribe");
   await mount();
-  expect(subscribe).toHaveBeenCalledTimes(1);
+  // The live avatar, the plain-colour bot and the studio shape follow the feed.
+  expect(subscribe).toHaveBeenCalledTimes(3);
   expect(live().dataset.activity).toBe("idle");
   await act(async () => webLogoAvatarActivity.hydrate("chat", snapshot));
   const steps = [
@@ -99,7 +100,7 @@ it("projects production feed events into the live avatar and subscribes only liv
     expect(live().dataset.activity).toBe(expected);
     expect(live().dataset.working).toBe(String(expected !== "idle" && expected !== "error"));
   }
-  expect(subscribe).toHaveBeenCalledTimes(1);
+  expect(subscribe).toHaveBeenCalledTimes(3);
 });
 it("retains the live pose through overlapping feed hydration, hidden updates and reconnect", async () => {
   await mount();
@@ -138,7 +139,7 @@ it("retains the live pose through overlapping feed hydration, hidden updates and
   expect(live().dataset.activity).toBe("working");
 });
 
-it("keeps static SVG artwork mounted through rapid live activity changes", async () => {
+it("keeps the same mark mounted through rapid live activity changes", async () => {
   await act(async () =>
     root.render(
       <BotAvatarActivityProvider source={webLogoAvatarActivity}>
@@ -147,8 +148,7 @@ it("keeps static SVG artwork mounted through rapid live activity changes", async
     ),
   );
   await act(async () => webLogoAvatarActivity.hydrate("chat", snapshot));
-  const body = container.querySelector(".logo-avatar-art");
-  const definition = body!.querySelector("defs");
+  const mark = container.querySelector("svg[data-bot-mark]");
   for (let seq = 1; seq <= 40; seq++) {
     await act(async () =>
       webLogoAvatarActivity.apply(
@@ -156,12 +156,8 @@ it("keeps static SVG artwork mounted through rapid live activity changes", async
         event(seq, "thread.meta", { activity: { thinking: seq % 2 === 0 } }),
       ),
     );
-    expect(container.querySelector(".rakazo-logo-avatar")!.getAttribute("data-activity")).toBe(
-      seq % 2 === 0 ? "thinking" : "working",
-    );
-    expect(container.querySelector(".logo-avatar-art")).toBe(body);
-    expect(body!.querySelector("defs")).toBe(definition);
-    expect(container.querySelectorAll("[data-logo-layer]")).toHaveLength(1);
+    expect(container.querySelector("svg[data-bot-mark]")).toBe(mark);
+    expect(mark!.getAttribute("data-activity")).toBe(seq % 2 === 0 ? "thinking" : "working");
   }
 });
 

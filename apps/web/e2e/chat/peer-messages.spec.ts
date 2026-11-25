@@ -48,7 +48,9 @@ test("shows peer lines in transcript and opens view-only peer chat", async ({ pa
     )
     .toBe(true);
 
-  await expect(page.getByRole("button", { name: "Send" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: /^(Send|Start voice chat)$/ })).toBeVisible({
+    timeout: 60_000,
+  });
 
   const transcript = page.getByTestId("transcript");
   const chip = transcript
@@ -60,7 +62,7 @@ test("shows peer lines in transcript and opens view-only peer chat", async ({ pa
   await expect(chip).toHaveAccessibleName(
     /Messaged Researcher|Message from Researcher|messages with Researcher/,
   );
-  await expect(chip.locator(".rakazo-organic-avatar")).toBeVisible();
+  await expect(chip.locator("svg[data-bot-mark]")).toBeVisible();
   await expect(chip).not.toContainText("{peer}");
   // User bubble still contains the phrase; peer body must not appear outside the chip.
   await expect(chip).not.toContainText("peer-exchange-alpha");
@@ -291,7 +293,9 @@ test(
     await view.getByRole("button", { name: "Close" }).click();
 
     // A search hit on a folded reply expands its marker and scrolls to it.
-    await expect(page.getByRole("button", { name: "Send" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("button", { name: /^(Send|Start voice chat)$/ })).toBeVisible({
+      timeout: 60_000,
+    });
     await page.getByTestId("sidebar-search-trigger").click();
     const search = page.getByTestId("sidebar-search").getByRole("textbox");
     await search.fill(foldedReplyText);
@@ -308,11 +312,15 @@ test(
     await expect(search).toHaveCount(0);
 
     // An ask from the woken run stays inline in the recipient's thread; its text folds.
-    await expect(page.getByRole("button", { name: "Send" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("button", { name: /^(Send|Start voice chat)$/ })).toBeVisible({
+      timeout: 60_000,
+    });
     await page.goto("/app");
     await chiefComposer.fill("message the bot named Researcher saying which city peer-fold-beta");
     await chiefComposer.press("Enter");
-    await expect(page.getByRole("button", { name: "Send" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("button", { name: /^(Send|Start voice chat)$/ })).toBeVisible({
+      timeout: 60_000,
+    });
     await page.goto(`/app/${researcher.id}`);
     const researcherTranscript = page.getByTestId("transcript");
     await expect(

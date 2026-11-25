@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bot mark gallery</title>
+    <style>
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font: 13px ui-sans-serif, system-ui, sans-serif;
+      }
+      #root {
+        display: grid;
+        gap: 18px;
+        padding: 24px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+      }
+      .row > span {
+        width: 72px;
+        color: var(--muted-foreground);
+      }
+      .cell {
+        display: grid;
+        justify-items: center;
+        gap: 4px;
+        width: 64px;
+        color: var(--muted-foreground);
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/e2e/fixtures/bot-mark-gallery.tsx"></script>
+  </body>
+</html>

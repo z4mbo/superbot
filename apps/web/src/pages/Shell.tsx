@@ -24,7 +24,7 @@ import {
   workingRoutineName,
 } from "@rakazo/core";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
-import { Button } from "@rakazo/ui-web";
+import { BotLookProvider, Button } from "@rakazo/ui-web";
 import { useIsMobile } from "@rakazo/ui-web/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -77,6 +77,7 @@ import { routineNeedsOneShotArm } from "../lib/routines/routine-draft";
 import type { CreateBotDialogInput } from "./shell/bots/create-bot-dialog";
 import type { ImportSetupTarget } from "./shell/bots/import-setup-card";
 import { useTeaching } from "./shell/bots/use-teaching";
+import { CapsuleWorkspacePicker } from "./shell/chat/capsule-workspace-picker";
 import type { ChatMenuState, ChatMenuTarget } from "./shell/chat/chat-context-menu";
 import { ChatContextMenu } from "./shell/chat/chat-context-menu";
 import { ChatFindBar } from "./shell/chat/chat-find-bar";
@@ -609,6 +610,11 @@ function SpaceShell({ threadId }: { threadId?: string }) {
     enabled: showComposerModel && !recordingSkill,
   });
 
+  // Every bot the person can see, so each avatar draws the shape and ink picked for it.
+  const lookBots = useMemo(
+    () => [...bots, ...spaces.flatMap((space) => space.bots)],
+    [bots, spaces],
+  );
   const sidebarSpaces = useMemo(
     () =>
       spaces.length > 0
@@ -1202,20 +1208,36 @@ function SpaceShell({ threadId }: { threadId?: string }) {
             active={active}
             activeGroup={activeGroup}
             activeSnapshot={activeSnapshot}
-            phoneCallsEnabled={threadId === undefined && Boolean(bootstrapMe?.phoneCallsEnabled)}
             meetingsEnabled={Boolean(bootstrapMe?.meetingsEnabled)}
-            voiceReady={Boolean(voiceStatus?.ready)}
-            inCall={Boolean(active) && call?.botId === active?.id}
             panelOpen={chatPanelOpen}
             onOpenNavigation={() => setMobileSidebarOpen(true)}
             onTogglePanel={toggleChatPanel}
-            onCall={(bot) => {
-              if (call?.botId === bot.id) {
-                setCallMinimized(false);
-                return;
-              }
-              callBot(bot);
-            }}
+            modelPicker={
+              showComposerModel && active && !inGroup ? (
+                <ComposerModelPicker
+                  placement="capsule"
+                  bot={active}
+                  disabled={Boolean(recordingSkill)}
+                  {...modelShortcuts.pickerProps}
+                  onConnect={() => openSettings("models")}
+                  onSaved={(updated) =>
+                    setBots((current) =>
+                      current.map((bot) => (bot.id === updated.id ? updated : bot)),
+                    )
+                  }
+                />
+              ) : undefined
+            }
+            workspacePicker={
+              threadId === undefined ? (
+                <CapsuleWorkspacePicker
+                  spaces={sidebarSpaces}
+                  currentSpaceId={bootstrapMe?.spaceId}
+                  onSwitch={openSpaceChat}
+                  onInvite={openSpaceSettings}
+                />
+              ) : undefined
+            }
           />
           {linkedChatUnavailable ? (
             <div className="grid flex-1 place-items-center" role="status">
@@ -1299,21 +1321,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
               }
               enterToSend={enterToSend}
               sendColors={userBubble}
-              modelPicker={
-                showComposerModel && active && !inGroup ? (
-                  <ComposerModelPicker
-                    bot={active}
-                    disabled={Boolean(recordingSkill)}
-                    {...modelShortcuts.pickerProps}
-                    onConnect={() => openSettings("models")}
-                    onSaved={(updated) =>
-                      setBots((current) =>
-                        current.map((bot) => (bot.id === updated.id ? updated : bot)),
-                      )
-                    }
-                  />
-                ) : undefined
-              }
               activeName={inGroup ? (activeGroup?.name ?? activeSnapshot?.groupName) : active?.name}
               running={composerRunning}
               disabled={Boolean(recordingSkill)}
@@ -1347,6 +1354,15 @@ function SpaceShell({ threadId }: { threadId?: string }) {
               onSend={composer.sendMessage}
               onStop={stopRun}
               phoneCallsEnabled={bootstrapMe?.phoneCallsEnabled === true}
+              onVoiceChat={
+                threadId === undefined && !inGroup && active
+                  ? () => {
+                      if (call?.botId === active.id) setCallMinimized(false);
+                      else callBot(active);
+                    }
+                  : undefined
+              }
+              voiceReady={Boolean(voiceStatus?.ready)}
               dictationTranscribe={voiceStatus ? Boolean(voiceStatus.transcribe) : undefined}
               artifactTarget={transcriptArtifactTarget}
               replyTarget={composer.replyTarget}
@@ -1604,7 +1620,9 @@ function SpaceShell({ threadId }: { threadId?: string }) {
   return (
     <SpaceRpcProvider spaceId={shellSpaceId}>
       {initialBotsLoaded || initialLoadFailed ? (
-        <PagesProvider value={pages}>{shell}</PagesProvider>
+        <PagesProvider value={pages}>
+          <BotLookProvider bots={lookBots}>{shell}</BotLookProvider>
+        </PagesProvider>
       ) : (
         <PageLoading />
       )}

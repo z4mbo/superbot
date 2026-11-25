@@ -5,6 +5,7 @@ use gpui_kit::{hsla, point, px, rgb, rgba, App, BoxShadow, Global, Hsla, Pixels,
 use gpui_kit::Point;
 
 use crate::fonts::Fonts;
+use crate::theme_tokens::{DARK, LIGHT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Skin {
@@ -96,7 +97,8 @@ fn avatar_shape(value: &str) -> Option<(&str, &str)> {
 
 const HASH_PALETTE_LEN: usize = Identity::Coral as usize + 1;
 
-/// Semantic colours. Views read these and never write a colour of their own.
+/// Semantic colours, from the same palettes as the web app (`theme_tokens.rs`, generated from
+/// packages/ui-tokens). Views read these and never write a colour of their own.
 #[derive(Clone)]
 pub struct Theme {
     pub skin: Skin,
@@ -138,30 +140,30 @@ impl Theme {
         match skin {
             Skin::Midnight => Self {
                 skin,
-                app: rgb(0x121212).into(),
-                panel: rgb(0x0e0e0e).into(),
-                raised: rgb(0x202020).into(),
-                raised_hover: rgb(0x2c2c2c).into(),
-                card: rgb(0x1f1f1f).into(),
-                composer: rgb(0x1f1f1f).into(),
-                menu: rgb(0x1f1f1f).into(),
-                inset: rgb(0x1b1b1b).into(),
-                control: rgb(0x282828).into(),
-                hairline: rgb(0x383838).into(),
-                edge: rgba(0xf5f5f50f).into(),
-                ink: rgb(0xf5f5f5).into(),
-                ink_secondary: rgba(0xf5f5f5a8).into(),
-                ink_tertiary: rgba(0xf5f5f591).into(),
-                accent: rgb(0x1084fe).into(),
-                accent_text: rgb(0x7fc0ff).into(),
-                focus: rgb(0x459ffe).into(),
-                bubble_user: rgb(0x5a5a5a).into(),
-                bubble_user_ink: rgb(0xf5f5f5).into(),
-                success: rgb(0x38d591).into(),
-                danger: rgb(0xff5667).into(),
-                danger_ink: rgb(0xffffff).into(),
-                warning: rgb(0xff9800).into(),
-                scrim: hsla(0., 0., 0., 0.55),
+                app: rgba(DARK.background).into(),
+                panel: rgba(DARK.sidebar).into(),
+                raised: rgba(DARK.sidebar_accent).into(),
+                raised_hover: rgba(DARK.accent).into(),
+                card: rgba(DARK.chat_agent).into(),
+                composer: rgba(DARK.elevated).into(),
+                menu: rgba(DARK.popover).into(),
+                inset: rgba(DARK.muted).into(),
+                control: rgba(DARK.secondary).into(),
+                hairline: rgba(DARK.border).into(),
+                edge: rgba(DARK.sidebar_border).into(),
+                ink: rgba(DARK.foreground).into(),
+                ink_secondary: rgba(DARK.muted_foreground).into(),
+                ink_tertiary: rgba(DARK.faint_foreground).into(),
+                accent: rgba(DARK.accent_fill).into(),
+                accent_text: rgba(DARK.link).into(),
+                focus: rgba(DARK.ring).into(),
+                bubble_user: rgba(DARK.chat_user).into(),
+                bubble_user_ink: rgba(DARK.chat_user_foreground).into(),
+                success: rgba(DARK.success).into(),
+                danger: rgba(DARK.destructive).into(),
+                danger_ink: rgba(DARK.destructive_foreground).into(),
+                warning: rgba(DARK.warning).into(),
+                scrim: rgba(DARK.overlay).into(),
                 identity: [
                     rgb(0x009957).into(),
                     rgb(0x377fe6).into(),
@@ -181,30 +183,30 @@ impl Theme {
             },
             Skin::Daylight => Self {
                 skin,
-                app: rgb(0xfcfcfc).into(),
-                panel: rgb(0xf5f5f5).into(),
-                raised: rgb(0xe4e4e4).into(),
-                raised_hover: rgb(0xd8d8d8).into(),
-                card: rgb(0xefefef).into(),
-                composer: rgb(0xffffff).into(),
-                menu: rgb(0xffffff).into(),
-                inset: rgb(0xe9e9e9).into(),
-                control: rgb(0xe3e3e3).into(),
-                hairline: rgba(0x1c1c1c3d).into(),
-                edge: rgba(0x1c1c1c1f).into(),
-                ink: rgb(0x1c1c1c).into(),
-                ink_secondary: rgba(0x1c1c1cad).into(),
-                ink_tertiary: rgba(0x1c1c1ca6).into(),
-                accent: rgb(0x126fd4).into(),
-                accent_text: rgb(0x0b69cc).into(),
-                focus: rgb(0x0b6dd3).into(),
-                bubble_user: rgb(0x1c1c1c).into(),
-                bubble_user_ink: rgb(0xfcfcfc).into(),
-                success: rgb(0x007a44).into(),
-                danger: rgb(0xcd2834).into(),
-                danger_ink: rgb(0xffffff).into(),
-                warning: rgb(0x9c5b00).into(),
-                scrim: hsla(0., 0., 0., 0.32),
+                app: rgba(LIGHT.background).into(),
+                panel: rgba(LIGHT.sidebar).into(),
+                raised: rgba(LIGHT.sidebar_accent).into(),
+                raised_hover: rgba(LIGHT.accent).into(),
+                card: rgba(LIGHT.chat_agent).into(),
+                composer: rgba(LIGHT.elevated).into(),
+                menu: rgba(LIGHT.popover).into(),
+                inset: rgba(LIGHT.muted).into(),
+                control: rgba(LIGHT.secondary).into(),
+                hairline: rgba(LIGHT.border).into(),
+                edge: rgba(LIGHT.sidebar_border).into(),
+                ink: rgba(LIGHT.foreground).into(),
+                ink_secondary: rgba(LIGHT.muted_foreground).into(),
+                ink_tertiary: rgba(LIGHT.faint_foreground).into(),
+                accent: rgba(LIGHT.accent_fill).into(),
+                accent_text: rgba(LIGHT.link).into(),
+                focus: rgba(LIGHT.ring).into(),
+                bubble_user: rgba(LIGHT.chat_user).into(),
+                bubble_user_ink: rgba(LIGHT.chat_user_foreground).into(),
+                success: rgba(LIGHT.success).into(),
+                danger: rgba(LIGHT.destructive).into(),
+                danger_ink: rgba(LIGHT.destructive_foreground).into(),
+                warning: rgba(LIGHT.warning).into(),
+                scrim: rgba(LIGHT.overlay).into(),
                 identity: [
                     rgb(0x007f48).into(),
                     rgb(0x1b6adc).into(),
@@ -350,9 +352,8 @@ pub mod radius {
     pub const COMPOSER: Pixels = px(22.);
 }
 
-/// The sidebar with the line where it meets the chat. The window keeps a 1px frame of its own
-/// on Windows 11, which puts that line 354px from the edge the person sees.
-pub const SIDEBAR_WIDTH: Pixels = px(354.);
+/// The sidebar with the line where it meets the chat, as wide as the web roster.
+pub const SIDEBAR_WIDTH: Pixels = px(280.);
 pub const CAPTION_WIDTH: Pixels = px(138.);
 
 /// Top-left of the macOS close button, in window coordinates.
@@ -372,7 +373,7 @@ mod tests {
 
     #[test]
     fn shared_avatar_colors_follow_the_skin_palette() {
-        let fonts = Fonts { sans: "Geist".into(), mono: "Geist Mono".into() };
+        let fonts = Fonts { sans: "Inter Variable".into(), mono: "Geist Mono".into() };
         let midnight = Theme::of(Skin::Midnight, &fonts);
         let daylight = Theme::of(Skin::Daylight, &fonts);
         let cases: [(&[&str], u32, u32); 11] = [
@@ -409,7 +410,7 @@ mod tests {
 
     #[test]
     fn named_colors_and_the_original_hash_palette_still_work() {
-        let fonts = Fonts { sans: "Geist".into(), mono: "Geist Mono".into() };
+        let fonts = Fonts { sans: "Inter Variable".into(), mono: "Geist Mono".into() };
         let theme = Theme::of(Skin::Midnight, &fonts);
         assert_eq!(theme.identity_for("green"), rgb(0x009957).into());
         assert_eq!(theme.identity_for("cyan"), rgb(0x0ea5c6).into());

@@ -95,13 +95,9 @@ test("create group from + and see two bots in one transcript", async ({ page }, 
     .getByRole("button", { name: /^Draft team/ })
     .locator(".rakazo-group-avatar");
   await expect(groupAvatar).toBeVisible();
-  await expect(groupAvatar.locator(".rakazo-organic-avatar")).toHaveCount(2);
-  const workingAvatar = groupAvatar.locator('[data-working="true"]');
-  await expect(workingAvatar).toHaveCount(1);
-  await expect(workingAvatar.locator(".rakazo-mascot-avatar-body-working")).toHaveCSS(
-    "animation-name",
-    /rakazo-mascot-/,
-  );
+  await expect(groupAvatar.locator("svg[data-bot-mark]")).toHaveCount(2);
+  // The member at work draws its working look; the other rests.
+  await expect(groupAvatar.locator('svg[data-bot-mark-state="working"]')).toHaveCount(1);
   await captureScreenshot(page, testInfo, "group-avatar-active");
   await page.unroute("**/rpc/groups/list");
   await page.unroute("**/rpc/threads/get");

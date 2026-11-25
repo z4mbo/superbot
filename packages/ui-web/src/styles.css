@@ -14,14 +14,20 @@
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
+  /* Inter (the Superbot theme's face) matched the desktop reference best at these weights and
+     tracking, measured on its chat, roster and capsule text at DPR 1 (scripts/parity/font-match.mjs). */
+  --font-weight-normal: 385;
+  --font-weight-medium: 470;
   --text-*: initial;
   --text-caption: 11px;
   --text-caption--line-height: 16px;
   --text-caption--letter-spacing: 0.005em;
   --text-label: 12px;
   --text-label--line-height: 16px;
+  --text-label--letter-spacing: 0.005em;
   --text-body-sm: 13px;
   --text-body-sm--line-height: 18px;
+  --text-body-sm--letter-spacing: 0.005em;
   --text-body: 14px;
   --text-body--line-height: 20px;
   --text-body-lg: 15px;
@@ -38,6 +44,18 @@
   --text-display: 32px;
   --text-display--line-height: 40px;
   --text-display--letter-spacing: -0.02em;
+}
+
+/* Floating controls lift off the window ground with a soft shadow in light; dark draws none. */
+@theme {
+  --shadow-floating: 0 4px 12px -1px rgb(26 26 26 / 0.08), 0 2px 4px -2px rgb(34 34 34 / 0.06);
+  --shadow-composer: 0 2px 8px -1px rgb(0 0 0 / 0.05), 0 1px 2px rgb(0 0 0 / 0.03);
+  --shadow-popover:
+    0 10px 20px -3px rgb(28 28 28 / 0.1), 0 4px 6px -4px rgb(28 28 28 / 0.1),
+    0 0 0 1px rgb(28 28 28 / 0.004);
+}
+[data-theme="dark"] {
+  --shadow-floating: 0 0 #0000;
 }
 
 /* The system font reads light at 400 on macOS; regular text uses 420 there. Medium and semibold stay. */
@@ -61,15 +79,23 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-chat-user: var(--chat-user);
   --color-chat-user-foreground: var(--chat-user-foreground);
+  --color-chat-agent: var(--chat-agent);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-faint-foreground: var(--faint-foreground);
+  --color-placeholder: var(--placeholder);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-fill-hover: var(--accent-fill-hover);
   --color-destructive: var(--destructive);
   --color-destructive-fill: var(--destructive-fill);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-hairline: var(--hairline);
+  --color-pane: var(--pane);
+  --color-elevated: var(--elevated);
+  --color-elevated-hover: var(--elevated-hover);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-sidebar: var(--sidebar);

@@ -49,9 +49,8 @@ test("a model picked for a bot in chat is saved and runs its next turn", async (
   });
 
   const settings = await openUserSettings(page);
-  const toggle = settings.getByTestId("composer-model-picker-toggle");
-  await toggle.click();
-  await expect(toggle).toBeChecked();
+  // The chat capsule shows the model by default.
+  await expect(settings.getByTestId("composer-model-picker-toggle")).toBeChecked();
   await settings.getByTestId("settings-nav-models").click();
   await expect(settings.getByRole("heading", { name: "Models", exact: true })).toBeVisible();
   await expect(
@@ -60,8 +59,7 @@ test("a model picked for a bot in chat is saved and runs its next turn", async (
   await captureScreenshot(page, testInfo, "settings-models");
 
   await page.goto(`/app/${botId}`);
-  const composer = page.getByTestId("composer-bar");
-  const picker = composer.getByRole("button", { name: /^Model/ });
+  const picker = page.getByTestId("chat-capsule").getByRole("button", { name: /^Model/ });
   // A bot that picked nothing shows the main model it follows.
   await expect(picker).toContainText(MAIN_MODEL);
   await captureScreenshot(page, testInfo, "bot-model-before");

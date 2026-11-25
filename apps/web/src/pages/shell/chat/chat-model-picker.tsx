@@ -43,6 +43,7 @@ export function ChatModelPicker({
   onOpenChange,
   hint,
   keyShortcuts,
+  placement = "composer",
 }: {
   id?: string;
   choices: readonly ChatModelChoice[];
@@ -69,7 +70,10 @@ export function ChatModelPicker({
   hint?: ReactNode;
   /** The compact button's shortcuts, in `aria-keyshortcuts` form. */
   keyShortcuts?: string;
+  /** Where the compact button sits: beside Send, or inside the chat's capsule at the top. */
+  placement?: "composer" | "capsule";
 }) {
+  const capsule = compact && placement === "capsule";
   const { t } = useLingui();
   const imagesHintId = useId();
   const [openState, setOpen] = useState(false);
@@ -97,7 +101,10 @@ export function ChatModelPicker({
       aria-label={detail ? t`Model: ${model}, ${detail}` : t`Model: ${model}`}
       aria-describedby={textOnly ? imagesHintId : undefined}
       aria-keyshortcuts={keyShortcuts}
-      className="flex h-8 min-w-0 max-w-64 items-center gap-1.5 rounded-full px-2.5 text-body-sm text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+      data-testid={capsule ? "capsule-model" : undefined}
+      className={`flex min-w-0 items-center rounded-full text-body-sm text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 aria-expanded:bg-accent ${
+        capsule ? "h-7 max-w-56 gap-1 px-2" : "h-8 max-w-64 gap-1.5 px-2.5"
+      }`}
     >
       <ModelMarkIcon mark={mark} className="size-3.5 shrink-0 text-foreground" />
       <span className="min-w-0 truncate text-foreground">{model}</span>
@@ -137,8 +144,9 @@ export function ChatModelPicker({
       )}
       {open ? (
         <PopoverContent
-          align={compact ? "end" : "start"}
-          side={compact ? "top" : "bottom"}
+          align={capsule ? "center" : compact ? "end" : "start"}
+          side={compact && !capsule ? "top" : "bottom"}
+          sideOffset={capsule ? 8 : undefined}
           collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "none" }}
           className={`${
             !compact
@@ -146,7 +154,7 @@ export function ChatModelPicker({
               : sidePanel
                 ? "w-[min(40rem,calc(100vw-2rem))] flex-col sm:flex-row"
                 : "w-80"
-          } max-h-(--available-height) gap-0 overflow-hidden bg-popover p-0 opacity-100 animate-none! backdrop-filter-none`}
+          } max-h-(--available-height) gap-0 overflow-hidden bg-popover p-0 opacity-100 animate-none! backdrop-filter-none ${capsule ? "rounded-2xl shadow-popover" : ""}`}
         >
           <Command
             shouldFilter={false}

@@ -9,6 +9,7 @@ import {
   lightTokens,
   normalizeAppearancePreference,
   persistAppearancePreference,
+  renderRustTokens,
   renderTokensCss,
   resolveAppearance,
   resolveAppearancePreference,
@@ -203,9 +204,27 @@ describe.each([
   ];
 
   it.each(pairs)("%s on %s meets WCAG AA (4.5:1)", (text, surface) => {
-    expect(contrastRatio(palette[text], palette[surface])).toBeGreaterThanOrEqual(4.5);
+    // A translucent surface (the dark user bubble) is measured where it is drawn, on the ground.
+    expect(
+      contrastRatio(palette[text], opaqueOn(palette[surface], palette.background)),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+function opaqueOn(color: string, ground: string): string {
+  if (color.length !== 9) return color;
+  const alpha = Number.parseInt(color.slice(7, 9), 16) / 255;
+  return `#${[1, 3, 5]
+    .map((i) =>
+      Math.round(
+        Number.parseInt(color.slice(i, i + 2), 16) * alpha +
+          Number.parseInt(ground.slice(i, i + 2), 16) * (1 - alpha),
+      )
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
 
 describe("tokens.css", () => {
   it("derives kebab-case variable names", () => {
@@ -217,6 +236,15 @@ describe("tokens.css", () => {
   it("is generated from the TS palette", () => {
     const onDisk = readFileSync(fileURLToPath(new URL("./tokens.css", import.meta.url)), "utf8");
     expect(onDisk).toBe(renderTokensCss());
+  });
+
+  it("gives the native desktop app the same palettes", () => {
+    const rust = readFileSync(
+      fileURLToPath(new URL("../../../native/desktop/src/theme_tokens.rs", import.meta.url)),
+      "utf8",
+    );
+    expect(rust).toBe(renderRustTokens());
+    expect(rust).toContain(`background: 0x${webDarkTokens.background.slice(1).toLowerCase()}ff,`);
   });
 
   it("scopes light and dark under data-theme", () => {
@@ -296,6 +324,8 @@ describe.each([
   ];
 
   it.each(pairs)("%s on %s meets WCAG AA (4.5:1)", (text, surface) => {
-    expect(contrastRatio(palette[text], palette[surface])).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(palette[text], opaqueOn(palette[surface], palette.background)),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });

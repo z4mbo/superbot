@@ -179,6 +179,7 @@ mod tests {
             run_id: None,
             local_cli: false,
             at: None,
+            quote: None,
             parts: vec![Part::File(FileRef {
                 artifact_id: format!("artifact-{id}"),
                 name: format!("{id}.txt"),

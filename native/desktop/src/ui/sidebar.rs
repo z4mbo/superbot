@@ -48,22 +48,49 @@ impl Desktop {
         if pinned.is_empty() {
             self.forget_tile_preview();
         }
-        let card =
-            primary.map(|agent| div().pt_2().child(self.render_primary_card(agent, open.as_ref(), &theme, window, cx)));
-        let tiles =
-            (!pinned.is_empty()).then(|| {
-                div().flex().flex_wrap().justify_center().gap_1().pt_2().pb_4().children(
-                    pinned.into_iter().map(|agent| self.render_tile(agent, open.as_ref(), &theme, window, cx)),
-                )
-            });
-        let rows = div()
-            .flex()
-            .flex_col()
-            .gap_0p5()
-            .pb_2()
-            .when(tiles.is_none(), |rows| rows.pt_2())
-            .children(listed.into_iter().map(|agent| self.render_agent_row(agent, open.as_ref(), &theme, cx)))
-            .children(groups.into_iter().map(|group| self.render_group_row(group, open.as_ref(), &theme, cx)));
+        // The main bot leads the pinned tiles, with its star; the web roster draws the same.
+        let star = primary.as_ref().map(|agent| agent.id.clone());
+        let pinned: Vec<AgentSummary> = primary.into_iter().chain(pinned).collect();
+        let tiles = (!pinned.is_empty()).then(|| {
+            div().flex().flex_wrap().justify_center().gap_1().pt(px(10.)).pb_2().children(pinned.into_iter().map(
+                |agent| {
+                    let main = star.as_deref() == Some(agent.id.as_str());
+                    self.render_tile(agent, main, open.as_ref(), &theme, window, cx)
+                },
+            ))
+        });
+        // As on the web: unassigned bots first, then each named section, with headings once there
+        // is anything to tell apart. A search shows one plain list.
+        let sections = self.space.as_ref().map(|space| space.bot_sections.clone()).unwrap_or_default();
+        let section_of = |agent: &AgentSummary| {
+            agent.section_id.as_ref().and_then(|id| sections.iter().position(|section| &section.id == id))
+        };
+        let titled = !self.search_open && (!sections.is_empty() || tiles.is_some());
+        let mut blocks: Vec<(Option<String>, Vec<AgentSummary>)> =
+            vec![(titled.then(|| "Unassigned".to_owned()), Vec::new())];
+        for section in &sections {
+            blocks.push((Some(section.name.clone()), Vec::new()));
+        }
+        for agent in listed {
+            let index = section_of(&agent).filter(|_| !self.search_open).map_or(0, |position| position + 1);
+            blocks[index].1.push(agent);
+        }
+        let mut rows = div().flex().flex_col().gap_1().pb_2().when(tiles.is_none(), |rows| rows.pt_2());
+        for (index, (title, agents)) in blocks.into_iter().enumerate() {
+            if agents.is_empty() && (index == 0 || title.is_none()) {
+                continue;
+            }
+            if let Some(title) = title {
+                rows = rows.child(div().pt(px(10.)).child(
+                    div().px_2().pt_2().pb_1p5().body().text_color(theme.ink_secondary).truncate().child(title),
+                ));
+            }
+            for agent in agents {
+                rows = rows.child(self.render_agent_row(agent, open.as_ref(), &theme, cx));
+            }
+        }
+        let rows =
+            rows.children(groups.into_iter().map(|group| self.render_group_row(group, open.as_ref(), &theme, cx)));
 
         div()
             .w(SIDEBAR_WIDTH)
@@ -83,7 +110,6 @@ impl Desktop {
                     .min_h_0()
                     .overflow_y_scroll()
                     .px_3()
-                    .children(card)
                     .children(tiles)
                     .child(rows)
                     .children(found)
@@ -112,7 +138,7 @@ impl Desktop {
             !cfg!(target_os = "macos") || !self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::Spaces);
         let left = traffic_lights_reserve(window).max(px(8.));
         drag_region(div(), "sidebar-drag", window, cx)
-            .h(px(56.))
+            .h(px(60.))
             .flex_shrink_0()
             .flex()
             .items_start()
@@ -204,122 +230,10 @@ impl Desktop {
         )
     }
 
-    fn render_primary_card(
-        &mut self,
-        agent: AgentSummary,
-        open: Option<&Target>,
-        theme: &Theme,
-        window: &Window,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let target = Target::Agent(agent.id.clone());
-        let selected = open == Some(&target);
-        let rest = if selected { theme.raised } else { mix(theme.panel, theme.ink, 0.04) };
-        let hover = if selected { theme.raised } else { mix(theme.panel, theme.ink, 0.06) };
-        let colors = Colors::new(rest, hover, mix(theme.panel, theme.ink, 0.08));
-        let menu = agent.id.clone();
-        let more = agent.id.clone();
-        let keys = agent.id.clone();
-        let bounds = self.tile_bounds(&agent.id);
-        let handle = self.tile_focus(&agent.id, cx);
-        let keyboard = focus::visible(&handle, window);
-        let watch = SharedString::from(format!("primary:{}", agent.id));
-        let slot = AvatarSlot {
-            presence: face_state(Some(&agent), self.avatar_asleep(&agent.id), false),
-            watch: Some(watch.clone()),
-            ..AvatarSlot::default()
-        };
-        let face = bot_avatar_with(agent.avatar(), px(48.), agent.working(), slot, theme, cx);
-        let (line, waiting) = latest_line(&agent);
-        let text = div()
-            .flex_1()
-            .min_w_0()
-            .child(
-                div()
-                    .text_size(px(15.))
-                    .line_height(px(22.))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .truncate()
-                    .child(agent.name.clone()),
-            )
-            .when(!line.is_empty(), |text| {
-                text.child(
-                    div()
-                        .mt(px(2.))
-                        .body()
-                        .text_color(if waiting { theme.warning } else { theme.ink_secondary })
-                        .truncate()
-                        .child(line),
-                )
-            });
-        let more = div()
-            .id("primary-more")
-            .role(Role::Button)
-            .aria_label("Agent actions")
-            .size_6()
-            .flex_shrink_0()
-            .flex()
-            .items_center()
-            .justify_center()
-            .when(!keyboard, |button| button.invisible().group_hover("primary-card", |style| style.visible()))
-            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                cx.stop_propagation();
-                this.open_menu(MenuKind::Agent(more.clone()), event.position(), window, cx);
-            }))
-            .child(icon("ellipsis", px(14.), theme.ink_secondary));
-        let card = div()
-            .id(SharedString::from(format!("primary-{}", agent.id)))
-            .role(Role::Button)
-            .group("primary-card")
-            .w(SIDEBAR_WIDTH - px(24.))
-            .h(px(72.))
-            .flex()
-            .items_center()
-            .pl(px(72.))
-            .pr(px(12.))
-            .gap_3()
-            .rounded(radius::CARD)
-            .cursor_pointer()
-            .track_focus(&handle)
-            .on_prepaint(move |area, _, _| bounds.set(area))
-            .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
-            .on_click(cx.listener(move |this, _, window, cx| {
-                this.close_tile_preview(cx);
-                this.open(target.clone(), window, cx);
-            }))
-            .on_mouse_down(
-                MouseButton::Right,
-                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                    this.close_tile_preview(cx);
-                    this.open_menu(MenuKind::Agent(menu.clone()), event.position, window, cx);
-                }),
-            )
-            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                if this.tile_key(&keys, &event.keystroke, window, cx) {
-                    cx.stop_propagation();
-                }
-            }))
-            .child(text)
-            .child(more)
-            .when(agent.unread, |card| card.child(div().size_2().flex_shrink_0().rounded_full().bg(theme.accent)));
-        let theme = theme.clone();
-        focus::decorate(superbot_avatars::watch_region(card, watch))
-            .tint(Pointer::ROW, move |card, levels| {
-                let fill = colors.sample(levels);
-                let ring = if selected { 0.10 } else { 0.06 + 0.04 * levels.hover };
-                card.bg(fill)
-                    .child(div().absolute().inset_0().rounded(radius::CARD).border_1().border_color(theme.ink_at(ring)))
-                    .child(div().absolute().left(px(12.)).top(px(12.)).child(face).children(
-                        status_dot(&agent, fill, &theme).map(|dot| dot.absolute().bottom(px(-1.)).right(px(-1.))),
-                    ))
-                    .when(keyboard, |card| card.child(Ring::Inner(radius::CARD).element(theme.focus)))
-            })
-            .into_any_element()
-    }
-
     fn render_tile(
         &mut self,
         agent: AgentSummary,
+        star: bool,
         open: Option<&Target>,
         theme: &Theme,
         window: &Window,
@@ -333,9 +247,9 @@ impl Desktop {
         let focus = self.tile_focus(&agent.id, cx);
         let ring = focus::visible(&focus, window);
         let bounds = self.tile_bounds(&agent.id);
-        let shape = radius::FIELD;
+        let shape = radius::CARD;
         let watch = SharedString::from(format!("tile:{}", agent.id));
-        let width = px(78.);
+        let width = px(95.);
         let presence = face_state(Some(&agent), self.avatar_asleep(&agent.id), false);
         let slot = AvatarSlot { presence, watch: Some(watch.clone()), ..AvatarSlot::default() };
         let quote = latest_line(&agent).0;
@@ -353,8 +267,8 @@ impl Desktop {
                 .flex()
                 .flex_col()
                 .items_center()
-                .px_1()
-                .pt_2()
+                .px_2()
+                .pt(px(6.))
                 .rounded(shape)
                 .bg(fill)
                 .cursor_pointer()
@@ -391,21 +305,28 @@ impl Desktop {
                 .child(
                     div()
                         .relative()
-                        .child(bot_avatar_with(agent.avatar(), px(56.), agent.working(), slot, theme, cx))
-                        .children(
-                            status_dot(&agent, fill, theme).map(|dot| dot.absolute().top(px(-2.)).right(px(-2.))),
-                        ),
+                        .child(bot_avatar_with(agent.avatar(), px(60.), agent.working(), slot, theme, cx))
+                        .children(status_dot(&agent, fill, theme).map(|dot| dot.absolute().top(px(-2.)).right(px(-2.))))
+                        // The account's main bot wears a star, as on the web roster.
+                        .when(star, |avatar| {
+                            avatar.child(
+                                div()
+                                    .absolute()
+                                    .right(px(-2.))
+                                    .bottom(px(-2.))
+                                    .size(px(18.))
+                                    .rounded_full()
+                                    .border_2()
+                                    .border_color(theme.panel)
+                                    .bg(rgb(0xf59312))
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .child(icon("star", px(10.), gpui_kit::white())),
+                            )
+                        }),
                 )
-                .child(
-                    div()
-                        .mt_1p5()
-                        .w_full()
-                        .body()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_center()
-                        .truncate()
-                        .child(agent.name.clone()),
-                )
+                .child(div().mt_1p5().w_full().meta().text_center().truncate().child(agent.name.clone()))
                 .when(ring, |tile| tile.child(Ring::Inner(shape).element(theme.focus)));
         focus::decorate(tile).fill(Pointer::ROW, row_colors(theme, selected)).into_any_element()
     }
@@ -437,7 +358,7 @@ impl Desktop {
         };
         let face = div()
             .relative()
-            .child(bot_avatar_with(agent.avatar(), px(42.), agent.working(), slot, theme, cx))
+            .child(bot_avatar_with(agent.avatar(), px(36.), agent.working(), slot, theme, cx))
             .children(status_dot(&agent, fill, theme).map(|dot| dot.absolute().bottom(px(-1.)).right(px(-1.))));
         let element = superbot_avatars::watch_region(
             row(
@@ -521,7 +442,6 @@ impl Desktop {
     fn render_sidebar_footer(&mut self, theme: &Theme, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let name = self.me.as_ref().map(|me| me.name.clone()).unwrap_or_default();
         let plugins = self.corner_control(Corner::Plugins, self.view == View::Store, theme, window, cx);
-        let workspace = self.corner_control(Corner::Workspace, self.view == View::Workspace, theme, window, cx);
         let ink = theme.ink_secondary;
         div()
             .px_4()
@@ -551,11 +471,6 @@ impl Desktop {
             )
             .child(focus::control(
                 plugins.on_click(cx.listener(|this, _, window, cx| this.show(View::Store, window, cx))),
-                Ring::OuterPill,
-                theme,
-            ))
-            .child(focus::control(
-                workspace.on_click(cx.listener(|this, _, window, cx| this.show(View::Workspace, window, cx))),
                 Ring::OuterPill,
                 theme,
             ))
@@ -599,10 +514,10 @@ fn row(
         .items_center()
         .gap_2p5()
         .px_2()
-        .rounded(radius::FIELD)
+        .rounded(radius::CARD)
         .cursor_pointer()
         .when(selected, |row| row.bg(theme.raised))
-        .child(face.m(px(-3.)))
+        .child(face)
         .child(div().flex_1().min_w_0().child(div().name().truncate().child(name)).when(!preview.is_empty(), |text| {
             text.pt(px(1.)).child(div().mt(px(2.)).body().text_color(preview_ink).truncate().child(preview))
         }))
