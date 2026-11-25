@@ -18,9 +18,10 @@ server-hosted path. It does not give agents the machine the app runs on.
 Choosing is open when the server sets `COMPUTER_SETTINGS_ENABLED=true` and its own provider can
 route by Settings. Docker can; the person's-machine and test providers cannot.
 
-In the desktop app, open an agent, select **Computer**, then **Computers run on**. An
-administrator chooses for the whole deployment. Anyone else sees **Your computers run on** when
-the server lets accounts choose, and chooses for their own computers. **Default** keeps the
+In **Settings → Computers**, **New computers run on** picks where computers run. An
+administrator chooses for the whole deployment, and for their own computers under **My
+computers**. Anyone else sees the choice when the server lets accounts choose, and chooses for
+their own computers. **Default** keeps the
 server's own provider. Choosing a cloud provider shows the settings that provider asks for. A
 saved key is never shown again, and leaving it blank keeps it. The server checks the settings
 before it keeps them and answers "Could not verify computer settings" when they do not pass.
@@ -45,31 +46,22 @@ server then waits for that computer's consent, which only the app's native promp
   the pairing. The server's `DELETE /api/devices/:deviceId` revokes a device for its owner's
   session, but no client lists devices yet.
 
-The native desktop app (`native/desktop`) does not pair and has no command bridge. It shows a
-computer on the person's own machine as "Works on your computer".
-
 ## Terminal
 
-When a running computer's provider reports a terminal (`terminalAvailable`), the desktop app's
-**Computer** tab shows **Terminal** beside **Watch**. It opens a shell in the agent's working
-folder, inside the side panel. Opening it takes control of the computer, as **Take control** does
-on its screen, so the agent's own actions wait meanwhile. **Computer** in its toolbar closes the
-shell and hands control back. Escape goes to the shell. Paste with Ctrl+Shift+V, and scroll back
-with the wheel. While another member has control, **Terminal** is not offered.
-
-The app opens the terminal's socket itself through the server's screen proxy, the same path as
-**Watch**. `computer.terminalUrl` with `nativeSession` returns the address and a socket proof. It
-gives them only to a signed-in session that holds control. The proxy then checks that session,
+When a running computer's provider reports a terminal (`terminalAvailable`), the server offers a
+shell in the agent's working folder through its screen proxy, the same path as **Watch**.
+`computer.terminalUrl` with `nativeSession` returns the address and a socket proof. It gives them
+only to a signed-in session that holds control. The proxy then checks that session,
 the member's place in the Space and the control lease on every connection. Handing back control
 ends the shell, and its proof no longer opens a socket. The frames follow
 `packages/contracts/src/computers/terminal.ts`.
 
-The web app has no terminal view. **Watch** stays available in both apps, and a person who takes
-control there can open the computer's own terminal on its desktop.
+The apps have no terminal view. A person who takes control in **Watch** can open the computer's
+own terminal on its desktop.
 
 ## Checking it without keys or credits
 
-`native/desktop/fixture/chat-parity.mjs` runs on `SANDBOX_PROVIDER=fake`, which keeps the choice
+The [isolated chat fixture](chat-verification.md) runs on `SANDBOX_PROVIDER=fake`, which keeps the choice
 closed. To see the choice, run a copy of it with `SANDBOX_PROVIDER=docker`,
 `COMPUTER_SETTINGS_ENABLED=true`, `RAKAZO_ADMIN_EMAILS` naming the owner, and
 `SANDBOX_SUPERVISOR_URL` pointing at an unused loopback port. Mark the owner's email verified in

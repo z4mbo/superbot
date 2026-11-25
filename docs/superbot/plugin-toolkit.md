@@ -1,10 +1,8 @@
 # Superbot plugin toolkit
 
-Install both binaries from the repository root.
+Install both commands from the repository root: [`superbot`](../../apps/cli/README.md#install-from-the-monorepo) and [`superbot-plugin`](../../apps/plugin-kit/README.md#install-from-the-monorepo). Then sign in.
 
 ```sh
-cargo install --path native/cli --locked
-cargo install --path native/plugin-kit --locked
 superbot login
 ```
 
@@ -104,13 +102,10 @@ commands to open an app, read, add or remove entries, or show totals. People
 use the app in Superbot, and programs call the `appRecords`, `addAppRecord` and
 `removeAppRecord` procedures.
 
-The desktop plugin form opens and saves the same `plugin.json`, so a manifest can move between the CLI and the desktop: **Open file…** to edit it, **Save file…** to write it back, then `superbot-plugin validate`. See the [registry contract](plugin-contract.md) for manifest fields. Local validation checks the manifest schema without contacting the server. The registry checks MCP endpoint safety during approval.
+See the [registry contract](plugin-contract.md) for manifest fields. Local validation checks the manifest schema without contacting the server. The registry checks MCP endpoint safety during approval.
 
 Run deterministic tests from the repository root.
 
 ```sh
-cargo test -p superbot-plugin-kit --locked
-cargo test -p superbot-plugin-kit --locked --test scaffold binary_mcp_app_calculates_over_loopback -- --ignored
+pnpm --filter superbot-plugin-kit test
 ```
-
-The loopback test requires Node.js 24.
