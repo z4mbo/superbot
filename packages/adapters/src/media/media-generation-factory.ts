@@ -1,9 +1,7 @@
 import type { MediaGenerationProvider } from "@rakazo/adapter-kit";
+import { FalMediaGenerationProvider } from "../providers/media/fal/fal-media.js";
 import { OpenAIMediaGenerationProvider } from "../providers/media/openai/openai-media.js";
-import {
-  FakeMediaGenerationProvider,
-  FalMediaGenerationProvider,
-} from "./media-generation-provider.js";
+import { FakeMediaGenerationProvider } from "./media-generation-provider.js";
 
 export function createMediaGenerationProvider(
   env: NodeJS.ProcessEnv = process.env,

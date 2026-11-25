@@ -1,7 +1,13 @@
 import type { AdapterContext } from "@rakazo/adapter-kit";
 import { ATTACHMENT_MAX_BASE64_LENGTH, ATTACHMENT_MAX_BYTES } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { OpenAIMediaGenerationProvider } from "./openai-media.js";
+import {
+  inputJpeg,
+  inputPng,
+  mediaFetch,
+  pngDataUrl,
+} from "../../../media/media-provider.test-support.js";
+import { OpenAIMediaGenerationProvider, openaiMedia } from "./openai-media.js";
 
 const context: AdapterContext = {
   spaceId: "space",
@@ -239,5 +245,116 @@ describe("images API media generation", () => {
     expect(
       () => new OpenAIMediaGenerationProvider({ apiKey: "fake-key", imageModel, baseUrl }),
     ).toThrow();
+  });
+});
+
+describe("OpenAI media definition", () => {
+  const key = { kind: "key", fields: { apiKey: "fake-key" } } as const;
+  const build = (...responses: Response[]) => {
+    const mocked = mediaFetch(...responses);
+    return { ...mocked, provider: openaiMedia.create(key, mocked.http) };
+  };
+
+  it("generates with the default model and maps size and quality", async () => {
+    const { provider, call } = build(json(image(PNG)));
+    await provider.generateImage(
+      { prompt: "draw", aspectRatio: "16:9", quality: "auto", size: undefined },
+      context,
+    );
+    expect(call(0).url).toBe("https://api.openai.com/v1/images/generations");
+    expect(call(0).json()).toEqual({
+      model: "gpt-image-2.6-sunburst",
+      prompt: "draw",
+      n: 1,
+      size: "1536x1024",
+    });
+  });
+
+  it("edits with a mask and references through the JSON edits endpoint", async () => {
+    const { provider, call } = build(json(image(PNG)));
+    await provider.editImage?.(
+      {
+        prompt: "add a hat",
+        model: "gpt-image-2.5-flare",
+        image: inputPng,
+        mask: inputPng,
+        referenceImages: [inputJpeg],
+        quality: "high",
+      },
+      context,
+    );
+    expect(call(0).url).toBe("https://api.openai.com/v1/images/edits");
+    expect(call(0).json()).toEqual({
+      model: "gpt-image-2.5-flare",
+      prompt: "add a hat",
+      images: [
+        { image_url: pngDataUrl },
+        { image_url: `data:image/jpeg;base64,${Buffer.from(JPEG).toString("base64")}` },
+      ],
+      mask: { image_url: pngDataUrl },
+      n: 1,
+      quality: "high",
+    });
+  });
+
+  it("steers a generation from references through an edit", async () => {
+    const { provider, call } = build(json(image(PNG)));
+    await provider.generateImage({ prompt: "draw", referenceImages: [inputPng] }, context);
+    expect(call(0).url).toBe("https://api.openai.com/v1/images/edits");
+  });
+
+  it("maps a moderation refusal without leaking the body", async () => {
+    const { provider } = build(
+      json(
+        {
+          error: {
+            type: "image_generation_user_error",
+            code: "moderation_blocked",
+            message: "private details",
+          },
+        },
+        { status: 400 },
+      ),
+    );
+    const error = await provider.generateImage({ prompt: "draw" }, context).catch((e) => e);
+    expect(error).toMatchObject({ code: "content_policy" });
+    expect(String(error.message)).not.toContain("private");
+  });
+
+  it("refuses unknown models, video and borrowed credentials it cannot use", async () => {
+    const { provider, fetch } = build();
+    await expect(
+      provider.generateImage({ prompt: "draw", model: "gpt-image-1" }, context),
+    ).rejects.toMatchObject({ code: "unsupported" });
+    expect(provider.capabilities).toEqual({
+      images: true,
+      imageEdit: true,
+      video: false,
+      offline: false,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(() =>
+      openaiMedia.create(
+        { kind: "model_connection", provider: "openai", auth: "oauth", token: "t" },
+        {},
+      ),
+    ).toThrow("authentication");
+  });
+
+  it("uses a borrowed connection's key and endpoint", async () => {
+    const mocked = mediaFetch(json(image(PNG)));
+    const provider = openaiMedia.create(
+      {
+        kind: "model_connection",
+        provider: "openai",
+        auth: "api_key",
+        token: "borrowed-key",
+        baseUrl: "https://proxy.example.test/v1",
+      },
+      mocked.http,
+    );
+    await provider.generateImage({ prompt: "draw" }, context);
+    expect(mocked.call(0).url).toBe("https://proxy.example.test/v1/images/generations");
+    expect(mocked.call(0).headers.get("authorization")).toBe("Bearer borrowed-key");
   });
 });

@@ -10,7 +10,6 @@
   "packages/adapters/src/computers/screens/host-screen.ts": 1,
   "packages/adapters/src/mcp/mcp-package-installer.ts": 1,
   "packages/adapters/src/mcp/remote-mcp.ts": 1,
-  "packages/adapters/src/media/media-generation-provider.ts": 1,
   "packages/adapters/src/messaging/messaging-delivery.ts": 1,
   "packages/adapters/src/notifications/expo-push.ts": 1,
   "packages/adapters/src/providers/billing/stripe/stripe-billing.ts": 1,
