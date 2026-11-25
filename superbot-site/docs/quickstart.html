@@ -65,7 +65,7 @@
         <li>A Superbot checkout.</li>
         <li>Node.js 24.15 or later in the 24.x line, or Node.js 26 or later.</li>
         <li>Docker with Linux containers and Compose 2.24.4 or later.</li>
-        <li>Rust with Cargo, to build <code>superbot</code> and <code>superbot-plugin</code>.</li>
+        <li>pnpm, to build <code>superbot</code> and <code>superbot-plugin</code>.</li>
         <li>For the bot step only: a model connection for your bot. Everything else works without one.</li>
       </ul>
 
@@ -92,12 +92,15 @@ node infra/superbot/host.mjs up</code></pre>
       <h2 id="tools">Step 2: Install the tools</h2>
       <figure class="code">
         <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
-<pre><code>cargo install --path native/cli --locked
-cargo install --path native/plugin-kit --locked
+<pre><code>pnpm install
+pnpm --filter superbot-cli build
+pnpm --filter superbot-plugin-kit build
+(cd apps/cli &amp;&amp; pnpm link --global)
+(cd apps/plugin-kit &amp;&amp; pnpm link --global)
 superbot server http://127.0.0.1:5173
 superbot login</code></pre>
       </figure>
-      <p>The desktop installers build and install both tools too: <code>scripts/install-native.ps1</code> on Windows, <code>bash scripts/install-native-macos.sh</code> on macOS, and <code>bash scripts/install-native-linux.sh</code> on Linux. On a Linux machine without a desktop, <code>bash scripts/install-native-linux.sh --cli-only</code> installs just the two commands in <code>~/.local/bin</code>; sign-in needs an unlocked Secret Service in your D-Bus session.</p>
+      <p>Rebuild after pulling changes. <code>pnpm link --global</code> needs pnpm's global bin folder, which <code>pnpm setup</code> creates once.</p>
       <p>Both programs share the server address and the saved session, which lives in your system credential store. If your account belongs to more than one Space, add <code>--space</code> with the Space's exact name or ID to each command.</p>
 
       <h2 id="scaffold">Step 3: Create the app</h2>
@@ -133,7 +136,7 @@ superbot-plugin init water-log --template kcal-diary --name "Water log"</code></
         <div class="code-head"><span>shell</span><button class="copy" type="button" data-copy>Copy</button></div>
 <pre><code>superbot-plugin validate</code></pre>
       </figure>
-      <p>Prefer a form? <b>Create plugin → Add app</b> in the store builds the same part. On desktop, <b>Open file…</b> loads this <code>plugin.json</code> into the form.</p>
+      <p>Prefer a form? <b>Create plugin → Add app</b> in the store builds the same part.</p>
 
       <h2 id="publish">Step 4: Publish and review</h2>
       <figure class="code">
@@ -157,7 +160,7 @@ superbot-plugin set-grants INSTALLATION_ID BOT_ID drinks</code></pre>
       <ol class="steps">
         <li><b>As a person.</b> Open <code>http://127.0.0.1:5173</code>, then choose <b>Store → Plugins → Installed → Water log</b>. You can open the same app from the desktop Store and add two entries for today. The total shows their sum.</li>
         <li><b>As a bot.</b> In a direct chat with the bot you granted, ask how much water you had today. It reads the entries without asking. Ask it to log a 250 ml glass, check the values on the approval card and choose <b>Allow once</b>.</li>
-        <li><b>With a local model.</b> If that bot answers through a model CLI on your computer, use <b>Apps</b> in the desktop composer or <code>/apps</code> in <code>superbot BOT_NAME</code>. See <a href="permissions.html#local">local models</a>.</li>
+        <li><b>With a local model.</b> If that bot answers through a model CLI on your computer, use <code>/apps</code> in <code>superbot BOT_NAME</code>. See <a href="permissions.html#local">local models</a>.</li>
       </ol>
       <p>Stop the server with <code>node infra/superbot/host.mjs down</code>. It keeps its data volumes for next time.</p>
 

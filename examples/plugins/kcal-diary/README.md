@@ -12,8 +12,6 @@ superbot-plugin init my-diary --template kcal-diary
 superbot-plugin validate
 ```
 
-The desktop's **Create plugin** page opens and saves the same `plugin.json`.
-
 Uninstalling the plugin deletes every record saved in it. Records belong to the
 version they were saved in, so switching to another version shows that
 version's records instead.

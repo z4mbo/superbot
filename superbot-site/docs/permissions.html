@@ -109,7 +109,6 @@
       <h2 id="local">Local models</h2>
       <p>When a bot answers through a model CLI installed on your computer, Superbot gives that CLI no tools. You decide what it sees instead:</p>
       <ul>
-        <li><b>Desktop:</b> in the bot's direct chat, choose <b>Apps</b> in the composer, pick the app and review the entries that will go to the model. <b>Ask</b> sends them; <b>Add</b> saves a proposed entry; <b>Skip</b> discards it.</li>
         <li><b>Terminal:</b> in <code>superbot BOT_NAME</code>, type <code>/apps</code>, then <code>/app 1 --date 2026-11-20 How many calories did I log?</code>. Review a proposed entry and type <code>save</code>, or press Enter to skip. <code>/app retry</code> repeats a save that wasn't confirmed.</li>
       </ul>
       <p>The model receives your request, the app's fields, the five most recent matching entries (at most 24 KB) and the total. The exchange stays out of the shared conversation. This works only with local models that support it; others get <i>App assistance requires a selected prompt-only local model.</i></p>

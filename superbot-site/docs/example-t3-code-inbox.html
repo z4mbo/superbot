@@ -62,7 +62,7 @@
 
       <div class="note" role="note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-        <div><p>This example uses the same parts as any plugin: two record apps and a skill. The connection to T3 Code is not part of the plugin. It runs on your computer, in the desktop app or a command-line companion, after you approve it.</p></div>
+        <div><p>This example uses the same parts as any plugin: two record apps and a skill. The connection to T3 Code is not part of the plugin. It runs on your computer, in a command-line companion, after you approve it.</p></div>
       </div>
 
       <h2 id="what">What you'll learn</h2>
@@ -76,7 +76,7 @@
       <ul>
         <li>A Superbot server where the <b>T3 Code inbox</b> is in <b>Discover</b>. A server publishes the bundled inbox, slug <code>t3-code-inbox</code>, unless another publisher already holds that slug.</li>
         <li>T3 Code on your computer or reachable over HTTPS, with its MCP address from <b>Use T3 Code in another app (MCP)</b>.</li>
-        <li>For the desktop path, the Superbot desktop app. For the terminal path, a Superbot checkout with Node.js and the workspace dependencies installed.</li>
+        <li>A Superbot checkout with Node.js and the workspace dependencies installed.</li>
       </ul>
 
       <h2 id="manifest">The manifest</h2>
@@ -99,18 +99,8 @@
         <li>Ask the bot to propose a coding request. Check the title and brief on the approval card and choose <b>Allow once</b>. You can also add a request yourself in the Requests app.</li>
       </ol>
 
-      <h2 id="desktop">Step 2: Start a request from the desktop app</h2>
-      <ol class="steps">
-        <li>Open <b>Store → Plugins → Installed → T3 Code inbox</b>.</li>
-        <li>Paste T3's MCP address and choose <b>Connect T3</b>. It must be an <code>https://</code> address ending in <code>/mcp</code>, or <code>http://127.0.0.1:PORT/mcp</code> on this computer. In the T3 page that opens, check that the client is <b>Superbot T3 Code inbox</b> and that the callback is on <code>127.0.0.1</code>, choose <b>Supervised</b> and approve.</li>
-        <li>Under <b>Start in</b>, choose the T3 project. Open a request to read its full brief, choose <b>Start in T3</b>, check the project and choose <b>Start</b>.</li>
-        <li>The request shows <b>Started</b>. Use <b>Open in T3</b> to follow the thread and answer its approvals in T3 Code.</li>
-      </ol>
-      <p>T3 Code runs the thread in Supervised mode with the project's default model and workspace settings. Only the request's title and brief are sent. The T3 token stays in your system credential store, and <b>Disconnect</b> removes it from this computer.</p>
-      <p>The special view opens only for the bundled inbox, version <code>superbot-t3-code-inbox-v1</code>. A plugin you publish with the same name or slug opens as an ordinary record app and can't reach T3 Code.</p>
-
-      <h2 id="terminal">Step 2, in a terminal instead</h2>
-      <p>The companion in <code>examples/plugins/t3-coding</code> does the same from a Superbot checkout. Sign in to T3 once, then list, add and dispatch requests. Use your real addresses; the ones below are placeholders.</p>
+      <h2 id="terminal">Step 2: Start a request</h2>
+      <p>The companion in <code>examples/plugins/t3-coding</code> starts approved requests from a Superbot checkout. Sign in to T3 once, then list, add and dispatch requests. Use your real addresses; the ones below are placeholders.</p>
       <figure class="code">
         <div class="code-head"><span>PowerShell</span><button class="copy" type="button" data-copy>Copy</button></div>
 <pre><code>$inbox = 'examples/plugins/t3-coding/companion.mjs'
@@ -132,22 +122,8 @@ node $inbox receipts @scope</code></pre>
       <ul>
         <li>Each start uses one T3 request ID, saved before T3 is called. If T3's reply is lost, start the same request again with the same connection and project. T3 returns the original thread instead of starting a second one.</li>
         <li>A retry with another project, a changed brief or a different T3 connection is refused. Check T3 Code before doing anything else.</li>
-        <li>If T3 started the thread but the receipt couldn't be saved, the desktop offers <b>Save receipt</b> and the companion keeps the receipt locally until it can write it. Neither calls T3 again.</li>
+        <li>If T3 started the thread but the receipt couldn't be saved, the companion keeps the receipt locally until it can write it. It doesn't call T3 again.</li>
       </ul>
-
-      <h2 id="errors">When something fails</h2>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th scope="col">Message</th><th scope="col">What it means</th><th scope="col">What to do</th></tr></thead>
-          <tbody>
-            <tr><td>Couldn't reach T3</td><td class="muted">T3 Code isn't running, or the address is wrong.</td><td class="muted">Start T3 Code and copy the MCP address again.</td></tr>
-            <tr><td>This address didn't ask for a T3 sign-in</td><td class="muted">The address isn't T3's MCP endpoint, or T3 Code needs an update.</td><td class="muted">Use the address from T3's MCP settings.</td></tr>
-            <tr><td>T3 no longer accepts this connection</td><td class="muted">The grant expired or was revoked.</td><td class="muted">Disconnect, then connect again.</td></tr>
-            <tr><td>T3 couldn't do t3_thread_launch</td><td class="muted">T3 rejected the start, for example because the project is gone.</td><td class="muted">Check the project in T3 Code.</td></tr>
-            <tr><td>T3 didn't answer</td><td class="muted">The reply was lost.</td><td class="muted">Start the request again. It reuses the same request ID.</td></tr>
-          </tbody>
-        </table>
-      </div>
 
       <h2 id="test">Test it locally</h2>
       <p>The companion's tests run Superbot and T3 fixtures on fresh loopback ports with synthetic data and tokens:</p>
@@ -175,10 +151,8 @@ node $inbox receipts @scope</code></pre>
       <a href="#requirements">Requirements</a>
       <a href="#manifest">The manifest</a>
       <a href="#install">Step 1: Install and grant</a>
-      <a href="#desktop">Step 2: Start a request from the desktop app</a>
-      <a href="#terminal">Step 2, in a terminal instead</a>
+      <a href="#terminal">Step 2: Start a request</a>
       <a href="#retries">Retries and receipts</a>
-      <a href="#errors">When something fails</a>
       <a href="#test">Test it locally</a>
       <a href="#next">Next steps</a>
     </aside>

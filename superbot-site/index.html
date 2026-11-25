@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Superbot</title>
-  <meta name="description" content="Superbot is an open-source home for AI teammates: a self-hosted server you reach from the web, a native desktop app or the terminal, with a reviewed store of skills, tools and record apps.">
+  <meta name="description" content="Superbot is an open-source home for AI teammates: a self-hosted server you reach from the web, a desktop app or the terminal, with a reviewed store of skills, tools and record apps.">
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/Geist-Variable.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="assets/base.css">
@@ -34,7 +34,7 @@
     <section class="hero wrap">
       <div class="eyebrow"><span class="chip"><span class="status live">Open source and self-hosted</span></span></div>
       <h1>Your bots, on your server, wherever you work.</h1>
-      <p class="lede">Superbot is an open-source home for AI teammates. Run the server yourself, talk to your bots from the web, a native desktop app or the terminal, and give them skills, tools and record apps from a reviewed store.</p>
+      <p class="lede">Superbot is an open-source home for AI teammates. Run the server yourself, talk to your bots from the web, a desktop app or the terminal, and give them skills, tools and record apps from a reviewed store.</p>
       <div class="actions">
         <a class="btn btn-primary" href="/sign-up">Create an account</a>
         <a class="btn btn-quiet" href="/app">Open Superbot</a>
@@ -92,29 +92,16 @@
           <a class="more" href="/app">Open Superbot</a>
         </article>
         <article class="platform">
-          <h3>Windows</h3>
+          <h3>Desktop</h3>
           <span class="status building">Development build</span>
-          <p>The native desktop app and both command-line tools, built from source and installed for your account with a Start menu shortcut.</p>
-          <code>powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-native.ps1 -StartMenuShortcut</code>
-        </article>
-        <article class="platform">
-          <h3>macOS</h3>
-          <span class="status building">Development build</span>
-          <p>The same native app and both tools as a local source build in your Applications folder. It isn't signed or notarized.</p>
-          <code>bash scripts/install-native-macos.sh</code>
-        </article>
-        <article class="platform">
-          <h3>Linux</h3>
-          <span class="status building">Development build</span>
-          <p>The same native app and both tools, built from source with an entry in your applications menu. Sign-in uses your desktop's Secret Service.</p>
-          <code>bash scripts/install-native-linux.sh</code>
-          <p>On a machine without a desktop, add <b>--cli-only</b> to install just the two commands.</p>
+          <p>The desktop app for Windows, macOS and Linux opens your server's web app in its own window. Build and run it from a checkout.</p>
+          <code>pnpm --filter @rakazo/desktop dev</code>
         </article>
         <article class="platform">
           <h3>Terminal</h3>
           <span class="status live">Works today</span>
           <p><b>superbot</b> to sign in and chat, <b>superbot-plugin</b> to write and publish plugins. Windows, macOS and Linux.</p>
-          <code>cargo install --path native/cli --locked</code>
+          <code>pnpm --filter superbot-cli build</code>
           <a class="more" href="docs/quickstart.html#tools">Install both tools</a>
         </article>
       </div>
@@ -264,8 +251,8 @@
             <tr><td>Plugin store</td><td><span class="status live">Works today</span></td><td class="muted">Create and review plugins, pin a version and grant parts to each agent from the desktop, web app, CLI or <a href="docs/api.html">registry API</a>.</td></tr>
             <tr><td>Bots using plugins</td><td><span class="status live">Works today</span></td><td class="muted">Granted skills reach the bot as instructions. Each remote tool call needs a person's approval; Spaces set to Never ask refuse them. Tool views show in web chat.</td></tr>
             <tr><td>Record apps</td><td><span class="status live">Works today</span></td><td class="muted">Install an app such as the <a href="docs/example-calorie-diary.html">Calorie diary</a> for your account in a Space, add and remove entries, and see totals by day or for all dates. In your direct chats, a granted bot reads the entries and adds one after you approve it. Local models get entries only when you share them.</td></tr>
-            <tr><td>Command-line tools</td><td><span class="status live">Works today</span></td><td class="muted"><code>superbot</code> to sign in and chat, <code>superbot-plugin</code> to write, publish, review and install plugins. Built from source with Cargo on Windows, macOS and Linux.</td></tr>
-            <tr><td>Desktop app</td><td><span class="status building">Development build</span></td><td class="muted">Open a shared Space, connect a model, chat with agents, use record apps and manage plugins in the native Rust GPUI client. Source builds for Windows, macOS and Linux.</td></tr>
+            <tr><td>Command-line tools</td><td><span class="status live">Works today</span></td><td class="muted"><code>superbot</code> to sign in and chat, <code>superbot-plugin</code> to write, publish, review and install plugins. Built from source with pnpm on Windows, macOS and Linux.</td></tr>
+            <tr><td>Desktop app</td><td><span class="status building">Development build</span></td><td class="muted">Open a shared Space, connect a model, chat with agents, use record apps and manage plugins in a desktop window on your server's web app. Source builds for Windows, macOS and Linux.</td></tr>
             <tr><td>Plugin creator in the app</td><td><span class="status live">Works today</span></td><td class="muted">Choose Create plugin, add record apps, skills or connectors and submit the version for review, on desktop or the web. Track its status under Yours.</td></tr>
             <tr><td>Presence and typing</td><td><span class="status planned">Planned</span></td><td class="muted">Seeing who else is in a conversation right now.</td></tr>
           </tbody>

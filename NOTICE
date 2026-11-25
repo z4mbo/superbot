@@ -33,11 +33,9 @@ interface, icon and appearance tokens from OpenMausBot, Copyright 2026 Milind So
 contributors, under the Apache License, Version 2.0. The Lucide icon notice
 and icon license texts are in superbot-site/NOTICE.txt and superbot-site/licenses/.
 
-Superbot Desktop and the hosted web theme (infra/superbot/theme) bundle
-unmodified Geist and Geist Mono variable font files from the Geist project,
-version 1.9.2.
+The hosted web theme (infra/superbot/theme) bundles the unmodified Geist Mono
+variable font file from the Geist project, version 1.9.2.
 Copyright 2026 The Geist Project Authors, https://github.com/vercel/geist-font.
-The fonts are distributed under the SIL Open Font License, Version 1.1.
-See native/desktop/assets/fonts/OFL.txt and infra/superbot/theme/fonts/OFL.txt
-for the license text.
+The font is distributed under the SIL Open Font License, Version 1.1.
+See infra/superbot/theme/fonts/GeistMono-OFL.txt for the license text.
 Source release: https://github.com/vercel/geist-font/releases/tag/v1.9.2

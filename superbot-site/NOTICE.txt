@@ -14,7 +14,7 @@ Third-party notices
 
    Changes: the Superbot app icon has a white circle filling the bottom of a black
    tile and two centred, forward-facing eyes. Tokens were transcribed into plain CSS custom properties
-   and a GPUI theme specification.
+   and a desktop theme specification.
 
 2. Icons drawn inline in the HTML pages
 
@@ -30,14 +30,3 @@ Third-party notices
    Authors (https://github.com/vercel/geist-font), licensed under the SIL Open
    Font License 1.1 (licenses/Geist-OFL.txt). The variable font files are
    redistributed unmodified.
-
-4. New bot names (native/desktop/src/app/new_agent.rs)
-
-   The list of names a new bot is given is adapted from OpenMausBot
-   server/names.ts. Source: OpenMausBot fork z4mbo/bot, branch simple-only.
-
-   OpenMausBot
-   Copyright 2026 Milind Soni and OpenMausBot contributors
-   Licensed under the Apache License, Version 2.0 (licenses/Apache-2.0.txt).
-
-   Changes: transcribed to Rust; numbered names skip ones already in use.

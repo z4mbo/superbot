@@ -4,7 +4,7 @@ Owned by design. Static files, no build step.
 
 | File                      | What it is                                                                                                                                         |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DESKTOP-DESIGN.md`       | The GPUI desktop app spec: tokens, shell, chat, store, tool approvals, creator, review queue, multiplayer. GPUI work follows it.                   |
+| `DESKTOP-DESIGN.md`       | The desktop app design: tokens, shell, chat, store, tool approvals, creator, review queue, multiplayer. Desktop UI work follows it.                   |
 | `index.html`              | Landing page. Its product mock is HTML with invented data, never a screenshot.                                                                     |
 | `docs/`                   | Plugin developer docs: overview, quickstart, local development, build guides, examples, reference and errors.                                      |
 | `connect/`                | Hosted copy only: sends the browser to a server the visitor runs (`assets/connect.js`). A server does not serve it.                                |
