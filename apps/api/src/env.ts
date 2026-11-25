@@ -45,6 +45,8 @@ import {
   resolveSupervisorToken,
 } from "@rakazo/core/node/secrets-guard";
 import { getLogger, monitoringPseudonymSecret } from "@rakazo/logging";
+import type { CloudWebSettings } from "./cloud/cloud-settings.js";
+import { cloudWebFromEnv } from "./cloud/cloud-settings.js";
 import type { DeploymentVoice } from "./voice/deployment-config.js";
 import { deploymentVoiceFromEnv } from "./voice/deployment-config.js";
 
@@ -186,6 +188,8 @@ export interface AppEnv extends MessagingEnvironmentValues {
   crispWebsiteId?: string | null;
   /** DEMO_ACCOUNT_EMAIL and DEMO_ACCOUNT_PASSWORD, published to sign-in; only for throwaway demo servers. */
   demoAccount?: { email: string; password: string } | null;
+  /** The hosted web app this server lets its listed accounts sign in from; absent when off. */
+  cloudWeb?: CloudWebSettings;
 }
 
 /** Overrides win key by key inside `sandboxOptions`, so a partial one keeps the rest of the environment's. */
@@ -386,6 +390,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     browserMonitoring: browserMonitoringFromEnv(source),
     crispWebsiteId: parseCrispWebsiteId(source.CRISP_WEBSITE_ID),
     demoAccount: demoAccountFromEnv(source),
+    cloudWeb: cloudWebFromEnv(source),
   };
 }
 

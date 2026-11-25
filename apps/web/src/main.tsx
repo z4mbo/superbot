@@ -3,10 +3,12 @@ import "./monitoring-bootstrap";
 import { rememberSignupAttribution } from "@rakazo/core/signup-attribution";
 import { BotAvatarActivityProvider, Toaster, TooltipProvider } from "@rakazo/ui-web";
 import { QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { StrictMode, useEffect, useLayoutEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router-dom";
 import { App } from "./App";
+import { CLOUD_WEB } from "./cloud/cloud-mode";
 import { DesktopUpdatesProvider } from "./components/DesktopUpdates";
 import { I18nBootstrap } from "./components/I18nBootstrap";
 import { captureReferral } from "./lib/billing/referral";
@@ -26,11 +28,12 @@ import "./styles.css";
 markOnce("rk:renderer:module-evaluated");
 installPreloadRecovery();
 clientUpdates().install();
-registerServiceWorker();
+// The hosted page reaches every server across origins; an offline shell would only show it failing.
+if (!CLOUD_WEB) registerServiceWorker();
 lockStandaloneZoom();
 applyUiDirection(resolveUiLocale());
 applyUiAppearance();
-captureReferral(window.location.search);
+if (!CLOUD_WEB) captureReferral(window.location.search);
 
 function PerformanceProbe() {
   useLayoutEffect(() => {
@@ -65,31 +68,52 @@ function AppearanceSync() {
   return null;
 }
 
-createRoot(document.getElementById("root")!, { onCaughtError: reportCaughtReactError }).render(
-  <StrictMode>
-    <PerformanceProbe />
-    <AppearanceSync />
-    <I18nBootstrap>
-      {/* Router state updates must not be transitions: under sustained urgent
-          updates (SSE churn while a run streams) a pending navigation is
-          preempted indefinitely — useSearchParams/useParams then keep serving
-          the stale location, so deep links (?m=) and thread switches never
-          land while the URL already moved. */}
-      <BrowserRouter useTransitions={false}>
-        <SignupAttributionOnNavigate />
-        <ClientUpdateOnNavigate />
-        <QueryClientProvider client={queryClient}>
-          <DesktopUpdatesProvider>
-            {/* Wait for a pause, so passing over icons does not flash their labels. */}
-            <TooltipProvider delay={500}>
-              <BotAvatarActivityProvider source={webLogoAvatarActivity}>
-                <App />
-              </BotAvatarActivityProvider>
-            </TooltipProvider>
-            <Toaster />
-          </DesktopUpdatesProvider>
-        </QueryClientProvider>
-      </BrowserRouter>
-    </I18nBootstrap>
-  </StrictMode>,
-);
+/** The providers the app renders inside, in both builds. */
+function Root({ children }: { children: ReactNode }) {
+  return (
+    <StrictMode>
+      <PerformanceProbe />
+      <AppearanceSync />
+      <I18nBootstrap>
+        {/* Router state updates must not be transitions: under sustained urgent
+            updates (SSE churn while a run streams) a pending navigation is
+            preempted indefinitely — useSearchParams/useParams then keep serving
+            the stale location, so deep links (?m=) and thread switches never
+            land while the URL already moved. */}
+        <BrowserRouter useTransitions={false}>
+          <SignupAttributionOnNavigate />
+          <ClientUpdateOnNavigate />
+          <QueryClientProvider client={queryClient}>
+            <DesktopUpdatesProvider>
+              {/* Wait for a pause, so passing over icons does not flash their labels. */}
+              <TooltipProvider delay={500}>
+                <BotAvatarActivityProvider source={webLogoAvatarActivity}>
+                  {children}
+                </BotAvatarActivityProvider>
+              </TooltipProvider>
+              <Toaster />
+            </DesktopUpdatesProvider>
+          </QueryClientProvider>
+        </BrowserRouter>
+      </I18nBootstrap>
+    </StrictMode>
+  );
+}
+
+const root = createRoot(document.getElementById("root")!, {
+  onCaughtError: reportCaughtReactError,
+});
+
+// The same flag as `CLOUD_WEB`, read here because the bundler drops a branch only on a condition it
+// can see is constant in this module. The hosted entry is a dynamic import, so the self-hosted build
+// neither loads nor preloads the account service, the gate or the workspace screens.
+if (import.meta.env.VITE_SUPERBOT_CLOUD === "1")
+  void import("./cloud/cloud-entry").then(({ renderCloud }) =>
+    renderCloud(root, (children) => <Root>{children}</Root>, <App />),
+  );
+else
+  root.render(
+    <Root>
+      <App />
+    </Root>,
+  );

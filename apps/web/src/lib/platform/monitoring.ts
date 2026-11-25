@@ -12,6 +12,7 @@ import {
 } from "@rakazo/logging/monitoring";
 import type * as SentryReact from "@sentry/react";
 import type { ErrorInfo } from "react";
+import { apiFetch } from "../api/api-origin";
 import { desktopBridge } from "./desktop";
 import { importChunk, recoveringByReload } from "./preload-recovery";
 
@@ -59,7 +60,7 @@ export function installEarlyErrorReporting(target: Window = window): void {
   });
 }
 
-export async function startMonitoring(fetchImpl: typeof fetch = fetch): Promise<boolean> {
+export async function startMonitoring(fetchImpl: typeof fetch = apiFetch): Promise<boolean> {
   if (starting) return starting;
   starting = (async () => {
     sentry = await loadSentry(fetchImpl);
@@ -94,7 +95,7 @@ export async function startMonitoring(fetchImpl: typeof fetch = fetch): Promise<
 /** Follow sign-in and sign-out so reports count affected users without naming them. */
 export async function identifyMonitoringUser(
   signedIn: boolean,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = apiFetch,
 ): Promise<void> {
   const current = ++identifications;
   signedInState = signedIn;

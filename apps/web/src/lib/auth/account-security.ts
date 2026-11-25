@@ -1,10 +1,11 @@
 import { t } from "@lingui/core/macro";
 import { accountSecuritySchema, legacyAccountSecurity } from "@rakazo/contracts";
 import { readBoundedJsonResponse } from "@rakazo/core";
+import { apiFetch } from "../api/api-origin";
 import { authErrorText } from "../query/user-error";
 
 export async function fetchAccountSecurity() {
-  const response = await fetch("/api/auth/account-security", {
+  const response = await apiFetch("/api/auth/account-security", {
     signal: AbortSignal.timeout(8_000),
   });
   // Electron ships this client independently of the connected API version.
@@ -18,7 +19,7 @@ export async function fetchAccountSecurity() {
 }
 
 async function postAuth(path: string, body?: Record<string, string>) {
-  const response = await fetch(`/api/auth${path}`, {
+  const response = await apiFetch(`/api/auth${path}`, {
     method: "POST",
     signal: AbortSignal.timeout(8_000),
     ...(body

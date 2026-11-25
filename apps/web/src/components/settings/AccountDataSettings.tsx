@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { isIdentityConfirmationRequired } from "@rakazo/contracts";
 import { Button, Spinner } from "@rakazo/ui-web";
 import { useRef, useState } from "react";
+import { apiFetch, apiUrl } from "../../lib/api/api-origin";
 import { reportClientError } from "../../lib/platform/monitoring";
 import { useSave } from "../../lib/query/query";
 import { recheckSessionOnUnauthorized } from "../../lib/query/rpc";
@@ -27,14 +28,14 @@ export function AccountDataSettings({
         const { token } = await withIdentityConfirmation(() => rpc.export.accountToken());
         // A download link, not a fetch, so the browser or Electron saves the stream natively.
         const link = document.createElement("a");
-        link.href = `/api/account/export?token=${encodeURIComponent(token)}`;
+        link.href = apiUrl(`/api/account/export?token=${encodeURIComponent(token)}`);
         link.download = "";
         link.click();
         return false;
       }
       let response: Response;
       try {
-        response = await fetch("/api/account/import", {
+        response = await apiFetch("/api/account/import", {
           method: "POST",
           headers: { "content-type": "application/zip" },
           credentials: "include",

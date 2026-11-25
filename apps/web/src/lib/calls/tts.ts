@@ -9,9 +9,9 @@ import {
   VOICE_RESPONSE_TIMEOUT_MS,
   withAbort,
 } from "@rakazo/core";
+import { apiFetch } from "../api/api-origin";
 import { rpc, selectedSpaceId, withSpaceHeaders } from "../query/rpc.js";
 import { errorText, voiceAccountErrorText } from "../query/user-error.js";
-
 import { ensureVoiceConsent, invalidateVoiceConsent } from "./voice-consent.js";
 
 export type SpeechStatus = "idle" | "preparing" | "speaking";
@@ -219,7 +219,7 @@ export class Speaker {
     );
     try {
       const res = await withAbort(
-        fetch("/api/voice/speak", {
+        apiFetch("/api/voice/speak", {
           method: "POST",
           headers: withSpaceHeaders({ "content-type": "application/json" }, spaceId),
           credentials: "include",

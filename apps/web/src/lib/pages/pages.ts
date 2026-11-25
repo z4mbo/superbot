@@ -11,6 +11,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useSearchParams } from "react-router-dom";
+import { apiFetch } from "../api/api-origin";
 import { useSpaceQueries } from "../query/query";
 import { errorCode } from "../query/user-error";
 
@@ -53,7 +54,7 @@ export function useAppTheme(): "light" | "dark" {
 }
 
 async function fetchPageRuntime(): Promise<string> {
-  const response = await fetch(PAGE_RUNTIME_PATH);
+  const response = await apiFetch(PAGE_RUNTIME_PATH);
   if (!response.ok) throw new Error(`Page runtime returned ${response.status}`);
   return response.text();
 }
