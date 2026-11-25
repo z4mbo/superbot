@@ -15,6 +15,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "../router.js";
 import { createRouter } from "../router.js";
+import type { ChiefBotDeps } from "./chief-bot.js";
 import { ensureChiefBot } from "./chief-bot.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -84,7 +85,10 @@ describePostgres("the main bot of every Space (PostgreSQL)", () => {
     return runAsTenant(actor, () => repos.createBot(actor, { ...input, name, ...extra }));
   }
 
-  function ensure(actor: Actor, publishRosterChange = vi.fn(async () => undefined)) {
+  function ensure(
+    actor: Actor,
+    publishRosterChange: ChiefBotDeps["publishRosterChange"] = vi.fn(async () => undefined),
+  ) {
     return runAsTenant(actor, () =>
       ensureChiefBot({ prisma, createBot: repos.createBot, publishRosterChange }, actor),
     );

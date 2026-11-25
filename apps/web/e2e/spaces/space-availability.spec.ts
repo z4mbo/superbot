@@ -46,12 +46,12 @@ test("a new space chooses what it can use, and a skill can be limited to some sp
   const chiefs = page
     .locator("aside")
     .first()
-    .getByRole("button", { name: /^Chief/ });
+    .getByRole("button", { name: /^Superbot/ });
   await expect(chiefs).toHaveCount(1);
   const personalChief = chiefs.first();
   await personalChief.click();
   await expect(personalChief).toHaveAttribute("aria-current", "page");
-  await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
+  await expect(page.getByPlaceholder("Message Superbot")).toBeVisible();
   await page.getByTestId("user-menu-trigger").click();
   await page.getByRole("button", { name: "Skills", exact: true }).click();
   const skills = page.getByRole("dialog", { name: "Store", exact: true });

@@ -18,7 +18,7 @@ test("sidebar search opens from its icon and closes without moving chats mid-cli
   await captureScreenshot(page, testInfo, "sidebar-search-open");
 
   // Leaving an empty field keeps the roster still, so a chat click lands.
-  const chief = sidebar.getByRole("button", { name: /^Chief/ }).first();
+  const chief = sidebar.getByRole("button", { name: /^Superbot/ }).first();
   const before = await chief.boundingBox();
   await chief.click();
   await expect(search).toBeVisible();
@@ -96,9 +96,9 @@ test("a bot found by search can be pinned from its result", async ({ page }, tes
   const sidebar = page.locator("aside").first();
   await sidebar.getByTestId("sidebar-search-trigger").click();
   const search = sidebar.getByRole("textbox", { name: "Search", exact: true });
-  await search.fill("Chief");
+  await search.fill("Superbot");
 
-  const result = sidebar.getByRole("button", { name: /^Chief.*Bot/ }).first();
+  const result = sidebar.getByRole("button", { name: /^Superbot.*Bot/ }).first();
   await result.click({ button: "right" });
   const pin = page.getByRole("menuitem", { name: "Pin", exact: true });
   await expect(pin).toBeVisible();
@@ -106,5 +106,5 @@ test("a bot found by search can be pinned from its result", async ({ page }, tes
   await pin.click();
 
   await search.press("Escape");
-  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).toContainText("Chief");
+  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).toContainText("Superbot");
 });

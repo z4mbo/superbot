@@ -36,7 +36,7 @@ test("command palette switches bots and runs actions", async ({ page }, testInfo
   const dialog = page.getByRole("dialog", { name: "Command menu" });
   await expect(dialog).toBeVisible();
   await expect(palette).toBeVisible();
-  await expect(page.getByRole("option", { name: /Chief/ })).toBeVisible();
+  await expect(page.getByRole("option", { name: /Superbot/ })).toBeVisible();
   await expect(page.getByRole("option", { name: /Researcher/ })).toBeVisible();
   await captureScreenshot(page, testInfo, "command-palette-bots");
 
@@ -48,7 +48,7 @@ test("command palette switches bots and runs actions", async ({ page }, testInfo
   await expect(search).toHaveValue("Research");
   await captureScreenshot(page, testInfo, "command-palette-icon-focus");
   await expect(page.getByRole("option", { name: /Researcher/ })).toBeVisible();
-  await expect(page.getByRole("option", { name: /Chief/ })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: /Superbot/ })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "command-palette-filtered");
 
   await page.getByRole("option", { name: /Researcher/ }).click();
@@ -75,7 +75,7 @@ test("command palette switches bots and runs actions", async ({ page }, testInfo
   await page.keyboard.press("ControlOrMeta+K");
   await search.fill("models");
   await expect(page.getByRole("option", { name: "Settings: Models" })).toBeVisible();
-  await expect(page.getByRole("option", { name: /Chief/ })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: /Superbot/ })).toHaveCount(0);
   await page.getByRole("option", { name: "Settings: Models" }).click();
   await page.waitForURL(/[?&]settings=models/);
 });

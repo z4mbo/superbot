@@ -39,7 +39,7 @@ test("a new space starts empty, is renamed in its settings, and is deleted with 
   await expect(
     page.locator("main").getByRole("button", { name: "New bot", exact: true }),
   ).toBeVisible();
-  await expect(sidebar.getByRole("button", { name: /^Chief/ })).toHaveCount(1);
+  await expect(sidebar.getByRole("button", { name: /^Superbot/ })).toHaveCount(1);
   await captureScreenshot(page, testInfo, "new-space-empty");
   // One bot of its own, so deleting the space names what goes with it.
   const { spaces } = await rpc<{ spaces: Array<{ id: string; name: string }> }>(
@@ -84,7 +84,7 @@ test("a new space starts empty, is renamed in its settings, and is deleted with 
   await deleteSpaceDialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(sidebar.getByText("Temporary", { exact: true })).toHaveCount(0);
   await expect(page).not.toHaveURL(/\/onboarding/);
-  await expect(sidebar.getByRole("button", { name: /^Chief/ })).toHaveCount(1);
+  await expect(sidebar.getByRole("button", { name: /^Superbot/ })).toHaveCount(1);
   await page.reload();
   await expect(sidebar.getByText("Temporary", { exact: true })).toHaveCount(0);
 
@@ -92,7 +92,7 @@ test("a new space starts empty, is renamed in its settings, and is deleted with 
   await page.goto("/onboarding");
   await page.waitForURL(/\/app/);
   await expect(page).not.toHaveURL(/\/onboarding/);
-  await expect(sidebar.getByRole("button", { name: /^Chief/ })).toHaveCount(1);
+  await expect(sidebar.getByRole("button", { name: /^Superbot/ })).toHaveCount(1);
 });
 
 test("deleting the last bot in a space stays in the app after first use", {
@@ -155,7 +155,7 @@ test("deleting the last bot in a space stays in the app after first use", {
     .click();
   await expect(sidebar.getByText("Side", { exact: true })).toHaveCount(0);
   await sidebar.getByRole("button", { name: /^Archived/ }).click();
-  await expect(sidebar.getByText("Chief", { exact: true })).toBeVisible();
+  await expect(sidebar.getByText("Superbot", { exact: true })).toBeVisible();
 });
 
 test("deleting every bot leaves an empty space instead of a new Chief", async ({ page }) => {

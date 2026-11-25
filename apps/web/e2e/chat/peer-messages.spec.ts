@@ -23,9 +23,9 @@ test("shows peer lines in transcript and opens view-only peer chat", async ({ pa
     notifyOnFinish: true,
   });
   await page.reload();
-  await expect(page.getByRole("combobox", { name: "Message Chief" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Message Superbot" })).toBeVisible();
 
-  const composer = page.getByRole("combobox", { name: "Message Chief" });
+  const composer = page.getByRole("combobox", { name: "Message Superbot" });
   await composer.fill("message the bot named Researcher saying peer-exchange-alpha");
   await composer.press("Enter");
 
@@ -99,7 +99,7 @@ test("shows peer lines in transcript and opens view-only peer chat", async ({ pa
   await chip.press("Enter");
   const view = page.getByTestId("peer-conversation-view");
   await expect(view).toBeVisible();
-  await expect(view.getByRole("heading", { name: /Chief\s*Researcher/ })).toBeVisible();
+  await expect(view.getByRole("heading", { name: /Superbot\s*Researcher/ })).toBeVisible();
   await expect(transcript.getByTestId("peer-replies-toggle")).toHaveCount(0);
   const close = view.getByRole("button", { name: "Close", exact: true });
   await expect(close).toHaveCount(1);
@@ -240,7 +240,7 @@ async function openFoldedPeerReply(page: Page, name: string, testInfo: TestInfo)
     notifyOnFinish: true,
   });
   await page.reload();
-  const chiefComposer = page.getByRole("combobox", { name: "Message Chief" });
+  const chiefComposer = page.getByRole("combobox", { name: "Message Superbot" });
   await chiefComposer.fill("message the bot named Researcher saying peer-fold-alpha");
   await chiefComposer.press("Enter");
 
@@ -265,7 +265,7 @@ async function openFoldedPeerReply(page: Page, name: string, testInfo: TestInfo)
   await expect(
     transcript
       .getByTestId("peer-receipt-chip")
-      .filter({ hasText: /Message from Chief|messages with Chief/ }),
+      .filter({ hasText: /Message from Superbot|messages with Superbot/ }),
   ).toBeVisible({ timeout: 60_000 });
   const reply = transcript.getByText(foldedReplyText);
   await expect(reply).toHaveCount(0);
@@ -282,7 +282,7 @@ test(
       testInfo,
     );
 
-    const line = transcript.getByTestId("peer-receipt-chip").filter({ hasText: "Chief" }).first();
+    const line = transcript.getByTestId("peer-receipt-chip").filter({ hasText: "Superbot" }).first();
     await expect(transcript.getByTestId("peer-replies-toggle")).toHaveCount(0);
     await captureScreenshot(page, testInfo, "peer-line-folded");
     await line.click();
@@ -329,7 +329,7 @@ test(
     await expect(
       researcherTranscript
         .getByTestId("peer-receipt-chip")
-        .filter({ hasText: /Message from Chief|messages with Chief/ }),
+        .filter({ hasText: /Message from Superbot|messages with Superbot/ }),
     ).toHaveCount(2);
     await expect(
       researcherTranscript.getByText("i need a decision before i continue."),
@@ -360,7 +360,7 @@ test("answers a message sent while the bot works on another bot's request", asyn
     notifyOnFinish: true,
   });
   await page.reload();
-  const chief = page.getByRole("combobox", { name: "Message Chief" });
+  const chief = page.getByRole("combobox", { name: "Message Superbot" });
   await chief.fill("message the bot named Researcher saying work for 8 seconds");
   await chief.press("Enter");
 

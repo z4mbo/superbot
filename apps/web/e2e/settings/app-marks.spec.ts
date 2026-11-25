@@ -82,7 +82,7 @@ for (const theme of ["light", "dark"]) {
     }
 
     await dialog.getByRole("button", { name: "Close store", exact: true }).click();
-    const composer = page.getByRole("combobox", { name: "Message Chief" });
+    const composer = page.getByRole("combobox", { name: "Message Superbot" });
     await composer.fill("@gmail");
     await page.getByRole("option", { name: "@gmail", exact: true }).click();
     await expect(page.getByTestId("mention-chip").filter({ hasText: "@gmail" })).toBeVisible();
