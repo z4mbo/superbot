@@ -11,7 +11,8 @@ import {
 } from "@rakazo/ui-web";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, XIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { CLOUD_WEB } from "../../cloud/cloud-mode";
 import { PlanUsage } from "../../components/billing/PlanUsage";
 import {
   CloudComputerSizes,
@@ -55,6 +56,13 @@ import { SpaceSettingsPanel } from "./SpaceSettingsPanel";
 import { useSettingsNavItems } from "./settings-nav";
 import { UsageSettingsPanel } from "./UsageSettingsPanel";
 import { VoiceSettingsOverlay } from "./VoiceSettingsOverlay";
+
+// Only the hosted build renders it, so a self-hosted build drops it with the constant.
+const CloudWorkspacesSettings = /* @__PURE__ */ lazy(() =>
+  import("../../cloud/ui/CloudWorkspacesSettings").then((module) => ({
+    default: module.CloudWorkspacesSettings,
+  })),
+);
 
 export function SettingsOverlay({
   space,
@@ -172,7 +180,8 @@ export function SettingsOverlay({
     (requestedSection === "messaging" && !messagingEnabled) ||
     (requestedSection === "wallet" && !paymentWalletProvider) ||
     (requestedSection === "updates" && !showUpdates) ||
-    (requestedSection === "labs" && labsAvailable.length === 0)
+    (requestedSection === "labs" && labsAvailable.length === 0) ||
+    (requestedSection === "workspaces" && !CLOUD_WEB)
       ? "general"
       : requestedSection;
   const panelBusy = memoryBusy || voiceBusy;
@@ -520,6 +529,11 @@ export function SettingsOverlay({
                     <BillingSettingsPanel client={shellRpc} />
                   ) : null}
                   {section === "updates" && showUpdates ? <UpdatesSettingsPanel /> : null}
+                  {CLOUD_WEB && section === "workspaces" ? (
+                    <Suspense fallback={null}>
+                      <CloudWorkspacesSettings />
+                    </Suspense>
+                  ) : null}
                   {section === "models" ? (
                     <ModelSettingsOverlay embedded scope="account" onClose={requestClose} />
                   ) : null}

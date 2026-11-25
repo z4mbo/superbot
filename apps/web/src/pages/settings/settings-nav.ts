@@ -10,12 +10,14 @@ import {
   KeyRound,
   MessageCircle,
   Monitor,
+  Server,
   Settings,
   ShieldCheck,
   Volume2,
   Wallet,
 } from "lucide-react";
 import type { ComponentType } from "react";
+import { CLOUD_WEB } from "../../cloud/cloud-mode";
 import type { SettingsSection } from "../shell/shell-overlay-url";
 
 export type SettingsNavItem = {
@@ -40,6 +42,17 @@ export function useSettingsNavItems(available: {
     // Ordered by how many people need each page: the essentials, then optional features, then
     // the account's usage and admin pages.
     { id: "general", label: t`General`, icon: Settings },
+    // Only the hosted build connects to a person's servers; a server's own build is one.
+    ...(CLOUD_WEB
+      ? [
+          {
+            id: "workspaces" as const,
+            label: t`Workspaces`,
+            icon: Server,
+            description: t`Your Superbot servers.`,
+          },
+        ]
+      : []),
     { id: "models", label: t`Models`, icon: Cpu, description: t`Which LLMs your bots use.` },
     {
       id: "confirmations",
