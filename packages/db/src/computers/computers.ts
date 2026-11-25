@@ -147,6 +147,13 @@ export function resolveMaxComputersPerUser(
   return limit;
 }
 
+/** The kind of computer a bot gets now: the configured provider, or this Mac when chosen. */
+export async function newComputerKind(prisma: Pick<PrismaClient, "deploymentSettings">) {
+  const settings = await prisma.deploymentSettings.findUnique({ where: { id: "default" } });
+  const envKind = process.env.SANDBOX_PROVIDER ?? "docker";
+  return envKind === "docker" && settings?.computerHost === "this-mac" ? "desktop" : envKind;
+}
+
 /** The computer a new bot gets when its request names none: COMPUTER_DEFAULT_MODE, else Team. */
 export function resolveDefaultComputerMode(
   value = process.env.COMPUTER_DEFAULT_MODE,

@@ -130,6 +130,8 @@ export function createJobReconciler(
     reconcileNativeCalendarRetention?: () => Promise<void>;
     reconcileHomeStorage?: () => Promise<void>;
     reconcileIdleComputers?: () => Promise<void>;
+    /** Gives bots made on older versions what creation gives a bot today. */
+    reconcileBotCapabilities?: () => Promise<void>;
     reconcileDeadJobs?: () => Promise<void>;
     /** Gives chat messages whose backup job was lost a new one. */
     reconcileChatDelivery?: () => Promise<void>;
@@ -178,6 +180,7 @@ export function createJobReconciler(
     deps.reconcileNativeCalendarRetention,
     deps.reconcileHomeStorage,
     deps.reconcileIdleComputers,
+    deps.reconcileBotCapabilities,
     deps.reconcileDeadJobs,
     deps.reconcileChatDelivery,
   ].filter((reconcile) => reconcile !== undefined);

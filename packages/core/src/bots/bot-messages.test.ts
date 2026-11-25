@@ -191,6 +191,15 @@ describe("directory", () => {
     expect(directory).toContain("Later updates only if they add something new");
   });
 
+  it("tells only the main bot to route work to its teammates", () => {
+    const routing = "You are the user's main bot.";
+    expect(renderBotDirectory(bots, { primary: true })).toContain(routing);
+    expect(renderBotDirectory(bots)).not.toContain(routing);
+    expect(renderBotDirectory(bots, { primary: false })).not.toContain(routing);
+    // Alone in its Space there is nobody to route to.
+    expect(renderBotDirectory([], { primary: true })).toBeUndefined();
+  });
+
   it("treats directory fields as untrusted prompt data", () => {
     const directory =
       renderBotDirectory([
