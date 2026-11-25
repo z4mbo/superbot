@@ -1,35 +1,21 @@
 # Install Superbot on Windows
 
-From the checkout root, run the installer with Rust and the Windows build
-tools available. It builds the native app and both command-line tools from
-the repository's lockfile.
+Install the desktop app from the installer on the repository's GitHub releases page. To build it
+from a checkout instead, install Node.js 24.15 or newer and pnpm, then run from the checkout root:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-native.ps1 -StartMenuShortcut
+pnpm install
+pnpm --filter @rakazo/desktop pack:dir
 ```
 
-Open **Superbot** from Start, or double-click
-`%LOCALAPPDATA%\Superbot\app\Superbot.exe`. The optional Start shortcut uses
-the Superbot icon, rasterized from the project's licensed logo. The installer
-adds the `bin` subdirectory to your user PATH. Open a new terminal and run
-`superbot --help` or `superbot-plugin --help`.
+The unpacked app is written to `apps/desktop/out`. `pnpm --filter @rakazo/desktop dev` builds and
+opens the development app instead. [Desktop guide](desktop.md)
 
-Close the installed app and command sessions before running the installer
-again to refresh the build. The install directory also contains the licenses
-and notices for the app, fonts, and icons. Account sessions remain in Windows
-Credential Manager. Start your [local Superbot server](windows-local.md)
-before connecting, or sign in to a [hosted server](hosting.md).
+The `superbot` and `superbot-plugin` commands are Node.js commands built from the same checkout.
+Follow [Install `superbot`](../../apps/cli/README.md#install-from-the-monorepo) and [Install
+`superbot-plugin`](../../apps/plugin-kit/README.md#install-from-the-monorepo), then open a new
+terminal and run `superbot --help` or `superbot-plugin --help`. Account sessions are kept in
+Windows Credential Manager.
 
-To install previously built executables, supply `-BuildDir` with the directory
-containing `superbot-desktop.exe`, `superbot.exe`, and `superbot-plugin.exe`.
-Use `-InstallDir` and `-SkipPath` to test a copy in a separate directory.
-
-## Preview native UI changes while editing
-
-From the checkout root, run this in a PowerShell terminal and leave it open.
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/dev-desktop.ps1
-```
-
-The script watches `native/` and the root Cargo manifests. After a successful build it reopens the development window with the updated code. A failed build leaves the last working window open and prints the compiler error in the terminal. Pass `-Server URL` to select a different host for that session, or use your saved server address. Press Ctrl+C to stop the watcher and its window.
+Start your [local Superbot server](windows-local.md) before connecting, or sign in to a [hosted
+server](hosting.md).
