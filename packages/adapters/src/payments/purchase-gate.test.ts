@@ -441,6 +441,8 @@ describe("purchase detection for the page tools", () => {
     // A purchase is approved one click at a time: the card never offers Always allow.
     expect(purchaseCardSummary(approval)).toEqual({
       onceOnly: true,
+      // The order card names the site as the page reports it, not escaped for the title.
+      payment: { merchant: "a_b*.test" },
       title: "Pay on a\\_b\\*.test?",
       receipt: { items: [], amountSource: "page" },
       lines: [CHECKED],
