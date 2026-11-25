@@ -236,9 +236,13 @@ test("chat composer controls are vertically centered", async ({ page }, testInfo
   const stamp = Date.now();
   await signup(page, `composer-layout-${stamp}@rakazo.test`, "password12", "Composer Layout");
   await completeOnboarding(page);
+  // The mic and the voice chat button show only once voice is connected.
+  await rpc(page, "voice/connect", { provider: "scripted", apiKey: "fake-composer-voice-key" });
+  await page.reload();
 
   const bar = page.getByTestId("composer-bar");
   const composer = page.getByRole("combobox", { name: "Message Superbot" });
+  await expect(bar.getByRole("button", { name: "Start voice chat", exact: true })).toBeVisible();
   const centers = await bar.evaluate((composerBar) =>
     ["Attach file", "Message Superbot", "Hold to talk", "Start voice chat"].map((label) => {
       const element = composerBar.querySelector<HTMLElement>(`[aria-label="${label}"]`);
