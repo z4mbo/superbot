@@ -16,7 +16,11 @@ const bots = vi.hoisted(() => ({
   list: vi.fn(),
 }));
 vi.mock("../../lib/query/rpc", () => {
-  const rpc = { bots, connections: { catalog: vi.fn(async () => []) } };
+  const rpc = {
+    bots,
+    connections: { catalog: vi.fn(async () => []) },
+    communityTemplates: { list: vi.fn(async () => []), mine: vi.fn(async () => []) },
+  };
   return { rpc, rpcForSpace: () => rpc, createSpaceRpc: () => rpc, selectedSpaceId: () => null };
 });
 vi.mock("@lingui/react/macro", () => ({
@@ -55,6 +59,14 @@ vi.mock("@rakazo/ui-web", () => {
     DialogContent: Box,
     DialogHeader: Box,
     DialogTitle: Box,
+    DropdownMenu: Box,
+    DropdownMenuContent: Box,
+    DropdownMenuItem: Box,
+    DropdownMenuTrigger: Box,
+    Input: ({
+      size: _size,
+      ...props
+    }: Omit<ComponentProps<"input">, "size"> & { size?: string }) => <input {...props} />,
     SectionHeading: Box,
     Spinner: () => <span role="status" />,
   };

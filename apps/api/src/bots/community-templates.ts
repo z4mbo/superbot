@@ -272,7 +272,7 @@ export function communityTemplates(deps: CommunityTemplateDeps) {
   };
 
   const notifyAdmins = (name: string, version: number) => {
-    const reviewUrl = new URL("/admin/plugins", deps.env.webOrigin).href;
+    const reviewUrl = new URL("/admin/apps", deps.env.webOrigin).href;
     for (const admin of deps.env.adminEmails ?? []) {
       if (adminNotices(admin.trim().toLowerCase()) > ADMIN_NOTICES_PER_EMAIL_PER_DAY) continue;
       sendLater(() => communityTemplateAdminEmail(admin, { name, version }, reviewUrl));
