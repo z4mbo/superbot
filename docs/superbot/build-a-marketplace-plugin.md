@@ -1,14 +1,17 @@
-# Author a marketplace plugin
+# Publish to the Store
 
-A marketplace plugin is a versioned manifest. It can give a bot instructions
-through a skill, tools through a public HTTPS MCP endpoint, or a record app
-whose entries Superbot stores. The registry takes the manifest object directly
-through `pluginRegistry.submit`. See the [registry contract](plugin-contract.md)
-for the full API and publication rules.
+Everything listed in the Store's **Apps** section is a versioned manifest. It
+can give a bot instructions through a skill, tools through a public HTTPS MCP
+endpoint, or a record app whose entries Superbot stores. You submit a version,
+a deployment admin reviews it, and once approved people install it from the
+Store. The registry takes the manifest object directly through
+`pluginRegistry.submit`; the [command-line toolkit](plugin-toolkit.md) does
+the same from a terminal. See the [registry API](plugin-contract.md) for the
+full API and publication rules.
 
 Use a record app for fields Superbot displays in a form and stores for the
 installer. Use an MCP App to add an interactive view to a bot's tool result.
-The `mcp-app` starter in the [plugin toolkit](plugin-toolkit.md) scaffolds
+The `mcp-app` starter in the [command-line toolkit](plugin-toolkit.md) scaffolds
 the MCP tool server you host.
 
 ## Try the Calorie diary
@@ -107,7 +110,7 @@ await installer.pluginRegistry.setGrants({
 });
 ```
 
-Start a turn with that bot. Ask it to use the marketplace converter to convert
+Start a turn with that bot. Ask it to use the Store converter to convert
 100 Celsius to Fahrenheit. Check that the approval card shows the converter's
 endpoint and the conversion arguments, then choose **Allow once**. The tool
 returns a structured value of `212` and a unit of `fahrenheit`. In a Space set
@@ -120,7 +123,7 @@ their own grants. Uninstalling removes the grants for all bots in that Space.
 
 ### Add a view to your MCP tool
 
-Keep the marketplace manifest's `mcp` part pointed at your public HTTPS endpoint.
+Keep the Store manifest's `mcp` part pointed at your public HTTPS endpoint.
 In `tools/list`, set the tool's `_meta.ui.resourceUri` to a `ui://` URI.
 Advertise the MCP `resources` capability and serve that exact URI from
 `resources/read` on the same endpoint. Return the matching `uri`,
@@ -139,7 +142,7 @@ it. The card cannot call tools directly.
 | Field or part            | What to provide                                                                                                                                |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `schemaVersion`          | The integer `1`.                                                                                                                               |
-| `name` and `description` | A short display name and a description of the job the plugin does.                                                                             |
+| `name` and `description` | A short display name and a description of the job the app does.                                                                                |
 | `parts`                  | One to sixteen entries, each with a unique lowercase, hyphen-separated `id`.                                                                   |
 | `kind: "skill"`          | An `instructions` string containing Markdown. The bot can read it as tool output when granted.                                                 |
 | `kind: "mcp"`            | Set `transport` to `streamable_http` and `endpoint` to a public HTTPS URL without credentials, query parameters or a fragment.                 |
@@ -147,18 +150,18 @@ it. The card cannot call tools directly.
 
 Use a short description and a JSON object input schema for each MCP tool. Define
 the required fields and validate the arguments again on your server. Use
-structured results for predictable data. Marketplace approvals include the
+structured results for predictable data. Approvals for these calls include the
 remote tool, endpoint and arguments, so keep payloads short enough to review.
-A bot is offered every tool its granted plugins expose. Up to twenty in total are
+A bot is offered every tool its granted apps expose. Up to twenty in total are
 listed directly; above that the bot searches for a tool, loads its schema and runs
 it through a catalog, so give each tool a name and description a search can find.
-Superbot rechecks the selected tool schema before calling it. Publish a new marketplace version when changing
+Superbot rechecks the selected tool schema before calling it. Publish a new version when changing
 the manifest or shipping an incompatible tool contract.
 
 The endpoint should support MCP initialization, `tools/list` and `tools/call`
 over Streamable HTTP. Discovery opens an MCP connection before asking for an
 individual call's approval. Keep discovery free of side effects. Treat the
-service as public and apply your own resource limits at the proxy. Marketplace
+service as public and apply your own resource limits at the proxy. Store
 manifests permit neither authentication materials nor local code entry points.
 The worker sends only MCP protocol requests and the approved tool arguments. A
 redirect or private address fails runtime validation. See the

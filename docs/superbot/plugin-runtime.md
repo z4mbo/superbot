@@ -1,6 +1,7 @@
-# Marketplace plugin runtime
+# How installed apps run
 
-The registry contract and request/response shapes are in [plugin-contract.md](plugin-contract.md).
+This page is for people working on Superbot itself: how the worker turns an installed app's
+granted parts into tools. The request and response shapes are in the [registry API](plugin-contract.md).
 The worker consumes `resolvePluginGrants(prisma, { spaceId, userId, botId })` from
 `@rakazo/db`. Each row identifies an installation, immutable version and manifest part.
 The runtime passes the persisted run's Space, account and exact bot. It excludes runs
@@ -48,5 +49,5 @@ override or plugin credentials. The test fixture starts the first-party sample
 on an isolated loopback port and injects transport routing only in the test.
 Production uses the public HTTPS endpoint declared in the approved manifest.
 
-See the [authoring tutorial](build-a-marketplace-plugin.md) for submission,
+See [Publish to the Store](build-a-marketplace-plugin.md) for submission,
 installation and the sample walkthrough.

@@ -1,11 +1,14 @@
-# Build a plugin
+# Import from GitHub
 
-To publish a version in the Superbot marketplace, follow the [marketplace authoring guide](superbot/build-a-marketplace-plugin.md).
+Any public GitHub repository can carry an MCP server connection, skills, or both, described in a
+few plugin files. Anyone can import it into their Space from the Store's **Connections** section.
+To list something in the Store's **Apps** section for everyone instead, see
+[Build an app](plugin-sdk.md) and [Publish to the Store](superbot/build-a-marketplace-plugin.md).
 
-## Most plugins wrap an MCP server
+## Most imports wrap an MCP server
 
 Host your tools, describe the connection in two JSON files, then publish them in a public
-GitHub repository. Rakazo reads the plugin files; it never runs code from the repository.
+GitHub repository. Superbot reads the plugin files; it never runs code from the repository.
 Start with the [MCP server example](../examples/plugins/mcp-server/README.md).
 
 ### 1. Host your server
@@ -66,10 +69,10 @@ names to string values. Use headers only for non-secret configuration, for examp
 or put them in the endpoint URL.
 
 - **OAuth:** users choose **Sign in** on the installed server and authorize in the browser.
-  Rakazo discovers OAuth from the server; no OAuth fields belong in the plugin files.
+  Superbot discovers OAuth from the server; no OAuth fields belong in the plugin files.
   If dynamic client registration is unavailable, users can supply their registered client ID
   and optional secret under **Manage MCP servers** → edit the server → **Advanced**.
-- **API key or bearer token:** users open **Integrations** → **+** → **Manage MCP servers**,
+- **API key or bearer token:** users open the Store's **Connections** → **+** → **Manage MCP servers**,
   edit the installed server, and expand **Advanced**. Use **Access token (optional)** for a
   bearer token or **Header name** / **Header value** for a custom header.
 - **Public tools:** servers without authentication can work immediately.
@@ -89,48 +92,40 @@ description: Search the connected documentation server. Use when the user asks h
 
 1. Search the documentation server's tools for the user's topic.
 2. Read relevant results before answering and link the sources returned by the server.
-3. If the server needs authentication, ask the user to connect it in Integrations.
+3. If the server needs authentication, ask the user to connect it in Connections.
 ```
 
 Use the actual tool names and workflows your server exposes. Skills require nonempty YAML
 `name` (up to 80 characters) and `description` (up to 2000). Keep skill names distinct from
-each other and from Rakazo's built-in skills.
+each other and from Superbot's built-in skills.
 
-### 4. Test in Rakazo
+### 4. Test in Superbot
 
 1. Publish your plugin files in a public GitHub repository. Private repositories and local
    folders are not supported sources.
-2. Open **Integrations**, choose **+** → **From GitHub**, paste the repository URL, and choose
+2. Open the Store's **Connections**, choose **+** → **From GitHub**, paste the repository URL, and choose
    **Preview**. For a folder, use `https://github.com/example/plugins/tree/main/mcp-server`.
 3. Check the preview's servers, skills, and skipped parts. Choose **Connect** to install the
    connector and **Add skills** in the Skills section if you included skills.
 4. Sign in if needed. With a bot selected, choose **Use in this bot** for the server, then
    ask the bot to call a real tool. Verify a useful result and any companion skill.
 
-Fix skipped parts before submitting. A valid config does not prove that tool calls or
+Fix skipped parts before sharing the repository. A valid config does not prove that tool calls or
 sign-in work. Installed content is pinned to a commit; if files change during preview,
 preview again.
 
-### 5. Submit to the marketplace
+### 5. Offer it in the Store
 
-1. Open [Submit a plugin](https://rakazo.com/plugins/submit/), also linked from Integrations.
-2. Enter your email, plugin name, HTTPS logo URL, public GitHub repository or folder URL,
-   description, and testing instructions. A website URL is optional.
-3. Explain how to exercise the tools and authentication without including real credentials.
-   Check **I've tested this plugin in Rakazo and it works**, then choose **Submit plugin**.
+An import is installed by the person who pastes the repository URL. To offer the same MCP endpoint
+and skills to everyone, describe them as `mcp` and `skill` parts of a Store manifest and publish
+it with the [command-line toolkit](superbot/plugin-toolkit.md). Every version is reviewed before
+it is listed; [Publish to the Store](superbot/build-a-marketplace-plugin.md) walks through it.
 
-Every submission is reviewed and the result is emailed to you. Approval checks the plugin
-preview and remote endpoint safety, requires at least one skill or MCP server, and refuses
-unsupported or invalid parts. Approval lists the exact commit reviewed; later pushes do not
-automatically update the listing. Test changes and resubmit through the same form.
-The [submission API reference](https://rakazo.com/plugins/submit.md) covers submitting by API.
-
-## Skills-only plugins
+## Skills-only imports
 
 For a plugin without tools, copy the [hello world example](../examples/plugins/hello-world/README.md).
 Keep `plugin.json` and at least one `skills/<name>/SKILL.md`; omit `mcp.json`. Publish and
 preview it through the same GitHub flow, choose **Add**, then try the skill with a bot.
-Submit through the same marketplace form.
 
 Optional `commands/<name>.md` files become skills invoked with `/name`; `$ARGUMENTS` is the
 text after the command. Optional `agents/<name>.md` files use skill-style frontmatter and
@@ -138,7 +133,7 @@ become skills that instruct the bot to call `run_subagent`.
 
 ## Compatibility and updates
 
-Rakazo also reads Agent Plugins 1.0.0 and legacy `.cursor-plugin/plugin.json` or
+Superbot also reads Agent Plugins 1.0.0 and legacy `.cursor-plugin/plugin.json` or
 `.grok-plugin/plugin.json` manifests. Legacy formats use `mcp.json` or `.mcp.json` and also
 accept `http` as an alias for `streamable-http`. Component locations are fixed; manifest
 fields cannot relocate them.
@@ -149,5 +144,5 @@ submodules cannot. Keep the plugin small: at most 200 fetched component files, 1
 per file, and 4,000,000 bytes total. Each skill allows up to 40 reference files totaling
 400,000 bytes.
 
-Existing installs remain pinned. To test an update, remove the installed plugin and install
+Existing installs remain pinned. To test an update, remove the imported plugin and install
 again from the updated source. Changing `version` alone does not update installs.
