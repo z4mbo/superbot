@@ -23,6 +23,8 @@ import { useSpaceRpc } from "../../lib/query/space-rpc";
 import { errorText } from "../../lib/query/user-error";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { SettingsGroup } from "../settings/SettingsRows";
+import type { InvitationEmailResult } from "./InvitationEmailNotice";
+import { InvitationEmailNotice } from "./InvitationEmailNotice";
 import { PersonRow } from "./PersonRow";
 
 type Confirm = { kind: "remove"; member: SpaceMember } | { kind: "leave" };
@@ -40,6 +42,12 @@ export function SpaceMembersSettings({
   const [members, setMembers] = useState<SpaceMembers | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  /** The last invitation by email, kept on screen with its link until the next invite. */
+  const [sent, setSent] = useState<{
+    spaceId: string;
+    email: string;
+    result: InvitationEmailResult;
+  } | null>(null);
   /** The address being invited; null while the form is closed. */
   const [email, setEmail] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
@@ -59,6 +67,7 @@ export function SpaceMembersSettings({
       shownSpace.current = null;
       setMembers(null);
       setEmail(null);
+      setSent(null);
     }
     setError(null);
     setInviteUrl(null);
@@ -94,6 +103,7 @@ export function SpaceMembersSettings({
     try {
       await rpc.spaces.invites.cancel({ spaceId: space.id });
       setInviteUrl(null);
+      setSent(null);
       setMembers((current) => (current ? { ...current, openInvites: 0 } : current));
     } catch (err) {
       setError(errorText(err, t`Could not cancel invites`));
@@ -104,6 +114,7 @@ export function SpaceMembersSettings({
     if (inviting) return;
     setInviting(true);
     setError(null);
+    setSent(null);
     try {
       const link = await rpc.spaces.invites.create({ spaceId: space.id });
       setMembers((current) =>
@@ -156,14 +167,13 @@ export function SpaceMembersSettings({
   });
   const emailing = useSave({
     save: (ask: { spaceId: string; email: string }, client) => client.spaces.invites.create(ask),
-    onSaved: async (sent, ask) => {
+    onSaved: (result, ask) => {
       if (ask.spaceId !== shownSpace.current) return;
       setEmail(null);
       setMembers((current) =>
         current ? { ...current, openInvites: (current.openInvites ?? 0) + 1 } : current,
       );
-      if (sent.emailed) toast(t`Invitation sent`);
-      else await copy(sent.url);
+      setSent({ spaceId: ask.spaceId, email: ask.email, result });
     },
   });
   // A failure to add or invite someone to another Space stays with that Space.
@@ -218,6 +228,7 @@ export function SpaceMembersSettings({
           <DropdownMenuItem
             onClick={() => {
               emailing.reset();
+              setSent(null);
               setEmail("");
             }}
           >
@@ -327,6 +338,9 @@ export function SpaceMembersSettings({
       ) : null}
       {members && (error || addError) ? (
         <p className="px-1 text-body-sm text-destructive">{error ?? addError}</p>
+      ) : null}
+      {canManage && sent?.spaceId === space.id ? (
+        <InvitationEmailNotice email={sent.email} sent={sent.result} />
       ) : null}
       {canManage && inviteUrl ? (
         <InputGroup>

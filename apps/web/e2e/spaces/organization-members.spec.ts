@@ -61,7 +61,10 @@ test("an owner invites someone to the organization, who joins with a private Spa
   await expect(members.getByTestId("settings-page-title")).toHaveText("Members");
   await members.getByRole("textbox", { name: "Email" }).fill(inviteeEmail);
   await members.getByRole("button", { name: "Invite", exact: true }).click();
-  await expect(ownerPage.getByText("Invitation sent")).toBeVisible();
+  // The outcome stays on screen, with the link to share by hand as well.
+  await expect(members.getByRole("status")).toHaveText(`Invitation emailed to ${inviteeEmail}.`);
+  await expect(members.getByRole("textbox", { name: "Invite link" })).toHaveValue(/\/join\//);
+  await captureScreenshot(ownerPage, testInfo, "org-members-invitation-emailed");
   const invitation = await lastEmailTo(inviteeEmail, /invited you/);
   const joinUrl = invitation.text.match(/https?:\/\/\S+\/join\/\S+/)?.[0];
   expect(joinUrl).toBeTruthy();
@@ -73,7 +76,7 @@ test("an owner invites someone to the organization, who joins with a private Spa
   );
   await captureScreenshot(emailPreview, testInfo, "org-invitation-email");
   await emailPreview.close();
-  await expect(members.getByText(inviteeEmail)).toBeVisible();
+  await expect(members.getByText(inviteeEmail, { exact: true })).toBeVisible();
   await expect(members.getByText("Invited", { exact: true })).toBeVisible();
   await captureScreenshot(ownerPage, testInfo, "org-members-invited");
 
@@ -131,7 +134,12 @@ test("an owner invites someone to the organization, who joins with a private Spa
   await expect(spaceSettings.getByText("Not in Acme. They'll only see this Space.")).toBeVisible();
   await captureScreenshot(ownerPage, testInfo, "space-invite-outsider");
   await spaceSettings.getByRole("button", { name: "Invite", exact: true }).last().click();
-  await expect(ownerPage.getByText("Invitation sent")).toBeVisible();
+  await expect(spaceSettings.getByRole("status")).toHaveText(
+    `Invitation emailed to ${outsiderEmail}.`,
+  );
+  await expect(spaceSettings.getByRole("textbox", { name: "Invite link" })).toHaveValue(
+    /\/invite\//,
+  );
   const spaceInvitation = await lastEmailTo(outsiderEmail, /invited you to Team/);
   expect(spaceInvitation.text).toMatch(/\/invite\/\S+/);
 });

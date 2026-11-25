@@ -29,6 +29,7 @@ import {
 } from "@rakazo/db";
 import { hasChatHistory } from "../account/first-bot.js";
 import { otherSpaceOfBot, otherSpaceOfGroup } from "../bots/bot-space.js";
+import type { InvitationEmailOutcome } from "../email/invitation-email.js";
 import { invitationRecipientKey, sendInvitationEmail } from "../email/invitation-email.js";
 import type { RouterDeps } from "../router.js";
 import { listRoutinesDto } from "../routines/routines.js";
@@ -245,16 +246,14 @@ export function spacesRoutes(ctx: RouterContext) {
               });
               const url = new URL(`/invite/${invite.token}`, deps.env.webOrigin).toString();
               const { email } = invite;
-              const emailed = email
-                ? await sendInvitationEmail(deps, context.actor.userId, email.to, (locale) =>
-                    spaceInvitationEmail(email.to, { ...email, url }, locale),
-                  )
-                : false;
-              return {
-                url,
-                expiresAt: invite.expiresAt.toISOString(),
-                ...(input.email ? { emailed } : {}),
-              };
+              const sent: InvitationEmailOutcome | undefined = !email
+                ? undefined
+                : email.send
+                  ? await sendInvitationEmail(deps, context.actor.userId, email.to, (locale) =>
+                      spaceInvitationEmail(email.to, { ...email, url }, locale),
+                    )
+                  : { emailed: false, notEmailedReason: email.notEmailedReason };
+              return { url, expiresAt: invite.expiresAt.toISOString(), ...sent };
             }),
           ),
         ),

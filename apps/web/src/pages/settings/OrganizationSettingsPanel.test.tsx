@@ -78,7 +78,13 @@ vi.mock("@rakazo/ui-web", () => {
     DropdownMenuItem: (props: ComponentProps<"button">) => <button type="button" {...props} />,
     DropdownMenuSeparator: () => null,
     DropdownMenuTrigger: () => null,
+    InputGroup: Box,
+    InputGroupAddon: Box,
+    InputGroupButton: (props: ComponentProps<"button">) => <button type="button" {...props} />,
+    InputGroupInput: (props: ComponentProps<"input">) => <input {...props} />,
+    cn: (...names: unknown[]) => names.filter(Boolean).join(" "),
     toast,
+    useCopyText: () => [false, copy, false, () => undefined, ""],
     writeClipboard: copy,
   };
 });
@@ -358,7 +364,7 @@ describe("organization members", () => {
     expect(button("Members3")).toBeTruthy();
   });
 
-  it("lists members, invites by email and copies the link when no email went out", async () => {
+  it("lists members, invites by email and offers the link when no email went out", async () => {
     organizations.list.mockResolvedValue(organization(2));
     organizations.members.list.mockResolvedValue({
       canManage: true,
@@ -388,8 +394,12 @@ describe("organization members", () => {
       organizationId: "org-work",
       email: "cy@example.test",
     });
-    expect(copy).toHaveBeenCalledWith("https://app.example.test/join/invitation-1");
-    expect(toast).toHaveBeenCalledWith("Invite link copied");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      "Not emailed to cy@example.test.",
+    );
+    expect(
+      container.querySelector<HTMLInputElement>('input[aria-label="Invite link"]')?.value,
+    ).toBe("https://app.example.test/join/invitation-1");
 
     organizations.members.setRole.mockResolvedValue({ ok: true });
     await act(async () => button("Make admin")?.click());

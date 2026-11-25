@@ -4,6 +4,7 @@ import { MemoryScopeSchema } from "../bots/bot-memory.js";
 import { Id } from "../ids.js";
 import { ExternalConversationSchema } from "../threads/external-conversations.js";
 import { GroupSchema } from "./groups.js";
+import { NotEmailedReasonSchema } from "./organization.js";
 import { PersonSchema } from "./person.js";
 
 /**
@@ -101,6 +102,8 @@ export const SpaceInviteLinkSchema = z.object({
   expiresAt: z.string(),
   /** Whether the link was emailed to the address given; when not, the owner shares it by hand. */
   emailed: z.boolean().optional(),
+  /** Why the address given was not emailed; absent when it was, or when none was given. */
+  notEmailedReason: NotEmailedReasonSchema.optional(),
 });
 
 export const SpaceInvitePreviewSchema = z.object({

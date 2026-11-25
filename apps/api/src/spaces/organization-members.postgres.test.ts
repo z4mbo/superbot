@@ -32,6 +32,7 @@ describePostgres("organization members and invitations (PostgreSQL)", () => {
   let prisma: PrismaClient;
   let system: PrismaClient;
   let handler: RPCHandler<Record<string, unknown>>;
+  let deps: RouterDeps;
   const syncSeats = vi.fn(async (_organizationId: string) => undefined);
   const publishRosterChange = vi.fn(async (_change: unknown) => undefined);
   /** The topics organization signals went to, as the fanout received them. */
@@ -85,8 +86,8 @@ describePostgres("organization members and invitations (PostgreSQL)", () => {
     };
   }
 
-  async function call(actor: Actor, path: string, input: unknown) {
-    const { response } = await handler.handle(
+  async function call(actor: Actor, path: string, input: unknown, through = handler) {
+    const { response } = await through.handle(
       new Request(`http://127.0.0.1/rpc/${path}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -147,7 +148,7 @@ describePostgres("organization members and invitations (PostgreSQL)", () => {
     prisma = db.prisma;
     system = asSystem(prisma);
     installAuditEventStore(prisma);
-    const deps = {
+    deps = {
       prisma,
       billing: { syncSeats },
       email,
@@ -170,12 +171,16 @@ describePostgres("organization members and invitations (PostgreSQL)", () => {
       },
       dataDir: "/tmp/rakazo-organization-members-test",
     } as unknown as RouterDeps;
-    handler = new RPCHandler(createRouter(deps), {
+    handler = handlerFor(deps);
+  });
+
+  function handlerFor(routerDeps: RouterDeps) {
+    return new RPCHandler(createRouter(routerDeps), {
       clientInterceptors: [
         onError((error, { path, signal }) => handleRpcError(error, path, signal)),
       ],
     });
-  });
+  }
 
   afterAll(async () => {
     if (!prisma) return;
@@ -197,6 +202,7 @@ describePostgres("organization members and invitations (PostgreSQL)", () => {
     });
     expect(created.status).toBe(200);
     expect(created.json.emailed).toBe(true);
+    expect(created.json).not.toHaveProperty("notEmailedReason");
     const url = new URL(created.json.url as string);
     expect(url.origin).toBe(webOrigin);
     expect(url.pathname).toMatch(/^\/join\/[0-9a-f-]{36}$/);
@@ -227,7 +233,11 @@ describePostgres("organization members and invitations (PostgreSQL)", () => {
       organizationId,
       email: invitee.email,
     });
-    expect(capped.json).toEqual({ url: third.json.url, emailed: false });
+    expect(capped.json).toEqual({
+      url: third.json.url,
+      emailed: false,
+      notEmailedReason: "rate_limited",
+    });
     expect(sent.length).toBe(sentBefore + 2);
     // Each email is on record, and only a keyed hash names the address.
     const records = await system.securityEvent.findMany({
@@ -255,7 +265,7 @@ describePostgres("organization members and invitations (PostgreSQL)", () => {
         email: other,
       });
       expect(unsent.status).toBe(200);
-      expect(unsent.json.emailed).toBe(false);
+      expect(unsent.json).toMatchObject({ emailed: false, notEmailedReason: "rate_limited" });
     }
     expect(sent.filter((message) => message.to === other)).toHaveLength(3);
 
@@ -356,7 +366,10 @@ describePostgres("organization members and invitations (PostgreSQL)", () => {
       email: cancelled.email,
     });
     expect(unsentInvite.status).toBe(200);
-    expect(unsentInvite.json.emailed).toBe(false);
+    expect(unsentInvite.json).toMatchObject({
+      emailed: false,
+      notEmailedReason: "unverified_inviter",
+    });
     expect(sent.length).toBe(sentBefore);
 
     // A server that sends no email verifies nobody, so the link sent to the address is the proof.
@@ -683,8 +696,53 @@ describePostgres("organization members and invitations (PostgreSQL)", () => {
         spaceId: clients,
         email: "later@example.test",
       });
-      expect(again).toMatchObject({ status: 200, json: { emailed } });
+      expect(again).toMatchObject({
+        status: 200,
+        json: emailed ? { emailed } : { emailed, notEmailedReason: "rate_limited" },
+      });
     }
+  });
+
+  it("says why an invitation was not emailed when sending fails or the server sends no email", async () => {
+    const owner = await person("owner");
+    const clients = await sharedSpace(owner, "Clients");
+    const ownerIn = { ...owner.actor, spaceId: clients };
+    const invitations = (address: string, through = handler) =>
+      Promise.all([
+        call(
+          owner.actor,
+          "organizations/invitations/create",
+          { organizationId: owner.organizationId, email: address },
+          through,
+        ),
+        call(ownerIn, "spaces/invites/create", { spaceId: clients, email: address }, through),
+      ]);
+
+    // The invitation is saved whatever happens to its email, and its link comes back to share.
+    email.send.mockRejectedValueOnce(new Error("mail server down"));
+    email.send.mockRejectedValueOnce(new Error("mail server down"));
+    for (const failed of await invitations("bounced@example.test")) {
+      expect(failed).toMatchObject({
+        status: 200,
+        json: { emailed: false, notEmailedReason: "send_failed" },
+      });
+      expect(failed.json.url).toEqual(expect.any(String));
+    }
+    await expect(
+      system.invitation.count({
+        where: { organizationId: owner.organizationId, email: "bounced@example.test" },
+      }),
+    ).resolves.toBe(1);
+
+    const withoutEmail = handlerFor({ ...deps, email: undefined });
+    const sentBefore = sent.length;
+    for (const unsent of await invitations("unmailed@example.test", withoutEmail)) {
+      expect(unsent).toMatchObject({
+        status: 200,
+        json: { emailed: false, notEmailedReason: "not_configured" },
+      });
+    }
+    expect(sent.length).toBe(sentBefore);
   });
 
   it("hands no Space to a remover who has stopped managing the organization", async () => {

@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { TransactionalEmail } from "@rakazo/adapter-kit";
 import { emailLocale } from "@rakazo/auth";
+import type { NotEmailedReason } from "@rakazo/contracts";
 import type { RouterDeps } from "../router.js";
 
 /** Names an invited address in the security log, so its daily limit outlives any deletion. */
@@ -9,14 +10,19 @@ export function invitationRecipientKey(deps: RouterDeps) {
     createHmac("sha256", deps.env.invitationRecipientKey).update(email).digest("hex");
 }
 
-/** Whether the email went out; when it did not, the inviter shares the link by hand. */
+/** Whether an invitation went out by email, and why not when it did not. */
+export type InvitationEmailOutcome =
+  | { emailed: true }
+  | { emailed: false; notEmailedReason: NotEmailedReason };
+
+/** Sends an allowed invitation email; when it does not go out, the inviter shares the link by hand. */
 export async function sendInvitationEmail(
   deps: RouterDeps,
   inviterId: string,
   to: string,
   build: (locale: string) => Promise<TransactionalEmail>,
-): Promise<boolean> {
-  if (!deps.email) return false;
+): Promise<InvitationEmailOutcome> {
+  if (!deps.email) return { emailed: false, notEmailedReason: "not_configured" };
   // The invitation is saved by now: whatever stops the email, the inviter still gets the link.
   try {
     // The invitee's own language when they have an account here, else the inviter's.
@@ -28,9 +34,9 @@ export async function sendInvitationEmail(
       deps.prisma.user.findUnique({ where: { id: inviterId }, select: { locale: true } }),
     ]);
     await deps.email.send(await build(emailLocale(invitee?.locale ?? inviter?.locale)));
-    return true;
+    return { emailed: true };
   } catch (error) {
     deps.onEmailError?.(error);
-    return false;
+    return { emailed: false, notEmailedReason: "send_failed" };
   }
 }

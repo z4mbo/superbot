@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import type { NotEmailedReason } from "@rakazo/contracts";
 import { ClientError, displayName } from "@rakazo/core";
 import { GUEST_ROLE, isOwnerRole } from "../billing/billing.js";
 import { computerScopeKey, userControlHeldBy } from "../computers/computers.js";
@@ -250,7 +251,7 @@ export async function addSpaceMember(
 /**
  * A new single-use link. Only its SHA-256 is stored; the token is returned once. With an address,
  * the link is also for emailing there, under the daily limits organization invitations count
- * with: `email` comes back only when it may go out now, and otherwise the owner shares the link
+ * with: `email` says whether it may go out now, and when not, why, so the owner shares the link
  * by hand. Whoever opens it from outside the organization joins as a guest in this Space alone.
  */
 export async function createSpaceInvite(
@@ -266,7 +267,9 @@ export async function createSpaceInvite(
 ): Promise<{
   token: string;
   expiresAt: Date;
-  email?: { to: string; spaceName: string; inviterName: string };
+  email?:
+    | { send: true; to: string; spaceName: string; inviterName: string }
+    | { send: false; notEmailedReason: NotEmailedReason };
 }> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SPACE_INVITE_TTL_MS);
@@ -294,9 +297,9 @@ export async function createSpaceInvite(
       where: { spaceId: input.spaceId, acceptedAt: null, expiresAt: { gt: new Date() } },
     });
     if (open >= MAX_OPEN_SPACE_INVITES) throw new SpaceInviteLimitError();
-    const { send } = mail
+    const allowance = mail
       ? await invitationEmailAllowance(tx, { userId: input.userId, ...mail })
-      : { send: false };
+      : undefined;
     await tx.spaceInvite.create({
       data: {
         spaceId: input.spaceId,
@@ -305,7 +308,9 @@ export async function createSpaceInvite(
         expiresAt,
       },
     });
-    if (!mail || !send) return undefined;
+    if (!mail || !allowance) return undefined;
+    if (!allowance.send)
+      return { send: false, notEmailedReason: allowance.notEmailedReason } as const;
     await recordInvitationEmail(tx, {
       userId: input.userId,
       metadata: { spaceId: input.spaceId, recipient: mail.recipient },
@@ -314,7 +319,7 @@ export async function createSpaceInvite(
       where: { id: input.userId },
       select: { name: true },
     });
-    return { to: mail.to, spaceName: space.name, inviterName: inviter.name };
+    return { send: true, to: mail.to, spaceName: space.name, inviterName: inviter.name } as const;
   });
   return { token, expiresAt, ...(email ? { email } : {}) };
 }
