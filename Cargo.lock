@@ -7369,6 +7369,7 @@ dependencies = [
  "clap",
  "futures-util",
  "rpassword",
+ "serde",
  "serde_json",
  "sha2 0.10.9",
  "superbot-client",
