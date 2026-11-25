@@ -155,13 +155,13 @@ test("create, switch, rename and delete an organization", async ({ page }, testI
   await captureScreenshot(page, testInfo, "org-menu-two-orgs");
   await closeAvatarMenu(page);
 
-  // Work starts empty: the account already has chats, so no Chief is made there.
+  // Work starts with its own main bot, pinned first.
   menu = await openOrganizationMenu(page);
   await menu.getByRole("button", { name: "Work", exact: true }).click();
   await expect.poll(() => selectedSpace(page)).toBe(work.defaultSpaceId);
   await expect(
-    page.locator("main").getByRole("button", { name: "New bot", exact: true }),
-  ).toBeVisible();
+    page.locator("aside").first().locator('[data-sidebar-group$="pinned"]'),
+  ).toContainText("Superbot");
 
   const inWork = async <T>(procedure: string, json: unknown) => {
     const response = await page.request.post(`/rpc/${procedure}`, {

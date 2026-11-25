@@ -38,16 +38,13 @@ test("a new space chooses what it can use, and a skill can be limited to some sp
   await chooser.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(chooser).toHaveCount(0);
 
-  // Continue switches to the new, empty space. Let that land before leaving it, or its late
-  // remount overrides the click below or closes the Skills dialog.
-  await expect(
-    page.locator("main").getByRole("button", { name: "New bot", exact: true }),
-  ).toBeVisible();
+  // Continue switches to the new space, which gets its own main bot. Let that land before
+  // leaving it, or its late remount overrides the click below or closes the Skills dialog.
   const chiefs = page
     .locator("aside")
     .first()
     .getByRole("button", { name: /^Superbot/ });
-  await expect(chiefs).toHaveCount(1);
+  await expect(chiefs).toHaveCount(2);
   const personalChief = chiefs.first();
   await personalChief.click();
   await expect(personalChief).toHaveAttribute("aria-current", "page");
