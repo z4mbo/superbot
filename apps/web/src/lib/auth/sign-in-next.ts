@@ -24,6 +24,8 @@ export function signInNext(next: string | null): string | null {
   if (
     next === "/workspaces" ||
     next === "/integrations/setup" ||
+    next === "/admin/apps" ||
+    // Sign-in links made before the app review page moved there.
     next === "/admin/plugins" ||
     next === "/admin/access" ||
     // The model-connection email opens the connect step.

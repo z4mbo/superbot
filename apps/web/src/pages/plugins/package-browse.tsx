@@ -28,7 +28,7 @@ const SECTION_SIZE = 6;
 const PAGE_SIZE = 24;
 const CHIP_COUNT = 6;
 
-/** The marketplace's plugin packages in the Store's Plugins, beside the community entries. */
+/** The marketplace's packages in the Store's Apps, beside the community entries. */
 export function PackageBrowse({
   pluginCatalog,
   installs,
@@ -84,7 +84,7 @@ export function PackageBrowse({
     if (pluginCatalog.isPending)
       return (
         <div className="grid place-items-center py-8">
-          <Spinner className="size-5 text-muted-foreground" aria-label={t`Loading plugins…`} />
+          <Spinner className="size-5 text-muted-foreground" aria-label={t`Loading apps…`} />
         </div>
       );
     if (category || searching)
@@ -188,7 +188,7 @@ export function PackageBrowse({
       {category ? null : community}
       {pluginCatalog.error || pluginCatalog.data?.unavailableRegistries.length ? (
         <div role="alert" className="flex items-center gap-3 text-body text-muted-foreground">
-          <Trans>Some plugins could not be loaded.</Trans>
+          <Trans>Some apps could not be loaded.</Trans>
           <Button variant="outline" size="sm" onClick={() => void pluginCatalog.refetch()}>
             <Trans>Retry</Trans>
           </Button>

@@ -28,7 +28,7 @@ export function AdminPluginsPage() {
           <ChevronLeft />
         </Link>
         <h1 className="flex-1 font-medium">
-          <Trans>Plugin submissions</Trans>
+          <Trans>App submissions</Trans>
         </h1>
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto">

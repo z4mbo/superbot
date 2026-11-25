@@ -102,6 +102,7 @@ import {
 } from "@rakazo/auth";
 import type { Actor, AuthCapabilities, ModelCredential } from "@rakazo/contracts";
 import {
+  APP_SUBMISSIONS_PATH,
   isLocalhostOrLoopbackIp,
   PLUGIN_SUBMISSIONS_PATH,
   SERVER_BUILD_HEADER,
@@ -936,7 +937,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   const trustedCors = cors({
     origin: (origin, c) => {
       // Anyone may submit a plugin from any site; the endpoint reads no cookies.
-      if (c.req.path === PLUGIN_SUBMISSIONS_PATH) return "*";
+      if (c.req.path === PLUGIN_SUBMISSIONS_PATH || c.req.path === APP_SUBMISSIONS_PATH) return "*";
       if (!origin) return env.webOrigin;
       return isTrustedOrigin(origin, env) ? origin : "";
     },

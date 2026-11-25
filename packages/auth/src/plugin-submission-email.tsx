@@ -54,7 +54,7 @@ export function pluginSubmissionAdminEmail(
     "en",
     submission.claim
       ? `New page claim: ${submission.name}`
-      : `New plugin submission: ${submission.name}`,
+      : `New app submission: ${submission.name}`,
     <>
       <Text>
         {submission.name} from {submission.email}

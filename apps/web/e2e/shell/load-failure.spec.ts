@@ -35,7 +35,7 @@ test("a failed integrations load offers Retry instead of an empty catalog", asyn
   await expect(retry).toBeVisible();
   await expect(page.getByText("Could not reach the server", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Configure a plugin catalog on the server to connect apps.", { exact: true }),
+    page.getByText("Configure a connection catalog on the server.", { exact: true }),
   ).toHaveCount(0);
   await captureScreenshot(page, testInfo, "integrations-load-failed");
 
@@ -102,16 +102,16 @@ for (const result of ["empty", "plugin", "unavailable"] as const) {
       });
     });
     await page.getByRole("button", { name: "Store", exact: true }).click();
-    const loading = page.getByLabel("Loading plugins…", { exact: true });
-    const configure = page.getByText("Configure a plugin catalog on the server to connect apps.", {
+    const loading = page.getByLabel("Loading apps…", { exact: true });
+    const configure = page.getByText("Configure a connection catalog on the server.", {
       exact: true,
     });
     try {
       await expect(loading).toBeVisible();
       await expect(configure).toHaveCount(0);
-      await page.getByPlaceholder("Search apps", { exact: true }).fill("missing");
+      await page.getByPlaceholder("Search connections", { exact: true }).fill("missing");
       await expect(page.getByText("No apps match your search.", { exact: true })).toHaveCount(0);
-      await page.getByPlaceholder("Search apps", { exact: true }).clear();
+      await page.getByPlaceholder("Search connections", { exact: true }).clear();
       if (result === "empty")
         await captureScreenshot(page, testInfo, "integrations-plugins-loading");
     } finally {
@@ -126,7 +126,7 @@ for (const result of ["empty", "plugin", "unavailable"] as const) {
       if (result === "plugin") {
         await expect(page.getByText("Demo app", { exact: true })).toBeVisible();
       } else {
-        await expect(page.getByRole("alert")).toContainText("Some plugins could not be loaded.");
+        await expect(page.getByRole("alert")).toContainText("Some apps could not be loaded.");
         await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
       }
     }

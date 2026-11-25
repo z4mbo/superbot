@@ -75,7 +75,7 @@ for (const theme of ["light", "dark"]) {
     await expectLoadedLogo(connectedLogo);
     await captureScreenshot(page, testInfo, `store-connected-app-marks-${theme}`);
 
-    const search = dialog.getByRole("textbox", { name: "Search apps", exact: true });
+    const search = dialog.getByRole("textbox", { name: "Search connections", exact: true });
     for (const app of ["gmail", "notion", "obscure-app"]) {
       await search.fill(app);
       await expectLoadedLogo(dialog.locator(`img[src="https://logos.composio.dev/api/${app}"]`));

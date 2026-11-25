@@ -61,7 +61,7 @@ export function PluginSection({
   const failed =
     pluginsState === "partial" ? (
       <View style={styles.catalogStack}>
-        <Text style={styles.secondary}>{t`Some plugins could not be loaded.`}</Text>
+        <Text style={styles.secondary}>{t`Some apps could not be loaded.`}</Text>
         <NativeActionButton
           label={t`Retry`}
           fill={false}

@@ -242,7 +242,7 @@ export function CreatePlugin({ template }: { template?: RegistryVersion }) {
             value={draft.description}
             maxLength={1000}
             rows={2}
-            placeholder={t`What the plugin helps a bot do`}
+            placeholder={t`What the app helps a bot do`}
             onChange={(event) => update({ description: event.target.value })}
           />
           <FieldIssue text={fieldError("manifest", "description")} />
@@ -362,7 +362,7 @@ export function CreatePlugin({ template }: { template?: RegistryVersion }) {
         ) : null}
         {submit.error ? (
           <p role="alert" className="text-body text-destructive">
-            {errorText(submit.error, t`Could not submit this plugin`)}
+            {errorText(submit.error, t`Could not submit this app`)}
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-3">

@@ -36,14 +36,14 @@ test("Integrations installs a plugin, completes real broker OAuth against a fake
 
   await page.getByRole("button", { name: "Store", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Store", exact: true });
-  // Apps lists services; plugin packages are installed from Plugins.
+  // Connections lists services; packages are installed from Apps.
   await expect(dialog.getByText("Planning Notes", { exact: true })).toHaveCount(0);
-  await dialog.getByTestId("store-plugins").click();
+  await dialog.getByTestId("store-apps").click();
   const section = dialog.getByTestId("plugin-section").filter({ hasText: "Productivity" });
   await expect(section.getByText("Planning Notes", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Review Kit", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "integrations-plugins");
-  await dialog.getByRole("textbox", { name: "Search plugins", exact: true }).fill("planning");
+  await dialog.getByRole("textbox", { name: "Search apps", exact: true }).fill("planning");
   const row = dialog.getByTestId("plugin-results").getByTestId("plugin-row");
   await expect(row).toHaveCount(1);
   await captureScreenshot(page, testInfo, "integrations-plugin-search");
@@ -223,7 +223,7 @@ test("shows directly registered MCP servers in Integrations without catalog conn
     page.getByRole("button", { name: count, exact: true }).locator("span[aria-hidden]").first();
   await expect(marks("1 connected")).toHaveText("");
   await page.getByRole("button", { name: "1 connected", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Your apps", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your connections", exact: true })).toBeVisible();
   const servers = page.getByTestId("registered-mcp-servers");
   await expect(servers.getByText("Dropbox", { exact: true })).toBeVisible();
   await expect(servers.getByText("GitHub", { exact: true })).toBeVisible();
@@ -275,7 +275,7 @@ test("shows directly registered MCP servers in Integrations without catalog conn
   await page.getByRole("button", { name: "Store", exact: true }).click();
   await expect(marks("0 connected")).toHaveText("");
   await page.getByRole("button", { name: "0 connected", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Your apps", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your connections", exact: true })).toBeVisible();
   await expect(servers.getByTestId("registered-mcp-server")).toHaveCount(6);
   await expect(
     servers.getByTestId("registered-mcp-server").filter({ hasText: "Dropbox" }),
@@ -334,10 +334,10 @@ test("integration fallback icons preserve non-BMP initials", async ({ page }, te
   await completeOnboarding(page);
   await page.getByRole("button", { name: "Store", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Store", exact: true });
-  await dialog.getByTestId("store-plugins").click();
+  await dialog.getByTestId("store-apps").click();
   await expect(dialog.getByText("🦞", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "integrations-unicode-plugin");
-  await dialog.getByTestId("store-apps").click();
+  await dialog.getByTestId("store-connections").click();
   const connected = dialog.getByRole("button", { name: /^\d+ connected$/ });
   await expect(connected.locator("span[aria-hidden] .place-items-center")).toHaveText("𠮷");
   await connected.click();

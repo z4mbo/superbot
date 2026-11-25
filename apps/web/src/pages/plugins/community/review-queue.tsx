@@ -58,7 +58,7 @@ export function ReviewQueue() {
       toast.error(
         errorText(
           error,
-          input.decision === "rejected" ? t`Could not reject plugin` : t`Could not approve plugin`,
+          input.decision === "rejected" ? t`Could not reject app` : t`Could not approve app`,
         ),
       ),
   });

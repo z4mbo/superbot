@@ -18,7 +18,7 @@ const source = `export default function FocusTimer() {
 }
 `;
 
-test("Integrations lists a reviewed app, asks for consent to add it, and opens it sandboxed", async ({
+test("Apps lists a reviewed app, asks for consent to add it, and opens it sandboxed", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
@@ -97,13 +97,15 @@ test("Integrations lists a reviewed app, asks for consent to add it, and opens i
     .getByRole("button", { name: "Store", exact: true });
   await connect.click();
   const dialog = page.getByRole("dialog", { name: "Store", exact: true });
-  await expect(dialog.getByRole("textbox", { name: "Search apps", exact: true })).toBeVisible();
+  await dialog.getByTestId("store-apps").click();
+  await expect(dialog.getByTestId("community-store")).toBeVisible();
   await expect(dialog.getByTestId("app-section")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "integrations-baseline");
   await page.keyboard.press("Escape");
 
   listed = true;
   await connect.click();
+  await dialog.getByTestId("store-apps").click();
   const section = dialog.getByTestId("app-section");
   await expect(section.getByText("Focus timer", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "app-store-browse");

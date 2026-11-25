@@ -1,8 +1,9 @@
 import { expect, it } from "vitest";
 import { newAccountDestination, signInNext } from "./sign-in-next.js";
 
-it("returns to integration setup, plugin admin, MCP sign-in and invite links only", () => {
+it("returns to integration setup, app review, MCP sign-in and invite links only", () => {
   expect(signInNext("/integrations/setup")).toBe("/integrations/setup");
+  expect(signInNext("/admin/apps")).toBe("/admin/apps");
   expect(signInNext("/admin/plugins")).toBe("/admin/plugins");
   expect(signInNext("/onboarding/model")).toBe("/onboarding/model");
   expect(signInNext("/onboarding/model/../../app")).toBeNull();

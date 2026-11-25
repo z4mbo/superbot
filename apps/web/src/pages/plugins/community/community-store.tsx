@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useTimeout } from "@rakazo/chat-ui/hooks";
-import type { Bot } from "@rakazo/contracts";
+import type { AppListing, Bot } from "@rakazo/contracts";
 import { MAX_REGISTRY_SEARCH_LENGTH } from "@rakazo/contracts";
 import { catalogItemKey, managedAppFor, matchesPluginQuery } from "@rakazo/core";
 import {
@@ -30,6 +30,8 @@ import {
 } from "../../../components/integrations/plugin-marketplace";
 import { useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
+import { AppDetail } from "../apps/app-detail";
+import { AppSection } from "../apps/app-section";
 import { PackageBrowse } from "../package-browse";
 import { ViewTitle } from "../parts";
 import type { PluginPick } from "../plugin-picks";
@@ -47,22 +49,23 @@ type Tab = "discover" | "installed" | "create" | "review";
 const closeNothing = () => undefined;
 
 /**
- * Every plugin to install: the source marketplace's packages and the deployment registry's
- * community entries, what is installed of both, and authoring and review of community entries.
+ * The Store's Apps: reviewed page apps, the source marketplace's packages and the deployment
+ * registry's community entries, what is installed of the last two, and authoring and review of
+ * community entries.
  */
 export function CommunityStore({
   activeBotId,
   initialPick,
   onBack,
-  onOpenApps,
+  onOpenConnections,
 }: {
   activeBotId?: string;
-  /** A plugin to show first, picked from elsewhere. */
+  /** An app to show first, picked from elsewhere. */
   initialPick?: PluginPick;
   /** Shown with a title and a way back when the store is opened from another view. */
   onBack?: () => void;
-  /** Where a plugin for a managed app sends the person to manage that app. */
-  onOpenApps?: () => void;
+  /** Where an app for a managed connection sends the person to manage that connection. */
+  onOpenConnections?: () => void;
 }) {
   const { t } = useLingui();
   const categoryLabel = usePluginCategoryLabel();
@@ -82,12 +85,16 @@ export function CommunityStore({
     initialPick?.kind === "community" ? { slug: initialPick.slug } : null,
   );
   const [openApp, setOpenApp] = useState<{ slug: string; partId: string } | null>(null);
+  const [openListing, setOpenListing] = useState<AppListing | null>(null);
   const [template, setTemplate] = useState<{ key: number; version: RegistryVersion } | null>(null);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const searchText = search.trim();
   const waitingForSearch = searchText !== query;
   useTimeout(() => setQuery(searchText), waitingForSearch ? 200 : null, searchText);
+  // The same read as the page apps listed above the results, to tell when nothing matches.
+  const appCatalog = useQuery(queries.apps.catalog.queryOptions({ input: { query: searchText } }));
+  const appMatch = Boolean(appCatalog.data?.length);
   const me = useQuery(queries.me.queryOptions());
   const bots = useQuery(queries.bots.list.queryOptions());
   const installations = useRegistryInstallations();
@@ -117,6 +124,15 @@ export function CommunityStore({
         installation={appInstallation}
         part={appPart}
         onBack={() => setOpenApp(null)}
+      />
+    );
+
+  if (openListing)
+    return (
+      <AppDetail
+        key={openListing.appId}
+        listing={openListing}
+        onBack={() => setOpenListing(null)}
       />
     );
 
@@ -156,15 +172,15 @@ export function CommunityStore({
 
   function managedLink(selection: PluginSelection): ManagedAppLink | undefined {
     const entry = catalogEntries.find((row) => row.installedSource === selection.installedSource);
-    const item = entry && onOpenApps ? managedAppFor(entry, connections.catalog) : undefined;
-    if (!item || !onOpenApps) return undefined;
+    const item = entry && onOpenConnections ? managedAppFor(entry, connections.catalog) : undefined;
+    if (!item || !onOpenConnections) return undefined;
     return {
       name: item.name,
       logo: item.logo,
       connected: connections.itemConnected(item),
       connecting: connections.pending === catalogItemKey(item),
       onConnect: () => void connections.connect(item),
-      onManage: onOpenApps,
+      onManage: onOpenConnections,
     };
   }
 
@@ -181,7 +197,7 @@ export function CommunityStore({
   const discoverError =
     discover.isError && !latest.length ? (
       <LoadError
-        text={errorText(discover.error, t`Could not load community plugins`)}
+        text={errorText(discover.error, t`Could not load community apps`)}
         onRetry={() => void discover.refetch()}
       />
     ) : null;
@@ -190,9 +206,9 @@ export function CommunityStore({
     if (loadingResults) return <Loading />;
     if (discoverError) return discoverError;
     if (!latest.length)
-      return search && !packageMatch ? (
+      return search && !packageMatch && !appMatch ? (
         <p className="px-1 text-body text-muted-foreground">
-          <Trans>No plugins match your search.</Trans>
+          <Trans>No apps match your search.</Trans>
         </p>
       ) : null;
     return (
@@ -241,16 +257,18 @@ export function CommunityStore({
         !latest.length &&
         !discover.hasNextPage &&
         connections.pluginCatalog.isSuccess &&
-        !catalogEntries.length
+        !catalogEntries.length &&
+        appCatalog.isSuccess &&
+        !appMatch
       )
         return (
           <div className="flex flex-col items-start gap-3 px-1">
             <p className="text-body text-muted-foreground">
-              <Trans>No community plugins yet.</Trans>
+              <Trans>No apps yet.</Trans>
             </p>
             <Button variant="secondary" size="sm" onClick={() => setTab("create")}>
               <Plus />
-              <Trans>Create plugin</Trans>
+              <Trans>Create app</Trans>
             </Button>
           </div>
         );
@@ -261,14 +279,22 @@ export function CommunityStore({
           value={search}
           maxLength={MAX_REGISTRY_SEARCH_LENGTH}
           onChange={(event) => setSearch(event.target.value)}
-          aria-label={t`Search plugins`}
-          placeholder={t`Search plugins`}
+          aria-label={t`Search apps`}
+          placeholder={t`Search apps`}
         />
         <PackageBrowse
           pluginCatalog={connections.pluginCatalog}
           installs={connections.pluginInstalls}
           query={searchText}
-          community={communityResults()}
+          community={
+            <>
+              {/* The section brings its own top margin; the list here spaces its sections. */}
+              <div className="empty:hidden *:mt-0">
+                <AppSection query={searchText} onOpen={setOpenListing} />
+              </div>
+              {communityResults()}
+            </>
+          }
           onOpen={setOpenPackage}
         />
       </div>
@@ -280,14 +306,14 @@ export function CommunityStore({
     if (installations.isError)
       return (
         <LoadError
-          text={errorText(installations.error, t`Could not load installed plugins`)}
+          text={errorText(installations.error, t`Could not load installed apps`)}
           onRetry={() => void installations.refetch()}
         />
       );
     if (!installs.length && !connections.pluginInstalls.length)
       return (
         <p className="px-1 text-body text-muted-foreground">
-          <Trans>No plugins installed in this space.</Trans>
+          <Trans>No apps installed in this space.</Trans>
         </p>
       );
     return (
@@ -322,7 +348,7 @@ export function CommunityStore({
 
   return (
     <div data-testid="community-store" className="space-y-6">
-      {onBack ? <ViewTitle title={<Trans>Community plugins</Trans>} onBack={onBack} /> : null}
+      {onBack ? <ViewTitle title={<Trans>Community apps</Trans>} onBack={onBack} /> : null}
       <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
         <TabsList>
           <TabsTrigger value="discover" className="px-3">
@@ -338,7 +364,7 @@ export function CommunityStore({
           </TabsTrigger>
           <TabsTrigger value="create" className="px-3" data-testid="community-create-tab">
             <Plus />
-            <Trans>Create plugin</Trans>
+            <Trans>Create app</Trans>
           </TabsTrigger>
           {me.data?.isAdmin ? (
             <TabsTrigger value="review" className="px-3">
@@ -357,7 +383,7 @@ export function CommunityStore({
   );
 }
 
-/** Every community plugin this member installed in the Space. */
+/** Every community app this member installed in the Space. */
 export function useRegistryInstallations() {
   const registry = useSpaceQueries().pluginRegistry;
   return useQuery({

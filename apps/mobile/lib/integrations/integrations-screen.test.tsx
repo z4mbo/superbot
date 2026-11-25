@@ -621,7 +621,7 @@ it("keeps loaded plugins out of a loading state when scope lookup fails on refre
 it.each([true, false])(
   "waits for new plugins after a scope switch with a cached empty catalog (stale scope: %s)",
   async (staleScope) => {
-    const guidance = "Configure a plugin catalog on the server to connect apps.";
+    const guidance = "Configure a connection catalog on the server.";
     await render();
     await act(async () => catalog.resolve([]));
     expect(container.textContent).toContain(guidance);

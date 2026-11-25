@@ -141,9 +141,9 @@ function PluginScreen() {
   const error = change.error
     ? errorText(change.error, change.input?.failure)
     : !installed && previewQuery.error
-      ? errorText(previewQuery.error, t`Could not preview plugin`)
+      ? errorText(previewQuery.error, t`Could not preview app`)
       : loadFailure
-        ? errorText(loadFailure, t`Could not load plugin`)
+        ? errorText(loadFailure, t`Could not load app`)
         : null;
   const run = (key: string, act: (send: SaveSend) => Promise<unknown>, failure: string) =>
     change.run({ key, failure, act });
@@ -263,7 +263,7 @@ function PluginScreen() {
           label: working ? t`Removing…` : t`Remove`,
           onPress: () =>
             confirmRemove(t`Remove ${ph({ name: params.name })}?`, () => {
-              void setParts("header", toggle(headerPart, false), t`Could not remove plugin`);
+              void setParts("header", toggle(headerPart, false), t`Could not remove app`);
             }),
           destructive: true,
         }
@@ -276,7 +276,7 @@ function PluginScreen() {
               ? t`Add`
               : t`Connect`,
           onPress: () =>
-            void setParts("header", toggle(headerPart, true), t`Could not install plugin`),
+            void setParts("header", toggle(headerPart, true), t`Could not install app`),
           destructive: false,
         };
   useScreenHeader({
@@ -362,7 +362,7 @@ function PluginScreen() {
         {!skillsOnly && (managed || connectorCount) ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              {t`Apps`} <Text style={styles.count}>{managed ? 1 : connectorCount}</Text>
+              {t`Connections`} <Text style={styles.count}>{managed ? 1 : connectorCount}</Text>
             </Text>
             <View style={styles.card}>
               {managed ? (

@@ -279,15 +279,13 @@ function SessionApp() {
                 }
               />
               <Route
-                path="/admin/plugins"
+                path="/admin/apps"
                 element={
-                  user ? (
-                    <AdminPluginsPage />
-                  ) : (
-                    <Navigate to="/sign-in?next=/admin/plugins" replace />
-                  )
+                  user ? <AdminPluginsPage /> : <Navigate to="/sign-in?next=/admin/apps" replace />
                 }
               />
+              {/* Review links in emails sent before the page moved. */}
+              <Route path="/admin/plugins" element={<Navigate to="/admin/apps" replace />} />
               <Route
                 path="/join/:invitationId"
                 element={

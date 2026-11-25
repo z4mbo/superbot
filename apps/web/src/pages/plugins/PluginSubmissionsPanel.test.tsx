@@ -215,7 +215,7 @@ it("names the rejection when it fails without a reason of its own", async () => 
     field.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await act(async () => button("Reject", dialog).click());
-  expect(api.toastError).toHaveBeenCalledWith("Could not reject plugin");
+  expect(api.toastError).toHaveBeenCalledWith("Could not reject app");
   expect(container.querySelector('[role="dialog"]')).not.toBeNull();
 });
 
