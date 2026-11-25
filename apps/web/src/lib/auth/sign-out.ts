@@ -1,5 +1,8 @@
 import { t } from "@lingui/core/macro";
+import { bestEffort } from "@rakazo/logging/best-effort";
 import { useEffect, useRef, useState } from "react";
+import { loadedCloudAccounts } from "../../cloud/accounts/cloud-accounts";
+import { CLOUD_WEB } from "../../cloud/cloud-mode";
 import {
   endCallBeforeSignOut,
   forgetSignedInUser,
@@ -26,6 +29,10 @@ export async function signOut(destination: string): Promise<void> {
     window.location.reload();
     return;
   }
+  if (CLOUD_WEB) {
+    await signOutOfCloud();
+    return;
+  }
   const result = await authClient.signOut().catch(() => null);
   if (result && !result.error) {
     forgetSignedInUser();
@@ -40,6 +47,19 @@ export async function signOut(destination: string): Promise<void> {
     }
     window.location.reload();
   }
+}
+
+/**
+ * The hosted site signs out of the account itself, which ends access to every workspace; the
+ * workspace's own session is ended first where it still answers.
+ */
+async function signOutOfCloud(): Promise<void> {
+  await bestEffort("sign out of the workspace", authClient.signOut());
+  forgetSignedInUser();
+  clearSpaceSelection();
+  clearComposerDrafts();
+  await bestEffort("sign out of the account", loadedCloudAccounts()?.signOut());
+  window.location.assign("/");
 }
 
 /**

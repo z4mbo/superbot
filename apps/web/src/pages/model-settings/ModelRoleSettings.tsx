@@ -35,6 +35,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { GripVertical, MoreHorizontal, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { apiOrigin } from "../../lib/api/api-origin";
 import { thinkingLevelLabel } from "../../lib/models/model-catalog";
 import { spaceQueries } from "../../lib/query/query";
 import { useSpaceRpc } from "../../lib/query/space-rpc";
@@ -166,7 +167,7 @@ export function ModelRoleSettings({
           return saved;
         },
       },
-      JSON.stringify([window.location.origin, userId, spaceId, scope, role]),
+      JSON.stringify([apiOrigin(), userId, spaceId, scope, role]),
       settings && catalog ? { settings, catalog } : undefined,
     );
   }, [queryClient, rpc, userId, spaceId, scope, role]);

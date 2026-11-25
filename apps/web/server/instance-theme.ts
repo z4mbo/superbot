@@ -197,6 +197,28 @@ function loadTheme(file: string): InstanceTheme {
 }
 
 /**
+ * The theme as files for a static host: the stylesheet and each font at the path the stylesheet
+ * names, so a build with no server of ours still looks themed.
+ */
+export function instanceThemeFiles(
+  themeFile: string,
+): { fileName: string; source: string | Buffer }[] {
+  const theme = loadTheme(themeFile);
+  const themeDir = realpathSync(path.dirname(path.resolve(themeFile)));
+  return [
+    { fileName: INSTANCE_THEME_PATH.slice(1), source: renderInstanceThemeCss(theme) },
+    ...theme.fonts.files.map((font, index) => {
+      const real = realpathSync(font.file);
+      if (!inside(themeDir, real)) throw new Error(`${font.file} is outside the theme's folder`);
+      return {
+        fileName: `${FONT_PATH.slice(1)}${index}${path.extname(font.file).toLowerCase()}`,
+        source: readFileSync(real),
+      };
+    }),
+  ];
+}
+
+/**
  * Serves `RAKAZO_THEME`'s stylesheet and font files. The file is re-read per request so a
  * self-hoster sees edits on reload; a bad file is logged and serves nothing.
  */

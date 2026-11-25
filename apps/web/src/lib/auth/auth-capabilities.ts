@@ -1,6 +1,7 @@
 import type { AuthCapabilities } from "@rakazo/contracts";
 import { authCapabilitiesSchema, legacyAuthCapabilitiesSchema } from "@rakazo/contracts";
 import { ResponseBodyTooLargeError, readBoundedJsonResponse } from "@rakazo/core";
+import { apiFetch } from "../api/api-origin";
 
 export type { AuthCapabilities } from "@rakazo/contracts";
 
@@ -31,7 +32,7 @@ async function loadAuthCapabilities(): Promise<AuthCapabilities> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const response = await fetch("/api/auth/capabilities", { signal: controller.signal });
+    const response = await apiFetch("/api/auth/capabilities", { signal: controller.signal });
     if (!response.ok) throw new Error("Could not load authentication capabilities");
     const length = Number(response.headers.get("content-length") ?? Number.NaN);
     let body: unknown;

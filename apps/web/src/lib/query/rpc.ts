@@ -5,6 +5,9 @@ import type { AppContract, ProductEvent } from "@rakazo/contracts";
 import { CLIENT_BUILD_HEADER, formatClientBuild } from "@rakazo/contracts";
 import { displayIdentityEvent, displayIdentityResult } from "@rakazo/core";
 import { clientCorrelationHeaders, responseCorrelation } from "@rakazo/logging/monitoring";
+import { CLOUD_WEB } from "../../cloud/cloud-mode";
+import { requestActiveWorkspaceRecheck } from "../../cloud/workspaces/active-workspace";
+import { apiFetch, apiOrigin } from "../api/api-origin";
 import { authClient } from "../auth/auth";
 import { identityLabels } from "../bots/identity-display";
 import { i18n } from "../locale/i18n";
@@ -83,8 +86,7 @@ export function onRpcResponse(listener: (response: Response) => void): () => voi
 }
 
 const link = new RPCLink<RpcClientContext>({
-  url: () =>
-    typeof window === "undefined" ? "http://127.0.0.1:5173/rpc" : `${window.location.origin}/rpc`,
+  url: () => `${apiOrigin()}/rpc`,
   fetch: async (input, init, options) => {
     const request = new Request(input, init);
     const spaceId =
@@ -95,7 +97,7 @@ const link = new RPCLink<RpcClientContext>({
     for (const [key, value] of Object.entries(correlation)) headers.set(key, value);
     let response: Response;
     try {
-      response = await fetch(request, {
+      response = await apiFetch(request, {
         headers,
         credentials: "include",
         keepalive: options.context.keepalive,
@@ -119,10 +121,13 @@ const link = new RPCLink<RpcClientContext>({
 /**
  * A 401 means the session behind the app's last known user may be gone, but Better Auth only
  * rechecks it on focus or a timer, so a backgrounded window would keep its stale user (and every
- * screen that polls) indefinitely. Recheck now: a signed-out answer routes to sign-in.
+ * screen that polls) indefinitely. Recheck now: a signed-out answer routes to sign-in. On the
+ * hosted page the workspace may have stopped accepting the account, so it is probed too.
  */
 export function recheckSessionOnUnauthorized(status: number): void {
-  if (status === 401) authClient.$store.notify("$sessionSignal");
+  if (status !== 401) return;
+  authClient.$store.notify("$sessionSignal");
+  if (CLOUD_WEB) requestActiveWorkspaceRecheck();
 }
 
 let leavingSpace: Promise<void> | null = null;

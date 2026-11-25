@@ -2,6 +2,7 @@ import { t } from "@lingui/core/macro";
 import { isLocalhostOrLoopbackIp } from "@rakazo/contracts";
 import { COMPUTER_SCREEN_PATH } from "@rakazo/contracts/content-security-policy";
 import { sliceWellFormed } from "@rakazo/core";
+import { CLOUD_WEB } from "../../cloud/cloud-mode";
 import { errorText } from "../query/user-error";
 
 export interface ComputerScreenResult {
@@ -38,9 +39,13 @@ export function embeddableScreenUrl(url: string | null): string | null {
   try {
     const parsed = new URL(url, window.location.href);
     const page = new URL(window.location.href);
+    // The proxy and the embedded screen page live in the server's web app and frame only into it, so
+    // the hosted page has no screen to show for them.
+    const sdkScreen = parsed.protocol !== "http:" && parsed.protocol !== "https:";
+    if (CLOUD_WEB && (sdkScreen || parsed.pathname.startsWith("/novnc/"))) return null;
     // An embedded desktop is drawn by its Web SDK in a page this server serves. Its one-time login
     // code rides in the fragment so it never reaches a server log.
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    if (sdkScreen) {
       return `${page.origin}${COMPUTER_SCREEN_PATH}#${parsed.searchParams.toString()}`;
     }
     // The server that served this page proxies /novnc/. Keep the frame on this origin even when the

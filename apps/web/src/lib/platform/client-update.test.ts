@@ -352,3 +352,37 @@ describe("client updates", () => {
     expect(deps.servedBuild).not.toHaveBeenCalled();
   });
 });
+
+describe("client updates on the hosted site", () => {
+  it("finds a newer build at the web server itself, without an API reply naming one", async () => {
+    const { deps, updates } = setup({ watchServedBuild: true });
+    updates.navigated();
+    await flush();
+    expect(deps.servedBuild).toHaveBeenCalledTimes(1);
+    expect(deps.reload).toHaveBeenCalledTimes(1);
+
+    // The reload landed on the same build: the same pair is never tried again.
+    const again = setup({ watchServedBuild: true });
+    again.store.set("rk:client-update-attempt", JSON.stringify({ from: OLD, to: NEW }));
+    again.updates.navigated();
+    await flush();
+    expect(again.deps.reload).not.toHaveBeenCalled();
+  });
+
+  it("asks the web server at most once per spacing and stays put on the same build", async () => {
+    const { deps, updates, advance } = setup({
+      watchServedBuild: true,
+      servedBuild: vi.fn(async () => OLD as string | null),
+    });
+    updates.navigated();
+    await flush();
+    updates.navigated();
+    await flush();
+    expect(deps.servedBuild).toHaveBeenCalledTimes(1);
+    advance(CLIENT_UPDATE_CHECK_SPACING_MS);
+    updates.navigated();
+    await flush();
+    expect(deps.servedBuild).toHaveBeenCalledTimes(2);
+    expect(deps.reload).not.toHaveBeenCalled();
+  });
+});

@@ -1,4 +1,5 @@
 import { MCP_SIGNIN_WINDOW_PREFIX } from "@rakazo/contracts";
+import { apiOrigin } from "../api/api-origin";
 import { MCP_OAUTH_CALLBACK_PATH } from "../auth/sign-in-next";
 import { desktopBridge } from "../platform/desktop";
 import { rpc } from "../query/rpc";
@@ -16,9 +17,12 @@ export type McpOauthResult =
   | "already_connected"
   | "authorization_not_requested";
 
-/** Where providers send the user back; a pre-registered client must allow it. */
+/**
+ * Where providers send the user back; a pre-registered client must allow it. Always the server's own
+ * web app, which the server checks: from the hosted page the sign-in finishes in that app's tab.
+ */
 export function mcpOAuthRedirectUri(): string {
-  return `${window.location.origin}${MCP_OAUTH_CALLBACK_PATH}`;
+  return `${apiOrigin()}${MCP_OAUTH_CALLBACK_PATH}`;
 }
 
 /**

@@ -6,6 +6,7 @@ import { cronFromPreset, localTimezone, routineCopy } from "@rakazo/core";
 import type { ComponentProps, Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { REVEAL_MS } from "../../components/vault/VaultItemDetail";
+import { apiOrigin } from "../../lib/api/api-origin";
 import { parseModelOptionKey } from "../../lib/models/model-catalog";
 import type { createSpaceRpc } from "../../lib/query/rpc";
 import { sharedInflight } from "../../lib/query/shared-inflight";
@@ -151,14 +152,14 @@ export function useRoutineEditor({
         webhook: {
           path:
             typeof window !== "undefined"
-              ? `${window.location.origin}/api/v1/bots/${active.id}/webhook`
+              ? `${apiOrigin()}/api/v1/bots/${active.id}/webhook`
               : `/api/v1/bots/${active.id}/webhook`,
           secret: routineWebhookSecret,
           configured: active.webhookConfigured || Boolean(routineWebhookSecret),
         },
         githubPath:
           typeof window !== "undefined"
-            ? `${window.location.origin}/api/v1/bots/${active.id}/github`
+            ? `${apiOrigin()}/api/v1/bots/${active.id}/github`
             : `/api/v1/bots/${active.id}/github`,
         messageProviders,
         saving: savingRoutine,

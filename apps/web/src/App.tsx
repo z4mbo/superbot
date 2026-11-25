@@ -7,6 +7,8 @@ import { analyticsScreen } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
+import { CLOUD_WEB } from "./cloud/cloud-mode";
+import { requestActiveWorkspaceRecheck } from "./cloud/workspaces/active-workspace";
 import { LoadingState } from "./components/ai/primitives";
 import { SubscriptionGate } from "./components/billing/SubscriptionGate";
 import { CallLayout } from "./components/call/CallLayout";
@@ -171,8 +173,14 @@ function SessionApp() {
     markOnce("rk:renderer:session-committed");
     markAfterPaint("rk:renderer:session-painted");
   }, [session.isPending]);
+  // The hosted site never shows a server's own sign-in: the workspace stopped accepting the
+  // account, so it is probed and the gate in front of the app says why.
+  const cloudSignedOut = CLOUD_WEB && gate === "anonymous";
+  useEffect(() => {
+    if (cloudSignedOut) requestActiveWorkspaceRecheck();
+  }, [cloudSignedOut]);
 
-  if (showSessionUnavailable(gate, nextHolding)) {
+  if (showSessionUnavailable(gate, nextHolding) || cloudSignedOut) {
     return <SessionUnavailable refetch={session.refetch} />;
   }
   if (gate === "loading" && !nextHoldingAnonymous) {

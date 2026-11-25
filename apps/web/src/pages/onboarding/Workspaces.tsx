@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AccountMenu } from "../../components/account/AccountMenu";
 import { SpaceMembersSettings } from "../../components/spaces/SpaceMembersSettings";
+import { apiOrigin } from "../../lib/api/api-origin";
 import { useSignOut } from "../../lib/auth/sign-out";
 import { spaceQueries, useQueryUserId, useSave } from "../../lib/query/query";
 import { selectedSpaceId, selectSpace } from "../../lib/query/rpc";
@@ -95,10 +96,11 @@ function WorkspaceSetup() {
                 create.run(input);
                 return;
               }
-              const url = URL.parse(input, window.location.origin);
+              // Invite links name the server's own address, which is not this page's on the hosted site.
+              const url = URL.parse(input, apiOrigin());
               if (
                 !url ||
-                url.origin !== window.location.origin ||
+                url.origin !== apiOrigin() ||
                 !/^\/invite\/[A-Za-z0-9_-]{1,200}$/.test(url.pathname)
               ) {
                 setError(t`Paste an invite link for this server`);

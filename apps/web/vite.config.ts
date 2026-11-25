@@ -14,7 +14,11 @@ import { wuyingScreenAssets } from "../../packages/adapters/src/providers/comput
 import { wuyingScreenPolicy } from "../../packages/adapters/src/providers/computer/wuying/wuying-screen-policy.ts";
 import { createServiceLogger } from "../../packages/logging/src/env.ts";
 import { apiProxy } from "./server/api-proxy.js";
-import { withInstanceThemeLink } from "./server/instance-theme.js";
+import {
+  instanceThemeFiles,
+  instanceThemeMiddleware,
+  withInstanceThemeLink,
+} from "./server/instance-theme.js";
 import {
   attachDesktopStackProbe,
   attachNovncProxy,
@@ -29,6 +33,11 @@ export default defineConfig(({ command, mode }) => {
   // Names this build in every API request; the dev server has none, so the handshake stays off.
   const buildId = command === "build" ? buildIdAt(new Date()) : "";
   const rootEnv = loadEnv(mode, path.resolve(import.meta.dirname, "../.."), "");
+  // The hosted site (`VITE_SUPERBOT_CLOUD=1`): a static build that carries the Superbot theme and
+  // talks to people's own servers. Defined as a literal so the other mode's code is dropped.
+  const webEnv = loadEnv(mode, import.meta.dirname, "VITE_");
+  const cloud = webEnv.VITE_SUPERBOT_CLOUD === "1";
+  const cloudTheme = path.resolve(import.meta.dirname, "../../infra/superbot/theme/theme.json");
   const webPort = Number(process.env.WEB_PORT ?? rootEnv.WEB_PORT ?? 5173);
   const settings = webServerSettings(
     (name) => process.env[name] ?? rootEnv[name],
@@ -54,9 +63,13 @@ export default defineConfig(({ command, mode }) => {
         },
       },
     },
-    define: { "import.meta.env.RAKAZO_BUILD": JSON.stringify(buildId) },
+    define: {
+      "import.meta.env.RAKAZO_BUILD": JSON.stringify(buildId),
+      "import.meta.env.VITE_SUPERBOT_CLOUD": JSON.stringify(cloud ? "1" : ""),
+    },
     plugins: [
-      welcomeSite(path.resolve(import.meta.dirname, "../../superbot-site")),
+      // The hosted site has no landing page of its own: signed-out visitors get the sign-in form.
+      ...(cloud ? [] : [welcomeSite(path.resolve(import.meta.dirname, "../../superbot-site"))]),
       {
         // The API reads this to name the deployed build, and a tab fetches it to confirm the
         // server already serves a newer build before it reloads.
@@ -102,6 +115,7 @@ export default defineConfig(({ command, mode }) => {
           });
           server.middlewares.use(sharedPageHeaders);
           if (instanceTheme) server.middlewares.use(instanceTheme);
+          else if (cloud) server.middlewares.use(instanceThemeMiddleware(cloudTheme, console.warn));
           attachDesktopStackProbe(server, settings);
           // The hosts the running server allows, as Vite resolved them, for proxied upgrades.
           proxyHosts = server.config.server.allowedHosts;
@@ -122,9 +136,27 @@ export default defineConfig(({ command, mode }) => {
       },
       {
         // Without RAKAZO_THEME the page never links the theme, so the default deploy is unchanged.
+        // The hosted build has no server to serve it, so the theme is written into the build.
         name: "rakazo-instance-theme",
         transformIndexHtml: (html) =>
-          command === "serve" && instanceTheme ? withInstanceThemeLink(html) : html,
+          cloud || (command === "serve" && instanceTheme) ? withInstanceThemeLink(html) : html,
+        generateBundle() {
+          if (!cloud) return;
+          for (const { fileName, source } of instanceThemeFiles(cloudTheme)) {
+            this.emitFile({ type: "asset", fileName, source });
+          }
+        },
+      },
+      {
+        name: "superbot-cloud-key",
+        apply: "build",
+        buildStart() {
+          if (cloud && !webEnv.VITE_CLERK_PUBLISHABLE_KEY) {
+            this.warn(
+              "VITE_CLERK_PUBLISHABLE_KEY is not set: the hosted build will stop at startup until it is.",
+            );
+          }
+        },
       },
     ],
     server: {

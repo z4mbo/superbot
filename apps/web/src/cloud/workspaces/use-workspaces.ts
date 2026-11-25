@@ -1,5 +1,11 @@
+import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useCloudAccounts } from "../accounts/cloud-accounts-context";
+import { startupActiveWorkspace } from "./active-workspace";
 import type { CloudWorkspace } from "./workspace-directory";
 import type { WorkspaceStatus } from "./workspace-status";
+import { workspacesStoreFor } from "./workspaces-store";
+
+const CHECKING: WorkspaceStatus = { state: "checking" };
 
 /** The workspace this tab is connected to, read once at startup. Null until one is chosen. */
 export type ActiveWorkspace = { id: string; url: string };
@@ -27,10 +33,31 @@ export type Workspaces = {
 
 /** Read at startup, before anything renders, so every request knows its server. */
 export function activeWorkspace(): ActiveWorkspace | null {
-  throw new Error("not implemented");
+  return startupActiveWorkspace();
 }
 
 /** The signed-in person's workspaces and their live status. Only under the cloud provider. */
 export function useWorkspaces(): Workspaces {
-  throw new Error("not implemented");
+  const accounts = useCloudAccounts();
+  const account = accounts.useAccount();
+  const store = workspacesStoreFor(accounts);
+  const userId = account.status === "signed-in" ? account.user.id : null;
+  useEffect(() => store.setUser(userId), [store, userId]);
+  const state = useSyncExternalStore(store.subscribe, store.getState);
+  return useMemo(
+    () => ({
+      ready: state.ready,
+      failed: state.failed,
+      reload: store.reload,
+      workspaces: state.workspaces,
+      activeId: state.activeId,
+      status: (id) => state.statuses.get(id) ?? CHECKING,
+      recheck: store.recheck,
+      add: store.add,
+      rename: store.rename,
+      remove: store.remove,
+      setActive: store.setActive,
+    }),
+    [state, store],
+  );
 }

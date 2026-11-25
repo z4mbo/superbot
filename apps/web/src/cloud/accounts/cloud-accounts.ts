@@ -37,7 +37,19 @@ export interface CloudAccounts {
   writeDocument(key: string, value: unknown): Promise<void>;
 }
 
+let loaded: CloudAccounts | null = null;
+
 /** Loads the configured account service. Called once, by the hosted build's entry. */
-export function loadCloudAccounts(): Promise<CloudAccounts> {
-  throw new Error("not implemented");
+export async function loadCloudAccounts(): Promise<CloudAccounts> {
+  const { createClerkAccounts } = await import("./clerk/clerk-accounts");
+  loaded ??= createClerkAccounts(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+  return loaded;
+}
+
+/**
+ * The service once the entry has loaded it, for code outside React (requests, sign-out). Null in
+ * the self-hosted build and before startup finishes.
+ */
+export function loadedCloudAccounts(): CloudAccounts | null {
+  return loaded;
 }

@@ -3,6 +3,7 @@ import type { AccountSecurity, SignInProvider } from "@rakazo/contracts";
 import { identityConfirmationProviders } from "@rakazo/contracts";
 import { Button, Input, Label } from "@rakazo/ui-web";
 import { useEffect, useState } from "react";
+import { CLOUD_WEB } from "../../cloud/cloud-mode";
 import { fetchAccountSecurity, requestAccountDeletionCode } from "../../lib/auth/account-security";
 import { authClient } from "../../lib/auth/auth";
 import { forgetSignedIn } from "../../lib/auth/returning-user";
@@ -123,7 +124,8 @@ export function DeleteAccountForm({
             </div>
           ) : (
             <>
-              {identityConfirmationProviders(security).map((provider) => (
+              {/* Signing in again returns to the server's own web app, not the hosted site. */}
+              {(CLOUD_WEB ? [] : identityConfirmationProviders(security)).map((provider) => (
                 <Button
                   key={provider.id}
                   variant="outline"
@@ -218,14 +220,21 @@ export function DeleteAccountForm({
   );
 }
 
-/** Links the organization's SSO identity to an account that signed up another way. */
-export function LinkSsoRow({
-  provider: suppliedProvider,
-  onSecurity,
-}: {
+type LinkSsoRowProps = {
   provider?: SignInProvider;
   onSecurity?: (security: AccountSecurity) => void;
-}) {
+};
+
+/**
+ * Links the organization's SSO identity to an account that signed up another way. Not on the hosted
+ * site: the identity provider returns to the server's own web app, and the cloud account already
+ * chooses the server account there.
+ */
+export function LinkSsoRow(props: LinkSsoRowProps) {
+  return CLOUD_WEB ? null : <LinkSsoControl {...props} />;
+}
+
+function LinkSsoControl({ provider: suppliedProvider, onSecurity }: LinkSsoRowProps) {
   const { t } = useLingui();
   const provider = suppliedProvider ?? { id: "oidc", name: t`SSO` };
   const providerName = provider.id === "oidc" && provider.name === "SSO" ? t`SSO` : provider.name;
