@@ -1,0 +1,249 @@
+{
+  "written": "@earendil-works/pi-durable 1.6.0",
+  "store": {
+    "formatVersion": 1,
+    "nextId": 16,
+    "nextSeq": 14
+  },
+  "tables": {
+    "durable_record_ids": [
+      {
+        "id": 1,
+        "recordType": "conversation"
+      },
+      {
+        "id": 2,
+        "recordType": "document"
+      },
+      {
+        "id": 3,
+        "recordType": "document"
+      },
+      {
+        "id": 4,
+        "recordType": "document"
+      },
+      {
+        "id": 5,
+        "recordType": "document"
+      },
+      {
+        "id": 6,
+        "recordType": "document"
+      },
+      {
+        "id": 7,
+        "recordType": "entry"
+      },
+      {
+        "id": 8,
+        "recordType": "submission"
+      },
+      {
+        "id": 9,
+        "recordType": "task"
+      },
+      {
+        "id": 10,
+        "recordType": "entry"
+      },
+      {
+        "id": 11,
+        "recordType": "entry"
+      },
+      {
+        "id": 12,
+        "recordType": "task"
+      },
+      {
+        "id": 13,
+        "recordType": "entry"
+      },
+      {
+        "id": 14,
+        "recordType": "task"
+      },
+      {
+        "id": 15,
+        "recordType": "entry"
+      }
+    ],
+    "durable_conversations": [
+      {
+        "id": 1,
+        "ownerConversationId": null,
+        "ownerTaskId": null,
+        "record": "{\"id\":1}"
+      }
+    ],
+    "durable_entries": [
+      {
+        "id": 7,
+        "conversationId": 1,
+        "head": null,
+        "commitSeq": 2,
+        "record": "{\"model\":[{\"role\":\"user\",\"content\":\"What does the note say?\",\"timestamp\":1795620130574}],\"kind\":\"pi.user\",\"id\":7,\"conversationId\":1}"
+      },
+      {
+        "id": 10,
+        "conversationId": 1,
+        "head": null,
+        "commitSeq": 4,
+        "record": "{\"model\":[{\"role\":\"system\",\"content\":\"\",\"toolsAdded\":[{\"name\":\"read_note\",\"description\":\"Read the saved note\",\"parameters\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}},{\"name\":\"slow_lookup\",\"description\":\"Look up an order's status\",\"parameters\":{\"type\":\"object\",\"properties\":{\"order\":{\"type\":\"string\"}},\"required\":[\"order\"],\"additionalProperties\":false}},{\"name\":\"charge_card\",\"description\":\"Charge the customer's card\",\"parameters\":{\"type\":\"object\",\"properties\":{\"cents\":{\"type\":\"number\"}},\"required\":[\"cents\"],\"additionalProperties\":false}}],\"timestamp\":1795620130634}],\"kind\":\"pi.system\",\"id\":10,\"conversationId\":1,\"byTaskId\":9}"
+      },
+      {
+        "id": 11,
+        "conversationId": 1,
+        "head": null,
+        "commitSeq": 5,
+        "record": "{\"model\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"toolCall\",\"id\":\"call-read\",\"name\":\"read_note\",\"arguments\":{}}],\"api\":\"openai-completions\",\"provider\":\"fixture-fixture-model\",\"model\":\"fixture-model\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"toolUse\",\"timestamp\":1795620130894,\"responseId\":\"fixture-1\",\"rawStopReason\":\"tool_calls\",\"durationMs\":71,\"thinkingLevel\":\"off\"}],\"kind\":\"pi.assistant\",\"id\":11,\"conversationId\":1,\"byTaskId\":9}"
+      },
+      {
+        "id": 13,
+        "conversationId": 1,
+        "head": null,
+        "commitSeq": 8,
+        "record": "{\"model\":[{\"role\":\"toolResult\",\"toolCallId\":\"call-read\",\"toolName\":\"read_note\",\"content\":[{\"type\":\"text\",\"text\":\"Order 42 belongs to the fixture customer.\"}],\"isError\":false,\"durationMs\":39,\"timestamp\":1795620131036}],\"data\":{\"diagnostics\":[]},\"kind\":\"pi.tool-result\",\"id\":13,\"conversationId\":1,\"byTaskId\":12}"
+      },
+      {
+        "id": 15,
+        "conversationId": 1,
+        "head": null,
+        "commitSeq": 13,
+        "record": "{\"model\":[{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"The note says order 42 belongs to the fixture customer.\"}],\"api\":\"openai-completions\",\"provider\":\"fixture-fixture-model\",\"model\":\"fixture-model\",\"usage\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}},\"stopReason\":\"stop\",\"timestamp\":1795620131128,\"responseId\":\"fixture-2\",\"rawStopReason\":\"stop\",\"durationMs\":10,\"thinkingLevel\":\"off\"}],\"kind\":\"pi.assistant\",\"id\":15,\"conversationId\":1,\"byTaskId\":14}"
+      }
+    ],
+    "durable_tasks": [
+      {
+        "id": 9,
+        "conversationId": 1,
+        "kind": "\"pi.generation\"",
+        "status": "terminal",
+        "abortRequested": false,
+        "background": false,
+        "record": "{\"id\":9,\"conversationId\":1,\"kind\":\"pi.generation\",\"version\":3,\"input\":{},\"background\":false,\"abortRequested\":false,\"state\":{\"status\":\"terminal\",\"outcome\":{\"status\":\"completed\",\"result\":{\"entryId\":11}}},\"startedAt\":1795620130608,\"endedAt\":1795620131074}"
+      },
+      {
+        "id": 12,
+        "conversationId": 1,
+        "kind": "\"pi.tool\"",
+        "status": "terminal",
+        "abortRequested": false,
+        "background": false,
+        "record": "{\"id\":12,\"conversationId\":1,\"kind\":\"pi.tool\",\"version\":4,\"input\":{\"kind\":\"model\",\"assistant\":11,\"callId\":\"call-read\"},\"owner\":9,\"background\":false,\"abortRequested\":false,\"state\":{\"status\":\"terminal\",\"outcome\":{\"status\":\"completed\",\"result\":{\"kind\":\"model\",\"entryId\":13}}},\"startedAt\":1795620130997,\"endedAt\":1795620131037}"
+      },
+      {
+        "id": 14,
+        "conversationId": 1,
+        "kind": "\"pi.generation\"",
+        "status": "terminal",
+        "abortRequested": false,
+        "background": false,
+        "record": "{\"id\":14,\"conversationId\":1,\"kind\":\"pi.generation\",\"version\":3,\"input\":{},\"background\":false,\"abortRequested\":false,\"state\":{\"status\":\"terminal\",\"outcome\":{\"status\":\"completed\",\"result\":{\"entryId\":15}}},\"startedAt\":1795620131095,\"endedAt\":1795620131141}"
+      }
+    ],
+    "durable_submissions": [
+      {
+        "id": 8,
+        "conversationId": 1,
+        "requestId": "\"fixture-turn-1\"",
+        "status": "done",
+        "record": "{\"conversationId\":1,\"requestId\":\"fixture-turn-1\",\"type\":\"input\",\"status\":\"done\",\"entry\":7,\"id\":8,\"answer\":15}"
+      }
+    ],
+    "durable_documents": [
+      {
+        "id": 2,
+        "kind": "\"pi.live\"",
+        "family": false,
+        "keyValue": "\"\"",
+        "scopeKind": "conversation",
+        "ownerId": 1,
+        "createdSeq": 1,
+        "retiredSeq": null,
+        "record": "{\"id\":2,\"kind\":\"pi.live\",\"scope\":{\"kind\":\"conversation\",\"conversationId\":1},\"history\":\"latest\",\"fork\":\"initial\",\"createdAt\":1}"
+      },
+      {
+        "id": 3,
+        "kind": "\"pi.inbox\"",
+        "family": false,
+        "keyValue": "\"\"",
+        "scopeKind": "conversation",
+        "ownerId": 1,
+        "createdSeq": 1,
+        "retiredSeq": null,
+        "record": "{\"id\":3,\"kind\":\"pi.inbox\",\"scope\":{\"kind\":\"conversation\",\"conversationId\":1},\"history\":\"latest\",\"fork\":\"initial\",\"createdAt\":1}"
+      },
+      {
+        "id": 4,
+        "kind": "\"pi.usage\"",
+        "family": false,
+        "keyValue": "\"\"",
+        "scopeKind": "conversation",
+        "ownerId": 1,
+        "createdSeq": 1,
+        "retiredSeq": null,
+        "record": "{\"id\":4,\"kind\":\"pi.usage\",\"scope\":{\"kind\":\"conversation\",\"conversationId\":1},\"history\":\"latest\",\"fork\":\"initial\",\"createdAt\":1}"
+      },
+      {
+        "id": 5,
+        "kind": "\"pi.provider\"",
+        "family": false,
+        "keyValue": "\"\"",
+        "scopeKind": "conversation",
+        "ownerId": 1,
+        "createdSeq": 1,
+        "retiredSeq": null,
+        "record": "{\"id\":5,\"kind\":\"pi.provider\",\"scope\":{\"kind\":\"conversation\",\"conversationId\":1},\"history\":\"latest\",\"fork\":\"initial\",\"createdAt\":1}"
+      },
+      {
+        "id": 6,
+        "kind": "\"pi.agent\"",
+        "family": false,
+        "keyValue": "\"\"",
+        "scopeKind": "conversation",
+        "ownerId": 1,
+        "createdSeq": 1,
+        "retiredSeq": null,
+        "record": "{\"id\":6,\"kind\":\"pi.agent\",\"scope\":{\"kind\":\"conversation\",\"conversationId\":1},\"history\":\"rewindable\",\"fork\":\"asOf\",\"createdAt\":1}"
+      }
+    ],
+    "durable_document_revisions": [
+      {
+        "documentId": 2,
+        "seq": 13,
+        "kind": "base",
+        "version": 3,
+        "content": "{}"
+      },
+      {
+        "documentId": 3,
+        "seq": 1,
+        "kind": "base",
+        "version": 1,
+        "content": "{\"items\":[]}"
+      },
+      {
+        "documentId": 4,
+        "seq": 5,
+        "kind": "base",
+        "version": 1,
+        "content": "{\"models\":{\"fixture-fixture-model/fixture-model\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"totalTokens\":0,\"cost\":{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0,\"total\":0}}},\"tools\":{}}"
+      },
+      {
+        "documentId": 5,
+        "seq": 1,
+        "kind": "base",
+        "version": 1,
+        "content": "{\"sessionId\":\"01a2134c-cee2-7060-856b-5daf17d0743f\"}"
+      },
+      {
+        "documentId": 6,
+        "seq": 1,
+        "kind": "base",
+        "version": 1,
+        "content": "{\"model\":{\"provider\":\"fixture-fixture-model\",\"modelId\":\"fixture-model\"}}"
+      }
+    ]
+  }
+}

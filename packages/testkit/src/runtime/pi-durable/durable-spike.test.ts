@@ -1,14 +1,9 @@
 // Phase 1 spike: can a durable harness carry a Superbot run across a process kill? Real Pi
 // Durable, real HTTP/SSE against the offline model emulator, real child processes killed
 // abruptly. Nothing here changes how Superbot runs agents today.
-import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { spawn } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Api, Model, Models } from "@earendil-works/pi-ai";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
@@ -16,141 +11,46 @@ import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite
 import { resolveRuntimeModel, withOutputBudget } from "@rakazo/adapters";
 import { deferred } from "@rakazo/core/test-async";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ModelEmulatorRequest, ModelEmulatorStep } from "../../model-emulator.js";
+import type { ModelEmulatorStep } from "../../model-emulator.js";
 import { startModelEmulator } from "../../model-emulator.js";
-import type { SpikeChildConfig, SpikeEndpoint, SpikeEvent } from "./durable-spike-fixture.js";
+import type { SpikeChildConfig, SpikeEndpoint } from "./durable-spike-fixture.js";
 import {
   crashableStorage,
   logLines,
-  SPIKE_EVENT_PREFIX,
   SPIKE_SETTINGS,
   spikeModels,
   spikeRegistry,
-  spikeWorkdir,
   summarizeTranscript,
 } from "./durable-spike-fixture.js";
+import type { Cleanups } from "./durable-spike-process.js";
+import {
+  anyRequest,
+  killHard,
+  settled,
+  settledTranscript,
+  spikeEmulator,
+  spikeScenario,
+  startSpikeChild,
+  toolMessages,
+} from "./durable-spike-process.js";
 
 const context = BACKGROUND_CONTEXT;
 const childScript = fileURLToPath(new URL("./durable-spike-child.ts", import.meta.url));
-const tsxLoader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
-// Children run on this test's Node unless a test run points them at another runtime, such as
-// Electron's (with ELECTRON_RUN_AS_NODE=1), which the desktop app's local server runs on.
-const childNode = process.env.DURABLE_SPIKE_NODE || process.execPath;
 
-const cleanups: Array<() => Promise<void>> = [];
+const cleanups: Cleanups = [];
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 });
 
 async function scenario() {
-  const root = await mkdtemp(path.join(tmpdir(), "durable-spike-"));
-  // Windows can hold a killed process's file handles for a moment; retry the removal.
-  cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
-  const workdir = spikeWorkdir(root);
-  await writeFile(workdir.note, "Order 42 belongs to the fixture customer.");
+  const { root, workdir } = await spikeScenario(cleanups);
   return { root, workdir, storagePath: path.join(root, "session.sqlite") };
 }
 
-async function emulator(steps: ModelEmulatorStep[], modelId = "fixture-model") {
-  const server = await startModelEmulator({ steps, modelId });
-  cleanups.push(() => server.close());
-  const endpoint: SpikeEndpoint = {
-    provider: `fixture-${modelId}`,
-    modelId,
-    baseUrl: server.baseUrl,
-  };
-  return { server, endpoint };
-}
+const emulator = (steps: ModelEmulatorStep[], modelId?: string) =>
+  spikeEmulator(cleanups, steps, modelId);
 
-const anyRequest = () => {};
-
-function toolMessages(request: ModelEmulatorRequest) {
-  return request.messages
-    .filter((message) => message.role === "tool")
-    .map((message) => ({
-      id: message.tool_call_id,
-      text: typeof message.content === "string" ? message.content : JSON.stringify(message.content),
-    }));
-}
-
-interface SpikeChild {
-  process: ChildProcessWithoutNullStreams;
-  events: SpikeEvent[];
-  stderr: string[];
-  waitFor(match: (event: SpikeEvent) => boolean): Promise<SpikeEvent>;
-  exited: Promise<number | null>;
-}
-
-function startChild(config: SpikeChildConfig): SpikeChild {
-  const child = spawn(childNode, ["--import", tsxLoader, childScript, JSON.stringify(config)], {
-    stdio: ["pipe", "pipe", "pipe"],
-    env: { ...process.env },
-  });
-  const events: SpikeEvent[] = [];
-  const stderr: string[] = [];
-  const waiters = new Set<{
-    match: (event: SpikeEvent) => boolean;
-    resolve(event: SpikeEvent): void;
-  }>();
-  let buffered = "";
-  child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
-    buffered += chunk;
-    const lines = buffered.split(/\r?\n/);
-    buffered = lines.pop() ?? "";
-    for (const line of lines) {
-      if (!line.startsWith(SPIKE_EVENT_PREFIX)) continue;
-      const event = JSON.parse(line.slice(SPIKE_EVENT_PREFIX.length)) as SpikeEvent;
-      events.push(event);
-      for (const waiter of waiters) {
-        if (!waiter.match(event)) continue;
-        waiters.delete(waiter);
-        waiter.resolve(event);
-      }
-    }
-  });
-  child.stderr.setEncoding("utf8").on("data", (chunk: string) => stderr.push(chunk));
-  const exited = new Promise<number | null>((resolve) =>
-    child.once("exit", (code) => resolve(code)),
-  );
-  cleanups.push(async () => {
-    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-    await exited;
-  });
-  return {
-    process: child,
-    events,
-    stderr,
-    exited,
-    waitFor(match) {
-      const found = events.find(match);
-      if (found) return Promise.resolve(found);
-      return new Promise((resolve, reject) => {
-        waiters.add({ match, resolve });
-        void exited.then((code) =>
-          reject(
-            new Error(
-              `child exited (${code}) before the expected event; events: ${JSON.stringify(events)}; stderr: ${stderr.join("")}`,
-            ),
-          ),
-        );
-      });
-    },
-  };
-}
-
-/** An abrupt kill on every OS: SIGKILL on Linux and macOS, TerminateProcess on Windows. */
-async function killHard(child: SpikeChild) {
-  child.process.kill("SIGKILL");
-  await child.exited;
-}
-
-const settled = (event: SpikeEvent): event is Extract<SpikeEvent, { event: "settled" }> =>
-  event.event === "settled";
-
-function settledTranscript(event: SpikeEvent) {
-  if (event.event !== "settled") throw new Error(`expected a settled event, got ${event.event}`);
-  return event.transcript;
-}
+const startChild = (config: SpikeChildConfig) => startSpikeChild(cleanups, childScript, config);
 
 describe("pi-durable spike: in-memory storage, same process", () => {
   it("resumes a run cut off mid-tool in a new Harness and reruns only the replay-safe call", async () => {

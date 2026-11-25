@@ -4,10 +4,11 @@ Superbot runs agents on `@earendil-works/pi-agent-core`'s in-memory `Agent`
 (`PiAgentRuntime`), and survives a process kill only through its own `TurnCheckpoint`
 and the executor's lease and handover. This spike asks whether
 `@earendil-works/pi-durable` 1.6.0 can carry a run across a kill instead, before any
-production code changes. Nothing in the product uses it yet: the package is a dev
-dependency of `@rakazo/testkit`, and the spike lives in
+production code changes. Nothing in the product runs on it yet. The spike lives in
 `packages/testkit/src/runtime/pi-durable/` as offline tests against the model emulator
-(`pnpm exec vitest run packages/testkit/src/runtime/pi-durable`).
+(`pnpm exec vitest run packages/testkit/src/runtime/pi-durable`). Phase 2 has started:
+step 1, the Postgres storage, is in `@rakazo/adapters` (see
+[Phase 2 step 1](#phase-2-step-1-the-postgres-storage)).
 
 ## What the tests prove
 
@@ -120,10 +121,60 @@ fallbacks; `runModelTurn` hands it to the runtime as `request.model`
 Because `models` belongs to the Harness, not the conversation, each Harness serves one
 bot's credentials; that matches one Harness per leased conversation.
 
+## Phase 2 step 1: the Postgres storage
+
+`PostgresDurableStorage` (`packages/adapters/src/runtime/pi/durable/`, exported only as
+`@rakazo/adapters/durable-storage`, never from the package root) is Durable's `Storage` over
+the `durable_*` tables. It ports the SQLite storage's commit checks and messages, so both refuse
+the same commits. `@earendil-works/pi-durable` and `@earendil-works/chord` are now
+dependencies of `@rakazo/adapters`, pinned at exactly 1.6.0; nothing in the startup path
+imports the module, and step 2 loads it with a dynamic `import()`.
+
+- **Tables.** One `durable_stores` row per store (the id the caller picks, its Space, the
+  record format, the next id and seq), and one table per record type keyed by
+  `(storeId, id)`. Records stay the harness's JSON as text, which reads back exactly
+  (`jsonb` rejects NUL and lone surrogates and reorders keys). Every table is under
+  row-level security through the store's Space and is deleted with it. The migration adds
+  only tables.
+- **Fence.** The plan said "a fence column on the existing run lease"; the fence turned out
+  to need no column at all. Each commit runs a `DurableStoreFence` first in its own
+  transaction, then locks the store's row. `leaseFence(lease)` is `assertLeaseHeld` on a
+  `withLease` lease, which holds the lease row `FOR SHARE` until the commit lands, so no new
+  holder takes it in between. A new lease, claim or fence column would also go against
+  `no-hand-rolled-leases`. Step 2 picks the lease (one per store, keyed `durable-store:<id>`
+  in the tests) and closes the Harness when `lease.signal` aborts.
+- **Record format.** `DURABLE_STORE_FORMAT_VERSION` (1) is stored per store, and a store
+  with a higher one is refused, as SQLite refuses a newer file. Raise it in the release that
+  upgrades Durable to a version that stores records differently.
+- **Previous version.** `durable-store-1.6.0.fixture.json` holds the rows a finished 1.6.0
+  turn leaves. A test loads them into a new store, reopens it and continues the conversation.
+  Before each upgrade, add a fixture written by the version being replaced and keep all of
+  them passing. A task stored by a newer `pi.generation` or `pi.tool` is still blocked as
+  `task_too_old` by Durable itself; the format check stops a rollback before it gets that far.
+
+What the tests prove (`*.postgres.test.ts`, run by the integration job on a throwaway
+database):
+
+| Scenario                                                    | Result                                                                                                                                          |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Durable's `registerStorageConformance` (33 cases)           | All pass, each under a held lease                                                                                                               |
+| `kill` while a side-effecting tool runs, then a new process | The tool is **not** run again; the model gets the interrupted result and the run goes on                                                        |
+| A second process while the first holds the store's lease    | Turned away (`LeaseHeldError`) before it opens anything; the live call runs once                                                                |
+| The first process stalls past its lease; another takes over | The new holder finishes the run. The stalled one fails its Session at its next commit (`storage_failed: LeaseLostError`) and never writes again |
+| A commit after the lease changed hands                      | Rejected; the new holder's records alone are stored                                                                                             |
+| Reopen, after ids were minted and never stored              | Ids and seqs continue above everything stored                                                                                                   |
+| A store a newer release wrote                               | Refused: `Durable store format 2 is newer than supported version 1`                                                                             |
+| Another Space opens the store's id                          | Refused, and it reads none of its rows                                                                                                          |
+| The 1.6.0 fixture                                           | Reopens and continues                                                                                                                           |
+
+Still open for step 2: what a store is (one per conversation or per bot, as above), and
+whether its records join content encryption. Messages are sealed per Space; `runs.checkpoint`,
+which these records would replace, is not.
+
 ## Phase 2 steps
 
-1. A Postgres `Storage` passing Durable's conformance suite, behind a fence column on
-   the existing run lease; a migration adds only tables.
+1. ~~A Postgres `Storage` passing Durable's conformance suite, behind the run's lease; a
+   migration adds only tables.~~ Done, above.
 2. `PiDurableRuntime` in `packages/adapters/src/runtime/pi/`, loaded with a dynamic
    `import()` only when configured, implementing `AgentRuntime` with the model seam
    above and emitting the same `AgentRuntimeEvent`s from conversation watches.

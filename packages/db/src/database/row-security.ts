@@ -191,6 +191,14 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "RegistryPluginInstall",
   "RegistryPluginGrant",
   "RegistryAppRecord",
+  "DurableStore",
+  "DurableRecordId",
+  "DurableConversation",
+  "DurableEntry",
+  "DurableTask",
+  "DurableSubmission",
+  "DurableDocument",
+  "DurableDocumentRevision",
 ]);
 
 /**
