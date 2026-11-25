@@ -10,6 +10,7 @@ const include = [
   "infra/sandboxes/supervisor/src/**/*.test.ts",
   "infra/updater/src/**/*.test.ts",
   "apps/desktop/src/**/*.test.ts",
+  "apps/plugin-kit/src/**/*.test.ts",
   "apps/web/src/**/*.test.{ts,tsx}",
   "apps/web/server/**/*.test.ts",
   "apps/mobile/{lib,components}/**/*.test.{ts,tsx}",
