@@ -109,3 +109,21 @@ test("a held run parks the working line at the bottom while you read back", asyn
   expect(jump.y + jump.height).toBeLessThanOrEqual(parked.y);
   await captureScreenshot(page, testInfo, "working-line-parked");
 });
+
+test("in a right-to-left layout the working line starts at the right", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/e2e/fixtures/chat-bubbles.html?running=1");
+  const line = page.getByTestId("working-indicator");
+  await expect(line).toBeVisible();
+  await page.evaluate(() => {
+    document.documentElement.dir = "rtl";
+  });
+  const column = await box(bubble(page, "m13"));
+  const mark = await box(line.locator("[data-bot-mark]"));
+  const label = await box(line.locator('[aria-hidden="true"][dir="auto"]'));
+  // Inline start: the mark sits 8px in from the column's right edge, the label to its left.
+  expect(column.x + column.width - (mark.x + mark.width)).toBeCloseTo(8, 0);
+  expect(label.x + label.width).toBeLessThanOrEqual(mark.x);
+  // Corners mirror with the sides: a bot run's first bubble cuts its bottom-right corner.
+  await expect(bubble(page, "m9")).toHaveCSS("border-radius", "18px 18px 6px");
+});
