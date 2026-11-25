@@ -14,6 +14,7 @@ function subscribe(channel) {
 
 contextBridge.exposeInMainWorld("rakazoDesktop", {
   platform: process.platform,
+  // Windows draws its own controls over the page (a title bar overlay); Linux leaves them to it.
   nativeWindowFrame: process.platform === "win32",
   clipboard: {
     writeText: (text) => ipcRenderer.invoke("desktop.clipboard.write", text),
@@ -76,6 +77,7 @@ contextBridge.exposeInMainWorld("rakazoDesktop", {
     minimize: () => ipcRenderer.invoke("desktop.window.minimize"),
     toggleMaximize: () => ipcRenderer.invoke("desktop.window.toggleMaximize"),
     state: () => ipcRenderer.invoke("desktop.window.state"),
+    onChange: subscribe("desktop.window.changed"),
   },
   update: {
     state: () => ipcRenderer.invoke("desktop.update.state"),

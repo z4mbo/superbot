@@ -14,8 +14,6 @@ interface SessionState {
 
 const signedIn: SessionState = { isPending: false, data: { user: { id: "user-1" } }, error: null };
 const capability = vi.hoisted(() => ({
-  enabled: false,
-  boardLoaded: vi.fn(),
   screen: vi.fn(async () => ({ ok: true })),
   session: null as SessionState | null,
   authMounts: 0,
@@ -24,10 +22,6 @@ const capability = vi.hoisted(() => ({
 vi.mock("@lingui/react/macro", () => ({
   Trans: ({ children }: { children: ReactNode }) => children,
   useLingui: () => ({ t: (parts: TemplateStringsArray) => parts.join("") }),
-}));
-vi.mock("./lib/bootstrap", () => ({
-  getLabs: () => (capability.enabled ? ["board"] : []),
-  subscribeLabs: () => () => {},
 }));
 vi.mock("./lib/auth/auth", () => ({
   authClient: {
@@ -62,10 +56,6 @@ vi.mock("./components/call/CallLayout", async () => {
 vi.mock("./components/messages/markdown-link-prompt", () => ({
   MarkdownLinkPrompt: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock("./pages/space/Board", () => {
-  capability.boardLoaded();
-  return { BoardPage: () => <div>Board page</div> };
-});
 vi.mock("./pages/integrations/IntegrationSetup", () => ({ IntegrationSetupPage: () => null }));
 vi.mock("./pages/integrations/McpOAuthCallback", () => ({
   McpOAuthCallbackPage: () => <div>MCP callback</div>,
@@ -106,33 +96,6 @@ it.each([
     }
   },
 );
-
-it("loads the board chunk only after bootstrap enables the route", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  const container = document.createElement("div");
-  const root = createRoot(container);
-  const render = () => (
-    <MemoryRouter initialEntries={["/app/board"]}>
-      <App />
-    </MemoryRouter>
-  );
-  try {
-    await act(async () => root.render(render()));
-    expect(container.textContent).toBe("Shell");
-    expect(capability.screen).toHaveBeenCalledExactlyOnceWith({ screen: "board", surface: "web" });
-    expect(capability.boardLoaded).not.toHaveBeenCalled();
-    capability.enabled = true;
-    await act(async () => {
-      root.render(render());
-      await flush();
-    });
-    expect(capability.boardLoaded).toHaveBeenCalledOnce();
-    expect(container.textContent).toBe("Board page");
-  } finally {
-    await act(async () => root.unmount());
-    vi.unstubAllGlobals();
-  }
-});
 
 it.each([
   ["hands a mobile sign-in back to the app", "mobile-session-1", "MCP callback"],
@@ -243,6 +206,44 @@ it("tells the call session who is signed in, without counting an unreachable loo
     expect(capability.syncCallIdentity).toHaveBeenLastCalledWith(null);
   } finally {
     capability.session = null;
+    await act(async () => root.unmount());
+    vi.unstubAllGlobals();
+  }
+});
+
+it.each([
+  ["opens the desktop app on sign-in, where its window controls are", true, "Auth in"],
+  ["sends a first browser visit to the landing page", false, ""],
+])("signed out at the root, %s", async (_name, desktop, text) => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const replace = vi.fn();
+  vi.stubGlobal("location", { ...window.location, pathname: "/", replace });
+  if (desktop)
+    window.rakazoDesktop = {
+      platform: "darwin",
+      window: { state: async () => ({ maximized: false }) },
+    } as never;
+  localStorage.clear();
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  capability.session = { isPending: false, data: null, error: null };
+  try {
+    await act(async () =>
+      root.render(
+        <MemoryRouter initialEntries={["/"]}>
+          <App />
+        </MemoryRouter>,
+      ),
+    );
+    if (desktop) {
+      await vi.waitFor(() => expect(container.textContent).toBe(text));
+      expect(replace).not.toHaveBeenCalled();
+    } else {
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledWith("/welcome/"));
+    }
+  } finally {
+    capability.session = null;
+    delete window.rakazoDesktop;
     await act(async () => root.unmount());
     vi.unstubAllGlobals();
   }

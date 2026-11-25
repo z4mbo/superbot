@@ -183,7 +183,6 @@ export const HE_MESSAGES: Record<string, string> = {
   "Next Bot": "הבוט הבא",
   "Previous Bot": "הבוט הקודם",
   "Command Menu…": "תפריט פקודות…",
-  "Toggle Sidebar": "הצגה/הסתרה של סרגל הצד",
   "Find…": "חיפוש…",
   "Search Bots…": "חיפוש בוטים…",
   "The window closed before the app loaded.": "החלון נסגר לפני שהאפליקציה נטענה.",
@@ -231,4 +230,6 @@ export const HE_MESSAGES: Record<string, string> = {
   "Restart Superbot": "הפעלה מחדש של Superbot",
   "Not Now": "לא עכשיו",
   "Restart Superbot to finish setup": "הפעילו מחדש את Superbot כדי להשלים את ההגדרה",
+  Maximize: "הגדלה",
+  Restore: "שחזור",
 };

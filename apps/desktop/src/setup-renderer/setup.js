@@ -451,6 +451,36 @@
     if (lastStack !== null) renderDetails(lastStack);
   });
 
+  // The window's own controls, drawn by the page where the system draws none (Linux). A double
+  // click lands as two clicks; only the first acts. Pressing one leaves focus where it was.
+  const windowBridge = bridge?.window;
+  const maximizeButton = document.getElementById("window-maximize");
+  async function showWindowState() {
+    const state = await windowBridge.state();
+    const restore = state.maximized || state.fullScreen;
+    const label = restore ? t("Restore") : t("Maximize");
+    maximizeButton.classList.toggle("restore", restore);
+    maximizeButton.setAttribute("aria-label", label);
+    maximizeButton.title = label;
+  }
+  for (const [id, act] of [
+    ["window-minimize", () => windowBridge?.minimize()],
+    ["window-maximize", () => windowBridge?.toggleMaximize()],
+    ["window-close", () => window.close()],
+  ]) {
+    const button = document.getElementById(id);
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", (event) => {
+      if (event.detail <= 1) void act();
+    });
+  }
+  if (windowBridge !== undefined) {
+    // A failed read leaves the last glyph in place; the next change reads again.
+    const refresh = () => void showWindowState().catch((error) => console.warn(error));
+    refresh();
+    windowBridge.onChange(refresh);
+  }
+
   quitButton.addEventListener("click", () => {
     if (bridge === undefined) {
       window.close();

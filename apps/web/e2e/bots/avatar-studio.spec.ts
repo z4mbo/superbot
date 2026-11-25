@@ -21,7 +21,7 @@ test("bot settings open Avatar Studio on the Bot tab", async ({ page }, testInfo
   await expect(studio.getByTestId("avatar-studio-bot-tab")).toBeVisible();
 
   // Every mark shape and ink; a pick is the bot's look and survives a reload.
-  await expect(studio.getByTestId("avatar-studio-shapes").getByRole("button")).toHaveCount(27);
+  await expect(studio.getByTestId("avatar-studio-shapes").getByRole("button")).toHaveCount(26);
   await expect(studio.getByTestId("avatar-studio-inks").getByRole("button")).toHaveCount(10);
   const cloud = studio.getByRole("button", { name: "cloud", exact: true });
   const green = studio.getByRole("button", { name: "green", exact: true });

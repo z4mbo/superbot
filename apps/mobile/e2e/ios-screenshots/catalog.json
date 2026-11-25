@@ -67,7 +67,6 @@
       "integrations",
       "voice",
       "ai-data-sharing",
-      "labs",
       "routine",
       "routine-runs",
       "bot-settings",
@@ -112,7 +111,6 @@
     "title": "Workspace",
     "flow": "flows/workspace.yaml",
     "screens": [
-      "board",
       "approvals",
       "approval-rule-add",
       "vault",

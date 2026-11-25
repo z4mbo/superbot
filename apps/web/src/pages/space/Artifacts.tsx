@@ -60,7 +60,6 @@ import { formatRelativeTime } from "../../lib/locale/relative-time";
 import { decodeArtifactBase64, downloadArtifactBytes } from "../../lib/pages/artifact-open";
 import { selectFilePreviewContents } from "../../lib/pages/file-preview-selection";
 import { useObjectUrl } from "../../lib/pages/use-object-url";
-import { desktopBridge } from "../../lib/platform/desktop";
 import { createStoredPreference } from "../../lib/preferences/stored-preference";
 import { useSave, useSpaceQueries } from "../../lib/query/query";
 import { errorText } from "../../lib/query/user-error";
@@ -251,9 +250,12 @@ export function ArtifactsPage() {
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background text-foreground/90">
-      <header className="app-drag flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3">
-        {/* This route is the window's leading edge, so Electron window controls sit in the header. */}
-        {desktopBridge() ? <WindowChrome /> : null}
+      <header
+        className="app-drag flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3"
+        style={{ paddingInlineEnd: "calc(1rem + var(--window-controls-inset, 0px))" }}
+      >
+        {/* This route is the window's leading edge, so the macOS traffic lights sit in the header. */}
+        <WindowChrome />
         <div className="flex min-w-fit flex-1 items-center gap-1">
           <IconTooltip label={t`Back`}>
             <Link

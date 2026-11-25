@@ -54,3 +54,38 @@ test("opening a bot in another space switches in place, without a page reload", 
   expect(await page.evaluate(() => window.localStorage.getItem("rakazo:space-id"))).toBe(space.id);
   await captureScreenshot(page, testInfo, "space-switch-in-place");
 });
+
+test("the Workspace setting switches the whole app to the workspace picked", async ({
+  page,
+}, testInfo) => {
+  const stamp = Date.now();
+  await signup(page, `workspace-setting-${stamp}@rakazo.test`, "password12", "Workspace Picker");
+  await completeOnboarding(page);
+  const otherSpace = await page.request.post("/rpc/spaces/create", {
+    data: { json: { name: "Second space" } },
+  });
+  const { json: space } = (await otherSpace.json()) as { json: { id: string } };
+  const created = await page.request.post("/rpc/bots/create", {
+    headers: { "x-rakazo-space-id": space.id },
+    data: {
+      json: {
+        name: "Scout",
+        description: "",
+        notifyOnFinish: true,
+        computerMode: "team",
+      },
+    },
+  });
+  expect(created.ok()).toBe(true);
+  const { json: scout } = (await created.json()) as { json: { id: string } };
+
+  await page.goto("/app?settings=general");
+  const workspace = page.getByTestId("user-settings").getByTestId("workspace-select");
+  await expect(workspace).toBeVisible();
+  await captureScreenshot(page, testInfo, "settings-workspace");
+  await workspace.click();
+  await page.getByRole("option", { name: "Second space" }).click();
+  await page.waitForURL(`**/app/${scout.id}`);
+  await expect(page.getByPlaceholder("Message Scout")).toBeVisible();
+  expect(await page.evaluate(() => window.localStorage.getItem("rakazo:space-id"))).toBe(space.id);
+});

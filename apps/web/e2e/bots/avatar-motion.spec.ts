@@ -77,11 +77,11 @@ test("photo avatar animations stay still when reduced motion is enabled", async 
   expect(second).toEqual(first);
 });
 
-/** The outline a mark shows: the shared source path its <use> points at. */
+/** The outline a mark shows: the body path in the shared source its <use> points at. */
 function outline(avatar: Locator) {
   return avatar.evaluate((svg) => {
     const href = svg.querySelector("use")?.getAttribute("href") ?? "";
-    return document.querySelector(href)?.getAttribute("d") ?? "";
+    return document.querySelector(href)?.querySelector("path[mask]")?.getAttribute("d") ?? "";
   });
 }
 

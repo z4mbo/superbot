@@ -10,6 +10,7 @@ import { useIdentityConfirmation } from "../../components/account/ConfirmIdentit
 import { useSpaceQueries } from "../../lib/query/query";
 import type { RoutineDraftState } from "../../lib/routines/routine-draft";
 import { routineNeedsOneShotArm } from "../../lib/routines/routine-draft";
+import { sidePanelHeaderStyle } from "../shell/resizable-side-panel";
 import { RoutineRunHistory } from "./RoutineRunHistory";
 import { RoutineSchedule } from "./RoutineSchedule";
 import { RoutineOwnerNote } from "./routine-editor/access-note";
@@ -103,7 +104,7 @@ export function RoutineEditor({
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex items-center justify-between" style={sidePanelHeaderStyle}>
         <Button
           variant="ghost"
           size="icon"

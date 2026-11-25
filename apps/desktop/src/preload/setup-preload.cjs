@@ -5,6 +5,17 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("rakazoSetup", {
   platform: process.platform,
+  window: {
+    minimize: () => ipcRenderer.invoke("desktop.setup.window.minimize"),
+    toggleMaximize: () => ipcRenderer.invoke("desktop.setup.window.toggleMaximize"),
+    state: () => ipcRenderer.invoke("desktop.setup.window.state"),
+    onChange: (listener) => {
+      // The IpcRendererEvent stays in the preload: the page only hears that something changed.
+      const handler = () => listener();
+      ipcRenderer.on("desktop.window.changed", handler);
+      return () => ipcRenderer.off("desktop.window.changed", handler);
+    },
+  },
   // Read before the page runs, so its first paint is already in the app's language.
   locale: ipcRenderer.sendSync("desktop.setup.locale") ?? { lang: "en", dir: "ltr", messages: {} },
   state: () => ipcRenderer.invoke("desktop.setup.state"),

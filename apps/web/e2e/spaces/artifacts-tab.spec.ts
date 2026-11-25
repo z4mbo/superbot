@@ -29,19 +29,6 @@ test("opens Artifacts from the account menu and lists created files", async ({
   await expect(artifactsItem).toBeVisible();
   await captureScreenshot(page, testInfo, "account-menu-artifacts");
 
-  // In mini mode, Settings and Artifacts share the account menu.
-  await page.keyboard.press("Escape");
-  await page.getByTestId("minimize-bots-sidebar").click();
-  await page.getByTestId("user-menu-trigger").click();
-  const settingsItem = accountMenu.getByRole("button", { name: "Settings", exact: true });
-  await expect(settingsItem).toBeVisible();
-  expect((await settingsItem.boundingBox())?.y).toBeLessThan(
-    (await artifactsItem.boundingBox())?.y ?? 0,
-  );
-  await page.keyboard.press("Escape");
-  await page.getByTestId("restore-bots-sidebar").click();
-  await page.getByTestId("user-menu-trigger").click();
-
   await artifactsItem.click();
   await expect(page).toHaveURL(/\/app\/artifacts$/);
   await expect(page.getByRole("heading", { name: "Artifacts", exact: true })).toBeVisible();

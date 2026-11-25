@@ -190,7 +190,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Next Bot": "Volgende bot",
   "Previous Bot": "Vorige bot",
   "Command Menu…": "Opdrachtmenu…",
-  "Toggle Sidebar": "Navigatiekolom tonen/verbergen",
   "Find…": "Zoek…",
   "Search Bots…": "Bots zoeken…",
   "The window closed before the app loaded.":
@@ -240,4 +239,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Restart Superbot": "Superbot opnieuw starten",
   "Not Now": "Niet nu",
   "Restart Superbot to finish setup": "Start Superbot opnieuw om de configuratie te voltooien",
+  Maximize: "Maximaliseren",
+  Restore: "Herstellen",
 };

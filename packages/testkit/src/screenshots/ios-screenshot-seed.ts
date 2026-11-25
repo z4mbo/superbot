@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import type { BotSecretDestination, MessageBlock } from "@rakazo/contracts";
 import { encodeCardSecret, encodeContactSecret, encodeLoginSecret } from "@rakazo/contracts";
-import { allocateTicketNumber, createDb, createThreadMessage, ensureBoard } from "@rakazo/db";
+import { createDb, createThreadMessage } from "@rakazo/db";
 import { pageViewerCode } from "@rakazo/page-kit/compile";
 import { PNG } from "pngjs";
 import { sessionCookieHeader } from "../index.js";
@@ -338,7 +338,6 @@ export async function seedIosScreenshotFixture(input: {
       spaceId: me.spaceId,
       userId: me.userId,
     });
-    await ensureTickets(db.prisma, me.spaceId, me.userId, [researcher.id, writer.id]);
     await ensureMemoryNotes(db.prisma, {
       spaceId: me.spaceId,
       userId: me.userId,
@@ -682,13 +681,6 @@ function briefPdf() {
   return Buffer.from(body, "latin1");
 }
 
-const TICKETS = [
-  { title: "Draft the launch announcement", status: "doing" },
-  { title: "Collect customer quotes", status: "todo" },
-  { title: "Review pricing page copy", status: "review" },
-  { title: "Publish the changelog", status: "done" },
-] as const;
-
 /** Two payments bots made with the wallet, as the spending limit lists them. */
 async function ensurePayments(
   prisma: ReturnType<typeof createDb>["prisma"],
@@ -721,34 +713,6 @@ async function ensurePayments(
       create: { operationKey, ...data },
       update: data,
     });
-  }
-}
-
-/** Board cards in several columns, with the board turned on in Labs so it shows. */
-async function ensureTickets(
-  prisma: ReturnType<typeof createDb>["prisma"],
-  spaceId: string,
-  userId: string,
-  botIds: string[],
-) {
-  await prisma.user.update({ where: { id: userId }, data: { labs: ["board"] } });
-  const board = await ensureBoard(prisma, spaceId);
-  if (await prisma.ticket.count({ where: { boardId: board.id } })) return;
-  for (const [index, ticket] of TICKETS.entries()) {
-    await prisma.$transaction(async (tx) =>
-      tx.ticket.create({
-        data: {
-          boardId: board.id,
-          spaceId,
-          number: await allocateTicketNumber(tx, board.id),
-          title: ticket.title,
-          status: ticket.status,
-          assigneeBotId: botIds[index % botIds.length],
-          createdByUserId: userId,
-          completedAt: ticket.status === "done" ? new Date() : null,
-        },
-      }),
-    );
   }
 }
 

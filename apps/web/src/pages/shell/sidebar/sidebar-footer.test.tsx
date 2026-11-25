@@ -32,15 +32,13 @@ async function render(
   name = "Demo User",
   image?: string,
   onIntegrations = vi.fn(),
-  onBoard?: () => void,
-  { mini = false, onSettings = vi.fn() }: { mini?: boolean; onSettings?: () => void } = {},
+  { onSettings = vi.fn() }: { onSettings?: () => void } = {},
 ) {
   const email = "account@rakazo.test";
   await act(async () =>
     root.render(
       <DesktopUpdatesProvider>
         <SidebarFooter
-          mini={mini}
           name={name}
           initials={name
             .split(" ")
@@ -54,7 +52,6 @@ async function render(
           onOpenChange={() => {}}
           onIntegrations={onIntegrations}
           onSkills={vi.fn()}
-          onBoard={onBoard}
           onArtifacts={() => {}}
           onSettings={onSettings}
           onLogOut={() => {}}
@@ -134,7 +131,7 @@ it("shows the account image and falls back to the initial after a load error", a
 it("opens Store from the footer and Settings from the account menu", async () => {
   const onIntegrations = vi.fn();
   const onSettings = vi.fn();
-  await render("Demo User", undefined, onIntegrations, vi.fn(), { onSettings });
+  await render("Demo User", undefined, onIntegrations, { onSettings });
   const footer = host.querySelector('[data-testid="sidebar-footer"]')!;
   const store = footer.querySelector<HTMLButtonElement>('[aria-label="Store"]')!;
   expect(footer.querySelector('[aria-label="Settings"]')).toBeNull();
@@ -147,33 +144,10 @@ it("opens Store from the footer and Settings from the account menu", async () =>
     "Settings",
     "Skills",
     "Artifacts",
-    "Board",
     "Log out",
   ]);
   expect(host.querySelector('[data-testid="user-menu-trigger"]')?.getAttribute("aria-label")).toBe(
     "Account menu for Demo User",
-  );
-});
-
-it("keeps Store and Settings in the account menu when the sidebar is collapsed", async () => {
-  await render("Demo User", undefined, undefined, undefined, { mini: true });
-  const footer = host.querySelector('[data-testid="sidebar-footer"]')!;
-  expect([...footer.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
-    "DU",
-  ]);
-  const menu = document.querySelector('[data-slot="popover-content"]')!;
-  expect([...menu.querySelectorAll("button")].map((row) => row.textContent)).toEqual([
-    "Store",
-    "Settings",
-    "Skills",
-    "Artifacts",
-    "Log out",
-  ]);
-});
-it("omits Board when unavailable", async () => {
-  await render();
-  expect(document.querySelector('[data-slot="popover-content"]')?.textContent).not.toContain(
-    "Board",
   );
 });
 

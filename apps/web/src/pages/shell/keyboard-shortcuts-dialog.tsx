@@ -31,7 +31,6 @@ export function KeyboardShortcutsDialog({
     host.desktop && { label: t`New group chat`, keys: [[mod, shift, "N"]] },
     host.desktop && { label: t`Find in chat`, keys: [[mod, "F"]] },
     host.desktop && { label: t`Search bots`, keys: [[mod, shift, "F"]] },
-    { label: t`Toggle sidebar`, keys: [[mod, "B"]] },
     { label: t`Focus message`, keys: [[mod, "I"]] },
     { label: t`Quote selection`, keys: [quoteShortcutKeys(host)] },
     dictation && { label: t`Dictate`, keys: [[mod, "D"]] },

@@ -53,12 +53,26 @@ export function onDesktopOAuthCallback(
   });
 }
 
-export function windowChromeKind(desktop?: RakazoDesktop): "spacer" | "darwin" | "controls" {
-  if (!desktop) return "spacer";
-  if (desktop.platform === "darwin") return "darwin";
-  if (desktop.nativeWindowFrame) return "spacer";
-  return "controls";
+/**
+ * Who draws the window controls, as in the reference desktop app: macOS traffic lights at the
+ * top left; the operating system's overlay at the top right (Windows); the page itself at the
+ * top right (Linux, and older frameless releases). Null in a browser or a natively framed window.
+ */
+export function windowControlsKind(
+  desktop?: RakazoDesktop,
+): "traffic-lights" | "overlay" | "page" | null {
+  if (!desktop) return null;
+  if (desktop.platform === "darwin") return "traffic-lights";
+  if (!desktop.nativeWindowFrame) return "page";
+  const overlay = (navigator as { windowControlsOverlay?: { visible: boolean } })
+    .windowControlsOverlay;
+  return overlay?.visible ? "overlay" : null;
 }
+
+/** Room the top-right window controls take from the page's toolbars, as in the reference. */
+export const WINDOW_CONTROLS_INSET_PX = 140;
+/** Height of the band the top-right window controls sit in. */
+export const WINDOW_CONTROLS_BLOCK_PX = 52;
 
 /**
  * Horizontal space Electron's native macOS traffic lights occupy from the window's leading edge.

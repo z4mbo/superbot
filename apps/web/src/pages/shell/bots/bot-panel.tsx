@@ -35,6 +35,7 @@ import { lazyComponent } from "../../../lib/platform/preload-recovery";
 import { useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
 import { ROUTINE_PREVIEW_COUNT, RoutineList } from "../../routines/RoutineList";
+import { sidePanelHeaderStyle } from "../resizable-side-panel";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
 import {
   DescriptionGroup,
@@ -526,7 +527,7 @@ export function BotSettings({
   return (
     <div data-testid="bot-settings">
       {view !== "settings" ? (
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between" style={sidePanelHeaderStyle}>
           <Button
             variant="ghost"
             size="icon"
@@ -546,7 +547,7 @@ export function BotSettings({
       {view === "pages" ? <PagesList botId={bot.id} /> : null}
       {/* Stays mounted so drafts and the open sections survive a visit to a whole list. */}
       <div hidden={view !== "settings"}>
-        <div className="mb-4 flex items-center justify-end gap-1">
+        <div className="mb-4 flex items-center justify-end gap-1" style={sidePanelHeaderStyle}>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={

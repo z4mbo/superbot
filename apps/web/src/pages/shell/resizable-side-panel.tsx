@@ -1,8 +1,13 @@
 import { t } from "@lingui/core/macro";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import {
+  desktopBridge,
+  WINDOW_CONTROLS_BLOCK_PX,
+  WINDOW_CONTROLS_INSET_PX,
+  windowControlsKind,
+} from "../../lib/platform/desktop";
 import { useEventListener } from "../../lib/use-event-listener";
-import { APP_RAIL_WIDTH, useAppRail } from "./app-rail";
 import { useBotsSidebarWidth } from "./sidebar/sidebar-layout";
 
 const STORAGE_KEY = "rakazo:right-panel-width";
@@ -13,6 +18,19 @@ const MIN_CHAT_WIDTH = 320;
 const MD_BREAKPOINT = 768;
 const MOBILE_PANEL_MAX_WIDTH = 384; // Matches max-w-[384px] below.
 const MAX_VISIBLE_CHAT_WIDTH = 48;
+/** How far the panels' content sits in from the panel's edges (`px-5` in side-panel.tsx). */
+const CONTENT_GUTTER_PX = 20;
+/** Room between a panel header's last control and the divider before the window controls. */
+const CONTROLS_DIVIDER_GAP_PX = 12;
+const CONTROLS_DIVIDER_HEIGHT_PX = 18;
+
+/**
+ * Keeps a panel's header row, its first row, clear of window controls the page draws in that row.
+ * Elsewhere the variable is unset and the row reaches the panel's edge.
+ */
+export const sidePanelHeaderStyle: CSSProperties = {
+  paddingInlineEnd: "var(--side-panel-header-end, 0px)",
+};
 
 function maximumWidth(reservedLeadingPx: number, viewportWidth = window.innerWidth) {
   return Math.max(
@@ -44,15 +62,18 @@ export function ResizableSidePanel({
   children: ReactNode;
 }) {
   const sidebarWidth = useBotsSidebarWidth();
-  const hasRail = useAppRail();
   const [preferredWidth, setPreferredWidth] = useState(readPreferredWidth);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const belowMd = viewportWidth < MD_BREAKPOINT;
-  const reservedLeadingPx = belowMd ? 0 : sidebarWidth + (hasRail ? APP_RAIL_WIDTH : 0);
+  const reservedLeadingPx = belowMd ? 0 : sidebarWidth;
   const chatWidth = viewportWidth - reservedLeadingPx;
   const maxWidth = maximumWidth(reservedLeadingPx, viewportWidth);
   const overlay = belowMd || chatWidth < MIN_CHAT_WIDTH + MIN_WIDTH;
   const [dragging, setDragging] = useState(false);
+  // The page draws the window controls at the panel's top right (Linux), so the panel's header shares
+  // their row, as in the reference. Where the operating system draws them over the page instead
+  // (`--window-controls-block` is set), the panel starts below them.
+  const sharesControlsRow = windowControlsKind(desktopBridge()) === "page";
   const panelRef = useRef<HTMLElement>(null);
   const drag = useRef<{ x: number; width: number; direction: number } | null>(null);
   const width = Math.max(MIN_WIDTH, Math.min(maxWidth, preferredWidth));
@@ -95,6 +116,14 @@ export function ResizableSidePanel({
     setPreferredWidth(Math.max(MIN_WIDTH, Math.min(maximumWidth(reservedLeadingPx), next)));
   }
 
+  const panelStyle: Record<string, string> = { "--panel-width": `${width}px` };
+  if (sharesControlsRow) {
+    panelStyle["--side-panel-header-end"] =
+      `${WINDOW_CONTROLS_INSET_PX + CONTROLS_DIVIDER_GAP_PX - CONTENT_GUTTER_PX}px`;
+  } else {
+    panelStyle.paddingTop = "var(--window-controls-block, 0px)";
+  }
+
   return (
     <aside
       ref={panelRef}
@@ -102,7 +131,7 @@ export function ResizableSidePanel({
       data-testid="side-panel"
       data-panel={panel}
       data-overlay={overlay || undefined}
-      style={{ "--panel-width": `${width}px` } as CSSProperties}
+      style={panelStyle}
       className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar focus:outline-none ${overlay ? "md:absolute" : "md:relative"} ${dragging ? "" : "transition-[width] duration-150 ease-out motion-reduce:transition-none"} ${open ? "w-full max-w-[384px] border-s border-sidebar-border md:w-(--panel-width) md:max-w-none" : "pointer-events-none w-0"}`}
     >
       {open ? (
@@ -149,6 +178,18 @@ export function ResizableSidePanel({
               event.preventDefault();
               setWidthFromUser(maximumWidth(reservedLeadingPx));
             }
+          }}
+        />
+      ) : null}
+      {open && sharesControlsRow ? (
+        <span
+          aria-hidden="true"
+          data-testid="window-controls-divider"
+          className="pointer-events-none absolute z-30 w-px bg-border"
+          style={{
+            insetInlineEnd: WINDOW_CONTROLS_INSET_PX,
+            top: (WINDOW_CONTROLS_BLOCK_PX - CONTROLS_DIVIDER_HEIGHT_PX) / 2,
+            height: CONTROLS_DIVIDER_HEIGHT_PX,
           }}
         />
       ) : null}

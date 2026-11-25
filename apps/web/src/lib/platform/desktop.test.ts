@@ -5,7 +5,7 @@ import {
   desktopOAuthCode,
   oauthStateOf,
   onDesktopOAuthCallback,
-  windowChromeKind,
+  windowControlsKind,
 } from "./desktop.js";
 
 function desktop(platform: string): RakazoDesktop {
@@ -35,22 +35,27 @@ function desktop(platform: string): RakazoDesktop {
   };
 }
 
-describe("window chrome", () => {
-  it("does not paint fake traffic lights in the browser", () => {
-    expect(windowChromeKind(undefined)).toBe("spacer");
+describe("window controls", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("draws no window controls in the browser", () => {
+    expect(windowControlsKind(undefined)).toBeNull();
   });
 
   it("leaves macOS traffic lights to Electron", () => {
-    expect(windowChromeKind(desktop("darwin"))).toBe("darwin");
+    expect(windowControlsKind(desktop("darwin"))).toBe("traffic-lights");
   });
 
-  it("leaves the native Windows frame to Electron when advertised", () => {
-    expect(windowChromeKind({ ...desktop("win32"), nativeWindowFrame: true })).toBe("spacer");
+  it("leaves Windows controls to its title bar overlay, or a native frame", () => {
+    const framed = { ...desktop("win32"), nativeWindowFrame: true };
+    expect(windowControlsKind(framed)).toBeNull();
+    vi.stubGlobal("navigator", { windowControlsOverlay: { visible: true } });
+    expect(windowControlsKind(framed)).toBe("overlay");
   });
 
-  it("keeps controls for older frameless Windows clients and Linux", () => {
-    expect(windowChromeKind(desktop("win32"))).toBe("controls");
-    expect(windowChromeKind(desktop("linux"))).toBe("controls");
+  it("draws controls in the page on Linux and older frameless Windows clients", () => {
+    expect(windowControlsKind(desktop("win32"))).toBe("page");
+    expect(windowControlsKind(desktop("linux"))).toBe("page");
   });
 
   it("reserves the macOS traffic-light strip width beside inset controls", () => {

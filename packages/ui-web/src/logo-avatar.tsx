@@ -19,7 +19,8 @@ import "./logo-avatar.css";
 /** Generated vector logo renderer. BotAvatar owns set selection and custom images. */
 const eyes = LOGO_AVATAR_EYES;
 
-export const LogoAvatar = memo(function LogoAvatar({
+// Pure, so an app that never draws the logo avatars leaves them out of its bundle.
+export const LogoAvatar = /* @__PURE__ */ memo(function LogoAvatar({
   activity = "idle",
   size = 38,
   avatarValue,

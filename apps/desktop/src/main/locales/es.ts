@@ -204,7 +204,6 @@ export const ES_MESSAGES: Record<string, string> = {
   "Next Bot": "Bot siguiente",
   "Previous Bot": "Bot anterior",
   "Command Menu…": "Menú de comandos…",
-  "Toggle Sidebar": "Mostrar u ocultar la barra lateral",
   "Find…": "Buscar…",
   "Search Bots…": "Buscar bots…",
   "The window closed before the app loaded.": "La ventana se cerró antes de que cargara la app.",
@@ -253,4 +252,6 @@ export const ES_MESSAGES: Record<string, string> = {
   "Restart Superbot": "Reiniciar Superbot",
   "Not Now": "Ahora no",
   "Restart Superbot to finish setup": "Reinicia Superbot para finalizar la configuración",
+  Maximize: "Maximizar",
+  Restore: "Restaurar",
 };

@@ -2,30 +2,18 @@ import type { HTMLAttributes, PointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   BOTS_SIDEBAR_MIN_WIDTH,
-  BOTS_SIDEBAR_MINI_WIDTH,
-  BOTS_SIDEBAR_SNAP_WIDTH,
   clampBotsSidebarWidth,
   maximumBotsSidebarWidth,
   readBotsSidebarWidth,
   writeBotsSidebarWidth,
-} from "../../../lib/preferences/bots-sidebar-pref";
+} from "../../../lib/preferences/bots-sidebar-width-pref";
 import { useEventListener } from "../../../lib/use-event-listener";
 
 function direction() {
   return document.documentElement.dir === "rtl" ? -1 : 1;
 }
 
-export function useSidebarResize({
-  userId,
-  collapsed,
-  onCollapsedChange,
-  onPreviewCollapsedChange,
-}: {
-  userId: string | null | undefined;
-  collapsed: boolean;
-  onCollapsedChange: (collapsed: boolean) => void;
-  onPreviewCollapsedChange: (collapsed: boolean) => void;
-}) {
+export function useSidebarResize({ userId }: { userId: string | null | undefined }) {
   const [preferredWidth, setPreferredWidth] = useState(() => readBotsSidebarWidth(userId));
   // Only the limit is kept, so resizing the window re-renders the shell only when it changes.
   const [maxWidth, setMaxWidth] = useState(() => maximumBotsSidebarWidth(window.innerWidth));
@@ -35,17 +23,11 @@ export function useSidebarResize({
     startX: number;
     width: number;
     direction: number;
-    moved: boolean;
-    initialCollapsed: boolean;
-    mini: boolean;
   } | null>(null);
-  const expandedWidth = clampBotsSidebarWidth(preferredWidth, maxWidth);
   const width =
     dragWidth !== null
       ? Math.min(maxWidth, dragWidth)
-      : collapsed
-        ? BOTS_SIDEBAR_MINI_WIDTH
-        : expandedWidth;
+      : clampBotsSidebarWidth(preferredWidth, maxWidth);
 
   useEffect(() => {
     setPreferredWidth(readBotsSidebarWidth(userId));
@@ -56,14 +38,9 @@ export function useSidebarResize({
   useEventListener(window, "resize", () => setMaxWidth(maximumBotsSidebarWidth(window.innerWidth)));
 
   function commit(next: number) {
-    if (next < BOTS_SIDEBAR_SNAP_WIDTH) {
-      onCollapsedChange(true);
-      return;
-    }
-    const expanded = clampBotsSidebarWidth(next, maxWidth);
-    setPreferredWidth(expanded);
-    writeBotsSidebarWidth(userId, expanded);
-    onCollapsedChange(false);
+    const clamped = clampBotsSidebarWidth(next, maxWidth);
+    setPreferredWidth(clamped);
+    writeBotsSidebarWidth(userId, clamped);
   }
 
   function release(event: PointerEvent<HTMLElement>) {
@@ -74,31 +51,20 @@ export function useSidebarResize({
     }
   }
 
-  function previewAt(clientX: number) {
+  function widthAt(clientX: number) {
     const current = drag.current;
     if (!current) return width;
-    const rawWidth = current.width + (clientX - current.startX) * current.direction;
-    // Separate thresholds keep the mode stable while the pointer hovers near the snap point.
-    const threshold = BOTS_SIDEBAR_SNAP_WIDTH + (current.mini ? 16 : -16);
-    const mini = rawWidth < threshold;
-    if (mini !== current.mini) {
-      current.mini = mini;
-      onPreviewCollapsedChange(mini);
-    }
-    return mini ? BOTS_SIDEBAR_MINI_WIDTH : clampBotsSidebarWidth(rawWidth, maxWidth);
-  }
-
-  function cancelPreview() {
-    if (drag.current) onPreviewCollapsedChange(drag.current.initialCollapsed);
-    drag.current = null;
-    setDragWidth(null);
+    return clampBotsSidebarWidth(
+      current.width + (clientX - current.startX) * current.direction,
+      maxWidth,
+    );
   }
 
   const handleProps: HTMLAttributes<HTMLElement> = {
     role: "separator",
     tabIndex: 0,
     "aria-orientation": "vertical",
-    "aria-valuemin": BOTS_SIDEBAR_MINI_WIDTH,
+    "aria-valuemin": BOTS_SIDEBAR_MIN_WIDTH,
     "aria-valuemax": maxWidth,
     "aria-valuenow": Math.round(width),
     onPointerDown(event) {
@@ -110,54 +76,37 @@ export function useSidebarResize({
         startX: event.clientX,
         width,
         direction: direction(),
-        moved: false,
-        initialCollapsed: collapsed,
-        mini: collapsed,
       };
       setDragWidth(width);
     },
     onPointerMove(event) {
       if (drag.current?.pointerId !== event.pointerId) return;
-      if (Math.abs(event.clientX - drag.current.startX) >= 4) drag.current.moved = true;
-      setDragWidth(previewAt(event.clientX));
+      setDragWidth(widthAt(event.clientX));
     },
     onPointerUp(event) {
       if (drag.current?.pointerId !== event.pointerId) return;
-      if (!drag.current.moved && Math.abs(event.clientX - drag.current.startX) < 4)
-        onCollapsedChange(!drag.current.initialCollapsed);
-      else commit(previewAt(event.clientX));
+      commit(widthAt(event.clientX));
       release(event);
     },
     onPointerCancel(event) {
       if (drag.current?.pointerId !== event.pointerId) return;
-      cancelPreview();
       release(event);
     },
     onLostPointerCapture(event) {
       if (drag.current?.pointerId !== event.pointerId) return;
-      cancelPreview();
+      drag.current = null;
+      setDragWidth(null);
     },
     onKeyDown(event) {
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         event.preventDefault();
-        const step = (event.key === "ArrowRight" ? 32 : -32) * direction();
-        const next = width + step;
-        commit(
-          step < 0 && next < BOTS_SIDEBAR_MIN_WIDTH
-            ? BOTS_SIDEBAR_MINI_WIDTH
-            : next < BOTS_SIDEBAR_SNAP_WIDTH && step > 0
-              ? BOTS_SIDEBAR_MIN_WIDTH
-              : next,
-        );
+        commit(width + (event.key === "ArrowRight" ? 32 : -32) * direction());
       } else if (event.key === "Home") {
         event.preventDefault();
-        commit(BOTS_SIDEBAR_MINI_WIDTH);
+        commit(BOTS_SIDEBAR_MIN_WIDTH);
       } else if (event.key === "End") {
         event.preventDefault();
         commit(maxWidth);
-      } else if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        onCollapsedChange(!collapsed);
       }
     },
   };

@@ -16,7 +16,7 @@ import { screenFrames, screenIframeSandbox } from "../../../lib/computers/comput
 import {
   DARWIN_WINDOW_CONTROLS_WIDTH_PX,
   desktopBridge,
-  windowChromeKind,
+  windowControlsKind,
 } from "../../../lib/platform/desktop";
 import { ComputerReleaseActions } from "./computer-release-actions";
 import { computerLabel, DesktopKindEmptyState } from "./computer-view";
@@ -87,7 +87,7 @@ export function ComputerOverlay({
           data-testid="computer-chrome"
           className="app-no-drag flex items-center justify-between gap-4 border-b border-sidebar-border px-[18px] py-3.5"
           style={
-            windowChromeKind(desktopBridge()) === "darwin"
+            windowControlsKind(desktopBridge()) === "traffic-lights"
               ? { paddingLeft: DARWIN_WINDOW_CONTROLS_WIDTH_PX + 18 }
               : undefined
           }

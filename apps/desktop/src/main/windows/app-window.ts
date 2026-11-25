@@ -3,7 +3,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { brandEnv } from "@rakazo/core";
 import type { Session } from "electron";
-import { app, BrowserWindow, Menu, net, screen, session, shell } from "electron";
+import { app, BrowserWindow, Menu, nativeTheme, net, screen, session, shell } from "electron";
 import {
   mcpLoopbackRefusalFrom,
   mcpOAuthCallbackFrom,
@@ -30,6 +30,7 @@ import {
   isRendererAssetMiss,
 } from "./renderer-assets.js";
 import { installRendererRecovery } from "./renderer-recovery.js";
+import { followSystemTheme, signalWindowState } from "./window-controls.js";
 import {
   mcpOAuthPartition,
   mcpOAuthPopupServerId,
@@ -153,7 +154,11 @@ export function createWindow(url: string, partition: string | null) {
   markOnce("rk:main:window-create-start");
   const icon = developmentIcon();
   const win = new BrowserWindow({
-    ...browserWindowOptions(process.platform, screen.getPrimaryDisplay().workAreaSize),
+    ...browserWindowOptions(
+      process.platform,
+      screen.getPrimaryDisplay().workAreaSize,
+      nativeTheme.shouldUseDarkColors,
+    ),
     ...(icon ? { icon } : {}),
     webPreferences: {
       preload: path.join(import.meta.dirname, "preload.cjs"),
@@ -166,6 +171,8 @@ export function createWindow(url: string, partition: string | null) {
   win.on("unresponsive", () =>
     reportDesktopError(new Error("Renderer unresponsive"), "desktop.unresponsive"),
   );
+  signalWindowState(win);
+  followSystemTheme(win);
   desktop.mainWindow = win;
   appWindowTargets.set(win, url);
   const targetOrigin = safeOrigin(url);

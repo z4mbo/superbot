@@ -9,13 +9,11 @@ import {
   FolderOpen,
   Gauge,
   Grid2x2Plus,
-  LayoutGrid,
   Link2,
   LogOut,
   Plus,
   ScrollText,
   Settings,
-  SquareKanban,
   UserPlus,
   UserRound,
 } from "lucide-react";
@@ -25,7 +23,6 @@ import { IconTooltip } from "../../../components/IconTooltip";
 import type { Organization } from "../../../lib/spaces/organizations";
 
 type Props = {
-  mini?: boolean;
   name: string;
   initials: string | null;
   image?: string | null;
@@ -34,7 +31,6 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   onIntegrations: () => void;
   onSkills: () => void;
-  onBoard?: () => void;
   links?: NavLink[];
   onLink?: (link: NavLink) => void;
   onArtifacts: () => void;
@@ -54,7 +50,6 @@ type Props = {
 };
 
 export function SidebarFooter({
-  mini = false,
   name,
   initials,
   image,
@@ -63,7 +58,6 @@ export function SidebarFooter({
   onOpenChange,
   onIntegrations,
   onSkills,
-  onBoard,
   links = [],
   onLink,
   onArtifacts,
@@ -101,26 +95,16 @@ export function SidebarFooter({
   return (
     <div
       data-testid="sidebar-footer"
-      className={`flex shrink-0 items-center gap-2 bg-transparent ${mini ? "flex-col px-1 py-2" : "justify-between px-4 pt-2 pb-4"}`}
+      className="flex shrink-0 items-center justify-between gap-2 bg-transparent px-4 pt-2 pb-4"
     >
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger
           data-testid="user-menu-trigger"
           aria-label={t`Account menu for ${name}`}
-          className={
-            mini
-              ? `${avatarClass} outline-none hover:ring-2 hover:ring-foreground/15 focus-visible:ring-2 focus-visible:ring-ring`
-              : "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full text-start outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          }
+          className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full text-start outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {mini ? (
-            avatar
-          ) : (
-            <>
-              <span className={avatarClass}>{avatar}</span>
-              <span className="truncate text-body font-medium">{name}</span>
-            </>
-          )}
+          <span className={avatarClass}>{avatar}</span>
+          <span className="truncate text-body font-medium">{name}</span>
         </PopoverTrigger>
         {open ? (
           <PopoverContent
@@ -153,17 +137,6 @@ export function SidebarFooter({
               >
                 <UserRound className="text-muted-foreground" strokeWidth={1.75} />
                 <Trans>Workspaces</Trans>
-              </Button>
-            ) : null}
-            {mini ? (
-              <Button
-                variant="ghost"
-                size="lg"
-                className="w-full justify-start gap-2.5 font-normal"
-                onClick={onIntegrations}
-              >
-                <LayoutGrid className="text-muted-foreground" strokeWidth={1.75} />
-                <Trans>Store</Trans>
               </Button>
             ) : null}
             {usage ? (
@@ -209,18 +182,6 @@ export function SidebarFooter({
               <FolderOpen className="text-muted-foreground" strokeWidth={1.75} />
               <Trans>Artifacts</Trans>
             </Button>
-            {/* From md up the rail opens the Board, so only the phone drawer lists it here. */}
-            {onBoard ? (
-              <Button
-                variant="ghost"
-                size="lg"
-                className="w-full justify-start gap-2.5 font-normal md:hidden"
-                onClick={onBoard}
-              >
-                <SquareKanban className="text-muted-foreground" strokeWidth={1.75} />
-                <Trans>Board</Trans>
-              </Button>
-            ) : null}
             {links.map((link) => (
               <Button
                 key={link.id}
@@ -276,18 +237,11 @@ export function SidebarFooter({
           </Button>
         </IconTooltip>
       ) : null}
-      {!mini ? (
-        <IconTooltip label={storeLabel}>
-          <Button
-            variant="floating"
-            size="icon-lg"
-            aria-label={storeLabel}
-            onClick={onIntegrations}
-          >
-            <Grid2x2Plus size={16} strokeWidth={1.75} aria-hidden="true" />
-          </Button>
-        </IconTooltip>
-      ) : null}
+      <IconTooltip label={storeLabel}>
+        <Button variant="floating" size="icon-lg" aria-label={storeLabel} onClick={onIntegrations}>
+          <Grid2x2Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+        </Button>
+      </IconTooltip>
     </div>
   );
 }

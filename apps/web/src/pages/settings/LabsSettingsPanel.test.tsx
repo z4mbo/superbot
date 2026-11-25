@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { deferred } from "@rakazo/core/test-async";
 import type { ReactNode } from "react";
 import { act } from "react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -61,46 +60,9 @@ async function render(props: React.ComponentProps<typeof LabsSettingsPanel>) {
   return container;
 }
 
-it("turns Board on by saving the whole Labs list", async () => {
-  const onLabsChange = vi.fn(async () => undefined);
-  const container = await render({ labs: [], available: ["board"], onLabsChange });
-  expect(container.textContent).toContain("Board");
-  const toggle = container.querySelector<HTMLButtonElement>('[data-testid="lab-board-toggle"]');
-  expect(toggle?.getAttribute("aria-checked")).toBe("false");
-
-  await act(async () => toggle?.click());
-
-  expect(onLabsChange).toHaveBeenCalledExactlyOnceWith(["board"], client);
-  expect(container.querySelector('[role="alert"]')).toBeNull();
-});
-
-it("turns Board off and shows an error when the save fails", async () => {
-  const onLabsChange = vi.fn(async () => {
-    throw new Error("offline");
-  });
+it("lists no row for a lab this app no longer shows", async () => {
+  const onLabsChange = vi.fn();
   const container = await render({ labs: ["board"], available: ["board"], onLabsChange });
-
-  await act(async () =>
-    container.querySelector<HTMLButtonElement>('[data-testid="lab-board-toggle"]')?.click(),
-  );
-
-  expect(onLabsChange).toHaveBeenCalledExactlyOnceWith([], client);
-  expect(container.querySelector('[role="alert"]')?.textContent).toBe("Couldn't update Labs");
-});
-
-it("holds the switch while the save is in flight and sends one save for a double click", async () => {
-  const pending = deferred<void>();
-  const onLabsChange = vi.fn(() => pending.promise);
-  const container = await render({ labs: [], available: ["board"], onLabsChange });
-  const toggle = container.querySelector<HTMLButtonElement>('[data-testid="lab-board-toggle"]');
-
-  await act(async () => {
-    toggle?.click();
-    toggle?.click();
-  });
-
-  expect(onLabsChange).toHaveBeenCalledTimes(1);
-  expect(toggle?.disabled).toBe(true);
-  await act(async () => pending.resolve());
-  expect(toggle?.disabled).toBe(false);
+  expect(container.querySelector('[role="switch"]')).toBeNull();
+  expect(container.textContent).not.toContain("Board");
 });

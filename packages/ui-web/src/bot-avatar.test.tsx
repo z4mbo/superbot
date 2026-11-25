@@ -53,8 +53,19 @@ describe("BotAvatar", () => {
     expect(derived).toContain(`data-bot-mark="${botMarkShapeFor("maya")}"`);
     expect(derived).toContain('data-bot-mark-ink="purple"');
     expect(renderToString(<BotAvatar color="#8B5CF6" lookColor="neutral" />)).toContain(
-      "text-black dark:text-white",
+      "color:var(--bot-ink-neutral)",
     );
+  });
+
+  it("shows a sleeping or unreachable bot gray with drifting z's", () => {
+    for (const html of [
+      renderToString(<BotAvatar color="#8B5CF6" identity="maya" state="asleep" />),
+      renderToString(<BotAvatar color="#8B5CF6" identity="maya" status="offline" />),
+    ]) {
+      expect(html).toContain('data-bot-mark-state="asleep"');
+      expect(html).toContain('data-bot-mark-ink="gray"');
+      expect(html).toContain("bot-mark-sleep-zs");
+    }
   });
 
   it("draws an Avatar Studio shape pick", () => {

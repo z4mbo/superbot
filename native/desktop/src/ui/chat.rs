@@ -9,7 +9,7 @@ use gpui_kit::*;
 
 use crate::api::{AgentSummary, GroupMember, Target};
 use crate::app::conversation::MentionList;
-use crate::app::{Desktop, MenuKind, View};
+use crate::app::{Desktop, View};
 use crate::clock;
 use crate::outbox;
 use crate::theme::{radius, ActiveTheme, Theme, BUBBLE_MAX, CAPTION_WIDTH, CHAT_COLUMN};
@@ -84,6 +84,23 @@ mod header_motion_tests {
         assert_eq!(model_label_frame(&mut state, next.clone(), now, false), (0.4, true));
         assert_eq!(model_label_frame(&mut state, next, now + motion::FADE / 2, true), (1., false));
     }
+}
+
+/// The chat capsule's lift, as the reference draws it: a soft drop in light and none in dark, where
+/// a shadow on the dark window only reads as a smudge around the pill.
+fn capsule_shadow(theme: &Theme) -> Vec<BoxShadow> {
+    if theme.is_dark() {
+        return Vec::new();
+    }
+    // GPUI (gpui-pre 0.3.12) takes `blur_radius` as the Gaussian sigma; CSS blur is twice it.
+    let shadow = |color: u32, y: f32, blur: f32, spread: f32| BoxShadow {
+        color: rgba(color).into(),
+        offset: point(px(0.), px(y)),
+        blur_radius: px(blur / 2.),
+        spread_radius: px(spread),
+        inset: false,
+    };
+    vec![shadow(0x1a1a1a14, 4., 12., -1.), shadow(0x2222220f, 2., 4., -2.)]
 }
 
 impl Desktop {
@@ -316,43 +333,20 @@ impl Desktop {
                 );
             focus::control(button, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(choosing), elevated)
         });
-        // The workspace this chat lives in, after the model, as on the web: its menu switches
-        // workspace, starts or joins one, and invites people.
-        let workspace = self.space.as_ref().map(|space| space.name.clone()).map(|space| {
-            let button = div()
-                .id("header-workspace")
-                .min_w_0()
-                .flex()
-                .items_center()
-                .gap_1()
-                .pt(px(9.))
-                .pb(px(8.))
-                .pl(px(9.))
-                .pr(px(11.))
-                .rounded_full()
-                .cursor_pointer()
-                .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
-                    this.open_menu(MenuKind::Spaces, event.position() + point(px(-60.), px(22.)), window, cx)
-                }))
-                .child(div().body().text_color(theme.ink_secondary).truncate().child(space))
-                .child(icon("chevron-down", px(14.), theme.ink_tertiary));
-            focus::control(button, Ring::InnerPill, theme).fill(Pointer::BUTTON.held(false), elevated)
-        });
         let pill = div()
             .max_w_full()
             .flex()
             .items_center()
             .rounded_full()
             .bg(theme.composer)
-            .shadow(composer::floating_shadow(theme))
+            .shadow(capsule_shadow(theme))
             .border_1()
             .border_color(theme.ink_at(0.06))
             .occlude()
             .child(identity)
             .when_some(model, |pill, model| {
                 pill.child(div().w(px(1.)).h(px(16.)).flex_shrink_0().bg(theme.ink_at(0.12))).child(model)
-            })
-            .when_some(workspace, |pill, workspace| pill.child(workspace));
+            });
         let left = px(20.);
         #[cfg(target_os = "macos")]
         let left = if self.sidebar_hidden(window) { left.max(traffic_lights_reserve(window)) } else { left };

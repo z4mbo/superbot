@@ -10,9 +10,12 @@ fixture with real text stay outside the repository.
 2. Seed: `PARITY_BASE_URL=http://127.0.0.1:5183 PARITY_FIXTURE=<fixture.json> node scripts/parity/seed.mjs`.
    `fixture.example.json` has invented data; a fixture lists the account, the roster sections, and
    each bot with its look (`shape`, `color`), messages (`at`, `key`, `replyTo`, `quote`) and
-   whether it is mid-run (`working`).
+   whether it is mid-run (`working`). An optional `"workspaces": ["Side projects"]` gives the
+   account those extra workspaces (and removes any others), which the `workspace` shot needs; the
+   roster then names each workspace in its headings, so seed again without it for the other shots.
 3. Capture: `PARITY_OUT=<dir> node scripts/parity/capture.mjs [chat working settings …]` takes
-   1280×800 and 1440×900 shots in light and dark at DPR 1 with Chromium.
+   1280×800 and 1440×900 shots in light and dark at DPR 1 with Chromium. `asleep` opens the bot
+   panel, whose computer preview shows the sleeping avatar while the bot's computer is stopped.
 4. Compare: `PARITY_REFS=<reference screens> PARITY_SHOTS=<dir> PARITY_REPORT=<dir> node scripts/parity/compare.mjs`
    writes a side-by-side, 50% blend and ×3 difference per screen plus `scores.md` (mean absolute
    error per channel and the share of pixels over the threshold).

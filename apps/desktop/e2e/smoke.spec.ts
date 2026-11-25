@@ -128,7 +128,7 @@ test("launches with a narrow preload bridge and an isolated renderer", async () 
     "revokeAccess",
   ]);
   expect(renderer.deviceKeys).toEqual(["setAllowed", "state"]);
-  expect(renderer.windowKeys).toEqual(["close", "minimize", "state", "toggleMaximize"]);
+  expect(renderer.windowKeys).toEqual(["close", "minimize", "onChange", "state", "toggleMaximize"]);
   expect(renderer.updateKeys).toEqual(["check", "download", "install", "state"]);
   expect(renderer.badgeKeys).toEqual(["set"]);
   expect(renderer.mcpBrowserKeys).toEqual(["clear", "onOAuthCallback"]);

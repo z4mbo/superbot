@@ -4,34 +4,51 @@ import {
   DEFAULT_WARM_WINDOW_TTL_MS,
   developmentIconFile,
   setupWindowOptions,
+  titleBarOverlay,
   warmWindowTtlMs,
 } from "./window-options.js";
 
 const laptop = { width: 1440, height: 875 };
 
 describe("desktop window chrome", () => {
+  // The reference desktop app's own BrowserWindow options, per platform.
   it("uses native traffic lights on macOS", () => {
-    const opts = browserWindowOptions("darwin", laptop);
-    expect(opts.frame).toBe(true);
-    expect(opts.titleBarStyle).toBe("hiddenInset");
-    expect(opts.trafficLightPosition).toEqual({ x: 16, y: 16 });
+    expect(browserWindowOptions("darwin", laptop)).toMatchObject({
+      frame: true,
+      titleBarStyle: "hiddenInset",
+      trafficLightPosition: { x: 16, y: 15 },
+    });
   });
 
-  it("uses the native Windows frame in the app and setup windows", () => {
-    for (const opts of [
-      browserWindowOptions("win32", laptop),
-      setupWindowOptions("win32", laptop),
-    ]) {
-      expect(opts.frame).toBe(true);
-      expect(opts.titleBarStyle).toBeUndefined();
-      expect(opts.trafficLightPosition).toBeUndefined();
+  it("lets Windows draw its controls over the page in the app and setup windows", () => {
+    for (const dark of [true, false]) {
+      for (const opts of [
+        browserWindowOptions("win32", laptop, dark),
+        setupWindowOptions("win32", laptop, dark),
+      ]) {
+        expect(opts).toMatchObject({
+          frame: false,
+          titleBarStyle: "hidden",
+          titleBarOverlay: titleBarOverlay(dark),
+        });
+      }
     }
+    expect(titleBarOverlay(true)).toEqual({
+      height: 51,
+      color: "#121212",
+      symbolColor: "#FFFFFF",
+    });
+    expect(titleBarOverlay(false)).toEqual({
+      height: 51,
+      color: "#FCFCFC",
+      symbolColor: "#000000",
+    });
   });
 
-  it("keeps Linux frameless so its in-app buttons control the window", () => {
+  it("keeps Linux frameless so its in-page buttons control the window", () => {
     const opts = browserWindowOptions("linux", laptop);
-    expect(opts.frame).toBe(false);
-    expect(opts.titleBarStyle).toBeUndefined();
+    expect(opts).toMatchObject({ frame: false, titleBarStyle: "default" });
+    expect(opts).not.toHaveProperty("titleBarOverlay");
   });
 });
 
@@ -113,5 +130,11 @@ describe("window background", () => {
       expect(browserWindowOptions(platform, laptop).backgroundColor).toBe(webDarkTokens.background);
       expect(setupWindowOptions(platform, laptop).backgroundColor).toBe(webDarkTokens.background);
     }
+  });
+
+  it("paints the Windows overlay in the web background tokens", async () => {
+    const { webDarkTokens, webLightTokens } = await import("@rakazo/ui-tokens");
+    expect(titleBarOverlay(true).color).toBe(webDarkTokens.background);
+    expect(titleBarOverlay(false).color).toBe(webLightTokens.background);
   });
 });

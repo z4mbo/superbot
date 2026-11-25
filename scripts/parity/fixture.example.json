@@ -50,7 +50,8 @@
         "id": "anthropic/offline-fixture",
         "thinking": "high"
       },
-      "shape": "circle"
+      "shape": "circle",
+      "color": "neutral"
     },
     {
       "key": "whatsnew",

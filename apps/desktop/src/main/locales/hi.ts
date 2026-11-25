@@ -182,7 +182,6 @@ export const HI_MESSAGES: Record<string, string> = {
   "Next Bot": "अगला बॉट",
   "Previous Bot": "पिछला बॉट",
   "Command Menu…": "कमांड मेन्यू…",
-  "Toggle Sidebar": "साइडबार दिखाएँ/छिपाएँ",
   "Find…": "खोजें…",
   "Search Bots…": "बॉट खोजें…",
   "The window closed before the app loaded.": "ऐप लोड होने से पहले विंडो बंद हो गई।",
@@ -231,4 +230,6 @@ export const HI_MESSAGES: Record<string, string> = {
   "Restart Superbot": "Superbot रीस्टार्ट करें",
   "Not Now": "अभी नहीं",
   "Restart Superbot to finish setup": "सेटअप पूरा करने के लिए Superbot रीस्टार्ट करें",
+  Maximize: "बड़ा करें",
+  Restore: "पुनर्स्थापित करें",
 };

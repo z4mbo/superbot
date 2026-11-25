@@ -175,7 +175,6 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Next Bot": "下一個機器人",
   "Previous Bot": "上一個機器人",
   "Command Menu…": "指令選單…",
-  "Toggle Sidebar": "切換側邊欄",
   "Find…": "尋找…",
   "Search Bots…": "搜尋機器人…",
   "The window closed before the app loaded.": "App 載入完成前視窗已關閉。",
@@ -222,4 +221,6 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Restart Superbot": "重新啟動 Superbot",
   "Not Now": "稍後再說",
   "Restart Superbot to finish setup": "重新啟動 Superbot 以完成設定",
+  Maximize: "最大化",
+  Restore: "還原",
 };

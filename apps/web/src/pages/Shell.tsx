@@ -6,7 +6,7 @@ import type {
   ThreadMessage,
   VoiceStatus,
 } from "@rakazo/contracts";
-import { DEFAULT_NEW_BOT_AVATAR_SET, hasLab } from "@rakazo/contracts";
+import { DEFAULT_NEW_BOT_AVATAR_SET } from "@rakazo/contracts";
 import {
   activeThreadRuns,
   answerableAskMessageIds,
@@ -59,10 +59,6 @@ import { usePreloadRecoveryState } from "../lib/platform/preload-recovery";
 import { useDesktopBadge } from "../lib/platform/use-desktop-badge";
 import { botsSidebarDensityPreference } from "../lib/preferences/bots-sidebar-density-pref";
 import {
-  readBotsSidebarCollapsed,
-  writeBotsSidebarCollapsed,
-} from "../lib/preferences/bots-sidebar-pref";
-import {
   lastChatKey,
   lastChatOf,
   queryClient,
@@ -74,10 +70,10 @@ import { createSpaceRpc, selectedSpaceId } from "../lib/query/rpc";
 import { SpaceRpcProvider } from "../lib/query/space-rpc";
 import { errorText } from "../lib/query/user-error";
 import { routineNeedsOneShotArm } from "../lib/routines/routine-draft";
+import { shownLabs } from "./settings/shown-labs";
 import type { CreateBotDialogInput } from "./shell/bots/create-bot-dialog";
 import type { ImportSetupTarget } from "./shell/bots/import-setup-card";
 import { useTeaching } from "./shell/bots/use-teaching";
-import { CapsuleWorkspacePicker } from "./shell/chat/capsule-workspace-picker";
 import type { ChatMenuState, ChatMenuTarget } from "./shell/chat/chat-context-menu";
 import { ChatContextMenu } from "./shell/chat/chat-context-menu";
 import { ChatFindBar } from "./shell/chat/chat-find-bar";
@@ -105,7 +101,7 @@ import { ShellDialogs, useShellDialogs } from "./shell/shell-dialogs";
 import type { SettingsSection } from "./shell/shell-overlay-url";
 import { AppOverlays, SettingsOverlays } from "./shell/shell-overlays";
 import { cycleBotId, isApplePlatform, useShellShortcuts } from "./shell/shell-shortcuts";
-import { ShellSidePanel } from "./shell/side-panel";
+import { ShellSidePanel, sidePanelShown } from "./shell/side-panel";
 import { ArchivedChats } from "./shell/sidebar/archived-chats";
 import { focusSidebarSearch, ShellSidebar } from "./shell/sidebar/shell-sidebar";
 import { BotsSidebarLayout } from "./shell/sidebar/sidebar-layout";
@@ -217,10 +213,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
     refreshBots,
   });
   const { collapsedSidebarSections, toggleSidebarSection } = useSidebarExpansion(userId);
-  const [botsSidebarCollapsed, setBotsSidebarCollapsed] = useState(false);
-  useEffect(() => {
-    setBotsSidebarCollapsed(readBotsSidebarCollapsed(userId));
-  }, [userId]);
   const search = useSidebarSearch({ rpc, navigate });
   const thread = useThreadState();
   const { snapshot } = thread;
@@ -276,7 +268,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
   const isMobileSidebar = useIsMobile();
   const [panelCoversChat, setPanelCoversChat] = useState(false);
   const pages = usePagesForChat();
-  const miniSidebar = botsSidebarCollapsed && !isMobileSidebar;
   const [botMenu, setBotMenu] = useState<ChatMenuTarget | null>(null);
   const closeBotMenu = useCallback(() => setBotMenu(null), []);
   const currentSpaceId = selectedSpaceId() ?? bootstrapMe?.spaceId ?? null;
@@ -399,14 +390,8 @@ function SpaceShell({ threadId }: { threadId?: string }) {
       }
       // The full-screen computer covers the sidebar and takes the keyboard.
       if (computerOpen) return false;
-      if (shortcut.type === "toggle-sidebar") {
-        if (isMobileSidebar) setMobileSidebarOpen((open) => !open);
-        else setBotsSidebarCollapsedPref(!botsSidebarCollapsed);
-        return true;
-      }
       if (shortcut.type === "search") {
         if (isMobileSidebar) setMobileSidebarOpen(true);
-        else if (botsSidebarCollapsed) setBotsSidebarCollapsedPref(false);
         search.setSearchOpen(true);
         focusSidebarSearch();
         return true;
@@ -642,11 +627,11 @@ function SpaceShell({ threadId }: { threadId?: string }) {
     () =>
       sidebarGroupsForSpaces(
         sidebarSpaces,
-        miniSidebar ? "" : search.query,
+        search.query,
         { pinned: t`Pinned`, unassigned: t`Unassigned` },
         snoozeNow,
       ),
-    [sidebarSpaces, search.query, miniSidebar, t, snoozeNow],
+    [sidebarSpaces, search.query, t, snoozeNow],
   );
   // The Dock badge ignores the roster search box: a filter must not hide unread chats.
   const unreadChatCount = useMemo(
@@ -955,11 +940,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
     closeComputer: () => setComputerOpen(false),
   });
 
-  function setBotsSidebarCollapsedPref(collapsed: boolean) {
-    setBotsSidebarCollapsed(collapsed);
-    writeBotsSidebarCollapsed(userId, collapsed);
-  }
-
   function openSettings(section: SettingsSection = "general", spaceId: string | null = null) {
     setOverlay({ kind: "settings", section, spaceId });
   }
@@ -979,7 +959,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
         computersAreUnavailable(bootstrapMe?.sandboxProvider),
       billing: bootstrapMe?.billingEnabled === true,
       updates: Boolean(desktopBridge()?.update),
-      labs: Boolean(bootstrapMe?.labsAvailable.length),
+      labs: shownLabs(bootstrapMe?.labsAvailable).length > 0,
     },
     onNewBot: () => dialogs.setCreateBotOpen(true),
     onNewGroup: () => setPanel("create-group"),
@@ -1046,9 +1026,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
   const shell = (
     <BotsSidebarLayout
       userId={userId}
-      collapsed={botsSidebarCollapsed}
-      onCollapsedChange={setBotsSidebarCollapsedPref}
-      onPreviewCollapsedChange={setBotsSidebarCollapsed}
       computerOpen={computerOpen}
       data-testid="shell-root"
       data-ready={shellReady}
@@ -1085,9 +1062,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
         mobileOpen={mobileSidebarOpen}
         setMobileOpen={setMobileSidebarOpen}
         density={botsSidebarDensity}
-        collapsed={botsSidebarCollapsed}
-        mini={miniSidebar}
-        setCollapsedPref={setBotsSidebarCollapsedPref}
         createMenuOpen={createMenuOpen}
         setCreateMenuOpen={setCreateMenuOpen}
         search={search}
@@ -1102,7 +1076,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
         chatMenu={chatMenu}
         roster={
           <SidebarRoster
-            mini={miniSidebar}
             sidebarGroups={sidebarGroups}
             collapsedSidebarSections={collapsedSidebarSections}
             bootstrapMe={bootstrapMe}
@@ -1159,7 +1132,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
           </>
         }
         user={session.data?.user}
-        boardEnabled={hasLab(bootstrapMe?.labs, "board")}
         navLinks={desktopBridge() ? [] : (bootstrapMe?.navLinks ?? [])}
         openSettings={openSettings}
         openIntegrations={() => setOverlay({ kind: "integrations" })}
@@ -1210,6 +1182,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
             activeSnapshot={activeSnapshot}
             meetingsEnabled={Boolean(bootstrapMe?.meetingsEnabled)}
             panelOpen={chatPanelOpen}
+            sidePanelShown={sidePanelShown(panel, active, activeGroup)}
             onOpenNavigation={() => setMobileSidebarOpen(true)}
             onTogglePanel={toggleChatPanel}
             modelPicker={
@@ -1225,16 +1198,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
                       current.map((bot) => (bot.id === updated.id ? updated : bot)),
                     )
                   }
-                />
-              ) : undefined
-            }
-            workspacePicker={
-              threadId === undefined ? (
-                <CapsuleWorkspacePicker
-                  spaces={sidebarSpaces}
-                  currentSpaceId={bootstrapMe?.spaceId}
-                  onSwitch={openSpaceChat}
-                  onInvite={openSpaceSettings}
                 />
               ) : undefined
             }
@@ -1560,6 +1523,10 @@ function SpaceShell({ threadId }: { threadId?: string }) {
           settingsSpace={settingsSpace}
           showSettings={settingsSpaceId === null || Boolean(settingsSpace)}
           spaces={spaces}
+          switchSpace={(spaceId) => {
+            const firstBot = sidebarSpaces.find((space) => space.id === spaceId)?.bots[0];
+            openSpaceChat(spaceId, firstBot ? `/app/${firstBot.id}` : "/onboarding");
+          }}
           renameSpace={renameSpace}
           removeSpace={removeSpace}
           leftSpace={leftSpace}

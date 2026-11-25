@@ -363,10 +363,14 @@ mod motion_tests {
     }
 }
 
-/// The caption buttons, in the shape and size of Windows 11's own.
+/// The caption buttons, spaced as the reference spaces them: glyph centres 38px apart, the close
+/// glyph 30px from the edge. Close still reaches the window's corner, where a maximized window is
+/// closed from.
 #[cfg(not(target_os = "macos"))]
 pub fn caption_buttons(window: &Window, theme: &Theme) -> Div {
-    use crate::theme::{CAPTION_HEIGHT, CAPTION_WIDTH};
+    use crate::theme::CAPTION_HEIGHT;
+    const PITCH: Pixels = px(38.);
+    const INSET: Pixels = px(11.);
     let button = |id: &'static str, glyph: &'static str, area: WindowControlArea, close: bool| {
         let fills = if close {
             Colors::new(theme.danger.opacity(0.), theme.danger, crate::theme::mix(theme.danger, black(), 0.12))
@@ -380,7 +384,8 @@ pub fn caption_buttons(window: &Window, theme: &Theme) -> Div {
         };
         let button = div()
             .id(id)
-            .w(CAPTION_WIDTH / 3.)
+            .w(if close { PITCH + INSET } else { PITCH })
+            .when(close, |button| button.pr(INSET))
             .h_full()
             .flex()
             .items_center()

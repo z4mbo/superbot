@@ -642,3 +642,85 @@ it.each([undefined, ["social-one"], []])(
     }
   },
 );
+
+async function renderGeneral(props: Partial<React.ComponentProps<typeof GeneralSettingsPanels>>) {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  await act(async () => root.render(<GeneralSettingsPanels name="Jamie" {...props} />));
+  return {
+    container,
+    cleanup: async () => {
+      await act(async () => root.unmount());
+      container.remove();
+      vi.unstubAllGlobals();
+    },
+  };
+}
+
+const workspaces = [
+  { id: "space-a", name: "Acme" },
+  { id: "space-b", name: "Beta" },
+];
+
+it("switches the whole app to the workspace picked under Account", async () => {
+  const onSwitch = vi.fn();
+  const { container, cleanup } = await renderGeneral({
+    workspace: { spaces: workspaces, currentId: "space-a", onSwitch },
+  });
+  try {
+    const account = container.querySelector('[data-testid="account-card"]');
+    const select = account?.querySelector<HTMLElement>('[data-testid="workspace-select"]');
+    if (!select) throw new Error("Missing workspace select");
+    expect(select.textContent).toContain("Acme");
+    await act(async () => select.click());
+    const option = (name: string) =>
+      [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (entry) => entry.textContent === name,
+      );
+    // The workspace already shown is no switch at all.
+    await act(async () => option("Acme")?.click());
+    expect(onSwitch).not.toHaveBeenCalled();
+    await act(async () => select.click());
+    await act(async () => option("Beta")?.click());
+    expect(onSwitch).toHaveBeenCalledWith("space-b");
+  } finally {
+    await cleanup();
+  }
+});
+
+it("leaves the workspace out when there is only one", async () => {
+  const { container, cleanup } = await renderGeneral({
+    workspace: { spaces: [workspaces[0]!], currentId: "space-a", onSwitch: vi.fn() },
+  });
+  try {
+    expect(container.querySelector('[data-testid="workspace-select"]')).toBeNull();
+  } finally {
+    await cleanup();
+  }
+});
+
+it("offers another server only in the desktop app", async () => {
+  const change = vi.fn(async () => undefined);
+  const serverRow = (container: HTMLElement) =>
+    [...container.querySelectorAll('[data-slot="settings-row"]')].find((row) =>
+      row.textContent?.startsWith("Server"),
+    );
+  const web = await renderGeneral({});
+  try {
+    expect(serverRow(web.container)).toBeUndefined();
+  } finally {
+    await web.cleanup();
+  }
+  vi.stubGlobal("rakazoDesktop", { server: { change } });
+  const desktop = await renderGeneral({});
+  try {
+    const button = serverRow(desktop.container)?.querySelector("button");
+    if (!button) throw new Error("Missing server row");
+    await act(async () => button.click());
+    expect(change).toHaveBeenCalledOnce();
+  } finally {
+    await desktop.cleanup();
+  }
+});

@@ -63,7 +63,7 @@ pub(crate) fn draw(
     _contact: bool,
     window: &mut Window,
 ) {
-    let frame = mark_frame(pose);
+    let frame = mark_frame(pose, paint.shape);
     let radius = f32::from(d) * mark::BODY_FILL / 2.;
     let center = bounds.center();
     let mut path = PathBuilder::fill();
@@ -79,33 +79,36 @@ pub(crate) fn draw(
     if let Ok(path) = path.build() {
         window.paint_path(path, paint.body);
     }
+    // The pumpkin's stem goes over its body in two greys of its own: the whole stem, then its end.
+    for (tone, loops) in mark::stem(paint.shape, &frame) {
+        let Some((_, color)) = mark::STEM_COLORS.iter().find(|(t, _)| *t == tone) else { continue };
+        let mut path = PathBuilder::fill();
+        for outline in loops {
+            let mut points = outline.into_iter().map(|(x, y)| center + point(px(x * radius), px(y * radius)));
+            let Some(first) = points.next() else { continue };
+            path.move_to(first);
+            for next in points {
+                path.line_to(next);
+            }
+            path.close();
+        }
+        if let Ok(path) = path.build() {
+            window.paint_path(path, Hsla::from(gpui_kit::rgb(*color)));
+        }
+    }
 }
 
-/// The mark's look for a face pose: the pose's eye offset turns the face, its eye size scales the
-/// eyes. A face looking nowhere in particular glances up and aside with short tilted eyes.
-pub(crate) fn mark_frame(pose: Pose) -> mark::Frame {
-    let gaze = (pose.eye_dx / 0.09 * 0.5, pose.eye_dy / 0.07 * 0.5);
-    let idle = gaze.0.abs() < 0.02 && gaze.1.abs() < 0.02;
-    let eye = |base: mark::Eye| mark::Eye { w: base.w * pose.eye_w, h: base.h * pose.eye_h, tilt: 0. };
-    if idle && (pose.eye_y - 0.47).abs() < 1e-3 {
-        let comma = eye(mark::Eye { w: 0.25, h: 0.56, tilt: 0. });
-        let resting = (0.32, -0.44);
-        return mark::Frame {
-            gaze: resting,
-            left: comma,
-            right: comma,
-            roll: f32::atan2(resting.1, resting.0) * 0.66,
-            ..mark::Frame::default()
-        };
+/// The mark's look for a face pose. With no gaze the body rests turned up and aside; a gaze turns
+/// it toward the pointer, the pose's eye size scales the eyes, and a sleeping pose (eyes nearly
+/// shut) faces front with sleepy eyes.
+pub(crate) fn mark_frame(pose: Pose, shape: Shape) -> mark::Frame {
+    let gaze = ((pose.eye_dx / 0.09).clamp(-1., 1.), (-pose.eye_dy / 0.07).clamp(-1., 1.));
+    if pose.eye_h < 0.35 {
+        return mark::Frame { face: mark::Face::Sleepy, ..mark::Frame::facing(shape, (0., 0.), 1.) };
     }
-    mark::Frame {
-        gaze,
-        left: eye(mark::REST_EYE),
-        right: eye(mark::REST_EYE),
-        lift: -0.05 + (pose.eye_y - 0.47) * 2.,
-        spread: 0.305 * pose.spread,
-        ..mark::Frame::default()
-    }
+    let idle = gaze.0.abs() < 0.02 && gaze.1.abs() < 0.02 && (pose.eye_y - 0.47).abs() < 1e-3;
+    let frame = if idle { mark::Frame::default() } else { mark::Frame::facing(shape, gaze, 1.) };
+    mark::Frame { eye_scale: (pose.eye_w, pose.eye_h), ..frame }
 }
 
 fn eye_dimensions(d: Pixels) -> (Pixels, Pixels) {
@@ -232,14 +235,12 @@ mod tests {
 
     #[test]
     fn a_face_looking_nowhere_glances_up_and_aside_and_a_turned_face_follows_its_pose() {
-        let resting = mark_frame(Pose::default());
-        assert!(resting.gaze.0 > 0. && resting.gaze.1 < 0.);
-        assert!(resting.roll < 0.);
-        let looking = mark_frame(pose(FaceState::Rest, ((1., 0.), 1.), 0., 1., 0., 0));
-        assert!(looking.gaze.0 > 0.4);
-        assert_eq!(looking.roll, 0.);
-        let blinking = mark_frame(pose(FaceState::Rest, ((1., 0.), 1.), 0., 0.1, 0., 0));
-        assert!(blinking.left.h < looking.left.h);
+        let resting = mark_frame(Pose::default(), Shape::Blob);
+        assert_eq!(resting, mark::Frame::default());
+        let looking = mark_frame(pose(FaceState::Rest, ((1., 0.), 1.), 0., 1., 0., 0), Shape::Blob);
+        assert!(looking.rotation[1] > 10. && looking.rotation[2].abs() < 1e-3);
+        let blinking = mark_frame(pose(FaceState::Rest, ((1., 0.), 1.), 0., 0.5, 0., 0), Shape::Blob);
+        assert!(blinking.eye_scale.1 < looking.eye_scale.1);
     }
 
     #[test]
@@ -263,7 +264,7 @@ mod tests {
         let asleep = pose(FaceState::Asleep, gaze, 1., 0.12, 1., 1);
         assert_eq!(asleep, FaceState::Asleep.still());
         assert_eq!(asleep.eye_y, 0.52);
-        let asleep_frame = mark_frame(FaceState::Asleep.still_at(px(22.)));
-        assert!(asleep_frame.left.h < 0.2);
+        let asleep_frame = mark_frame(FaceState::Asleep.still_at(px(22.)), Shape::Blob);
+        assert_eq!(asleep_frame.face, mark::Face::Sleepy);
     }
 }

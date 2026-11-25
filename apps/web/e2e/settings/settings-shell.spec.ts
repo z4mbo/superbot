@@ -191,8 +191,6 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   await page.getByRole("button", { name: "Close voice settings" }).click();
   await expect(page.getByTestId("user-settings")).toHaveCount(0);
 
-  await page.getByTestId("minimize-bots-sidebar").click();
-  await expect(page.getByTestId("bots-sidebar")).toHaveAttribute("data-collapsed", "true");
   await openUserSettings(page, "usage");
   await expect(page.getByTestId("user-settings")).toHaveAttribute("data-settings-section", "usage");
   await expect(page.getByTestId("usage-settings")).toBeVisible();

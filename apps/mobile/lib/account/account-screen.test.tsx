@@ -867,7 +867,6 @@ it.each([false, true])(
         "Memory",
         "Voice",
         "Messaging",
-        "Labs",
         "Members",
       ];
       expect(titles).toEqual(["tester@example.test", "Usage", ...links]);
@@ -979,62 +978,19 @@ it("shows the spending limit only once its read says so, and leaves it out when 
   vi.mocked(rpc).mockImplementation(fallback);
 });
 
-it("shows the Board shortcut only to accounts that turned it on in Labs", async () => {
-  const titles = (view: Awaited<ReturnType<typeof renderAccount>>) =>
-    Array.from(view.screen.querySelectorAll("[data-row]"), (row) => row.textContent);
-  account.me = { ...account.me, labs: [] };
-  const off = await renderAccount();
-  expect(titles(off)).toContain("Labs");
-  expect(titles(off)).not.toContain("Board");
-  act(() => root?.unmount());
-
-  account.me = { ...account.me, labs: ["board"] };
-  expect(titles(await renderAccount())).toContain("Board");
-});
-
-it("hides Labs when the server turns every feature on for everyone", async () => {
-  account.me = { ...account.me, labs: ["board"], labsAvailable: [] };
+it("links neither Board nor Labs while the server offers only labs this app has no row for", async () => {
+  account.me = { ...account.me, labs: ["board"], labsAvailable: ["board"] };
   const view = await renderAccount();
   const titles = Array.from(view.screen.querySelectorAll("[data-row]"), (row) => row.textContent);
   expect(titles).not.toContain("Labs");
-  expect(titles).toContain("Board");
+  expect(titles).not.toContain("Board");
 });
 
-it("holds a Labs switch while it saves, then reads the account again", async () => {
-  account.me = { ...account.me, labs: [] };
+it("lists no Labs row for a lab this app no longer shows", async () => {
+  account.me = { ...account.me, labs: ["board"], labsAvailable: ["board"] };
   const view = await renderAccount(Labs);
-  const board = () =>
-    view.screen.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Board"]')!;
-  expect(board().getAttribute("aria-checked")).toBe("false");
-
-  const { saving, reads } = holdPreferenceSave();
-  const before = reads();
-  await act(async () => board().click());
-  expect(rpc).toHaveBeenCalledWith("preferences/update", { labs: ["board"] }, expect.anything());
-  expect(board().getAttribute("aria-checked")).toBe("true");
-  expect(board().disabled).toBe(true);
-  account.me = { ...account.me, labs: ["board"] };
-  await act(async () => saving.resolve({}));
-  await act(flush);
-  expect(reads()).toBe(before + 1);
-  expect(board().getAttribute("aria-checked")).toBe("true");
-  expect(board().disabled).toBe(false);
-});
-
-it("turns a Labs switch back and releases it when the save fails", async () => {
-  account.me = { ...account.me, labs: ["board"] };
-  const view = await renderAccount(Labs);
-  const board = () =>
-    view.screen.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Board"]')!;
-  const { saving } = holdPreferenceSave();
-  await act(async () => board().click());
-  expect(rpc).toHaveBeenLastCalledWith("preferences/update", { labs: [] }, expect.anything());
-  expect(board().getAttribute("aria-checked")).toBe("false");
-  await act(async () => saving.reject(new Error("offline")));
-  await act(flush);
-  expect(board().getAttribute("aria-checked")).toBe("true");
-  expect(board().disabled).toBe(false);
-  expect(Alert.alert).toHaveBeenCalledWith("Labs", "Could not save");
+  expect(view.screen.querySelector('[role="switch"]')).toBeNull();
+  expect(view.screen.textContent).not.toContain("Board");
 });
 
 it("starts one sign-out when Sign out is tapped again while the warning is open", async () => {

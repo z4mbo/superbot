@@ -2,13 +2,14 @@ import path from "node:path";
 import type { DesktopReachability, DesktopSetup } from "@rakazo/contracts";
 import { parseServerHeaders } from "@rakazo/contracts";
 import type { Session } from "electron";
-import { app, BrowserWindow, screen, shell } from "electron";
+import { app, BrowserWindow, nativeTheme, screen, shell } from "electron";
 import { desktop } from "../desktop-state.js";
 import { desktopDirection, desktopLocale, desktopMessages, t } from "../i18n.js";
 import { handleIpc } from "../ipc/ipc.js";
 import { dockerDownloadUrl, isDesktopSetupLink } from "../this-computer/docker-cli.js";
 import type { createAppOpener } from "../windows/app-opener.js";
 import { developmentIcon, markOnce } from "../windows/app-window.js";
+import { followSystemTheme, signalWindowState } from "../windows/window-controls.js";
 import { setupWindowOptions } from "../windows/window-options.js";
 import { configuredServerUrl, managedLocalOpenUrl, parseSetupInput } from "./setup-config.js";
 import { writeSetup } from "./setup-store.js";
@@ -17,7 +18,11 @@ let setupSaveInProgress = false;
 function createSetupWindow() {
   const icon = developmentIcon();
   const win = new BrowserWindow({
-    ...setupWindowOptions(process.platform, screen.getPrimaryDisplay().workAreaSize),
+    ...setupWindowOptions(
+      process.platform,
+      screen.getPrimaryDisplay().workAreaSize,
+      nativeTheme.shouldUseDarkColors,
+    ),
     ...(icon ? { icon } : {}),
     webPreferences: {
       preload: path.join(import.meta.dirname, "setup-preload.cjs"),
@@ -29,6 +34,8 @@ function createSetupWindow() {
     },
   });
   desktop.setupWindow = win;
+  signalWindowState(win);
+  followSystemTheme(win);
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.once("closed", () => {
     if (desktop.setupWindow === win) desktop.setupWindow = null;

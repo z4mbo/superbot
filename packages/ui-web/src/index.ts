@@ -1,7 +1,6 @@
 export { AppMarkStack } from "./app-mark-stack.js";
 export {
   BOT_COLORS,
-  BOT_MASCOT_SHAPES,
   BotAvatar,
   BotLookProvider,
   BotShapePreview,
@@ -14,7 +13,7 @@ export {
 export type { BotAvatarActivitySource } from "./bot-avatar-activity.js";
 export { BotAvatarActivityProvider } from "./bot-avatar-activity.js";
 export type { BotMarkProps } from "./bot-mark.js";
-export { BotMark } from "./bot-mark.js";
+export { BotMark, BotMarkSleep } from "./bot-mark.js";
 export * from "./components/ui/alert-dialog.js";
 export * from "./components/ui/badge.js";
 export * from "./components/ui/button.js";

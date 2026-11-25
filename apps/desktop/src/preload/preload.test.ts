@@ -66,6 +66,7 @@ describe("desktop preload bridge", () => {
     expect(Object.keys(bridge.window).sort()).toEqual([
       "close",
       "minimize",
+      "onChange",
       "state",
       "toggleMaximize",
     ]);
@@ -239,7 +240,7 @@ describe("desktop preload bridge", () => {
 
 describe("setup preload bridge", () => {
   it("exposes only the first-run setup operations", async () => {
-    const { invoke, on, exposeInMainWorld } = runPreload("setup-preload.cjs");
+    const { invoke, on, off, exposeInMainWorld } = runPreload("setup-preload.cjs");
 
     expect(exposeInMainWorld).toHaveBeenCalledTimes(1);
     const [globalName, bridge] = exposeInMainWorld.mock.calls[0] as [string, RakazoSetup];
@@ -254,8 +255,15 @@ describe("setup preload bridge", () => {
       "stack",
       "state",
       "test",
+      "window",
     ]);
     expect(Object.keys(bridge.stack).sort()).toEqual(["onChange", "start", "state"]);
+    expect(Object.keys(bridge.window).sort()).toEqual([
+      "minimize",
+      "onChange",
+      "state",
+      "toggleMaximize",
+    ]);
 
     await bridge.state();
     await bridge.test("http://127.0.0.1:5173");
@@ -264,6 +272,9 @@ describe("setup preload bridge", () => {
     await bridge.openLink("docker-download");
     await bridge.stack.state();
     await bridge.stack.start();
+    await bridge.window.minimize();
+    await bridge.window.toggleMaximize();
+    await bridge.window.state();
     expect(invoke.mock.calls.map(([channel]) => channel)).toEqual([
       "desktop.setup.state",
       "desktop.setup.test",
@@ -272,6 +283,9 @@ describe("setup preload bridge", () => {
       "desktop.setup.openLink",
       "desktop.setup.stack.state",
       "desktop.setup.stack.start",
+      "desktop.setup.window.minimize",
+      "desktop.setup.window.toggleMaximize",
+      "desktop.setup.window.state",
     ]);
     expect(invoke).toHaveBeenCalledWith("desktop.setup.openLink", "docker-download");
 
@@ -281,6 +295,19 @@ describe("setup preload bridge", () => {
     expect(channel).toBe("desktop.setup.stack.changed");
     handler({}, { phase: "pulling" });
     expect(listener).toHaveBeenCalledWith({ phase: "pulling" });
+
+    // The window's change signal reaches the page without the IPC event.
+    const changed = vi.fn();
+    const unsubscribe = bridge.window.onChange(changed);
+    const [windowChannel, windowHandler] = on.mock.calls.at(-1) as [
+      string,
+      (...args: unknown[]) => void,
+    ];
+    expect(windowChannel).toBe("desktop.window.changed");
+    windowHandler({ sender: "ipc" });
+    expect(changed).toHaveBeenCalledWith();
+    unsubscribe();
+    expect(off).toHaveBeenCalledWith("desktop.window.changed", windowHandler);
   });
 
   it("hands the page its language before the page runs, English when main refuses", () => {

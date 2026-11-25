@@ -15,15 +15,14 @@ import { accountRpcQuery, queryClient, useSave } from "../../lib/query/query";
 import { useScreenQuery } from "../../lib/query/screen-query";
 import { ACCOUNT_SETTINGS } from "../../lib/query/settings-target";
 import { createSettingsPageStyles } from "../../lib/settings/settings-page-styles";
+import { shownLabs } from "../../lib/settings/shown-labs";
 
 export default function Labs() {
   const sideInsets = useSideInsets();
   const { t } = useLingui();
   const styles = useThemedStyles(createSettingsPageStyles);
   const stacked = useStackedSettings();
-  const copy: Record<LabFeature, { title: string; detail: string }> = {
-    board: { title: t`Board`, detail: t`A kanban board of tickets your bots can work on` },
-  };
+  const copy: Partial<Record<LabFeature, { title: string; detail: string }>> = {};
   const meRead = accountRpcQuery("me");
   const me = useScreenQuery(meRead).data;
   const change = useSave({
@@ -37,7 +36,7 @@ export default function Labs() {
   });
   // The switch shows the change being saved until the read after it is back.
   const labs = change.pending ? change.input : me?.labs;
-  const available = me?.labsAvailable ?? [];
+  const available = shownLabs(me?.labsAvailable);
 
   function toggle(feature: LabFeature, enabled: boolean) {
     if (labs) change.run(withLab(labs, feature, enabled));
@@ -55,8 +54,8 @@ export default function Labs() {
             {available.map((feature) => (
               <SettingsSwitch
                 key={feature}
-                label={copy[feature].title}
-                detail={copy[feature].detail}
+                label={copy[feature]?.title ?? ""}
+                detail={copy[feature]?.detail}
                 value={labs.includes(feature)}
                 disabled={change.pending}
                 onChange={(enabled) => toggle(feature, enabled)}
