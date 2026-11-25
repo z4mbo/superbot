@@ -363,7 +363,7 @@ services:
 
   # Pull-only stub so `compose up` fetches the published desktop image without a checkout.
   computer:
-    image: ${RAKAZO_COMPUTER_IMAGE:-ghcr.io/elie222/rakazo/computer}:${RAKAZO_COMPUTER_IMAGE_TAG:-latest}
+    image: ${RAKAZO_COMPUTER_IMAGE:-ghcr.io/z4mbo/superbot/computer}:${RAKAZO_COMPUTER_IMAGE_TAG:-latest}
     # Keep locally cached rollback images; latest still refreshes when explicitly pulled.
     pull_policy: missing
     command: ["true"]
@@ -401,7 +401,7 @@ services:
   # Runs from the app image. Not published as its own image and not exposed on the host:
   # access to the supervisor is equivalent to control of the Docker host.
   supervisor:
-    image: ${RAKAZO_IMAGE:-ghcr.io/elie222/rakazo/app}:${RAKAZO_IMAGE_TAG:-latest}
+    image: ${RAKAZO_IMAGE:-ghcr.io/z4mbo/superbot/app}:${RAKAZO_IMAGE_TAG:-latest}
     restart: unless-stopped
     command: ["pnpm", "--filter", "@rakazo/sandbox-supervisor", "start"]
     init: true
@@ -417,7 +417,7 @@ services:
       SUPERVISOR_HOST: "0.0.0.0"
       SUPERVISOR_PORT: "7091"
       DOCKER_SOCKET: /var/run/docker.sock
-      RAKAZO_COMPUTER_IMAGE: ${RAKAZO_COMPUTER_IMAGE:-ghcr.io/elie222/rakazo/computer}:${RAKAZO_COMPUTER_IMAGE_TAG:-latest}
+      RAKAZO_COMPUTER_IMAGE: ${RAKAZO_COMPUTER_IMAGE:-ghcr.io/z4mbo/superbot/computer}:${RAKAZO_COMPUTER_IMAGE_TAG:-latest}
       RAKAZO_COMPUTER_MEMORY: ${RAKAZO_COMPUTER_MEMORY:-2g}
       RAKAZO_COMPUTER_CPUS: ${RAKAZO_COMPUTER_CPUS:-2}
       RAKAZO_COMPUTER_PIDS_LIMIT: ${RAKAZO_COMPUTER_PIDS_LIMIT:-2048}
@@ -464,7 +464,7 @@ services:
   # container gets the owner login: the API and worker connect as rakazo_app, which row-level
   # security binds, so code running in either cannot find a login that bypasses it.
   migrate:
-    image: ${RAKAZO_IMAGE:-ghcr.io/elie222/rakazo/app}:${RAKAZO_IMAGE_TAG:-latest}
+    image: ${RAKAZO_IMAGE:-ghcr.io/z4mbo/superbot/app}:${RAKAZO_IMAGE_TAG:-latest}
     working_dir: /app/apps/api
     command: ["pnpm", "db:deploy"]
     restart: "no"
@@ -484,7 +484,7 @@ services:
         condition: service_healthy
 
   api:
-    image: ${RAKAZO_IMAGE:-ghcr.io/elie222/rakazo/app}:${RAKAZO_IMAGE_TAG:-latest}
+    image: ${RAKAZO_IMAGE:-ghcr.io/z4mbo/superbot/app}:${RAKAZO_IMAGE_TAG:-latest}
     restart: unless-stopped
     # Node runs directly, not through pnpm: pnpm does not pass SIGTERM on, so a stop would kill the
     # process before its graceful shutdown finishes in-flight requests and jobs.
@@ -587,7 +587,7 @@ services:
       retries: 20
 
   worker:
-    image: ${RAKAZO_IMAGE:-ghcr.io/elie222/rakazo/app}:${RAKAZO_IMAGE_TAG:-latest}
+    image: ${RAKAZO_IMAGE:-ghcr.io/z4mbo/superbot/app}:${RAKAZO_IMAGE_TAG:-latest}
     restart: unless-stopped
     # Directly, not through pnpm, so a stop reaches it (see the api command).
     working_dir: /app/apps/worker
@@ -633,7 +633,7 @@ services:
         condition: service_healthy
 
   web:
-    image: ${RAKAZO_IMAGE:-ghcr.io/elie222/rakazo/app}:${RAKAZO_IMAGE_TAG:-latest}
+    image: ${RAKAZO_IMAGE:-ghcr.io/z4mbo/superbot/app}:${RAKAZO_IMAGE_TAG:-latest}
     restart: unless-stopped
     # Directly, not through pnpm, so a stop reaches it (see the api command).
     working_dir: /app/apps/web
@@ -676,7 +676,7 @@ services:
   # Opt-in only: this process has root-equivalent Docker access, never a published port.
   updater:
     profiles: [updater]
-    image: ${RAKAZO_UPDATER_IMAGE:-ghcr.io/elie222/rakazo/updater}:${RAKAZO_UPDATER_IMAGE_TAG:-latest}
+    image: ${RAKAZO_UPDATER_IMAGE:-ghcr.io/z4mbo/superbot/updater}:${RAKAZO_UPDATER_IMAGE_TAG:-latest}
     restart: unless-stopped
     # Allow a 10-minute pull, 90-minute recreate and 90-minute recovery, plus checks.
     stop_grace_period: 4h
@@ -691,8 +691,8 @@ services:
       RAKAZO_UPDATER_TOKEN: ${RAKAZO_UPDATER_TOKEN:-}
       RAKAZO_UPDATER_HOST: "0.0.0.0"
       RAKAZO_UPDATER_PORT: "7092"
-      RAKAZO_IMAGE: ${RAKAZO_IMAGE:-ghcr.io/elie222/rakazo/app}
-      RAKAZO_COMPUTER_IMAGE: ${RAKAZO_COMPUTER_IMAGE:-ghcr.io/elie222/rakazo/computer}
+      RAKAZO_IMAGE: ${RAKAZO_IMAGE:-ghcr.io/z4mbo/superbot/app}
+      RAKAZO_COMPUTER_IMAGE: ${RAKAZO_COMPUTER_IMAGE:-ghcr.io/z4mbo/superbot/computer}
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-rakazo}
       RAKAZO_DEPLOY_DIR: ${RAKAZO_DEPLOY_DIR:-/srv/rakazo}
       RAKAZO_COMPOSE_FILE: ${RAKAZO_COMPOSE_FILE:-docker-compose.images.yml}

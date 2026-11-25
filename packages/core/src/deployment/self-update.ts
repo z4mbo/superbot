@@ -1,10 +1,5 @@
-/** The repository a stock Rakazo deployment tracks. */
-export const OFFICIAL_REPO_URL = "https://github.com/elie222/rakazo";
-/**
- * The same repository under the organization it is moving to. GitHub redirects the old address, so
- * an install cloned from either one tracks the official repository and pulls its published images.
- */
-const OFFICIAL_REPO_URLS = [OFFICIAL_REPO_URL, "https://github.com/rakazobot/rakazo"];
+/** The repository a stock Superbot deployment tracks, and whose CI publishes its images. */
+export const OFFICIAL_REPO_URL = "https://github.com/z4mbo/superbot";
 export const DEFAULT_UPDATE_REMOTE = "origin";
 
 const SCP_LIKE = /^(?<user>[A-Za-z0-9._-]+)@(?<host>[A-Za-z0-9._-]+):(?<path>[^:]+)$/;
@@ -84,7 +79,7 @@ function normalizeRepoPath(raw: string): string | null {
   return segments.join("/");
 }
 
-/** `github.com/elie222/rakazo` for every spelling of the same remote, for comparison only. */
+/** `github.com/z4mbo/superbot` for every spelling of the same remote, for comparison only. */
 export function repoIdentity(url: string): string | null {
   const normalized = normalizeRepoUrl(url);
   if ("error" in normalized) return null;
@@ -114,9 +109,7 @@ function safePath(url: string): string | null {
 
 export function isOfficialRepoUrl(url: string): boolean {
   const identity = repoIdentity(url);
-  return (
-    identity !== null && OFFICIAL_REPO_URLS.some((official) => identity === repoIdentity(official))
-  );
+  return identity !== null && identity === repoIdentity(OFFICIAL_REPO_URL);
 }
 
 export function normalizeUpdateBranch(input: string): BranchResult {

@@ -1,7 +1,6 @@
-# Self-hosting Rakazo
+# Self-hosting Superbot
 
 Run the API, worker, web app, database and bot computers on a machine you control.
-Other self-hosted AI agents are compared on the [self-hosted AI agent](https://rakazo.com/self-hosted-ai-agent/#other-agents) page.
 
 The signed-in product is a long-running API, a Graphile Worker, Postgres, and a computer provider (Docker supervisor, E2B, Daytona, CreateOS, or Boat). It is not a static site. The marketing site in `apps/www` can be hosted separately.
 
@@ -15,14 +14,65 @@ English | [简体中文](./zh-CN/self-host.md)
   run yourself ([models](./self-host-models.md)).
 - For a public host, a domain and TLS ([production deployment](./self-host-production.md)).
 
+## Install
+
+Pick one of three ways to run the server. Each one keeps its data in Docker volumes and its
+settings and secrets in a `.env` file you keep.
+
+**One-line install.** Published images in an empty folder, with no clone or build:
+
+```bash
+mkdir -p superbot && cd superbot &&
+curl -fsSLO https://raw.githubusercontent.com/z4mbo/superbot/main/infra/compose/install-images.sh &&
+RAKAZO_IMAGE_TAG=edge bash install-images.sh
+```
+
+Superbot has no release yet, so this follows `edge`, the image CI publishes for every commit to
+`main`. Once the first release is out, leave out `RAKAZO_IMAGE_TAG=edge` to follow stable releases
+instead. Details are in [Published images](#published-images-no-checkout).
+
+**Docker Compose.** The installer's folder is an ordinary Compose project, so after the first run
+you can use `docker compose --env-file .env -f docker-compose.images.yml` directly for `ps`,
+`logs` and `down`. To build the images from a checkout instead of pulling them, clone the
+repository and, with Node.js installed, run the Superbot launcher, which wraps
+`infra/compose/docker-compose.yml`:
+
+```bash
+git clone https://github.com/z4mbo/superbot.git && cd superbot
+node infra/superbot/host.mjs init
+node infra/superbot/host.mjs up
+```
+
+See [Superbot hosting](./superbot/hosting.md) for its options, and
+[Docker Compose (single machine)](#docker-compose-single-machine) for running that Compose file
+yourself. For a public server, use the [production deployment](./self-host-production.md).
+
+**Build from source.** For development or your own changes: clone the repository, then follow
+[Local (source checkout)](#local-source-checkout) to run it with `pnpm dev`.
+
+To update a running server, see [Update](#update).
+
+### Desktop app and CLI
+
+You can use the server from a browser, or from the desktop app and the command line:
+
+- Desktop: Superbot's Electron app will be on
+  [GitHub Releases](https://github.com/z4mbo/superbot/releases) from the first release, as a
+  Windows installer, a macOS `.dmg`, and a Linux AppImage and `.deb`. It connects to your server,
+  or runs one on the same computer ([desktop app](./desktop-app.md)).
+- CLI: from the first release, run `npx superbot-cli` or install it with
+  `npm i -g superbot-cli`. The command it installs is `superbot`.
+
+Updating the desktop app or the CLI does not update your server.
+
 ## Published images (no checkout)
 
-Pull Postgres and `ghcr.io/elie222/rakazo/app` into any empty folder. No clone or image build.
+Pull Postgres and `ghcr.io/z4mbo/superbot/app` into any empty folder. No clone or image build.
 Requires Docker Engine 26+ (API 1.45+ for bot home volume subpaths), the Compose plugin, curl, and OpenSSL.
 
 ```bash
-mkdir -p rakazo && cd rakazo &&
-curl -fsSLO https://raw.githubusercontent.com/elie222/rakazo/main/infra/compose/install-images.sh &&
+mkdir -p superbot && cd superbot &&
+curl -fsSLO https://raw.githubusercontent.com/z4mbo/superbot/main/infra/compose/install-images.sh &&
 bash install-images.sh
 ```
 
@@ -33,10 +83,11 @@ the installer secret list, non-reuse rules, and recovery, see
 optional providers before startup, run `bash install-images.sh --prepare-only`, edit `.env`, then
 run `bash install-images.sh`. Flags may be combined in either order: `--prepare-only`, `--local`.
 When `RAKAZO_IMAGE_TAG` is a release such as `v0.8.0`, the installer downloads the Compose files
-from that release instead of `main`.
+from that release instead of `main`. A `RAKAZO_IMAGE_TAG` set in the shell on the first run is
+saved in the new `.env`, for the app and computer images, so updates keep following it.
 
 `SANDBOX_PROVIDER` defaults to `docker`. The images Compose file runs a sandbox supervisor
-(from the app image, on the internal network only) and pulls `ghcr.io/elie222/rakazo/computer`.
+(from the app image, on the internal network only) and pulls `ghcr.io/z4mbo/superbot/computer`.
 Signup and local Docker computers work without an E2B account. Optional remote providers: set
 `SANDBOX_PROVIDER` to `e2b`, `novita`, `daytona`, `createos`, or `boat` and add the matching API key. The published-images
 Compose stack requires `SANDBOX_SUPERVISOR_TOKEN` for every provider; leave it empty and `compose up` fails closed.
@@ -44,9 +95,10 @@ Compose stack requires `SANDBOX_SUPERVISOR_TOKEN` for every provider; leave it e
 Optional: set `OPENROUTER_API_KEY` or connect a model in the UI after signup. Other providers,
 local models and approvals are covered in [models](./self-host-models.md).
 
-The example defaults to `latest`, which follows stable releases only. Every publish is multi-arch
-(`amd64` + `arm64`), so arm64 hosts need no special tag. A stable release must exist; setup never
-falls back to a main build. Automatic updates are disabled by default; opt in to
+Without a tag, the example uses `latest`, which follows stable releases only. That tag exists only
+once a stable release has been published; until then, use `edge` as shown in [Install](#install).
+Every publish is multi-arch (`amd64` + `arm64`), so arm64 hosts need no special tag. Setup never
+falls back to a main build by itself. Automatic updates are disabled by default; opt in to
 [scheduled stable updates](./self-host-upgrading.md#scheduled-stable-updates) if desired.
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Signup never grants server-administration permissions. Put TLS in front of `:5173` for a public host and set the three public origins to
@@ -105,15 +157,30 @@ Do not publish Postgres on a public interface.
 
 ## Local (source checkout)
 
-Same as the README quick start: `.env` from `.env.example`, `pnpm sandbox:build`, `pnpm dev`, then the URL it prints ([http://127.0.0.1:5173](http://127.0.0.1:5173) by default, or `http://localhost:5173` — both loopback hosts are trusted). Electron: `pnpm --filter @rakazo/desktop dev` while that stack is up, choosing **Existing instance** with that address. The desktop app's **This computer** option manages a separate local stack, using port 45173 by default so it can run alongside `pnpm dev`. If that port is occupied, the app selects and remembers another loopback port. All desktop traffic uses the web origin.
+Clone `https://github.com/z4mbo/superbot.git`, create `.env` from `.env.example` with the secrets listed in [Docker Compose](#docker-compose-single-machine), then run `pnpm install`, `pnpm sandbox:build` and `pnpm dev`, and open the URL it prints ([http://127.0.0.1:5173](http://127.0.0.1:5173) by default, or `http://localhost:5173` — both loopback hosts are trusted). Electron: `pnpm --filter @rakazo/desktop dev` while that stack is up, choosing **Existing instance** with that address. The desktop app's **This computer** option manages a separate local stack, using port 45173 by default so it can run alongside `pnpm dev`. If that port is occupied, the app selects and remembers another loopback port. All desktop traffic uses the web origin.
 
 On Apple silicon Macs with macOS 26 or later, builds that include a server bundle can run this stack without Docker. Fresh setups use this path, downloading the server and computer runtime as needed. Existing Docker setups are offered a move while Docker is running; **Keep Docker** preserves the Docker path. Moving copies the bots and data and stops the old Docker stack without removing it. The Docker-free server stops when the desktop app quits.
 
 Other builds and platforms use Docker Compose and the published images (see [Published images](#published-images-no-checkout)); their managed API gets a Docker-assigned loopback port. These Docker containers keep running after the app quits. **Quit and Stop Bots** in the application menu stops the managed stack and quits, for either runtime; switching to another server also stops it. Unpackaged development builds normally have no server bundle; use **Existing instance** for the source development stack.
 
-For source development in WSL, keep the checkout and `data` directory in the Linux filesystem (for example, `~/rakazo`), and run `pnpm dev` as your normal user. The host-run supervisor matches bot container UID/GID to that user. If Docker Desktop container IPs are unreachable, set `SANDBOX_CONTROL_VIA_LOOPBACK=true` in `.env`; this publishes the token-protected control service on a random loopback port. Leave this unset for the Compose-hosted supervisor.
+For source development in WSL, keep the checkout and `data` directory in the Linux filesystem (for example, `~/superbot`), and run `pnpm dev` as your normal user. The host-run supervisor matches bot container UID/GID to that user. If Docker Desktop container IPs are unreachable, set `SANDBOX_CONTROL_VIA_LOOPBACK=true` in `.env`; this publishes the token-protected control service on a random loopback port. Leave this unset for the Compose-hosted supervisor.
 
 Compose bot homes mount only their own subdirectory of the application volume using Docker volume semantics. Docker's internal volume paths are never used as host bind mounts.
+
+## Update
+
+Update a one-line install from its folder. This downloads the newest installer and runs it in
+update mode, which keeps `.env`, pulls the newest images for the tag in `.env`, applies database
+migrations, waits for the new services to be healthy, and prints the version it moved from and to:
+
+```bash
+cd superbot &&
+curl -fsSLO https://raw.githubusercontent.com/z4mbo/superbot/main/infra/compose/install-images.sh &&
+bash install-images.sh --update
+```
+
+A checkout updates with `git pull` and a rebuild. [Upgrading](./self-host-upgrading.md) covers
+both, pinned versions, rollback and the optional scheduled updates.
 
 ## Configure and operate
 
@@ -149,7 +216,7 @@ Compose bot homes mount only their own subdirectory of the application volume us
 
 ## Reporting a problem
 
-Attach a diagnostics report to a [self-host issue](https://github.com/elie222/rakazo/issues/new?template=self-host.yml):
+Attach a diagnostics report to a [self-host issue](https://github.com/z4mbo/superbot/issues/new?template=self-host.yml):
 
 ```bash
 docker compose -f docker-compose.images.yml exec api node dist/cli/diagnostics.js
@@ -162,4 +229,4 @@ paths or message content; servers, bots and runs appear only as short hashes.
 
 When a user asks their bot to report a bug or send feedback, the report is saved on your server
 in the `feedback_reports` table, with the chat, bot and run it came from. Nothing is sent to the
-Rakazo project.
+Superbot project.

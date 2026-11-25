@@ -1,6 +1,6 @@
 # Configuration
 
-Rakazo reads its settings from environment variables, normally kept in the `.env` file next to
+Superbot reads its settings from environment variables, normally kept in the `.env` file next to
 the Compose file.
 
 ## Where settings live
@@ -76,7 +76,7 @@ retries let long turns survive brief provider failures.
 Model timeouts are configurable in milliseconds. Invalid or out-of-range values retain their
 defaults. Longer timeouts can help when several bots share a local inference server that queues
 requests. For `RAKAZO_LOCAL_MODELS` servers and compatible model connections added in the app,
-these settings are the only limits Rakazo applies, and a stream that is cut off names why in the
+these settings are the only limits Superbot applies, and a stream that is cut off names why in the
 run's error details, such as `terminated (other side closed)`. Built-in providers still drop a
 response after 5 minutes without data, and a proxy or load balancer in between may cut off a
 silent stream sooner.
@@ -87,14 +87,14 @@ silent stream sooner.
   Other APIs, such as Google, Vertex AI, Bedrock and some routed models, use their own client
   timeouts.
 - `MODEL_STREAM_IDLE_TIMEOUT_MS` (default `180000`, range `0`–`2147483647`) bounds how long
-  a started response may remain silent. Set it to `0` to disable Rakazo's inactivity watchdog.
+  a started response may remain silent. Set it to `0` to disable Superbot's inactivity watchdog.
   Explicit request cancellation remains available. Disabling this protection can leave stalled
   requests waiting indefinitely if neither the provider nor the caller terminates them.
 - `MODEL_CONNECT_TIMEOUT_MS` (default `30000`, range `1000`–`300000`) bounds connecting to an
   OpenAI-compatible model or speech connection added in the app. `RAKAZO_LOCAL_MODELS` servers
   and built-in providers retain Node's own connection timeout.
 
-### Reaching Rakazo from a second address
+### Reaching Superbot from a second address
 
 Sign-in and API calls are accepted only from `WEB_ORIGIN`, `API_URL`, `BETTER_AUTH_URL` and the
 mobile app. If you also open the same install from another address, such as a Tailscale name or a
@@ -149,7 +149,7 @@ this is on. See [docs/cloud-web.md](cloud-web.md).
 
 ## Chat history retention
 
-Rakazo keeps chat history until someone clears the chat or deletes the bot. To delete it
+Superbot keeps chat history until someone clears the chat or deletes the bot. To delete it
 automatically, set `CHAT_HISTORY_RETENTION_DAYS` on the API and worker to a whole number of days:
 
 ```env
@@ -173,7 +173,7 @@ keep it for their own retention.
 
 ## Database roles
 
-Rakazo uses two Postgres logins:
+Superbot uses two Postgres logins:
 
 - The owner (`POSTGRES_USER`, or `DATABASE_MIGRATION_URL` outside Compose) runs migrations and
   owns the tables.

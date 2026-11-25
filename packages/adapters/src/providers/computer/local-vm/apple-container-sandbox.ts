@@ -17,7 +17,7 @@ import {
 } from "../../../computers/sandbox/image-computer-sandbox.js";
 import { sandboxNotFoundError } from "../../../computers/sandbox/sandbox-errors.js";
 
-const DEFAULT_COMPUTER_IMAGE = "ghcr.io/elie222/rakazo/computer:edge";
+const DEFAULT_COMPUTER_IMAGE = "ghcr.io/z4mbo/superbot/computer:edge";
 const DEFAULT_CPUS = "2";
 const DEFAULT_MEMORY = "2g";
 const DEFAULT_READY_TIMEOUT_MS = 120_000;

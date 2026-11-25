@@ -11,8 +11,8 @@ import { resolveUpdaterConfig } from "./updater-logic.js";
 
 const older = "1".repeat(40);
 const newer = "2".repeat(40);
-const appImage = "ghcr.io/elie222/rakazo/app";
-const computerImage = "ghcr.io/elie222/rakazo/computer";
+const appImage = "ghcr.io/z4mbo/superbot/app";
+const computerImage = "ghcr.io/z4mbo/superbot/computer";
 const cachePrefix = `cached-${createHash("sha256").update("cache-test").digest("hex").slice(0, 16)}-`;
 const cachedOlder = `${cachePrefix}${"1".repeat(64)}`;
 const cachedNewer = `${cachePrefix}${"2".repeat(64)}`;
@@ -491,7 +491,7 @@ describe("scheduled release state and recovery", () => {
     const response = await subject.app.request("/apply", {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ repoUrl: "https://github.com/elie222/rakazo", branch: "main" }),
+      body: JSON.stringify({ repoUrl: "https://github.com/z4mbo/superbot", branch: "main" }),
     });
     expect(response.status).toBe(400);
     expect(await response.text()).toContain("Could not verify the supervisor's computer image");
@@ -730,7 +730,7 @@ describe("scheduled release state and recovery", () => {
     const result = await subject.app.request("/apply", {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ repoUrl: "https://github.com/elie222/rakazo", branch: "main" }),
+      body: JSON.stringify({ repoUrl: "https://github.com/z4mbo/superbot", branch: "main" }),
     });
     await expect(result.json()).resolves.toMatchObject({ ok: false, restart: "not-required" });
     expect(
@@ -756,7 +756,7 @@ describe("scheduled release state and recovery", () => {
     const applied = await subject.app.request("/apply", {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ repoUrl: "https://github.com/elie222/rakazo", branch: "main" }),
+      body: JSON.stringify({ repoUrl: "https://github.com/z4mbo/superbot", branch: "main" }),
     });
     await expect(applied.json()).resolves.toMatchObject({ ok: true });
     expect(await subject.env()).toContain(`RAKAZO_COMPUTER_IMAGE_TAG_PREVIOUS=${cachedOlder}\n`);

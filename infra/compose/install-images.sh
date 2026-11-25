@@ -11,14 +11,14 @@ download_ref=main
 if [[ "$image_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   download_ref="$image_tag"
 fi
-DOWNLOAD_BASE="${RAKAZO_DOWNLOAD_BASE:-https://raw.githubusercontent.com/elie222/rakazo/${download_ref}/infra/compose}"
+DOWNLOAD_BASE="${RAKAZO_DOWNLOAD_BASE:-https://raw.githubusercontent.com/z4mbo/superbot/${download_ref}/infra/compose}"
 while [[ "$DOWNLOAD_BASE" == */ ]]; do
   DOWNLOAD_BASE="${DOWNLOAD_BASE%/}"
 done
 case "$DOWNLOAD_BASE" in
   https://*) ;;
   *)
-    echo "Rakazo setup failed: RAKAZO_DOWNLOAD_BASE must use https." >&2
+    echo "Superbot setup failed: RAKAZO_DOWNLOAD_BASE must use https." >&2
     exit 1
     ;;
 esac
@@ -35,6 +35,7 @@ prepare_only=false
 skip_existing=false
 pull_never=false
 offline=false
+update=false
 if [[ "${RAKAZO_DOWNLOAD_SKIP_EXISTING:-}" == "1" ]]; then
   skip_existing=true
 fi
@@ -59,8 +60,12 @@ for arg in "$@"; do
       pull_never=true
       offline=true
       ;;
+    --update)
+      # Move an existing install to the newest images for its tag; never creates one.
+      update=true
+      ;;
     *)
-      echo "Usage: bash install-images.sh [--prepare-only] [--local] [--pull-never] [--offline]" >&2
+      echo "Usage: bash install-images.sh [--update] [--prepare-only] [--local] [--pull-never] [--offline]" >&2
       exit 2
       ;;
   esac
@@ -75,9 +80,15 @@ cleanup() {
 trap cleanup EXIT
 
 fail() {
-  echo "Rakazo setup failed: $*" >&2
+  echo "Superbot setup failed: $*" >&2
   exit 1
 }
+
+if [[ "$update" == true ]]; then
+  [[ "$prepare_only" == false ]] || fail "--update and --prepare-only cannot be combined."
+  [[ -f "$ENV_FILE" && -f "$COMPOSE_FILE" ]] ||
+    fail "--update needs an existing install; run it in the folder that holds ${ENV_FILE} and ${COMPOSE_FILE}."
+fi
 
 required_files=("$COMPOSE_FILE" "$ENV_EXAMPLE")
 if [[ "$offline" == true ]]; then
@@ -237,6 +248,14 @@ download() {
 
 create_env() {
   local generated_encryption_key=false
+  # A tag chosen in the shell for the first install (such as edge) is kept in .env, so later
+  # updates follow the same tag. The computer image follows the app's tag unless set on its own.
+  local app_tag="${RAKAZO_IMAGE_TAG-}"
+  local computer_tag="${RAKAZO_COMPUTER_IMAGE_TAG:-$app_tag}"
+  local tag
+  for tag in "$app_tag" "$computer_tag"; do
+    [[ -z "$tag" || "$tag" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$ ]] || fail "'${tag}' is not an image tag."
+  done
   umask 077
   temporary_file=$(mktemp "./${ENV_FILE}.tmp.XXXXXX")
 
@@ -260,6 +279,12 @@ create_env() {
         ;;
       "SANDBOX_SUPERVISOR_TOKEN="|"RAKAZO_UPDATER_TOKEN=")
         printf '%s=%s\n' "${line%%=*}" "$(openssl rand -hex 32)"
+        ;;
+      RAKAZO_IMAGE_TAG=*)
+        printf 'RAKAZO_IMAGE_TAG=%s\n' "${app_tag:-${line#*=}}"
+        ;;
+      RAKAZO_COMPUTER_IMAGE_TAG=*)
+        printf 'RAKAZO_COMPUTER_IMAGE_TAG=%s\n' "${computer_tag:-${line#*=}}"
         ;;
       *)
         printf '%s\n' "$line"
@@ -398,6 +423,23 @@ remove_replaced_images() {
   done < <(docker image ls --no-trunc --format '{{.ID}} {{.Repository}} {{.Tag}}' 2>/dev/null)
 }
 
+# The source commit the running API was built from, or its image ID when the image has no
+# revision label. Used only to report what an update moved from and to.
+running_version() {
+  local container image revision
+  container=$(docker compose --env-file "$ENV_FILE" "${compose_files[@]}" ps -q api 2>/dev/null) || true
+  container="${container%%$'\n'*}"
+  [[ -n "$container" ]] || { echo "not running"; return 0; }
+  image=$(docker inspect --format '{{.Image}}' "$container" 2>/dev/null) || { echo "unknown"; return 0; }
+  revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image" 2>/dev/null) || revision=""
+  if [[ "$revision" =~ ^[0-9a-f]{7,64}$ ]]; then
+    echo "commit ${revision:0:12}"
+  else
+    image="${image#sha256:}"
+    echo "image ${image:0:12}"
+  fi
+}
+
 for filename in "${required_files[@]}"; do
   download "$filename"
 done
@@ -421,11 +463,16 @@ validate_required_secrets
 warn_unpassed_settings
 
 if [[ "$prepare_only" == true ]]; then
-  echo "Rakazo files are ready. Edit .env, then run: bash install-images.sh"
+  echo "Superbot files are ready. Edit .env, then run: bash install-images.sh"
   exit 0
 fi
 
 configure_computer_egress
+
+if [[ "$update" == true ]]; then
+  from_version=$(running_version)
+  echo "Updating Superbot from ${from_version}."
+fi
 
 prepare_proxy_env
 if [[ "$pull_never" == true ]]; then
@@ -455,4 +502,13 @@ else
 fi
 remove_replaced_images
 
-echo "Rakazo is starting at http://127.0.0.1:5173"
+if [[ "$update" == true ]]; then
+  to_version=$(running_version)
+  if [[ "$to_version" == "$from_version" ]]; then
+    echo "Superbot is already up to date (${to_version})."
+  else
+    echo "Updated Superbot from ${from_version} to ${to_version}."
+  fi
+  exit 0
+fi
+echo "Superbot is starting at http://127.0.0.1:5173"

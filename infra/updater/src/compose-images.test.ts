@@ -41,7 +41,7 @@ const publishWorkflow = parse(readFileSync(publishWorkflowFile, "utf8")) as {
 const interpolated = (name: string, fallback = "") => `\${${name}:-${fallback}}`;
 
 const appServices = ["api", "worker", "web", "supervisor", "migrate"] as const;
-const FIRST_PARTY_IMAGE = /ghcr\.io\/elie222\/rakazo\/([a-z0-9][a-z0-9._-]*)/g;
+const FIRST_PARTY_IMAGE = /ghcr\.io\/z4mbo\/superbot\/([a-z0-9][a-z0-9._-]*)/g;
 
 function firstPartyImageNames(value: unknown): string[] {
   if (typeof value !== "string") return [];
@@ -67,10 +67,10 @@ describe("the images compose file", () => {
       "worker",
     ]);
     for (const service of appServices) {
-      expect(compose.services[service]?.image).toContain("ghcr.io/elie222/rakazo/app");
+      expect(compose.services[service]?.image).toContain("ghcr.io/z4mbo/superbot/app");
       expect(compose.services[service]?.image).toContain("RAKAZO_IMAGE_TAG");
     }
-    expect(compose.services.computer?.image).toContain("ghcr.io/elie222/rakazo/computer");
+    expect(compose.services.computer?.image).toContain("ghcr.io/z4mbo/superbot/computer");
     expect(compose.services.computer?.pull_policy).toBe("missing");
     expect(compose.services.computer?.image).toContain("RAKAZO_COMPUTER_IMAGE_TAG");
     expect(compose.services.postgres?.image).toMatch(
@@ -83,7 +83,7 @@ describe("the images compose file", () => {
     expect(firstPartyImageNames(null)).toEqual([]);
     expect(firstPartyImageNames(true)).toEqual([]);
     expect(firstPartyImageNames(7091)).toEqual([]);
-    expect(firstPartyImageNames("ghcr.io/elie222/rakazo/computer:edge")).toEqual(["computer"]);
+    expect(firstPartyImageNames("ghcr.io/z4mbo/superbot/computer:edge")).toEqual(["computer"]);
   });
 
   it("defaults application and computer images to stable releases", () => {
@@ -100,7 +100,7 @@ describe("the images compose file", () => {
     const updater = compose.services.updater;
     expect(updater?.profiles).toEqual(["updater"]);
     expect(updater?.environment?.RAKAZO_COMPUTER_IMAGE).toBe(
-      interpolated("RAKAZO_COMPUTER_IMAGE", "ghcr.io/elie222/rakazo/computer"),
+      interpolated("RAKAZO_COMPUTER_IMAGE", "ghcr.io/z4mbo/superbot/computer"),
     );
     expect(updater?.ports).toBeUndefined();
     expect(updater?.env_file).toBeUndefined();

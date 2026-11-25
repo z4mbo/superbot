@@ -68,7 +68,7 @@ describe("the updater compose service", () => {
   it("is opt-in because it grants root-equivalent Docker access", () => {
     expect(updater.profiles).toEqual(["updater"]);
     expect(updater.environment?.RAKAZO_COMPUTER_IMAGE).toBe(
-      `\${RAKAZO_COMPUTER_IMAGE:-ghcr.io/elie222/rakazo/computer}`,
+      `\${RAKAZO_COMPUTER_IMAGE:-ghcr.io/z4mbo/superbot/computer}`,
     );
     expect(updater.environment?.RAKAZO_AUTO_UPDATE_INTERVAL_HOURS).toBe(
       interpolated("RAKAZO_AUTO_UPDATE_INTERVAL_HOURS", "0"),
@@ -122,8 +122,8 @@ describe("the updater compose service", () => {
   });
 
   it("uses the official registry namespace and digest-pins third-party runtime images", () => {
-    expect(updater.image).toContain("ghcr.io/elie222/rakazo/updater");
-    expect(compose.services.api?.image).toContain("ghcr.io/elie222/rakazo/app");
+    expect(updater.image).toContain("ghcr.io/z4mbo/superbot/updater");
+    expect(compose.services.api?.image).toContain("ghcr.io/z4mbo/superbot/app");
     expect(compose.services.postgres?.image).toMatch(
       /^\$\{POSTGRES_IMAGE:-postgres:18@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6\}$/,
     );

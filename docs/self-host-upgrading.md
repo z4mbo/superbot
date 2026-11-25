@@ -5,6 +5,32 @@ for you.
 
 English | [简体中文](./zh-CN/self-host-upgrading.md)
 
+## Update a one-line install
+
+An install made with `install-images.sh` updates with one command, run in its folder:
+
+```bash
+cd superbot &&
+curl -fsSLO https://raw.githubusercontent.com/z4mbo/superbot/main/infra/compose/install-images.sh &&
+bash install-images.sh --update
+```
+
+It fetches the newest installer and Compose file, keeps `.env` (adding only secrets that newer
+releases need), pulls the newest images for `RAKAZO_IMAGE_TAG` in `.env`, and recreates the
+services with `up --wait`. The `migrate` container applies database migrations before the new API
+starts. It then prints the commit it moved from and to, or that it was already up to date. It
+refuses to run in a folder without `.env` and `docker-compose.images.yml`, so it never starts a new
+install by mistake. `--local` and `--offline` work as they do for an install.
+
+The tag in `.env` decides what "newest" means: `edge` follows `main`, `latest` follows stable
+releases, and a pinned `vX.Y.Z` stays where it is until you change it. To move from `edge` to
+stable releases once one is published, set both `RAKAZO_IMAGE_TAG` and
+`RAKAZO_COMPUTER_IMAGE_TAG` to `latest` and run the update. Review the release notes first, and
+keep a [backup](./self-host-backups.md): an update never reverses database migrations.
+
+The app has no update button: app accounts have no server authority, so updates run on the host,
+by this command, by hand as below, or by the optional [updater sidecar](#updater-sidecar).
+
 ## Upgrade
 
 A Compose deployment on a published release tag upgrades by moving that tag:
@@ -155,9 +181,9 @@ this repository that is:
 
 | Image                             | Contents                                                                |
 | --------------------------------- | ----------------------------------------------------------------------- |
-| `ghcr.io/elie222/rakazo/app`      | api, worker, web, and sandbox supervisor — one image, multiple commands |
-| `ghcr.io/elie222/rakazo/computer` | Linux desktop used as each bot computer                                 |
-| `ghcr.io/elie222/rakazo/updater`  | the updater sidecar, plus the Docker CLI                                |
+| `ghcr.io/z4mbo/superbot/app`      | api, worker, web, and sandbox supervisor — one image, multiple commands |
+| `ghcr.io/z4mbo/superbot/computer` | Linux desktop used as each bot computer                                 |
+| `ghcr.io/z4mbo/superbot/updater`  | the updater sidecar, plus the Docker CLI                                |
 
 `infra/compose/docker-compose.images.yml` is the no-checkout path for those app and computer tags
 plus Postgres. The supervisor runs from the app image on the internal network only (not a separate
@@ -211,7 +237,9 @@ new content under an old tag.
 To populate the registry the first time, run the workflow manually (`workflow_dispatch`) or push a
 `v*` tag. A manual run produces `sha-<full-commit>`; only a stable `vX.Y.Z` tag (no prerelease
 suffix) produces `latest`, and any `v*` tag produces semver tags. The updater ignores prereleases
-and refuses the official path until a stable `vX.Y.Z` exists.
+and refuses the official path until a stable `vX.Y.Z` exists. Superbot has published no release
+yet, so its registry has `edge` and `sha-*` tags only; `latest` and the `vX.Y.Z` tags appear with
+the first stable release tag.
 
 ## Updater sidecar
 
@@ -373,7 +401,7 @@ fetch("http://127.0.0.1:7092/rollback", {
 
 For a manual stable update using the second command, change the path to `/apply` and add
 `"content-type": "application/json"` to its headers and
-`body: JSON.stringify({repoUrl: "https://github.com/elie222/rakazo", branch: "main"})` to its
+`body: JSON.stringify({repoUrl: "https://github.com/z4mbo/superbot", branch: "main"})` to its
 fetch options. The official repository still selects stable releases; `main` here does not select
 a main-build image. Keep the updater profile running with an interval of `0` to use only these
 manual controls. Operator-initiated `/apply` does not use the scheduler's stable-source gate,
@@ -415,8 +443,8 @@ sees:
   `/srv/rakazo` is the default and supported production layout. Set `RAKAZO_DEPLOY_DIR` explicitly
   when the checkout is elsewhere.
 - **Docker Desktop (Windows/macOS).** The daemon runs in a VM that mounts your drive somewhere else.
-  On Windows, `C:` appears at `/run/desktop/mnt/host/c`, so a checkout at `C:\Users\you\rakazo` is
-  `RAKAZO_DEPLOY_DIR=/run/desktop/mnt/host/c/Users/you/rakazo`. Host Git may use `core.autocrlf=true`; the updater ignores CR-only diffs so that does not block `/apply`. Verify the mount before deploying:
+  On Windows, `C:` appears at `/run/desktop/mnt/host/c`, so a checkout at `C:\Users\you\superbot` is
+  `RAKAZO_DEPLOY_DIR=/run/desktop/mnt/host/c/Users/you/superbot`. Host Git may use `core.autocrlf=true`; the updater ignores CR-only diffs so that does not block `/apply`. Verify the mount before deploying:
 
 ```bash
 docker compose --env-file .env -f infra/compose/docker-compose.prod.yml \
