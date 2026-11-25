@@ -120,6 +120,42 @@ describe("vite.config", () => {
     await expect(upgrade(port, "evil.example")).resolves.toBe(404);
   });
 
+  it("lets a hosted page's preflight reach the API through the preview server", async () => {
+    const methods: string[] = [];
+    const api = http.createServer((req, res) => {
+      methods.push(`${req.method} ${req.url}`);
+      res.writeHead(204, { "access-control-allow-origin": String(req.headers.origin) }).end();
+    });
+    await new Promise<void>((resolve) => api.listen(0, "127.0.0.1", resolve));
+    cleanup.push(() => new Promise((resolve) => api.close(() => resolve())));
+    vi.stubEnv("API_PROXY_TARGET", `http://127.0.0.1:${(api.address() as AddressInfo).port}`);
+    vi.stubEnv("SCREEN_PROXY_SECRET", "test-screen-proxy-secret-0123456789abcdef");
+    vi.spyOn(process, "cwd").mockReturnValue(path.dirname(configFile));
+    const outDir = await mkdtemp(path.join(tmpdir(), "rakazo-vite-config-"));
+    cleanup.push(() => rm(outDir, { recursive: true, force: true }));
+    await writeFile(path.join(outDir, "index.html"), "<!doctype html>");
+    const server = await preview({
+      configFile,
+      root: path.dirname(configFile),
+      mode: "production",
+      logLevel: "silent",
+      build: { outDir },
+      preview: { host: "127.0.0.1", port: 0 },
+    });
+    cleanup.push(() => server.close());
+    const { port } = server.httpServer.address() as AddressInfo;
+
+    const origin = "https://hosted-abc.example.test";
+    for (const pathname of ["/rpc/me", "/api/health"]) {
+      const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
+        method: "OPTIONS",
+        headers: { Origin: origin, "Access-Control-Request-Method": "POST" },
+      });
+      expect(response.headers.get("access-control-allow-origin")).toBe(origin);
+    }
+    expect(methods).toEqual(["OPTIONS /rpc/me", "OPTIONS /api/health"]);
+  });
+
   it("lets the device socket through for the hosts the dev server serves", async () => {
     await useStandInApi();
 

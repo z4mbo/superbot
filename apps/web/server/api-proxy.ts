@@ -1,6 +1,6 @@
 import { isIP } from "node:net";
 import { USER_DEVICE_CONNECT_PATH } from "@rakazo/contracts/user-devices";
-import type { ProxyOptions } from "vite";
+import type { CorsOptions, ProxyOptions } from "vite";
 import { appendForwardedFor } from "./forwarded-for.js";
 
 /** Vite treats a proxy key starting with `^` as a pattern for the request's path and query. */
@@ -29,6 +29,25 @@ export function forwardsToApi(url: string | undefined, upgrade = false): boolean
       (key.startsWith("^") ? new RegExp(key).test(url) : url.startsWith(key)),
   );
 }
+
+/** Vite's default CORS origins (`server.cors`): local pages only. */
+const VITE_DEFAULT_CORS_ORIGINS =
+  /^https?:\/\/(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
+
+/**
+ * Vite's CORS middleware runs before its proxy and answers every preflight itself, so a page on
+ * another origin (the hosted web app) would never get the API's own answer. API routes skip it:
+ * their preflights reach the API and its CORS headers come back untouched. Every other path keeps
+ * Vite's default. Vite hands this to the `cors` package, which takes a per-request options
+ * function as well as an object; `origin: false` makes it pass the request on.
+ */
+export const webServerCors = ((
+  req: { url?: string },
+  callback: (error: null, options: { origin: RegExp | false }) => void,
+) =>
+  callback(null, {
+    origin: forwardsToApi(req.url) ? false : VITE_DEFAULT_CORS_ORIGINS,
+  })) as unknown as CorsOptions;
 
 /**
  * The API routes as Vite proxy options, for development and `vite preview` deployments.

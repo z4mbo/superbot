@@ -13,7 +13,7 @@ import { defineConfig, loadEnv } from "vite";
 import { wuyingScreenAssets } from "../../packages/adapters/src/providers/computer/wuying/wuying-screen-assets.ts";
 import { wuyingScreenPolicy } from "../../packages/adapters/src/providers/computer/wuying/wuying-screen-policy.ts";
 import { createServiceLogger } from "../../packages/logging/src/env.ts";
-import { apiProxy } from "./server/api-proxy.js";
+import { apiProxy, webServerCors } from "./server/api-proxy.js";
 import { withInstanceThemeLink } from "./server/instance-theme.js";
 import {
   attachDesktopStackProbe,
@@ -133,12 +133,14 @@ export default defineConfig(({ command, mode }) => {
       strictPort: true,
       allowedHosts,
       proxy,
+      cors: webServerCors,
     },
     preview: {
       host: "0.0.0.0",
       port: webPort,
       allowedHosts,
       proxy,
+      cors: webServerCors,
     },
   };
 });

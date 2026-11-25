@@ -138,6 +138,38 @@ describe("standalone web server", () => {
     expect(JSON.parse((await get(port, "/api/auth/ok")).body).url).toBe("/api/auth/ok");
   });
 
+  it.each(["/rpc/me", "/api/health"])(
+    "forwards a hosted page's preflight for %s and returns the API's CORS answer untouched",
+    async (pathname) => {
+      const seen: string[] = [];
+      const port = await start((req, res) => {
+        seen.push(`${req.method} ${req.url} ${req.headers["x-forwarded-for"]}`);
+        res
+          .writeHead(204, {
+            "access-control-allow-origin": String(req.headers.origin),
+            "access-control-allow-private-network": "true",
+            vary: "Origin",
+          })
+          .end();
+      });
+      const origin = "https://hosted-abc.example.test";
+      const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
+        method: "OPTIONS",
+        headers: {
+          Origin: origin,
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Private-Network": "true",
+        },
+      });
+      expect(response.status).toBe(204);
+      expect(seen).toEqual([`OPTIONS ${pathname} 127.0.0.1`]);
+      expect(response.headers.get("access-control-allow-origin")).toBe(origin);
+      expect(response.headers.get("access-control-allow-private-network")).toBe("true");
+      expect(response.headers.has("access-control-allow-credentials")).toBe(false);
+      expect(response.headers.has("access-control-allow-methods")).toBe(false);
+    },
+  );
+
   it.each(["text/event-stream", "application/json"])(
     "closes a truncated %s response instead of leaving the client waiting",
     async (contentType) => {

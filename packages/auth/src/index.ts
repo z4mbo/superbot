@@ -50,6 +50,8 @@ import {
 } from "./account-security.js";
 import { createAppleClientSecretCache } from "./apple-client-secret.js";
 import { breachedPasswordCheck } from "./breached-password.js";
+import type { DelegatedSession, DelegatedSessionInput } from "./delegated-session.js";
+import { delegatedSessions } from "./delegated-session.js";
 import { DEACTIVATED_AT_FIELD } from "./directory.js";
 import type { EmailLocaleOf } from "./email.js";
 import { emailLocale, passwordResetEmail, signInCodeEmail, verificationEmail } from "./email.js";
@@ -70,6 +72,7 @@ import type { TokenKey } from "./token-storage.js";
 import { encryptStoredOAuthTokens, openIdToken, sealIdToken } from "./token-storage.js";
 
 export { agentImportEmail } from "./agent-import-email.js";
+export type { DelegatedSession, DelegatedSessionInput } from "./delegated-session.js";
 export type { DirectoryAccountChange } from "./directory.js";
 export { createDirectory } from "./directory.js";
 export {
@@ -519,6 +522,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     plugins: [
       socialCallbackProtection(),
       signedBearer,
+      delegatedSessions(),
       expo(),
       accountSecurity(
         env.email,
@@ -1007,6 +1011,18 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       issueAccountExportToken((await auth.$context).internalAdapter, userId),
     consumeAccountExportToken: async (token: string) =>
       consumeAccountExportToken((await auth.$context).internalAdapter, token),
+    /**
+     * Opens, or finds again, the session `key` names for an account whose identity the caller
+     * already verified some other way. Null when the session rules refuse the account.
+     */
+    delegatedSession: async (input: DelegatedSessionInput): Promise<DelegatedSession | null> => {
+      try {
+        return await auth.api.delegatedSession({ body: input });
+      } catch (error) {
+        if (error instanceof APIError && error.status === "FORBIDDEN") return null;
+        throw error;
+      }
+    },
     disposeOidcDiscovery: () => {
       discovery?.dispose();
     },

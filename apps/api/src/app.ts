@@ -156,6 +156,7 @@ import { createBillingService } from "./billing/billing.js";
 import { mountBillingRoutes } from "./billing/billing-webhook.js";
 import { createSpeechSummarizer } from "./calls/speech-summary.js";
 import { mountVoiceHttpRoutes } from "./calls/voice.js";
+import { createCloudWeb, mountCloudHealth } from "./cloud/cloud-web.js";
 import { homeRetentionSweep } from "./computers/home-retention.js";
 import { mountLocalComputerHost } from "./computers/local-settings.js";
 import { mountScreenTarget } from "./computers/screen-proxy.js";
@@ -279,6 +280,8 @@ type CreateAppOverrides = Partial<AppEnv> & {
   now?: () => Date;
   /** Test-only web search and fetch. */
   web?: WebProvider;
+  /** Test-only reader of the hosted web app issuer keys. */
+  cloudWebFetch?: typeof fetch;
 };
 
 async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
@@ -303,6 +306,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     userDevices: userDevicesOverride,
     web,
     now,
+    cloudWebFetch,
     ...envOverrides
   } = overrides;
   const env = withEnvOverrides(loadEnv(process.env), envOverrides);
@@ -928,19 +932,40 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   app.use("*", inFlight.middleware);
   app.use("*", requestLogging(logger));
   app.use("*", clientIpMiddleware(clientIp, env.clientIpHeader));
-  app.use(
-    "*",
-    cors({
-      origin: (origin, c) => {
-        // Anyone may submit a plugin from any site; the endpoint reads no cookies.
-        if (c.req.path === PLUGIN_SUBMISSIONS_PATH) return "*";
-        if (!origin) return env.webOrigin;
-        return isTrustedOrigin(origin, env) ? origin : "";
-      },
-      credentials: true,
-      exposeHeaders: [SERVER_BUILD_HEADER, "x-voice-id"],
-    }),
-  );
+  const exposeHeaders = [SERVER_BUILD_HEADER, "x-voice-id"];
+  const trustedCors = cors({
+    origin: (origin, c) => {
+      // Anyone may submit a plugin from any site; the endpoint reads no cookies.
+      if (c.req.path === PLUGIN_SUBMISSIONS_PATH) return "*";
+      if (!origin) return env.webOrigin;
+      return isTrustedOrigin(origin, env) ? origin : "";
+    },
+    credentials: true,
+    exposeHeaders,
+  });
+  // Off unless the operator names the hosted web app's origins, issuer and accounts.
+  const cloudWeb =
+    env.cloudWeb &&
+    createCloudWeb({
+      settings: env.cloudWeb,
+      prisma,
+      delegatedSession: auth.delegatedSession,
+      trustedOrigin: (origin) => isTrustedOrigin(origin, env),
+      exposeHeaders,
+      clientIp: requestClientIp,
+      fetch: cloudWebFetch,
+    });
+  const webBuild = readDeployedWebBuild();
+  app.use("*", cloudWeb ? cloudWeb.cors(trustedCors) : trustedCors);
+  mountCloudHealth(app, {
+    name: env.cloudWeb?.serverName ?? "Superbot",
+    version: webBuild ?? "unknown",
+    cloudEnabled: Boolean(cloudWeb),
+  });
+  if (cloudWeb) {
+    app.use("*", cloudWeb.signIn);
+    cloudWeb.mount(app);
+  }
   // Reading a session here can renew it. The browser must get the renewed cookie too,
   // or it keeps the one from sign-in and is signed out when that one expires.
   const renewedSessionCookies = new WeakMap<Request, string[]>();
@@ -1146,8 +1171,9 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   app.use(
     "/rpc/*",
     clientBuildMiddleware({
-      webBuild: readDeployedWebBuild(),
+      webBuild,
       minimums: env.minimumClientBuilds ?? {},
+      servedElsewhere: cloudWeb ? cloudWeb.isCloudOrigin : undefined,
     }),
   );
   const limitRpcBody = rpcBodyLimit(env.maxUploadSizeBytes);

@@ -25,12 +25,19 @@ export function readDeployedWebBuild(
   }
 }
 
-/** Names the deployed web build on every reply and refuses clients older than their minimum. */
+/**
+ * Names the deployed web build on every reply and refuses clients older than their minimum.
+ * A page served from another origin (the hosted web app) is a different build entirely, so it is
+ * never told about this one; only a configured minimum can refuse it.
+ */
 export function clientBuildMiddleware(options: {
   webBuild: string | undefined;
   minimums: MinimumClientBuilds;
+  servedElsewhere?: (origin: string) => boolean;
 }): MiddlewareHandler {
   return async (c, next) => {
+    const origin = c.req.header("origin");
+    const webBuild = origin && options.servedElsewhere?.(origin) ? undefined : options.webBuild;
     if (clientUpdateRequired(c.req.header(CLIENT_BUILD_HEADER), options.minimums)) {
       // The oRPC error shape, so web and mobile clients read it like any other RPC failure.
       return c.json(
@@ -45,11 +52,11 @@ export function clientBuildMiddleware(options: {
         CLIENT_UPDATE_REQUIRED_STATUS,
         {
           "cache-control": "no-store",
-          ...(options.webBuild ? { [SERVER_BUILD_HEADER]: options.webBuild } : {}),
+          ...(webBuild ? { [SERVER_BUILD_HEADER]: webBuild } : {}),
         },
       );
     }
     await next();
-    if (options.webBuild) c.header(SERVER_BUILD_HEADER, options.webBuild);
+    if (webBuild) c.header(SERVER_BUILD_HEADER, webBuild);
   };
 }
