@@ -731,6 +731,7 @@ model Space {
   tasks                       Task[]
   runs                        Run[]
   routines                    Routine[]
+  routineAppEvents            RoutineAppEvent[]
   scratchpadItems             ScratchpadItem[]
   botEmailMessages            BotEmailMessage[]
   taughtSkills                TaughtSkill[]
@@ -1696,10 +1697,43 @@ model Routine {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   runs           Run[]
+  appEvents      RoutineAppEvent[]
 
   @@index([active, nextRunAt])
   @@index([spaceId, botId])
   @@map("routines")
+}
+
+/// An event from a connected app that starts a routine (RoutineAppEventInputSchema). While the
+/// routine is on and the provider pushes the event, `handle` is the provider's subscription.
+model RoutineAppEvent {
+  id           String    @id @default(cuid())
+  spaceId      String
+  space        Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  routineId    String
+  routine      Routine   @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  /// The routine owner's connection the event comes from.
+  connectionId String
+  /// The integration provider that serves the connection, and the app and event it declares.
+  connectorId  String
+  app          String
+  event        String
+  /// The values the owner filled in, such as a repository (the event's params).
+  settings     Json      @default("{}")
+  /// Seen by the routine's change check (its `watch`) because the provider does not push it.
+  checked      Boolean   @default(false)
+  handle       String?
+  /// When the provider lets the subscription lapse unless it is made again.
+  renewAt      DateTime?
+  /// Why the provider could not subscribe, for the owner to fix.
+  error        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([connectorId, handle])
+  @@index([routineId])
+  @@index([connectionId])
+  @@map("routine_app_events")
 }
 
 /// A bot's inbound email name. The row outlives its bot, so a name is never handed out twice.

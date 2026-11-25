@@ -203,6 +203,7 @@ export * from "./providers/web/keyless-http/keyless-http-web.js";
 export * from "./providers/web/parallel/parallel-web.js";
 export * from "./routines/nightly-memory-review.js";
 export * from "./routines/release-watch.js";
+export * from "./routines/routine-app-events.js";
 export { releaseRoutineBackoffs } from "./routines/routine-backoff.js";
 export * from "./routines/routine-notice.js";
 export * from "./routines/routine-triggers.js";

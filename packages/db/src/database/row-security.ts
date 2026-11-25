@@ -148,6 +148,7 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "Run",
   "Task",
   "Routine",
+  "RoutineAppEvent",
   "Connection",
   "McpServer",
   "McpServerSpace",

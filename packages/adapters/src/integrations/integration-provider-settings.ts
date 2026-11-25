@@ -15,7 +15,11 @@ import { credentialDigest } from "../secrets/credential-digest.js";
 
 /** Each provider this build has, with the credentials it takes. */
 const IntegrationProviderConfigSchema = z.discriminatedUnion("provider", [
-  z.object({ provider: z.literal("composio"), apiKey: z.string().trim().min(1).max(16384) }),
+  z.object({
+    provider: z.literal("composio"),
+    apiKey: z.string().trim().min(1).max(16384),
+    webhookSecret: z.string().trim().min(1).max(16384).optional(),
+  }),
   z.object({
     provider: z.literal("pipedream"),
     clientId: z.string().trim().min(1).max(512),
@@ -57,7 +61,7 @@ export class IntegrationProviderSettings {
   private create(config: IntegrationProviderConfig): ManagedConnectorProvider {
     if (this.factory) return this.factory(config);
     return config.provider === "composio"
-      ? new ComposioConnector({ apiKey: config.apiKey })
+      ? new ComposioConnector({ apiKey: config.apiKey, webhookSecret: config.webhookSecret })
       : new PipedreamConnector({ ...config, identitySecret: this.identitySecret });
   }
 
@@ -270,6 +274,25 @@ class ConfiguredIntegrationProvider implements ManagedConnectorProvider {
   }
   async revoke(ref: string, context: AdapterContext) {
     return (await this.required()).revoke(ref, context);
+  }
+  async eventTypes() {
+    return (await (await this.resolve())?.eventTypes?.()) ?? [];
+  }
+  async subscribeEvent(
+    request: Parameters<NonNullable<ManagedConnectorProvider["subscribeEvent"]>>[0],
+    context: AdapterContext,
+  ) {
+    const provider = await this.required();
+    if (!provider.subscribeEvent) throw new Error("This provider does not push app events");
+    return provider.subscribeEvent(request, context);
+  }
+  async unsubscribeEvent(handle: string, context: AdapterContext) {
+    await (await this.required()).unsubscribeEvent?.(handle, context);
+  }
+  async verifyEventDelivery(
+    request: Parameters<NonNullable<ManagedConnectorProvider["verifyEventDelivery"]>>[0],
+  ) {
+    return (await (await this.resolve())?.verifyEventDelivery?.(request)) ?? null;
   }
   async resolveCall(call: ConnectorCall, context: AdapterContext) {
     const provider = await (call.route ? this.required() : this.resolve());

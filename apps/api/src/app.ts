@@ -1239,7 +1239,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   if (meetingProvider) mountMeetingWebhook(app, meetings);
   meetingMedia?.mount(app);
   if (meetingCalendar) mountMeetingCalendarHttp(app, meetingCalendar, sessionActor);
-  mountWebhookHttpRoutes(app, { prisma, secrets, events, jobs });
+  mountWebhookHttpRoutes(app, { prisma, secrets, events, jobs, connectors: stack.connector });
   if (env.inboundEmail) {
     mountEmailInboundRoute(app, {
       prisma,

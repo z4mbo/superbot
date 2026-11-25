@@ -114,6 +114,13 @@ const payloadSchemas = {
     provider: z.string().min(1),
     ref: z.string().min(1).optional(),
   }),
+  "routine.app-events": z.object({ routineId: z.string().min(1) }),
+  "app-event.release": z.object({
+    spaceId: z.string().min(1),
+    userId: z.string().min(1),
+    connectorId: z.string().min(1),
+    handle: z.string().min(1),
+  }),
   "computer.machine-cleanup": z.object({
     provider: z.string().min(1),
     machineId: z.string().min(1),
@@ -595,5 +602,42 @@ export function ownerEmailReplyJob(runId: string, availableAt?: Date): Backgroun
     replaceKey: ownerEmailReplyJobKey(runId),
     maxAttempts: OWNER_EMAIL_REPLY_MAX_ATTEMPTS,
     ...(availableAt ? { availableAt } : {}),
+  };
+}
+
+export function routineAppEventsJobKey(routineId: string): string {
+  return `routine.app-events:${routineId}`;
+}
+
+/** Reconciles a routine's app event subscriptions at `availableAt`, or now. */
+export function routineAppEventsJob(routineId: string, availableAt?: Date): BackgroundJob {
+  return {
+    name: "routine.app-events",
+    payload: { routineId },
+    ...(availableAt ? { availableAt } : {}),
+    replaceKey: routineAppEventsJobKey(routineId),
+  };
+}
+
+export function appEventReleaseJobKey(
+  payload: Pick<BackgroundJobPayloads["app-event.release"], "connectorId" | "handle">,
+): string {
+  return `app-event.release:${JSON.stringify([payload.connectorId, payload.handle])}`;
+}
+
+/**
+ * Removes a subscription nothing keeps any more. One left at the provider keeps delivering to
+ * nothing, so it is tried as long as a connection cleanup is.
+ */
+export function appEventReleaseJob(
+  payload: BackgroundJobPayloads["app-event.release"],
+  availableAt?: Date,
+): BackgroundJob {
+  return {
+    name: "app-event.release",
+    payload,
+    ...(availableAt ? { availableAt } : {}),
+    replaceKey: appEventReleaseJobKey(payload),
+    maxAttempts: CONNECTION_CLEANUP_MAX_ATTEMPTS,
   };
 }

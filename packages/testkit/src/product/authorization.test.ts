@@ -474,6 +474,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["memory/disconnectProvider"],
       ["routines/list", { botId: "missing-bot" }],
       ["routines/listForMentions", { botIds: ["missing-bot"] }],
+      ["routines/appEventSources"],
       ["routines/create", routineInput("missing-bot")],
       ["routines/update", { routineId: "missing-routine", name: "Nope" }],
       ["routines/remove", { routineId: "missing-routine" }],

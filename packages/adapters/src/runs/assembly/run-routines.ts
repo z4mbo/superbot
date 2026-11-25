@@ -120,6 +120,7 @@ export async function deleteSpentOneShotRoutine(
         githubEnabled: false,
         messageProvider: null,
         emailSenders: null,
+        appEvents: { none: {} },
         runs: { none: { status: { in: [...ACTIVE_RUN_STATUSES] } } },
       },
     }),

@@ -4,7 +4,12 @@ import { formatCron } from "@rakazo/core";
 import { cronLabels } from "./cron";
 
 /** Triggers set up on web. Mobile lists them and can remove them, but not add or edit them. */
-export type RoutineWebTrigger = "webhookEnabled" | "githubEnabled" | "messageProvider" | "watch";
+export type RoutineWebTrigger =
+  | "webhookEnabled"
+  | "githubEnabled"
+  | "messageProvider"
+  | "watch"
+  | "appEvents";
 
 /** The routine's web-only triggers with their names, in the order the routine lists them. */
 export function routineWebTriggers(
@@ -21,6 +26,15 @@ export function routineWebTriggers(
     ...(routine.githubEnabled ? [{ key: "githubEnabled" as const, label: t`Git event` }] : []),
     ...(routine.messageProvider ? [{ key: "messageProvider" as const, label: message }] : []),
     ...(routine.watch ? [{ key: "watch" as const, label: t`When something changes` }] : []),
+    // Removed together: each is set up with its app's account on web.
+    ...(routine.appEvents?.length
+      ? [
+          {
+            key: "appEvents" as const,
+            label: routine.appEvents.map((event) => event.label).join(", "),
+          },
+        ]
+      : []),
   ];
 }
 
@@ -30,7 +44,7 @@ export function routineTriggerNames(routine: Routine): string[] {
   const named = (keys: RoutineWebTrigger[]) =>
     web.filter((trigger) => keys.includes(trigger.key)).map((trigger) => trigger.label);
   return [
-    ...named(["webhookEnabled", "githubEnabled", "messageProvider"]),
+    ...named(["webhookEnabled", "githubEnabled", "messageProvider", "appEvents"]),
     ...(routine.emailSenders ? [t`When an email arrives`] : []),
     ...named(["watch"]),
   ];

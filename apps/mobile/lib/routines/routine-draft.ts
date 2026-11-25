@@ -18,6 +18,7 @@ export function routineWithDraftTriggers(routine: Routine, draft: MobileRoutineD
     ...(draft.githubEnabled === false ? { githubEnabled: false } : {}),
     ...(draft.messageProvider === null ? { messageProvider: null } : {}),
     ...(draft.watch === null ? { watch: null } : {}),
+    ...(draft.appEvents?.length === 0 ? { appEvents: [] } : {}),
   };
 }
 
@@ -48,6 +49,7 @@ function routineChanges(draft: MobileRoutineDraft, routine: Routine) {
     ...(draft.githubEnabled === false && routine.githubEnabled ? { githubEnabled: false } : {}),
     ...(draft.messageProvider === null && routine.messageProvider ? { messageProvider: null } : {}),
     ...(draft.watch === null && routine.watch ? { watch: null } : {}),
+    ...(draft.appEvents?.length === 0 && routine.appEvents?.length ? { appEvents: [] } : {}),
   };
 }
 
@@ -89,7 +91,10 @@ export function routineSaveRequest(
   const crons = draft.schedules.map(cronFromPreset);
   // Triggers this editor doesn't show still count; the email one counts as the draft has it.
   const source = routine ?? copyOf;
-  const kept = source ? routineWithDraftTriggers(source, draft) : null;
+  // A copy leaves out app events too: they come from accounts the copier may not have connected.
+  const kept = source
+    ? { ...routineWithDraftTriggers(source, draft), ...(routine ? {} : { appEvents: [] }) }
+    : null;
   const otherTriggers = kept
     ? routineTriggerNames({ ...kept, emailSenders: null }).length > 0
     : false;
