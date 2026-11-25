@@ -1,7 +1,16 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
-import type { CapabilityInstall, PluginMarketplaceEntry } from "@rakazo/contracts";
+import type {
+  AgentSkillLibraryEntry,
+  CapabilityInstall,
+  PluginMarketplaceEntry,
+} from "@rakazo/contracts";
 import { PluginPreviewSchema } from "@rakazo/contracts";
-import { installedPluginParts, matchesPluginQuery } from "@rakazo/core";
+import {
+  findSkillByName,
+  installedPluginParts,
+  matchesPluginQuery,
+  matchesWordPrefixes,
+} from "@rakazo/core";
 import { Button, Field, FieldLabel, Input, SectionHeading, Spinner } from "@rakazo/ui-web";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
@@ -18,8 +27,11 @@ import {
   pluginSelection,
   ROW_HOVER,
 } from "./plugin-marketplace";
+import { LibrarySkillDetail } from "./skill-library";
 
 const NO_ENTRIES: PluginMarketplaceEntry[] = [];
+const NO_LIBRARY: AgentSkillLibraryEntry[] = [];
+const NO_SKILLS: { name: string }[] = [];
 const NO_SERVERS: never[] = [];
 const NOT_ASSIGNED = new Set<string>();
 
@@ -28,7 +40,7 @@ function skillCount(install: CapabilityInstall) {
   return parsed.success ? parsed.data.skills.length : 0;
 }
 
-/** Your skills in this space, the skills plugins added, and skill packs to browse. */
+/** Your skills in this space, the skills plugins added, and first-party skills and skill packs to browse. */
 export function SkillsPanel({
   actions,
   activeBotId,
@@ -44,11 +56,18 @@ export function SkillsPanel({
   const [query, setQuery] = useState("");
   const [selection, setSelection] = useState<PluginSelection | null>(null);
   const [importing, setImporting] = useState(false);
+  const [librarySkill, setLibrarySkill] = useState<string | null>(null);
   const [gitSource, setGitSource] = useState("");
   const catalog = useQuery(
     queries.marketplace.catalog.queryOptions({ input: { query: "" }, staleTime: 60_000 }),
   );
   const installs = useQuery(queries.capabilities.list.queryOptions());
+  const library = useQuery({ ...queries.agentSkills.library.queryOptions(), staleTime: Infinity });
+  const ownSkills = useQuery(queries.agentSkills.list.queryOptions()).data ?? NO_SKILLS;
+  const librarySkills = (library.data ?? NO_LIBRARY).filter((skill) =>
+    matchesWordPrefixes(`${skill.name} ${skill.description}`, query),
+  );
+  const openLibrarySkill = library.data?.find((skill) => skill.name === librarySkill);
   const packs = (catalog.data?.entries ?? NO_ENTRIES).filter(
     (entry) => !entry.hasConnector && matchesPluginQuery(entry, query),
   );
@@ -87,6 +106,15 @@ export function SkillsPanel({
   }
 
   function content() {
+    if (openLibrarySkill)
+      return (
+        <LibrarySkillDetail
+          key={openLibrarySkill.name}
+          skill={openLibrarySkill}
+          added={Boolean(findSkillByName(ownSkills, openLibrarySkill.name))}
+          onBack={() => setLibrarySkill(null)}
+        />
+      );
     if (selection)
       return (
         <PluginDetail
@@ -211,6 +239,15 @@ export function SkillsPanel({
             </div>
           ) : null}
           <div data-testid="skill-packs" className="grid grid-cols-2 gap-2">
+            {librarySkills.map((skill) => (
+              <PluginRow
+                key={`library:${skill.name}`}
+                name={skill.name}
+                description={skill.description}
+                installed={Boolean(findSkillByName(ownSkills, skill.name))}
+                onOpen={() => setLibrarySkill(skill.name)}
+              />
+            ))}
             {packs.map((entry) => {
               const pack = pluginSelection(entry);
               return (
@@ -232,7 +269,7 @@ export function SkillsPanel({
   }
 
   const toolbar =
-    !selection && !importing ? (
+    !selection && !importing && !openLibrarySkill ? (
       <Button variant="ghost" size="sm" onClick={() => setImporting(true)}>
         <Trans>From GitHub</Trans>
       </Button>

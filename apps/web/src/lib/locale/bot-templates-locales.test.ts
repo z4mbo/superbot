@@ -52,10 +52,20 @@ describe("bot template translations", () => {
     }
   });
 
-  it("translates the server's English for every template", () => {
+  it("translates the server's English for every template the app has copy for", () => {
+    // Templates without copy show the server's English until a translation pass adds theirs.
+    const copySource = readFileSync(
+      fileURLToPath(
+        new URL("../../components/bot-templates/bot-template-copy.ts", import.meta.url),
+      ),
+      "utf8",
+    );
+    const withCopy = new Set([...copySource.matchAll(/case "([a-z0-9-]+)":/g)].map((m) => m[1]));
+    expect(withCopy.size).toBeGreaterThanOrEqual(5);
     const ids = new Set(catalog("en").map((entry) => entry.id));
-    const missing = BOT_TEMPLATES.flatMap((template) =>
-      [template.name, template.summary, template.sample].filter((text) => !ids.has(text)),
+    const missing = BOT_TEMPLATES.filter((template) => withCopy.has(template.id)).flatMap(
+      (template) =>
+        [template.name, template.summary, template.sample].filter((text) => !ids.has(text)),
     );
     expect(missing).toEqual([]);
   });

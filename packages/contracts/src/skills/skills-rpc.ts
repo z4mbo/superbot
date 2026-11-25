@@ -6,6 +6,7 @@ import { botId } from "../rpc/inputs.js";
 import {
   AccountItemSchema,
   AgentSkillCatalogEntrySchema,
+  AgentSkillLibraryEntrySchema,
   AgentSkillSchema,
   AvailabilityKindSchema,
   CreateAgentSkillInput,
@@ -49,6 +50,8 @@ export const skillsRpc = {
   /** Skills: reusable how-to recipes (not taught/demo skills). */
   agentSkills: {
     list: oc.output(z.array(AgentSkillCatalogEntrySchema)),
+    /** First-party skills to add from Browse; none is active until added. */
+    library: oc.output(z.array(AgentSkillLibraryEntrySchema)),
     get: oc
       .input(
         z
