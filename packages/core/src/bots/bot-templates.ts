@@ -2,18 +2,24 @@ import type { BotTemplate, ConnectionCatalogItem } from "@rakazo/contracts";
 import { matchConnectedAppCatalog } from "../integrations/app-connect.js";
 import { matchesWordPrefixes } from "../integrations/plugin-catalog.js";
 import { ASSISTANT_TEMPLATES } from "./templates/assistant.prompt.js";
+import { CAREER_TEMPLATES } from "./templates/career.prompt.js";
 import { DESIGN_TEMPLATES } from "./templates/design.prompt.js";
 import { EMAIL_TEMPLATES } from "./templates/email.prompt.js";
 import { ENGINEERING_TEMPLATES } from "./templates/engineering.prompt.js";
 import { FINANCE_TEMPLATES } from "./templates/finance.prompt.js";
+import { HEALTH_TEMPLATES } from "./templates/health.prompt.js";
+import { HOME_TEMPLATES } from "./templates/home.prompt.js";
 import { MARKETING_TEMPLATES } from "./templates/marketing.prompt.js";
 import { MEETINGS_TEMPLATES } from "./templates/meetings.prompt.js";
 import { OPERATIONS_TEMPLATES } from "./templates/operations.prompt.js";
+import { PRIVACY_TEMPLATES } from "./templates/privacy.prompt.js";
 import { PRODUCT_TEMPLATES } from "./templates/product.prompt.js";
 import { QA_TEMPLATES } from "./templates/qa.prompt.js";
 import { RECRUITING_TEMPLATES } from "./templates/recruiting.prompt.js";
 import { RESEARCH_TEMPLATES } from "./templates/research.prompt.js";
 import { SALES_TEMPLATES } from "./templates/sales.prompt.js";
+import { SHOPPING_TEMPLATES } from "./templates/shopping.prompt.js";
+import { TRAVEL_TEMPLATES } from "./templates/travel.prompt.js";
 
 /**
  * Reviewed, ready-made bots, one file per category under `templates/`, listed in category order.
@@ -35,6 +41,12 @@ export const BOT_TEMPLATES: readonly BotTemplate[] = [
   ...RECRUITING_TEMPLATES,
   ...OPERATIONS_TEMPLATES,
   ...FINANCE_TEMPLATES,
+  ...CAREER_TEMPLATES,
+  ...TRAVEL_TEMPLATES,
+  ...SHOPPING_TEMPLATES,
+  ...HEALTH_TEMPLATES,
+  ...HOME_TEMPLATES,
+  ...PRIVACY_TEMPLATES,
 ];
 
 export function findBotTemplate(id: string): BotTemplate | undefined {
