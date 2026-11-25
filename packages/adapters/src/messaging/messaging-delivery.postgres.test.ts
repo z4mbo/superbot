@@ -55,7 +55,7 @@ describePostgres("chat delivery with Graphile backup jobs (PostgreSQL)", () => {
       threadId: provisioned.threadId,
     };
     identityId = (await system.messagingIdentity.findUniqueOrThrow({
-      where: { botId: identity.botId },
+      where: { provider_address: { provider: "telegram", address } },
     }))!.id;
     await system.messagingIdentity.update({
       where: { id: identityId },
@@ -477,7 +477,8 @@ describePostgres("chat delivery with Graphile backup jobs (PostgreSQL)", () => {
         seq,
         role: "user",
         blocks: [{ kind: "text", text: "hi" }],
-        clientNonce: `delivery-src-${seq}-${address}`,
+        // As a direct message from the linked app is recorded.
+        clientNonce: `messaging:telegram:${seq}-${address}`,
       },
     });
     const task = await system.task.create({

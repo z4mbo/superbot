@@ -2436,7 +2436,8 @@ model MessagingIdentity {
   userId               String
   spaceId              String
   space                Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  botId                String    @unique
+  /// A bot links at most one account on each chat app, and any number of chat apps.
+  botId                String
   verifiedAt           DateTime?
   lastInboundAt        DateTime?
   outboundSinceInbound Int       @default(0)
@@ -2447,6 +2448,7 @@ model MessagingIdentity {
   updatedAt            DateTime  @updatedAt
 
   @@unique([provider, address])
+  @@unique([botId, provider])
   @@index([userId])
   @@index([installationId])
   @@map("messaging_identities")

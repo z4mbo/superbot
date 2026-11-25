@@ -12,10 +12,10 @@ import {
 const bot = { id: "bot-1", userId: "owner-1" };
 const none = { webhook: false, git: false, chat: null, email: null };
 
-function triggerPrisma(options: { provider?: string; address?: boolean } = {}) {
+function triggerPrisma(options: { providers?: string[]; address?: boolean } = {}) {
   return {
     messagingIdentity: {
-      findUnique: vi.fn(async () => (options.provider ? { provider: options.provider } : null)),
+      findMany: vi.fn(async () => (options.providers ?? []).map((provider) => ({ provider }))),
     },
     botEmailAddress: {
       findUnique: vi.fn(async () => (options.address ? { botId: bot.id } : null)),
@@ -79,7 +79,7 @@ describe("resolveRoutineEvents", () => {
   });
 
   it("takes the chat app this bot is connected to, by its name", async () => {
-    const connected = { prisma: triggerPrisma({ provider: "slack" }) };
+    const connected = { prisma: triggerPrisma({ providers: ["slack"] }) };
     expect(
       await resolveRoutineEvents(connected, bot, "owner-1", { ...none, chat: "Slack" }),
     ).toEqual({
@@ -100,6 +100,19 @@ describe("resolveRoutineEvents", () => {
         chat: "Slack",
       }),
     ).toEqual({ error: "This bot is not connected to a chat app. The user connects one first." });
+  });
+
+  it("takes any of the chat apps this bot is connected to, and names them all otherwise", async () => {
+    const connected = { prisma: triggerPrisma({ providers: ["telegram", "slack"] }) };
+    expect(
+      await resolveRoutineEvents(connected, bot, "owner-1", { ...none, chat: "Slack" }),
+    ).toMatchObject({ ok: true, events: { messageProvider: "slack" } });
+    expect(
+      await resolveRoutineEvents(connected, bot, "owner-1", { ...none, chat: "Telegram" }),
+    ).toMatchObject({ ok: true, events: { messageProvider: "telegram" } });
+    expect(
+      await resolveRoutineEvents(connected, bot, "owner-1", { ...none, chat: "WhatsApp" }),
+    ).toEqual({ error: "This bot's chat apps are Telegram, Slack, not WhatsApp." });
   });
 
   it("needs a server that receives mail and a bot address for email", async () => {

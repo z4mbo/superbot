@@ -8,6 +8,8 @@ import type {
 } from "@rakazo/contracts";
 import {
   abortableDelay,
+  botsLinkedTo,
+  chatAppsSpanBots,
   createMessagingLinkGuard,
   isRetryableError,
   messagingChatApps,
@@ -265,13 +267,14 @@ export function MessagingSettingsPanel() {
     [linkGuard],
   );
   const botName = (botId: string) => bots.find((bot) => bot.id === botId)?.name;
-  // A joined group names its agent only once a second chat app is linked: the
+  // A joined group names its agent only once chat apps link to a second bot: the
   // same group can then hold two of the caller's memberships, one per agent.
   const agentByIdentity = new Map(status?.identities.map((i) => [i.id, i.botName]) ?? []);
+  const namesAgent = chatAppsSpanBots(status?.identities ?? []);
   function channelMeta(channel: MessagingChannelMembership): string {
     return [
       providerLabel(channel.provider),
-      agentByIdentity.size > 1 ? agentByIdentity.get(channel.identityId) : undefined,
+      namesAgent ? agentByIdentity.get(channel.identityId) : undefined,
     ]
       .filter(Boolean)
       .join(", ");
@@ -291,8 +294,6 @@ export function MessagingSettingsPanel() {
   });
   const slackInstall = installable.includes("slack");
   const showSlack = installProviders.includes("slack");
-  // A bot answers one chat app at a time.
-  const linkedBots = new Set(identities.map((identity) => identity.botId));
   const identitiesOf = (provider: string) =>
     identities.filter((identity) => identity.provider === provider);
   // A teammate's workspace: DMs link to a bot of the member's own choosing.
@@ -352,10 +353,13 @@ export function MessagingSettingsPanel() {
 
   /**
    * Issues a code for `provider`. With a choice of bots it asks which first, showing the
-   * ones already linked elsewhere as unavailable.
+   * ones already linked to that app as unavailable.
    */
   function linkAction(row: string, provider: string, label: ReactNode, ariaLabel?: string) {
-    const only = bots.length === 1 && !linkedBots.has(bots[0]!.id) ? bots[0] : undefined;
+    const only =
+      bots.length === 1 && !botsLinkedTo(identities, provider).has(bots[0]!.id)
+        ? bots[0]
+        : undefined;
     if (only || bots.length === 0) {
       return (
         <Button
@@ -389,17 +393,19 @@ export function MessagingSettingsPanel() {
     );
   }
 
-  const botItems = (row: string, provider: string, currentBotId?: string) =>
-    bots.map((bot) => (
+  const botItems = (row: string, provider: string, currentBotId?: string) => {
+    const linked = botsLinkedTo(identities, provider);
+    return bots.map((bot) => (
       <DropdownMenuItem
         key={bot.id}
-        disabled={linkedBots.has(bot.id)}
+        disabled={linked.has(bot.id)}
         onClick={() => void startLink(row, provider, bot.id)}
       >
         {bot.name}
         {bot.id === currentBotId ? <CheckIcon className="ml-auto" aria-label={t`Current`} /> : null}
       </DropdownMenuItem>
     ));
+  };
 
   /** A connected row's one control: its actions, the removing one last. */
   function rowMenu(

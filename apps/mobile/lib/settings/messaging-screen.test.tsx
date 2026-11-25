@@ -708,3 +708,51 @@ it("unlinks a linked app from its row's menu", async () => {
     expect.anything(),
   );
 });
+
+it("connects another chat app to a bot that already answers one, keeping the first", async () => {
+  responses["messaging/status"] = {
+    enabled: true,
+    providers: ["sendblue", "telegram"],
+    identities: [
+      { id: "mi-1", provider: "sendblue", botId: "bot-1", botName: "Chief", address: "+1555" },
+    ],
+  };
+  await act(async () => root.render(<MessagingSettings />));
+  // The only bot answers iMessage and can answer Telegram too.
+  await press("Telegram", "Connect");
+  expect(rpc).toHaveBeenCalledWith("messaging/link/start", { botId: "bot-1" }, expect.anything());
+  expect(rpc).not.toHaveBeenCalledWith(
+    "messaging/identities/unlink",
+    expect.anything(),
+    expect.anything(),
+  );
+  expect(container.querySelector('[data-row="iMessage"]')?.textContent).toContain("+1555, Chief");
+});
+
+it("shows each app's link for one bot and unlinks only the one chosen", async () => {
+  responses["bots/list"] = [
+    { id: "bot-1", name: "Chief" },
+    { id: "bot-2", name: "Lead" },
+  ];
+  responses["messaging/status"] = {
+    enabled: true,
+    providers: ["sendblue", "telegram"],
+    identities: [
+      { id: "mi-1", provider: "sendblue", botId: "bot-1", botName: "Chief", address: "+1555" },
+      { id: "mi-2", provider: "telegram", botId: "bot-1", botName: "Chief", address: "4242" },
+    ],
+  };
+  await act(async () => root.render(<MessagingSettings />));
+  expect(container.querySelector('[data-row="iMessage"]')?.textContent).toContain("+1555, Chief");
+  expect(container.querySelector('[data-row="Telegram"]')?.textContent).toContain("4242, Chief");
+  // Lead links neither app yet, so either can move onto it; Chief has both already.
+  expect(button("Telegram", "Lead").disabled).toBe(false);
+  expect(button("Telegram", "Chief").disabled).toBe(true);
+  await press("Telegram", "Unlink");
+  const unlinks = vi
+    .mocked(rpc)
+    .mock.calls.filter(([path]) => path === "messaging/identities/unlink");
+  expect(unlinks).toEqual([
+    ["messaging/identities/unlink", { identityId: "mi-2" }, expect.anything()],
+  ]);
+});

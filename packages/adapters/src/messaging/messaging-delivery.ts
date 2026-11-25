@@ -25,6 +25,8 @@ import type { DatabaseOutage, Prisma, PrismaClient, ThreadEvents } from "@rakazo
 import {
   accountDeactivated,
   appendEventInTransaction,
+  botChatIdentities,
+  botChatIdentity,
   CrossSpaceCommunicationBlockedError,
   createThreadMessageInTransaction,
   crossSpaceCommunicationAllowed,
@@ -47,6 +49,7 @@ import { isUserProgressClientNonce } from "../runs/lifecycle/user-progress.js";
 import { wakeRun } from "../runs/wakeups/wake-run.js";
 import { loadBotMessageContext } from "./bot-messages.js";
 import { MessagingSendError } from "./chat-sdk-surface.js";
+import { messagingMessageClientNonce } from "./intake/settle-inbound.js";
 import { splitOutboundBody } from "./messaging-platforms.js";
 import { extractText, linkedPageIds } from "./reply-text.js";
 import { resolveMessagingThreadId } from "./team-chat/team-chat-messaging.js";
@@ -361,7 +364,7 @@ export class MessagingDelivery {
               if (!privateAnswer) {
                 const lane = channel
                   ? await this.recordChannelRun(run, channel)
-                  : await this.recordDirectRun(run, false);
+                  : await this.recordDirectRun(run, origin.sourceMessage, false);
                 if (lane) lanes.push(lane);
               }
             }
@@ -390,7 +393,11 @@ export class MessagingDelivery {
         } else if (source?.intact !== false) {
           // A source that lost entries may have lost its channel marker, so a group reply could
           // land in the owner's direct chat: that one stays in the app.
-          const lane = await this.recordDirectRun(run, options.progress ?? false);
+          const lane = await this.recordDirectRun(
+            run,
+            run.sourceMessage,
+            options.progress ?? false,
+          );
           if (lane) lanes.push(lane);
         }
       } else if (run.trigger === "bot_message" && !options.progress) {
@@ -405,7 +412,7 @@ export class MessagingDelivery {
           run.status === "failed" ||
           (await loadBotMessageContext(this.deps.prisma, run.sourceMessageId))?.repliesToRequest ===
             true;
-        const direct = await this.recordDirectRun(run, false, !news);
+        const direct = await this.recordDirectRun(run, null, false, !news);
         if (direct) lanes.push(direct);
         if (
           (run.status === "completed" || run.status === "failed") &&
@@ -932,20 +939,20 @@ export class MessagingDelivery {
   }
 
   /**
-   * A 1:1 messaging run's messages, and a delegated run's, go to the bot's linked chat. One row
-   * per platform-sized part, then one per image or file, so a retry re-sends only the parts that
-   * failed. `progress` sends a running run's interim messages up to the first other message that
-   * sends anything, such as a card or a file: it waits for the whole reply, and nothing posted
-   * after it goes ahead of it.
+   * A 1:1 messaging run's messages go back to the chat app its message came from, and a delegated
+   * run's to the bot's own pick (`botChatIdentity`). One row per platform-sized part, then one per
+   * image or file, so a retry re-sends only the parts that failed. `progress` sends a running
+   * run's interim messages up to the first other message that sends anything, such as a card or a
+   * file: it waits for the whole reply, and nothing posted after it goes ahead of it.
    */
   private async recordDirectRun(
     run: { id: string; botId: string; userId: string; status: string },
+    /** The message the turn answers, for a turn that started in a chat app. */
+    source: { clientNonce: string | null } | null,
     progress: boolean,
     onlyAsks = false,
   ): Promise<OutboundLane | undefined> {
-    const identity = await this.deps.prisma.messagingIdentity.findUnique({
-      where: { botId: run.botId },
-    });
+    const identity = await replyChatIdentity(this.deps.prisma, run.botId, source);
     // The linked DM is one person's chat. In a shared Space another member's run on this bot, such
     // as a reply to their message_bot, stays in the app instead of reaching that person's chat app.
     if (!identity || identity.userId !== run.userId) return undefined;
@@ -1034,13 +1041,16 @@ export class MessagingDelivery {
     channelBlock: Extract<MessageBlock, { kind: "channel_message" }>,
   ): Promise<OutboundLane | undefined> {
     const { prisma } = this.deps;
-    const identity = await prisma.messagingIdentity.findUnique({ where: { botId: run.botId } });
-    // A deactivated person's bot neither posts to the group nor reaches its other bots.
-    if (!identity || (await accountDeactivated(prisma, identity.userId))) return undefined;
     const channel = await prisma.messagingChannel.findUnique({
       where: { id: channelBlock.channelId },
     });
     if (!channel) return undefined;
+    // The bot is in the group through its account on the group's app.
+    const identity = await prisma.messagingIdentity.findUnique({
+      where: { botId_provider: { botId: run.botId, provider: channel.provider } },
+    });
+    // A deactivated person's bot neither posts to the group nor reaches its other bots.
+    if (!identity || (await accountDeactivated(prisma, identity.userId))) return undefined;
     const owner = await prisma.user.findUnique({
       where: { id: identity.userId },
       select: { name: true },
@@ -1423,6 +1433,25 @@ async function settleBy(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Where a run's 1:1 messages go. A turn a chat-app message started answers in that app, read
+ * from the message's `messaging:<provider>:<handle>` nonce, and nowhere once that app is
+ * unlinked. Anything else, and a turn whose message is gone, goes to the bot's own pick.
+ */
+async function replyChatIdentity(
+  prisma: Pick<PrismaClient, "messagingIdentity">,
+  botId: string,
+  source: { clientNonce: string | null } | null,
+) {
+  const nonce = source?.clientNonce;
+  if (!nonce) return botChatIdentity(prisma, botId);
+  const fits = (await botChatIdentities(prisma, botId)).filter((identity) =>
+    nonce.startsWith(messagingMessageClientNonce(identity.provider, "")),
+  );
+  // The longest provider id is the exact one, should another id end where it has a colon.
+  return fits.toSorted((a, b) => b.provider.length - a.provider.length)[0] ?? null;
 }
 
 function escapeRegExp(value: string): string {

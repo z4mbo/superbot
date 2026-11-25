@@ -9,6 +9,8 @@ import type {
   MessagingStatus,
 } from "@rakazo/contracts";
 import {
+  botsLinkedTo,
+  chatAppsSpanBots,
   createMessagingLinkGuard,
   messagingChatApps,
   messagingProviderName,
@@ -163,13 +165,14 @@ export default function MessagingSettings() {
     [linkGuard],
   );
   const botName = (id: string) => bots.find((bot) => bot.id === id)?.name;
-  // A joined group names its agent only once a second chat app is linked: the
+  // A joined group names its agent only once chat apps link to a second bot: the
   // same group can then hold two of the caller's memberships, one per agent.
   const agentByIdentity = new Map(status?.identities.map((i) => [i.id, i.botName]) ?? []);
+  const namesAgent = chatAppsSpanBots(status?.identities ?? []);
   const channelDetail = (channel: MessagingChannelMembership) =>
     [
       messagingProviderName(channel.provider),
-      agentByIdentity.size > 1 ? agentByIdentity.get(channel.identityId) : undefined,
+      namesAgent ? agentByIdentity.get(channel.identityId) : undefined,
     ]
       .filter(Boolean)
       .join(", ");
@@ -210,8 +213,6 @@ export default function MessagingSettings() {
   });
   const slackInstall = installable.includes("slack");
   const showSlack = installProviders.includes("slack");
-  // A bot answers one chat app at a time.
-  const linkedBots = new Set(identities.map((identity) => identity.botId));
   const identitiesOf = (provider: string) =>
     identities.filter((identity) => identity.provider === provider);
   // A teammate's workspace: DMs link to a bot of the member's own choosing.
@@ -266,11 +267,12 @@ export default function MessagingSettings() {
   };
   /**
    * Issues a code for `provider`. With a choice of bots it asks which first, showing the
-   * ones already linked elsewhere as unavailable.
+   * ones already linked to that app as unavailable.
    */
   const linkAction = (row: string, provider: string, label: string, accessibilityLabel = label) => {
+    const linked = botsLinkedTo(identities, provider);
     const first = bots[0];
-    const only = bots.length === 1 && first && !linkedBots.has(first.id) ? first : undefined;
+    const only = bots.length === 1 && first && !linked.has(first.id) ? first : undefined;
     const disabled = busy || issuingLink;
     if (only || bots.length === 0) {
       return (
@@ -292,7 +294,7 @@ export default function MessagingSettings() {
         choices={bots.map((bot) => ({
           key: bot.id,
           label: bot.name,
-          disabled: linkedBots.has(bot.id),
+          disabled: linked.has(bot.id),
         }))}
         value=""
         disabled={disabled}
@@ -372,7 +374,7 @@ export default function MessagingSettings() {
                 subactions: bots.map((bot) => ({
                   id: `bot:${bot.id}`,
                   title: bot.name,
-                  attributes: { disabled: linkedBots.has(bot.id) },
+                  attributes: { disabled: botsLinkedTo(identities, identity.provider).has(bot.id) },
                   state: bot.id === identity.botId ? ("on" as const) : undefined,
                 })),
               },

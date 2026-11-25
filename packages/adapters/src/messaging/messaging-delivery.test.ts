@@ -362,8 +362,17 @@ function createPrisma(world: World, jobs: ReturnType<typeof createJobs>) {
       }),
     },
     messagingIdentity: {
-      findUnique: vi.fn(async ({ where }: { where: Where }) =>
+      findUnique: vi.fn(async ({ where }: { where: Where }) => {
+        // The one compound key delivery reads by: the bot's account on one chat app.
+        const { botId_provider, ...rest } = where as Where & { botId_provider?: Where };
+        const flat = { ...rest, ...botId_provider };
+        return copy(world.identities.find((identity) => matches(identity, flat)));
+      }),
+      findFirst: vi.fn(async ({ where }: { where: Where }) =>
         copy(world.identities.find((identity) => matches(identity, where))),
+      ),
+      findMany: vi.fn(async ({ where }: { where: Where }) =>
+        world.identities.filter((identity) => matches(identity, where)).map(copy),
       ),
       update: vi.fn(async ({ where, data }: { where: { id: string }; data: Where }) => {
         const identity = world.identities.find((candidate) => candidate.id === where.id)!;
@@ -746,6 +755,8 @@ const lastAttempt = attempt(MESSAGING_SEND_MAX_ATTEMPTS);
 
 function linkProvider(world: World, identity: Partial<IdentityRecord>) {
   Object.assign(world.identities[0]!, identity);
+  // A group is on the app of the accounts in it.
+  if (identity.provider) for (const channel of world.channels) channel.provider = identity.provider;
 }
 
 const inSendOrder = (t: Setup) => [...t.world.outbound].sort(bySendOrder);

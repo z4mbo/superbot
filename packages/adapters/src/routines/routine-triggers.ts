@@ -4,6 +4,7 @@ import type { RoutineEmailSenders } from "@rakazo/contracts";
 import { RoutineEmailSendersSchema } from "@rakazo/contracts";
 import { messagingProviderName, messagingProviderNamed } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
+import { botChatIdentities } from "@rakazo/db";
 
 export const EMAIL_NOT_RECEIVED = "This server doesn't receive email.";
 
@@ -149,7 +150,7 @@ export function asksRoutineEvents(value: unknown): boolean {
  * The routine events a bot's `on` asks for, checked against what the bot can receive. Webhook,
  * Git and email deliveries run as the bot's creator and a chat message as the person who linked
  * the app, the creator again, so only their routines start on events: anyone else's would never
- * run. A chat trigger names the app this bot is connected to; email needs this server to receive
+ * run. A chat trigger names one of the apps this bot is connected to; email needs this server to receive
  * mail and the bot an address, as the routine editor requires.
  */
 export async function resolveRoutineEvents(
@@ -169,18 +170,17 @@ export async function resolveRoutineEvents(
     return { error: "Only the bot's creator can start its routines from events." };
   }
   if (on.chat) {
-    const identity = await deps.prisma.messagingIdentity.findUnique({
-      where: { botId: bot.id },
-      select: { provider: true },
-    });
-    if (!identity) {
+    const linked = (await botChatIdentities(deps.prisma, bot.id)).map(
+      (identity) => identity.provider,
+    );
+    if (linked.length === 0) {
       return { error: "This bot is not connected to a chat app. The user connects one first." };
     }
-    const provider = messagingProviderNamed(on.chat, [identity.provider]);
+    const provider = messagingProviderNamed(on.chat, linked);
     if (!provider) {
-      return {
-        error: `This bot's chat app is ${messagingProviderName(identity.provider)}, not ${on.chat}.`,
-      };
+      const names = linked.map(messagingProviderName).join(", ");
+      const are = linked.length === 1 ? "app is" : "apps are";
+      return { error: `This bot's chat ${are} ${names}, not ${on.chat}.` };
     }
     events.messageProvider = provider;
   }

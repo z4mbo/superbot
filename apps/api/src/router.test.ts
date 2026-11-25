@@ -1085,13 +1085,13 @@ describe("adapter refusals answered by type", () => {
         { identityId: "identity-1", botId: "bot-1" },
       );
 
-    it("answers a bot already linked elsewhere as a bad request", async () => {
+    it("answers a bot already linked to that chat app as a bad request", async () => {
       const response = await link(
         Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
       );
       expect(response.status).toBe(400);
       expect(await response.json()).toMatchObject({
-        json: { code: "BAD_REQUEST", message: "That bot is already linked to a chat app." },
+        json: { code: "BAD_REQUEST", message: "That bot is already linked to this chat app." },
       });
     });
 

@@ -77,7 +77,18 @@ function messagingDeps(
   const prisma = {
     spaceMember: { count: vi.fn(async () => 1) },
     messagingIdentity: {
-      findFirst: vi.fn(async () => resolvedIdentity),
+      // By id for the caller's own identity, or a bot's pick among its chat apps.
+      findFirst: vi.fn(async ({ where }: { where?: { botId?: string } } = {}) =>
+        where?.botId === "bot-9"
+          ? {
+              id: "mi-9",
+              provider: "sendblue",
+              address: "+15559999999",
+              userId: "user-9",
+              botId: "bot-9",
+            }
+          : resolvedIdentity,
+      ),
       findMany: vi.fn(
         async () => overrides.identities ?? (resolvedIdentity ? [resolvedIdentity] : []),
       ),
@@ -88,17 +99,6 @@ function messagingDeps(
       deleteMany: vi.fn(async ({ where }: { where: { id: string } }) => ({
         count: resolvedIdentity && where.id === "mi-1" ? 1 : 0,
       })),
-      findUnique: vi.fn(async ({ where }: { where: { botId?: string } }) =>
-        where.botId === "bot-9"
-          ? {
-              id: "mi-9",
-              provider: "sendblue",
-              address: "+15559999999",
-              userId: "user-9",
-              botId: "bot-9",
-            }
-          : resolvedIdentity,
-      ),
     },
     messagingChannelMember: {
       findMany: vi.fn(async ({ where }: { where?: MembershipWhere } = {}) =>
@@ -389,7 +389,6 @@ describe("messaging.status", () => {
 describe("messaging.link", () => {
   it("issues a formatted single-use code for an owned unlinked bot", async () => {
     const { handler, actor, prisma } = messagingDeps({ identity: null });
-    (prisma.messagingIdentity.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     const response = await call(handler, actor, "messaging/link/start", { botId: "bot-2" });
     expect(response.status).toBe(200);
     const body = (await response.json()) as { json: { code: string; expiresAt: string } };
@@ -433,11 +432,14 @@ describe("messaging.link", () => {
     });
   });
 
-  it("refuses to issue a code for an already-linked bot", async () => {
-    const { handler, actor } = messagingDeps();
-    // messagingIdentity.findUnique resolves an identity for bot-1 by default.
+  it("issues a code for a bot already linked to a chat app, to link another", async () => {
+    const { handler, actor, prisma } = messagingDeps();
+    // bot-1 links an account on sendblue by default.
     const response = await call(handler, actor, "messaging/link/start", { botId: "bot-1" });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
+    expect(prisma.messagingLinkCode.create).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ botId: "bot-1" }),
+    });
   });
 });
 

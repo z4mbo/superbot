@@ -44,6 +44,7 @@ import type {
 } from "@rakazo/db";
 import {
   accountDeactivated,
+  botChatIdentity,
   createThreadMessage,
   crossSpaceCommunicationAllowed,
   normalizeMessagingLinkCode,
@@ -1273,9 +1274,7 @@ async function applyOwnerCommand(
 
   const connectedKey = `command:connected:${target.connection.id}`;
   const requesterIdentity = approved
-    ? await deps.prisma.messagingIdentity.findUnique({
-        where: { botId: target.connection.requesterBotId },
-      })
+    ? await botChatIdentity(deps.prisma, target.connection.requesterBotId)
     : null;
   const key = `command:${command}:${target.connection.id}`;
   const claimed = await deps.prisma.$transaction(async (tx) => {

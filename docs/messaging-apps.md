@@ -24,6 +24,11 @@ set them up using the [messaging setup guide](./self-host-integrations.md#messag
 From then on, messages you send there go to that bot's chat, and its replies come back to you there.
 The conversation is the same one you see in the Rakazo app.
 
+A bot can be linked to several chat apps at once, one account on each. Each reply goes back to the
+app you wrote from; a message from a second app while the bot is still answering gets its answer in
+the first. Messages the bot starts itself, such as answers from a bot it asked for help, go to the
+app you messaged it from most recently.
+
 In direct messages, a voice note the chat app delivers as an audio file (Telegram, for example)
 is transcribed when a voice provider that supports transcription is connected in **Voice**
 settings; without one, the bot receives the audio file.
@@ -31,8 +36,8 @@ settings; without one, the bot receives the audio file.
 Large files may take a moment to reach the bot.
 
 To move the app to another bot, choose **Change bot** and send the new code from the same
-account; its group chats keep working. A bot answers one chat app at a time. To stop, choose
-**Unlink**.
+account; its group chats keep working, and the bot's other chat apps stay linked. To stop, choose
+**Unlink**; that app's link alone ends.
 
 ## Microsoft Teams
 

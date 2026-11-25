@@ -54,7 +54,7 @@ test("messaging settings show linked chat apps, channels, connections, and team 
               id: "mi-2",
               provider: "telegram-work",
               address: "424242",
-              botId: "bot-archived",
+              botId: "bot-2",
               botName: "Lead",
             },
           ],
@@ -215,9 +215,14 @@ test("messaging settings show linked chat apps, channels, connections, and team 
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menuitem", { name: "Unlink", exact: true })).toHaveCount(0);
-  // With several bots, Connect asks which one the chat app talks to.
+  // With several bots, Connect asks which one the chat app talks to. Lead answers Telegram
+  // already and can answer iMessage too.
   await messagingSettings.getByRole("button", { name: "Connect iMessage" }).click();
   await expect(page.getByRole("menuitem", { name: "Lead", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Lead", exact: true })).not.toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
   await captureScreenshot(page, testInfo, "messaging-connect-bot-menu");
   await page.getByRole("menuitem", { name: "Lead", exact: true }).click();
   await expect(page.getByTestId("messaging-link-code")).toContainText("ABCD-2345");
