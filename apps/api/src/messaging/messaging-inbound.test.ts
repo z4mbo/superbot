@@ -184,6 +184,11 @@ function createDeps(
           return identity;
         },
       ),
+      // A bot's pick among its chat apps reads like the one-key lookups the tests stub.
+      findFirst: vi.fn(
+        async (args: { where: { botId?: string } }): Promise<unknown> =>
+          prisma.messagingIdentity.findUnique(args),
+      ),
       update: vi.fn(async () => identity),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
         const created = { id: "mi-linked", ...data };

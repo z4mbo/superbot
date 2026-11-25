@@ -22,6 +22,7 @@ import {
 } from "@rakazo/core";
 import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
+  botChatIdentities,
   commitBotUpdate,
   createGroupRepos,
   createRepos,
@@ -1033,20 +1034,15 @@ export async function createChildRoutine(
   if (!child.thread || child.thread.id !== canonical.threadId) return { error: NOT_FOUND };
 
   const on = asRecord(canonical.on);
-  // The approved app, as the bot is linked now: a routine for an app it was linked to before
-  // is not the approved one.
+  // The approved app is the one the card named, among the apps the bot links now: another app
+  // it links, or one it was linked to before, is not the approved one.
   const linked =
     typeof on?.chat === "string"
-      ? await deps.prisma.messagingIdentity.findUnique({
-          where: { botId: child.id },
-          select: { provider: true },
-        })
-      : null;
+      ? (await botChatIdentities(deps.prisma, child.id)).map((identity) => identity.provider)
+      : [];
   // A chat app the bot no longer links matches nothing (""), and creation then refuses it.
   const chatProvider =
-    typeof on?.chat === "string"
-      ? ((linked && messagingProviderNamed(on.chat, [linked.provider])) ?? "")
-      : null;
+    typeof on?.chat === "string" ? (messagingProviderNamed(on.chat, linked) ?? "") : null;
   const runAt = text(schedule.runAt);
   const cron = runAt ? ONCE_ROUTINE_CRON : text(schedule.cron);
   if (!cron && !on) return { error: "The approved routine is incomplete." };
@@ -1071,7 +1067,7 @@ export async function createChildRoutine(
       active: true,
       ...(runAt ? { nextRunAt: new Date(runAt) } : {}),
       // The identical routine has the approved events too, so a retry returns it instead of a
-      // twin. A bot links one chat app, so any chat event on it is the approved one.
+      // twin, on the approved chat app only.
       webhookEnabled: on?.webhook === true,
       githubEnabled: on?.git === true,
       messageProvider: chatProvider,

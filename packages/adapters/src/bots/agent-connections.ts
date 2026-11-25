@@ -10,6 +10,8 @@ import {
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
+  botChatIdentities,
+  botChatIdentity,
   createThreadMessageInTransaction,
   crossSpaceCommunicationAllowed,
   isUniqueViolation,
@@ -64,21 +66,14 @@ async function requestConnection(
 ): Promise<Result> {
   const address = input.address?.trim();
   if (!address) return { ok: false, error: "address is required" };
-  const requesterIdentity = await deps.prisma.messagingIdentity.findUnique({
-    where: { botId: sender.id },
-  });
+  const reached = await identityAtAddress(deps.prisma, sender.id, address);
   // Connection invites are a messaging-surface feature; a bot whose owner
   // never messaged the deployment cannot open them.
   const delivery = deps.messagingDelivery;
-  if (!requesterIdentity || !delivery) {
+  if (!reached.linked || !delivery) {
     return { ok: false, error: "only chat-linked agents can use agent connections" };
   }
-  // Scoped to the requester's own platform: addresses are only unique per
-  // provider, and a cross-provider match could route the invite to a
-  // different person who happens to share the address string.
-  const targetIdentity = await deps.prisma.messagingIdentity.findUnique({
-    where: { provider_address: { provider: requesterIdentity.provider, address } },
-  });
+  const targetIdentity = reached.target;
   // One generic answer for unknown and unavailable addresses: the tool is
   // reachable by every bot on the deployment, so it must not enumerate
   // which addresses are registered.
@@ -110,12 +105,10 @@ async function requestConnection(
     return { ok: true, status: "pending" };
   }
 
-  const requesterOwner = requesterIdentity
-    ? await deps.prisma.user.findUnique({
-        where: { id: requesterIdentity.userId },
-        select: { name: true },
-      })
-    : null;
+  const requesterOwner = await deps.prisma.user.findUnique({
+    where: { id: reached.sender.userId },
+    select: { name: true },
+  });
   const requesterFirst = sanitizeMessagingLabel(
     requesterOwner?.name.trim().split(/\s+/)[0] || "Someone",
   );
@@ -215,10 +208,7 @@ export function prepareAgentConnectionResponse(
     if (!pending) return null;
     const [requester, identity] = await Promise.all([
       prisma.bot.findUnique({ where: { id: pending.requesterBotId }, select: { name: true } }),
-      prisma.messagingIdentity.findUnique({
-        where: { botId: pending.requesterBotId },
-        select: { address: true, provider: true },
-      }),
+      botChatIdentity(prisma, pending.requesterBotId),
     ]);
     if (!requester || !identity) return null;
     return {
@@ -230,6 +220,22 @@ export function prepareAgentConnectionResponse(
       requester_provider: identity.provider,
     };
   });
+}
+
+/**
+ * The identity at `address` on one of the sender's own chat apps. Addresses are unique only per
+ * app, so an address on an app the sender is not on, or on two of its apps at once, reaches no
+ * one: either could be a different person who happens to share the string.
+ */
+async function identityAtAddress(prisma: PrismaClient, senderBotId: string, address: string) {
+  const own = await botChatIdentities(prisma, senderBotId);
+  const sender = own[0];
+  if (!sender) return { linked: false as const };
+  const matches = await prisma.messagingIdentity.findMany({
+    where: { address, provider: { in: own.map((identity) => identity.provider) } },
+    take: 2,
+  });
+  return { linked: true as const, sender, target: matches.length === 1 ? matches[0]! : null };
 }
 
 /** The target bot answers a pending request on its owner's instruction. */
@@ -299,18 +305,11 @@ async function deliverToConnectedAgent(
   const address = input.address?.trim();
   if (!address) return { ok: false, error: "address is required" };
 
-  const senderIdentity = await deps.prisma.messagingIdentity.findUnique({
-    where: { botId: sender.id },
-  });
-  if (!senderIdentity) {
+  const reached = await identityAtAddress(deps.prisma, sender.id, address);
+  if (!reached.linked) {
     return { ok: false, error: "only chat-linked agents can use agent connections" };
   }
-
-  // Provider-scoped for the same reason as connect_agent: an address match
-  // on another platform could belong to someone else entirely.
-  const targetIdentity = await deps.prisma.messagingIdentity.findUnique({
-    where: { provider_address: { provider: senderIdentity.provider, address } },
-  });
+  const targetIdentity = reached.target;
   // One generic answer for unknown and unconnected addresses, mirroring
   // connect_agent: the tool must not enumerate registered addresses.
   if (!targetIdentity) return { ok: false, error: "no agent can be reached at that address" };

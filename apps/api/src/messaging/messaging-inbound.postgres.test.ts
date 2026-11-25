@@ -317,7 +317,7 @@ describe.skipIf(!enabled)("connection requests whose send failed (PostgreSQL)", 
     provisioned.push(bot);
     await system.bot.update({ where: { id: bot.botId }, data: { crossSpaceCommunication: true } });
     const identity = await system.messagingIdentity.update({
-      where: { botId: bot.botId },
+      where: { provider_address: { provider: "telegram", address } },
       data: { dmThreadId: `telegram:${address}` },
     });
     return { ...identity, threadId: bot.threadId };
@@ -501,7 +501,7 @@ describe.skipIf(!enabled)("settling a direct message after a restart (PostgreSQL
       provisionMessagingIdentity(db.prisma, { provider: "test", address }),
     );
     const row = await system.messagingIdentity.update({
-      where: { botId: provisioned.botId },
+      where: { provider_address: { provider: "test", address } },
       data: { dmThreadId: `test:${address}` },
       select: { id: true },
     });

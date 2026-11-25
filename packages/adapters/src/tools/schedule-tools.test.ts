@@ -1816,7 +1816,7 @@ describe("schedule tools with events", () => {
           findUnique: vi.fn(async () => ({ webhookSecretId: null })),
         },
         messagingIdentity: {
-          findUnique: vi.fn(async () => (options.provider ? { provider: options.provider } : null)),
+          findMany: vi.fn(async () => (options.provider ? [{ provider: options.provider }] : [])),
         },
       },
       null,

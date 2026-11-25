@@ -1674,9 +1674,10 @@ describe("createChildRoutine", () => {
         },
       ],
     });
-    // The bot is linked to Slack now, so only a Slack routine is the approved one.
+    // The bot links Telegram and Slack now. The card named Slack, so only a Slack routine is the
+    // approved one: the Telegram link must not stand in for it.
     (prisma as { messagingIdentity?: unknown }).messagingIdentity = {
-      findUnique: vi.fn(async () => ({ provider: "slack" })),
+      findMany: vi.fn(async () => [{ provider: "telegram" }, { provider: "slack" }]),
     };
     const result = await createChildRoutine(writeDeps(prisma), run, {
       ...canonical,

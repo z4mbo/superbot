@@ -111,3 +111,18 @@ export function messagingChatApps<Identity extends { provider: string }>(input: 
     ),
   };
 }
+
+/** The bots that link an account on `provider` already: a bot links one account per chat app. */
+export function botsLinkedTo(
+  identities: readonly { provider: string; botId: string }[],
+  provider: string,
+): Set<string> {
+  return new Set(
+    identities.filter((identity) => identity.provider === provider).map(({ botId }) => botId),
+  );
+}
+
+/** Whether the linked chat apps answer for more than one bot, so a row names its bot. */
+export function chatAppsSpanBots(identities: readonly { botId: string }[]): boolean {
+  return new Set(identities.map(({ botId }) => botId)).size > 1;
+}

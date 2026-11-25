@@ -43,8 +43,14 @@ function createDeps(
     connectionRevokedAfterReadInsideTx?: boolean;
     /** A newer claim of the sending run holds this lease. */
     runLease?: { leaseOwner: string; leaseFence: number };
+    /** More linked accounts, on top of one sendblue account per bot. */
+    otherIdentities?: Array<typeof requesterIdentity>;
   } = {},
 ) {
+  const identitiesOf = (botId: string) =>
+    [requesterIdentity, targetIdentity, ...(overrides.otherIdentities ?? [])].filter(
+      (identity) => identity.botId === botId,
+    );
   const policyRows = () =>
     ["bot-1", "bot-2"].map((id) => ({
       id,
@@ -128,6 +134,25 @@ function createDeps(
           if (where.botId === "bot-1" || where.id === "mi-1") return requesterIdentity;
           return null;
         },
+      ),
+      findFirst: vi.fn(
+        async ({ where }: { where: { botId: string } }) => identitiesOf(where.botId).at(0) ?? null,
+      ),
+      // A bot's own accounts, or the accounts at an address on the apps it is on: addresses
+      // are only unique within a platform.
+      findMany: vi.fn(
+        async ({
+          where,
+        }: {
+          where: { botId?: string; address?: string; provider?: { in: string[] } };
+        }) =>
+          where.botId
+            ? identitiesOf(where.botId)
+            : [requesterIdentity, targetIdentity, ...(overrides.otherIdentities ?? [])].filter(
+                (identity) =>
+                  identity.address === where.address &&
+                  where.provider!.in.includes(identity.provider),
+              ),
       ),
     },
     bot: {
@@ -265,6 +290,35 @@ describe("connectAgent", () => {
       }),
     ]);
     expect(deps.messagingDelivery.send).toHaveBeenCalledWith([{ identityId: "mi-2" }]);
+  });
+
+  it("reaches an address on any chat app the requester links, and invites that account", async () => {
+    const telegram = { provider: "telegram", outboundSinceInbound: 0 };
+    const deps = createDeps({
+      otherIdentities: [
+        { ...requesterIdentity, ...telegram, id: "mi-1t", address: "555", dmThreadId: "t:555" },
+        { ...targetIdentity, ...telegram, id: "mi-2t", address: "777", dmThreadId: "t:777" },
+      ],
+    });
+    const result = await connectAgent(deps, run, sender, { address: "777" });
+
+    expect(result).toEqual({ ok: true, status: "pending" });
+    expect(deps.outboundRows).toEqual([expect.objectContaining({ identityId: "mi-2t" })]);
+    expect(deps.messagingDelivery.send).toHaveBeenCalledWith([{ identityId: "mi-2t" }]);
+  });
+
+  it("reaches no one at an address two of the requester's chat apps share", async () => {
+    const deps = createDeps({
+      otherIdentities: [
+        { ...requesterIdentity, provider: "telegram", id: "mi-1t", address: "555" },
+        // Someone else whose Telegram id is the same string as the target's number.
+        { ...targetIdentity, provider: "telegram", id: "mi-3", botId: "bot-3", userId: "user-3" },
+      ],
+    });
+    const result = await connectAgent(deps, run, sender, { address: "+15552222222" });
+
+    expect(result).toEqual({ ok: false, error: "no agent can be reached at that address" });
+    expect(deps.outboundRows).toEqual([]);
   });
 
   it("treats a concurrent first-time create as pending when the unique key loses", async () => {

@@ -674,15 +674,49 @@ it("moves a linked app to another bot with a code instead of unlinking it", asyn
   expect(appRow("Telegram").textContent).toContain("ABCD-2345");
 });
 
-it("shows bots already linked elsewhere as unavailable", async () => {
+it("connects another chat app to a bot that already answers one, keeping the first", async () => {
   messaging.status.mockResolvedValue({
     ...statusWith([identity]),
     providers: ["telegram", "whatsapp"],
   });
   await renderOverlay();
-  // The only bot answers Telegram: Connect still opens the menu, which says why.
-  expect(rowButton("WhatsApp", "Connect").disabled).toBe(false);
-  expect(rowButton("WhatsApp", "Chief").disabled).toBe(true);
+  // The only bot answers Telegram and can answer WhatsApp too.
+  await act(async () => rowButton("WhatsApp", "Connect").click());
+  expect(messaging.link.start).toHaveBeenCalledWith({ botId: "bot-1" });
+  expect(messaging.identities.unlink).not.toHaveBeenCalled();
+  expect(appRow("WhatsApp").textContent).toContain("ABCD-2345");
+  expect(appRow("Telegram").textContent).toContain("424242, Chief");
+});
+
+it("shows each app's link for one bot and unlinks only the one chosen", async () => {
+  const whatsapp = { ...identity, id: "mi-2", provider: "whatsapp", address: "15550001111" };
+  messaging.status.mockResolvedValue({
+    ...statusWith([identity, whatsapp]),
+    providers: ["telegram", "whatsapp"],
+  });
+  messaging.identities.unlink.mockResolvedValue({ ok: true });
+  await renderOverlay();
+  expect(appRow("Telegram").textContent).toContain("424242, Chief");
+  expect(appRow("WhatsApp").textContent).toContain("15550001111, Chief");
+  await act(async () => rowButton("WhatsApp", "Unlink").click());
+  expect(messaging.identities.unlink).toHaveBeenCalledTimes(1);
+  expect(messaging.identities.unlink).toHaveBeenCalledWith({ identityId: "mi-2" });
+});
+
+it("offers every bot for another app, and none already on it", async () => {
+  messaging.status.mockResolvedValue({
+    ...statusWith([identity]),
+    providers: ["telegram", "whatsapp"],
+  });
+  api.bots.list.mockResolvedValue([
+    { id: "bot-1", name: "Chief" },
+    { id: "bot-2", name: "Team" },
+  ]);
+  await renderOverlay();
+  expect(rowButton("WhatsApp", "Chief").disabled).toBe(false);
+  expect(rowButton("WhatsApp", "Team").disabled).toBe(false);
+  // Chief has its Telegram account already, so another one cannot move onto it.
+  expect(rowButton("Telegram", "Chief").disabled).toBe(true);
 });
 
 it("links a free bot when another is already linked elsewhere", async () => {

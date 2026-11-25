@@ -3,6 +3,7 @@ import { MessagingInstallRefusedError } from "@rakazo/adapter-kit";
 import { ClientError, displayName } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import {
+  botChatIdentity,
   crossSpaceCommunicationAllowed,
   formatMessagingLinkCode,
   issueMessagingLinkCode,
@@ -82,20 +83,8 @@ export function messagingRoutes(ctx: RouterContext) {
             }),
           );
           if (!bot) throw new ORPCError("NOT_FOUND");
-          // One chat identity per bot: delivery mirrors a bot's replies to
-          // exactly one conversation.
-          // The bot may live in another space, so look across them.
-          const linked = await acrossChatIdentities(() =>
-            deps.prisma.messagingIdentity.findUnique({
-              where: { botId: bot.id },
-              select: { id: true },
-            }),
-          );
-          if (linked) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "That bot is already linked to a chat app; unlink it first.",
-            });
-          }
+          // A bot links one account on each chat app. Which app the code links is only known
+          // once it is sent, so redemption refuses a second account on the same app.
           const issued = await issueMessagingLinkCode(
             deps.prisma,
             {
@@ -149,9 +138,9 @@ export function messagingRoutes(ctx: RouterContext) {
             );
             return messagingIdentityDto(deps.prisma, updated);
           } catch (error) {
-            // botId is unique: the target bot is already linked elsewhere.
+            // The target bot already links another account on this chat app.
             if (isUniqueViolation(error)) {
-              throw new ClientError("BAD_REQUEST", "That bot is already linked to a chat app.");
+              throw new ClientError("BAD_REQUEST", "That bot is already linked to this chat app.");
             }
             throw error;
           }
@@ -283,9 +272,7 @@ export function messagingRoutes(ctx: RouterContext) {
               });
               if (!input.accept) return { updated: row, requesterToNotify: null };
               // Parity with the text-command path: the requester hears about it.
-              const requesterIdentity = await tx.messagingIdentity.findUnique({
-                where: { botId: connection.requesterBotId },
-              });
+              const requesterIdentity = await botChatIdentity(tx, connection.requesterBotId);
               if (!requesterIdentity) return { updated: row, requesterToNotify: null };
               const delivery = deps.messagingDelivery;
               if (!delivery) return { updated: row, requesterToNotify: null };
@@ -457,10 +444,7 @@ async function messagingConnectionDto(
   const [peerBot, peerIdentity] = await acrossChatIdentities(() =>
     Promise.all([
       prisma.bot.findUnique({ where: { id: peerBotId }, select: { name: true } }),
-      prisma.messagingIdentity.findUnique({
-        where: { botId: peerBotId },
-        select: { userId: true },
-      }),
+      botChatIdentity(prisma, peerBotId),
     ]),
   );
   const peerOwner = peerIdentity

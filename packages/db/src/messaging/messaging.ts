@@ -171,6 +171,33 @@ export async function provisionMessagingIdentity(
   return { provider, address, userId: user.id, spaceId, botId, threadId: thread.id, created: true };
 }
 
+/**
+ * The order a bot's linked chat apps are picked in for a message it starts itself, such as a
+ * delegated answer or a connection request: the app its owner wrote from last, then the oldest
+ * link. A reply to a message goes back to that message's app instead.
+ */
+const BOT_CHAT_ORDER = [
+  { lastInboundAt: { sort: "desc", nulls: "last" } },
+  { createdAt: "asc" },
+  { id: "asc" },
+] satisfies Prisma.MessagingIdentityOrderByWithRelationInput[];
+
+/** The linked chat app a bot's own messages go to, or null when it links none. */
+export function botChatIdentity(
+  db: Pick<Prisma.TransactionClient, "messagingIdentity">,
+  botId: string,
+) {
+  return db.messagingIdentity.findFirst({ where: { botId }, orderBy: BOT_CHAT_ORDER });
+}
+
+/** A bot's linked chat apps, in the order `botChatIdentity` picks from. */
+export function botChatIdentities(
+  db: Pick<Prisma.TransactionClient, "messagingIdentity">,
+  botId: string,
+) {
+  return db.messagingIdentity.findMany({ where: { botId }, orderBy: BOT_CHAT_ORDER });
+}
+
 function titleCase(value: string): string {
   return value ? value[0]!.toUpperCase() + value.slice(1) : value;
 }
@@ -304,9 +331,9 @@ export async function redeemMessagingLinkCode(
       return redeemed;
     });
   } catch (error) {
-    // botId is unique (one chat app per bot) and (provider, address) can race
-    // a concurrent inbound; either way the code is spent and the sender can
-    // request a fresh one.
+    // The code's bot already links another account on this app, or (provider, address) raced a
+    // concurrent inbound. Either way the transaction, and so the claim, rolls back: nothing is
+    // linked, and the code still works from another app until it expires.
     if (isUniqueViolation(error)) return null;
     throw error;
   }

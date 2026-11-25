@@ -5202,7 +5202,7 @@ it("does not blame the webhook on cards every run shows", async () => {
       })),
     },
     messagingIdentity: {
-      findUnique: vi.fn(async () => ({ address: "fake", provider: "telegram" })),
+      findFirst: vi.fn(async () => ({ address: "fake", provider: "telegram" })),
     },
   });
   connection.setCalls([{ args: { accept: true }, executionId: "call-1" }]);
