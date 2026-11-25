@@ -1,5 +1,6 @@
 import { ph, t } from "@lingui/core/macro";
 import type { SpaceBot, SpaceGroup } from "@rakazo/contracts";
+import { isChiefBot } from "@rakazo/contracts";
 import {
   botAvatarActivity,
   chatSnoozed,
@@ -135,6 +136,8 @@ export function spaceInboxItems(
         id: chat.id,
         pinned: chat.pinned,
         sectionId: chat.sectionId,
+        // Older mobile shapes carry no spawn key; their main bot then keeps its own pin.
+        main: "spawnKey" in chat && isChiefBot(chat),
       })),
       ...space.groups.map((chat) => ({
         type: "group" as const,

@@ -25,6 +25,21 @@ describe("groupBotsForSidebar", () => {
     ]);
     expect(groupBotsForSidebar([bots[1]!], [], { labels })[0]?.title).toBeNull();
   });
+  it("pins the main bot first, even unpinned, and keeps the other pins in their order", () => {
+    const groups = groupBotsForSidebar(
+      [
+        { id: "first-pin", pinned: true, sectionId: null },
+        { id: "loose", pinned: false, sectionId: null },
+        { id: "second-pin", pinned: true, sectionId: "work" },
+        { id: "main", pinned: false, sectionId: "home", main: true },
+      ],
+      sections,
+    );
+    expect(groups.map((group) => [group.key, group.bots.map((bot) => bot.id)])).toEqual([
+      ["pinned", ["main", "first-pin", "second-pin"]],
+      ["unassigned", ["loose"]],
+    ]);
+  });
   it("keeps pinned bots in one top-level group without duplicating them", () => {
     const groups = groupBotsForSidebar(
       [

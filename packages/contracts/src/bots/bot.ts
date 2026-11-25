@@ -31,6 +31,26 @@ export const InstructionVersionSchema = z.object({
 /** A pack's name for an avatar shape or colour. */
 export const BotLookName = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/);
 
+/** The product's name, which the main bot of every Space carries unless its members rename it. */
+export const PRODUCT_NAME = "Superbot";
+
+/**
+ * The main bot each Space has: pinned first in the roster with a star, wearing the product's own
+ * mark (the round body in black on light and white on dark). Its spawn key is the one the first
+ * bot an account made has always had, so that bot is the main bot of its Space.
+ */
+export const CHIEF_BOT = {
+  spawnKey: "onboarding:first",
+  name: PRODUCT_NAME,
+  lookShape: "blob",
+  lookColor: "neutral",
+} as const;
+
+/** Whether `bot` is its Space's main bot. */
+export function isChiefBot(bot: { spawnKey?: string | null }): boolean {
+  return bot.spawnKey === CHIEF_BOT.spawnKey;
+}
+
 export const BotSchema = z.object({
   meetingsEnabled: z.boolean().optional(),
   id: Id,

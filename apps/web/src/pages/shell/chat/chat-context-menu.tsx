@@ -1,4 +1,5 @@
 import type { Bot, BotSection, Group } from "@rakazo/contracts";
+import { isChiefBot } from "@rakazo/contracts";
 import { chatSnoozed } from "@rakazo/core";
 import { ContextMenu } from "@rakazo/ui-web";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
@@ -101,6 +102,7 @@ export function ChatContextMenu({
   return (
     <BotContextMenu
       bot={chat}
+      main={bot ? isChiefBot(bot) : false}
       onClose={onClose}
       sections={sections}
       onTogglePinned={() => {

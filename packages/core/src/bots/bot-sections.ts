@@ -5,7 +5,8 @@ export type BotListSection<T> = {
 };
 
 type Section = { id: string; name: string };
-type SectionedBot = { pinned: boolean; sectionId: string | null };
+/** A chat in the roster; `main` marks the Space's main bot, always pinned and always first. */
+type SectionedBot = { pinned: boolean; sectionId: string | null; main?: boolean };
 
 export function groupBotsForSidebar<T extends SectionedBot>(
   bots: readonly T[],
@@ -19,7 +20,10 @@ export function groupBotsForSidebar<T extends SectionedBot>(
   const grouped: BotListSection<T>[] = [];
 
   for (const bot of bots) {
-    if (bot.pinned) {
+    if (bot.main) {
+      // Ahead of every other pin, which keep their own order behind it.
+      pinned.splice(pinned.filter((item) => item.main).length, 0, bot);
+    } else if (bot.pinned) {
       pinned.push(bot);
     } else if (bot.sectionId && knownSectionIds.has(bot.sectionId)) {
       const members = sectionMembers.get(bot.sectionId) ?? [];

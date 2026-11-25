@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, BotSection, Group, Me, Space, ThreadSnapshot } from "@rakazo/contracts";
+import { isChiefBot } from "@rakazo/contracts";
 import type { AvatarCutoutHole } from "@rakazo/ui-web";
 import {
   avatarCutoutStyle,
@@ -526,8 +527,10 @@ type RosterGroup = ReturnType<
   typeof sidebarGroupsForSpaces<Space["bots"][number], Space["groups"][number]>
 >[number];
 
-/** Pinned chats sit above the sections as tiles; the first bot the account made wears a star. */
-/** A pinned tile's avatar, and the corner marks cut out of it with a gap, as the reference does. */
+/**
+ * Pinned chats sit above the sections as tiles, the Space's main bot first with a star. A tile's
+ * avatar has the corner marks cut out of it with a gap, as the reference does.
+ */
 const PINNED_AVATAR = 60;
 const PINNED_GAP = 2.7;
 const PINNED_BADGE: AvatarCutoutHole = { x: 44, y: 44, width: 16, height: 16 };
@@ -565,7 +568,7 @@ function PinnedTiles({
               ? (activeSnapshot.members ?? item.chat.members)
               : item.chat.members
             : [];
-        const main = item.kind === "bot" && item.chat.spawnKey === "onboarding:first";
+        const main = item.kind === "bot" && isChiefBot(item.chat);
         return (
           <ChatMenu
             key={`${item.kind}:${item.chat.id}`}

@@ -32,6 +32,7 @@ const PRESET_DAYS: ReadonlySet<SnoozePreset> = new Set(["tomorrow", "nextWeek"])
 /** A roster row's context menu content; `onClose` serves the lazy-load error fallback. */
 export function BotContextMenu({
   bot,
+  main = false,
   onTogglePinned,
   sections,
   onMoveToSection,
@@ -47,6 +48,8 @@ export function BotContextMenu({
   onDelete,
 }: {
   bot: ChatMenuTarget;
+  /** The Space's main bot. */
+  main?: boolean;
   onClose: () => void;
   onTogglePinned: () => void;
   sections: BotSection[];
@@ -78,41 +81,46 @@ export function BotContextMenu({
       aria-label={t`Actions for ${bot.name}`}
       className="max-h-[min(420px,calc(100vh-16px))] w-[264px] overflow-y-auto"
     >
-      <ContextMenuItem onClick={onTogglePinned}>
-        <Pin />
-        {bot.pinned ? t`Unpin` : t`Pin`}
-      </ContextMenuItem>
-      <ContextMenuSub>
-        <ContextMenuSubTrigger>
-          <Folder />
-          {t`Move to`}
-        </ContextMenuSubTrigger>
-        <ContextMenuSubContent className="max-h-[min(420px,calc(100vh-16px))] min-w-[180px] overflow-y-auto">
-          {sections.map((section) => (
-            <ContextMenuItem key={section.id} onClick={() => onMoveToSection(section.id)}>
+      {/* The Space's main bot is always pinned first, so it has no pin or section to change. */}
+      {main ? null : (
+        <>
+          <ContextMenuItem onClick={onTogglePinned}>
+            <Pin />
+            {bot.pinned ? t`Unpin` : t`Pin`}
+          </ContextMenuItem>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
               <Folder />
-              <span dir="auto">{section.name}</span>
-              {bot.sectionId === section.id ? <Check className="ms-auto" /> : null}
-            </ContextMenuItem>
-          ))}
-          <ContextMenuItem onClick={() => onMoveToSection(null)}>
-            <Folder />
-            {t`Unassigned`}
-            {bot.sectionId === null ? <Check className="ms-auto" /> : null}
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem onClick={onCreateSection}>
-            <FolderPlus />
-            {t`New section`}
-          </ContextMenuItem>
-          {bot.sectionId && onRenameSection ? (
-            <ContextMenuItem onClick={() => onRenameSection(bot.sectionId!)}>
-              <Pencil />
-              {t`Rename section`}
-            </ContextMenuItem>
-          ) : null}
-        </ContextMenuSubContent>
-      </ContextMenuSub>
+              {t`Move to`}
+            </ContextMenuSubTrigger>
+            <ContextMenuSubContent className="max-h-[min(420px,calc(100vh-16px))] min-w-[180px] overflow-y-auto">
+              {sections.map((section) => (
+                <ContextMenuItem key={section.id} onClick={() => onMoveToSection(section.id)}>
+                  <Folder />
+                  <span dir="auto">{section.name}</span>
+                  {bot.sectionId === section.id ? <Check className="ms-auto" /> : null}
+                </ContextMenuItem>
+              ))}
+              <ContextMenuItem onClick={() => onMoveToSection(null)}>
+                <Folder />
+                {t`Unassigned`}
+                {bot.sectionId === null ? <Check className="ms-auto" /> : null}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem onClick={onCreateSection}>
+                <FolderPlus />
+                {t`New section`}
+              </ContextMenuItem>
+              {bot.sectionId && onRenameSection ? (
+                <ContextMenuItem onClick={() => onRenameSection(bot.sectionId!)}>
+                  <Pencil />
+                  {t`Rename section`}
+                </ContextMenuItem>
+              ) : null}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        </>
+      )}
       <ContextMenuItem onClick={onToggleUnread}>
         {bot.unread ? <BellDot /> : <Bell />}
         {bot.unread ? t`Mark as Read` : t`Mark as Unread`}

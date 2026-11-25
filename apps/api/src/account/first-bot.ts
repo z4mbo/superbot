@@ -1,26 +1,54 @@
-import type { Actor, Bot } from "@rakazo/contracts";
-import { BOT_COLOR_LIST } from "@rakazo/contracts";
+import type { Actor, Bot, ComputerMode } from "@rakazo/contracts";
+import { BOT_COLOR_LIST, CHIEF_BOT } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { runAsSystem } from "@rakazo/db";
 import { bestEffort } from "@rakazo/logging";
 
-const FIRST_BOT_NAME = "Chief";
-/** Also the key earlier web clients created it with, so their Chief is found, never duplicated. */
-export const FIRST_BOT_SPAWN_KEY = "onboarding:first";
+/** The name the first bot was created with before every Space had a main bot. */
+export const LEGACY_CHIEF_NAME = "Chief";
 
-type BotCreate = {
+/** What creates the main bot: idempotent on its spawn key, as `createBot` is. */
+export type ChiefBotCreate = {
   name: string;
   description: string;
   instructions: string;
   notifyOnFinish: boolean;
   color?: string;
+  lookShape?: string;
+  lookColor?: string;
+  computerMode?: ComputerMode;
   spawnKey?: string;
 };
+
+/**
+ * The main bot as it is first made: the product's name and mark. It joins the Space's shared
+ * computer, so making it never takes one of the person's own computers.
+ */
+export function chiefBotInput(): ChiefBotCreate {
+  return {
+    name: CHIEF_BOT.name,
+    description: "",
+    instructions: "",
+    notifyOnFinish: true,
+    // Clients that only read the colour show the mark's ink: white is the palette's plain ink.
+    color: BOT_COLOR_LIST.find((color) => color.id === "white")?.hex,
+    lookShape: CHIEF_BOT.lookShape,
+    lookColor: CHIEF_BOT.lookColor,
+    computerMode: "team",
+    spawnKey: CHIEF_BOT.spawnKey,
+  };
+}
+
+/**
+ * The first bot is the Space's main bot. The key is also the one earlier web clients created it
+ * with, so their bot is found, never duplicated.
+ */
+export const FIRST_BOT_SPAWN_KEY = CHIEF_BOT.spawnKey;
 
 export type FirstBotDeps = {
   prisma: PrismaClient;
   /** Idempotent on spawnKey: a concurrent create of the same key returns the bot that won. */
-  createBot: (actor: Actor, input: BotCreate) => Promise<Bot>;
+  createBot: (actor: Actor, input: ChiefBotCreate) => Promise<Bot>;
   /** Starts a new bot's intro run, which asks what it is for when a model is set up. */
   introduce: (actor: Actor, bot: Bot) => Promise<void>;
   /** Posts the focus choice while the thread is still idle and no intro run asks instead. */
@@ -28,10 +56,10 @@ export type FirstBotDeps = {
 };
 
 /**
- * The actor's Space's first-run bot. Reuses the Chief already there; otherwise creates one only
- * for a person none of whose own Spaces has ever held a chat. Bots, groups and deleted bots all count,
- * so a person who archived or deleted their bots, or who adds a Space later, gets an empty Space
- * with a New bot button instead of a new Chief.
+ * The actor's Space's first-run bot, which is its main bot. Reuses the one already there (or a
+ * Chief made before the spawn key existed); otherwise creates and greets one only for a person
+ * none of whose own Spaces has ever held a chat. Bots, groups and deleted bots all count. Any
+ * other Space gets its main bot, ungreeted, from `ensureChiefBot` when its roster is read.
  */
 export async function ensureFirstBot(
   deps: FirstBotDeps,
@@ -50,7 +78,7 @@ async function existingFirstBot(prisma: PrismaClient, actor: Actor): Promise<str
     where: {
       spaceId: actor.spaceId,
       archivedAt: null,
-      OR: [{ spawnKey: FIRST_BOT_SPAWN_KEY }, { name: FIRST_BOT_NAME }],
+      OR: [{ spawnKey: FIRST_BOT_SPAWN_KEY }, { name: LEGACY_CHIEF_NAME }],
     },
     select: { id: true, spawnKey: true },
     orderBy: { createdAt: "asc" },
@@ -63,14 +91,7 @@ async function existingFirstBot(prisma: PrismaClient, actor: Actor): Promise<str
 
 async function createFirstBot(deps: FirstBotDeps, actor: Actor): Promise<string | null> {
   if (await hasChatHistory(deps.prisma, actor)) return null;
-  const bot = await deps.createBot(actor, {
-    name: FIRST_BOT_NAME,
-    description: "",
-    instructions: "",
-    notifyOnFinish: true,
-    color: BOT_COLOR_LIST.find((color) => color.id === "orange")?.hex,
-    spawnKey: FIRST_BOT_SPAWN_KEY,
-  });
+  const bot = await deps.createBot(actor, chiefBotInput());
   // Each runs at most once per thread, and in this order: the focus card waits for an intro run
   // that is already committed, so a concurrent call cannot leave both openers. A Chief that is
   // only found is left as it is, since whoever created it greets it.

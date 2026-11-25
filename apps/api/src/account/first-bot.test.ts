@@ -1,4 +1,5 @@
 import type { Actor, Bot } from "@rakazo/contracts";
+import { CHIEF_BOT } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
 import type { FirstBotDeps } from "./first-bot.js";
 import { ensureFirstBot, FIRST_BOT_SPAWN_KEY } from "./first-bot.js";
@@ -45,12 +46,18 @@ function fixture(
 }
 
 describe("ensureFirstBot", () => {
-  it("creates and greets Chief in a Space that never held a chat", async () => {
+  it("creates and greets the main bot, named and marked as the product, in a Space that never held a chat", async () => {
     const { deps, run } = fixture();
     await expect(run()).resolves.toEqual({ botId: "chief-new" });
     expect(deps.createBot).toHaveBeenCalledWith(
       actor,
-      expect.objectContaining({ name: "Chief", spawnKey: FIRST_BOT_SPAWN_KEY }),
+      expect.objectContaining({
+        name: CHIEF_BOT.name,
+        lookShape: CHIEF_BOT.lookShape,
+        lookColor: CHIEF_BOT.lookColor,
+        computerMode: "team",
+        spawnKey: FIRST_BOT_SPAWN_KEY,
+      }),
     );
     expect(deps.introduce).toHaveBeenCalledWith(actor, { id: "chief-new" });
     expect(deps.promptFocus).toHaveBeenCalledWith(actor, "chief-new");
