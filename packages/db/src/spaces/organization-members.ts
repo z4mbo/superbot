@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { OrganizationRole } from "@rakazo/contracts";
+import type { NotEmailedReason, OrganizationRole } from "@rakazo/contracts";
 import { ClientError } from "@rakazo/core";
 import { GUEST_ROLE, isOwnerRole, LIVE_ORGANIZATION } from "../billing/billing.js";
 import type { PrismaClient } from "../database/client.js";
@@ -233,7 +233,7 @@ export async function invitationEmailAllowance(
     recipient: string;
     sendsEmail: boolean;
   },
-): Promise<{ mayEmail: boolean; send: boolean }> {
+): Promise<{ mayEmail: boolean } & InvitationEmailSend> {
   await lockKey(tx, `invitation-sender:${input.userId}`);
   await lockKey(tx, `invitation-recipient:${input.recipient}`);
   const today = { gt: new Date(Date.now() - DAY_MS) };
@@ -251,11 +251,20 @@ export async function invitationEmailAllowance(
     }),
   ]);
   const mayEmail = input.sendsEmail && inviter.emailVerified;
-  const send = mayEmail && toRecipient < MAX_INVITATION_EMAILS_PER_RECIPIENT_PER_DAY;
-  if (send && byInviter >= MAX_INVITATION_EMAILS_PER_INVITER_PER_DAY)
+  const unsent = (notEmailedReason: NotEmailedReason) =>
+    ({ mayEmail, send: false, notEmailedReason }) as const;
+  if (!input.sendsEmail) return unsent("not_configured");
+  if (!inviter.emailVerified) return unsent("unverified_inviter");
+  if (toRecipient >= MAX_INVITATION_EMAILS_PER_RECIPIENT_PER_DAY) return unsent("rate_limited");
+  if (byInviter >= MAX_INVITATION_EMAILS_PER_INVITER_PER_DAY)
     throw new OrganizationInvitationRateError();
-  return { mayEmail, send };
+  return { mayEmail, send: true };
 }
+
+/** Whether to email an invitation now, and why not when it is not. */
+export type InvitationEmailSend =
+  | { send: true }
+  | { send: false; notEmailedReason: NotEmailedReason };
 
 /** Each invitation email allowed, recorded in the transaction that allows it. */
 export async function recordInvitationEmail(
@@ -285,16 +294,16 @@ export async function createOrganizationInvitation(
     /** Names the address in the security log: a hash keyed with a server secret. */
     recipientKey: (email: string) => string;
   },
-): Promise<{
-  id: string;
-  email: string;
-  organizationName: string;
-  inviterName: string;
-  /** False past the address's limit, when the pending invitation comes back unchanged. */
-  created: boolean;
-  /** Whether to email it now; false past the address's limit or without email delivery. */
-  send: boolean;
-}> {
+): Promise<
+  {
+    id: string;
+    email: string;
+    organizationName: string;
+    inviterName: string;
+    /** False past the address's limit, when the pending invitation comes back unchanged. */
+    created: boolean;
+  } & InvitationEmailSend
+> {
   const email = normalizeEmail(input.email);
   const recipient = input.recipientKey(email);
   return withTransactionRetry(() =>
@@ -310,7 +319,7 @@ export async function createOrganizationInvitation(
         select: { id: true },
       });
       if (existing) throw new AlreadyOrganizationMemberError();
-      const { mayEmail, send } = await invitationEmailAllowance(tx, {
+      const { mayEmail, ...sending } = await invitationEmailAllowance(tx, {
         userId: input.userId,
         recipient,
         sendsEmail: input.sendsEmail,
@@ -338,8 +347,8 @@ export async function createOrganizationInvitation(
       const names = { organizationName: organization.name, inviterName: inviter.name };
       // Past the address's limit nothing is emailed, but the inviter still gets a link to share:
       // the pending one, or a new one when another invitation used the limit up.
-      if (mayEmail && !send && pending)
-        return { id: pending.id, email, ...names, created: false, send: false };
+      if (mayEmail && !sending.send && pending)
+        return { id: pending.id, email, ...names, created: false, ...sending };
       if (!pending && open >= MAX_PENDING_INVITATIONS) throw new OrganizationInvitationLimitError();
       // Its link stops working: the new invitation carries the new one.
       await tx.invitation.updateMany({
@@ -359,12 +368,12 @@ export async function createOrganizationInvitation(
           inviterId: input.userId,
         },
       });
-      if (send)
+      if (sending.send)
         await recordInvitationEmail(tx, {
           userId: input.userId,
           metadata: { organizationId: input.organizationId, recipient },
         });
-      return { id, email, ...names, created: true, send };
+      return { id, email, ...names, created: true, ...sending };
     }),
   );
 }

@@ -5,6 +5,7 @@ import { groupId } from "../rpc/inputs.js";
 import { SpaceSettingSchema } from "../settings-scope.js";
 import { CreateGroupInput, GroupDetailSchema, GroupSchema, UpdateGroupInput } from "./groups.js";
 import {
+  InvitationSentSchema,
   OrganizationInvitationPreviewSchema,
   OrganizationListSchema,
   OrganizationMembersSchema,
@@ -96,7 +97,7 @@ export const spacesRpc = {
       /** Owner and admins. Inviting the same address again renews its invitation. */
       create: oc
         .input(z.object({ organizationId: Id, email: z.email().max(254) }))
-        .output(z.object({ url: z.string().url(), emailed: z.boolean() })),
+        .output(InvitationSentSchema),
       cancel: oc
         .input(z.object({ organizationId: Id, invitationId: Id }))
         .output(z.object({ ok: z.literal(true) })),

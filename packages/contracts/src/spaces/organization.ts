@@ -24,6 +24,26 @@ export const OrganizationInvitationSchema = z.object({
 });
 export type OrganizationInvitation = z.infer<typeof OrganizationInvitationSchema>;
 
+/**
+ * Why an invitation was not emailed: the server has no email delivery, sending failed, the
+ * inviter's own address is unverified, or the address had its daily share of invitations.
+ */
+export const NotEmailedReasonSchema = z.enum([
+  "not_configured",
+  "send_failed",
+  "unverified_inviter",
+  "rate_limited",
+]);
+export type NotEmailedReason = z.infer<typeof NotEmailedReasonSchema>;
+
+/** An invitation just made; when it was not emailed, the inviter shares its link by hand. */
+export const InvitationSentSchema = z.object({
+  url: z.string().url(),
+  emailed: z.boolean(),
+  /** Absent when emailed, and from servers that predate it. */
+  notEmailedReason: NotEmailedReasonSchema.optional(),
+});
+
 export const OrganizationMembersSchema = z.object({
   members: z.array(OrganizationMemberSchema),
   /** Pending invitations; empty for someone who cannot manage members. */

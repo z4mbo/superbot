@@ -25,7 +25,8 @@ vi.mock("@lingui/react/macro", () => ({
   }),
   Trans: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock("@rakazo/ui-web", () => {
+vi.mock("@rakazo/ui-web", async () => {
+  const actual = await vi.importActual<typeof import("@rakazo/ui-web")>("@rakazo/ui-web");
   const Plain = ({ children }: { children?: ReactNode }) => <>{children}</>;
   const PlainButton = ({
     variant: _variant,
@@ -44,6 +45,8 @@ vi.mock("@rakazo/ui-web", () => {
     AlertDialogTitle: ({ children }: { children?: ReactNode }) => <h2>{children}</h2>,
     Badge: Plain,
     Button: PlainButton,
+    CopyTextFallback: ({ open, text }: { open: boolean; text: string }) =>
+      open ? <textarea aria-label="Copy by hand" readOnly value={text} /> : null,
     DropdownMenu: Plain,
     DropdownMenuContent: Plain,
     DropdownMenuItem: PlainButton,
@@ -54,7 +57,9 @@ vi.mock("@rakazo/ui-web", () => {
     InputGroupButton: PlainButton,
     InputGroupInput: (props: ComponentProps<"input">) => <input {...props} />,
     Input: (props: ComponentProps<"input">) => <input {...props} />,
+    cn: actual.cn,
     toast,
+    useCopyText: actual.useCopyText,
   };
 });
 vi.mock("../../lib/query/space-rpc", () => ({
@@ -339,7 +344,15 @@ it("tags guests, and says before inviting someone by email that they are outside
     spaceId: space.id,
     email: "dee@example.test",
   });
-  await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("Invitation sent"));
+  await vi.waitFor(() =>
+    expect(host.querySelector('[role="status"]')?.textContent).toBe(
+      "Invitation emailed to dee@example.test.",
+    ),
+  );
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="Invite link"]')?.value).toBe(
+    "https://rakazo.example/invite/token-3",
+  );
+  expect(toast).not.toHaveBeenCalled();
   expect(host.querySelector('input[aria-label="Email"]')).toBeNull();
 
   // Someone already in the organization is added directly.
@@ -353,3 +366,48 @@ it("tags guests, and says before inviting someone by email that they are outside
   });
   expect(rpc.spaces.invites.create).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  ["not_configured", "Not emailed to dee@example.test: email isn't set up on this server."],
+  ["send_failed", "Not emailed to dee@example.test: sending failed."],
+  ["rate_limited", "Not emailed to dee@example.test: daily invitation limit reached."],
+])(
+  "says why an invitation by email was not sent (%s) and offers its link",
+  async (reason, text) => {
+    const writeText = vi.fn(async (_text: string) => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await renderWith({ spaceName: "Home", members: [owner], canManage: true, addable: [] });
+    rpc.spaces.invites.create.mockResolvedValue({
+      url: "https://rakazo.example/invite/token-4",
+      expiresAt: new Date().toISOString(),
+      emailed: false,
+      notEmailedReason: reason,
+    });
+    await act(async () => buttonNamed("Invite by email")?.click());
+    await type("dee@example.test");
+    await act(async () => buttonNamed("Invite")?.click());
+
+    await vi.waitFor(() => expect(host.querySelector('[role="status"]')?.textContent).toBe(text));
+    const link = host.querySelector<HTMLInputElement>('input[aria-label="Invite link"]');
+    expect(link?.value).toBe("https://rakazo.example/invite/token-4");
+    // Nothing is copied until asked, so the notice is never replaced by a toast.
+    expect(writeText).not.toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
+
+    writeText.mockRejectedValueOnce(new Error("denied"));
+    const copyButton = [...host.querySelectorAll("button")].find(
+      (button) => button.getAttribute("aria-label") === "Copy invite link",
+    );
+    await act(async () => copyButton?.click());
+    await vi.waitFor(() =>
+      expect(
+        host.querySelector<HTMLTextAreaElement>('textarea[aria-label="Copy by hand"]')?.value,
+      ).toBe("https://rakazo.example/invite/token-4"),
+    );
+
+    // Every open link cancelled, the notice's goes with them.
+    rpc.spaces.invites.cancel.mockResolvedValue({ ok: true });
+    await act(async () => buttonNamed("Cancel open invites")?.click());
+    expect(host.querySelector('[role="status"]')).toBeNull();
+  },
+);

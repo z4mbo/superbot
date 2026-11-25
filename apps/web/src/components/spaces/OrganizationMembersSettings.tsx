@@ -28,6 +28,8 @@ import { organizationMembersQuery, organizationsQuery } from "../../lib/spaces/o
 import { ConfirmDialog } from "../ConfirmDialog";
 import { SettingsPageHeader } from "../settings/SettingsPageHeader";
 import { SettingsGroup } from "../settings/SettingsRows";
+import type { InvitationEmailResult } from "./InvitationEmailNotice";
+import { InvitationEmailNotice } from "./InvitationEmailNotice";
 import { PersonRow } from "./PersonRow";
 
 type Change =
@@ -53,6 +55,8 @@ export function OrganizationMembersSettings({
   const [removing, setRemoving] = useState<OrganizationMember | null>(null);
   /** A link the browser would not copy, offered to copy by hand. */
   const [manualLink, setManualLink] = useState<string | null>(null);
+  /** The last invitation by email, kept on screen with its link until the next one. */
+  const [sent, setSent] = useState<{ email: string; result: InvitationEmailResult } | null>(null);
 
   async function copyLink(url: string) {
     if (await writeClipboard(url)) toast(t`Invite link copied`);
@@ -63,10 +67,9 @@ export function OrganizationMembersSettings({
     save: (address: string, rpc) =>
       rpc.organizations.invitations.create({ organizationId, email: address }),
     stale,
-    onSaved: async (sent) => {
+    onSaved: (result, address) => {
       setEmail("");
-      if (sent.emailed) toast(t`Invitation sent`);
-      else await copyLink(sent.url);
+      setSent({ email: address, result });
     },
   });
   const change = useSave({
@@ -87,7 +90,11 @@ export function OrganizationMembersSettings({
       }
     },
     stale,
-    onSaved: () => setRemoving(null),
+    onSaved: (_, ask) => {
+      setRemoving(null);
+      // A cancelled invitation's link no longer works.
+      if (ask.kind === "cancel" && ask.invitation.url === sent?.result.url) setSent(null);
+    },
   });
 
   const members: OrganizationMembers | undefined = query.data;
@@ -103,7 +110,9 @@ export function OrganizationMembersSettings({
           onSubmit={(event) => {
             event.preventDefault();
             const address = email.trim();
-            if (address) invite.run(address);
+            if (!address) return;
+            setSent(null);
+            invite.run(address);
           }}
         >
           <Input
@@ -129,6 +138,9 @@ export function OrganizationMembersSettings({
         <p role="alert" className="-mt-4 text-body-sm text-destructive">
           {errorText(invite.error, t`Could not invite`)}
         </p>
+      ) : null}
+      {canManage && sent ? (
+        <InvitationEmailNotice className="-mt-4" email={sent.email} sent={sent.result} />
       ) : null}
       <SettingsGroup>
         {members ? (

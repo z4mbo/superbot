@@ -21,6 +21,7 @@ import {
 } from "@rakazo/db";
 import { bestEffort } from "@rakazo/logging";
 import { deleteOrganization } from "../account/account-deletion.js";
+import type { InvitationEmailOutcome } from "../email/invitation-email.js";
 import { invitationRecipientKey, sendInvitationEmail } from "../email/invitation-email.js";
 import type { RouterDeps } from "../router.js";
 import { afterSpaceDeparture } from "../spaces/space-departure.js";
@@ -197,12 +198,12 @@ export function organizationsRoutes(ctx: RouterContext) {
               void deps.events?.publishOrganizationChange?.(input.organizationId);
             }
             const url = invitationUrl(deps, invitation.id);
-            const emailed =
-              invitation.send &&
-              (await sendInvitationEmail(deps, context.actor.userId, invitation.email, (locale) =>
-                organizationInvitationEmail(invitation.email, { ...invitation, url }, locale),
-              ));
-            return { url, emailed };
+            const sent: InvitationEmailOutcome = invitation.send
+              ? await sendInvitationEmail(deps, context.actor.userId, invitation.email, (locale) =>
+                  organizationInvitationEmail(invitation.email, { ...invitation, url }, locale),
+                )
+              : { emailed: false, notEmailedReason: invitation.notEmailedReason };
+            return { url, ...sent };
           }),
         ),
         cancel: authed.organizations.invitations.cancel.handler(({ context, input }) =>
