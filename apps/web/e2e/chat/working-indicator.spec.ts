@@ -51,7 +51,19 @@ test("the working line waits right above the composer and leaves when the run en
   await expect(label).toHaveCSS("font-size", "14px");
   await expect(label).toHaveCSS("line-height", "22px");
   await expect(label).toHaveCSS("animation-name", "text-shimmer");
-  await expect(line.getByRole("status")).toHaveText("Working…");
+  // Screen readers hear the bot's current activity when it reports one, else "Working…"; never
+  // the turning phrases the label shows while there is nothing specific to say.
+  const status = line.getByRole("status");
+  await expect(status).not.toHaveText("");
+  await expect
+    .poll(async () => {
+      const [heard, shown] = [await status.textContent(), await label.textContent()];
+      return heard === "Working…" || heard === shown;
+    })
+    .toBe(true);
+  await expect(status).not.toHaveText(
+    /^(On it|Thinking it through|Putting it together|Still on it)$/,
+  );
   await captureScreenshot(page, testInfo, "working-line-above-composer");
 
   // Reduced motion: the label stops sweeping and stays readable.
