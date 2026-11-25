@@ -252,8 +252,9 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(sidePanel.getByRole("button", { name: "Take control" })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "27b-computer-panel");
 
-  await editName("Atlas");
+  // The name is edited in the bot's settings, behind the gear.
   await openBotSettings(page);
+  await editName("Atlas");
   await descriptionInput.fill("Builds durable, source-backed research briefs.");
   await descriptionInput.blur();
   await expect(botList.getByRole("button", { name: /^Atlas/ })).toBeVisible();
