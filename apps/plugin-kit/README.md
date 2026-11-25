@@ -13,17 +13,14 @@ pnpm install
 pnpm --filter superbot-plugin-kit build
 ```
 
-Run it through pnpm:
+Run the bundle with Node.js from the folder you work in, since manifest paths are relative to it:
 
 ```sh
-pnpm --filter superbot-plugin-kit exec superbot-plugin --help
+node path/to/superbot/apps/plugin-kit/dist/superbot-plugin.mjs --help
 ```
 
-Or run the bundle directly with Node.js:
-
-```sh
-node apps/plugin-kit/dist/superbot-plugin.mjs --help
-```
+`pnpm --filter superbot-plugin-kit exec node dist/superbot-plugin.mjs --help` also works, but it
+runs inside `apps/plugin-kit`, so relative manifest paths resolve there.
 
 To put `superbot-plugin` on your `PATH`, link the package globally (pnpm's global bin directory
 must be set up once with `pnpm setup`), then rebuild after pulling changes:
