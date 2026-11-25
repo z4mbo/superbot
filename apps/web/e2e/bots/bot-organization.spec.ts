@@ -119,7 +119,14 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
 
-  const chiefId = activeBotId(page);
+  // The main bot is pinned first for good, so three bots of the person's own are reordered.
+  const { id: gammaId } = await rpc<{ id: string }>(page, "bots/create", {
+    name: "Gamma",
+    description: "",
+    instructions: "",
+    notifyOnFinish: true,
+    computerMode: "team",
+  });
   const alpha = await rpc<{ id: string }>(page, "bots/create", {
     name: "Alpha",
     description: "",
@@ -137,10 +144,10 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   await page.reload();
 
   const sidebar = page.locator("aside").first();
-  const rows = sidebar.locator("[data-roster-bot-id]");
+  const rows = sidebar.locator('[data-sidebar-group="unassigned"] [data-roster-bot-id]');
   const order = () =>
     rows.evaluateAll((items) => items.map((item) => item.getAttribute("data-roster-bot-id")));
-  await expect.poll(order).toEqual([chiefId, alpha.id, beta.id]);
+  await expect.poll(order).toEqual([gammaId, alpha.id, beta.id]);
 
   let releaseStaleList!: () => void;
   let markStaleListReady!: () => void;
@@ -175,20 +182,20 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   );
   await sidebar
     .locator(`[data-roster-bot-id="${beta.id}"]`)
-    .dragTo(sidebar.locator(`[data-roster-bot-id="${chiefId}"]`));
+    .dragTo(sidebar.locator(`[data-roster-bot-id="${gammaId}"]`));
   await reorderSaved;
   releaseStaleList();
   await staleListDelivered;
-  await expect.poll(order).toEqual([beta.id, chiefId, alpha.id]);
+  await expect.poll(order).toEqual([beta.id, gammaId, alpha.id]);
   await page.reload();
-  await expect.poll(order).toEqual([beta.id, chiefId, alpha.id]);
+  await expect.poll(order).toEqual([beta.id, gammaId, alpha.id]);
 
   const betaRow = sidebar.locator(`[data-roster-bot-id="${beta.id}"]`);
   await betaRow.focus();
   await page.keyboard.press("Alt+ArrowDown");
-  await expect.poll(order).toEqual([chiefId, beta.id, alpha.id]);
+  await expect.poll(order).toEqual([gammaId, beta.id, alpha.id]);
   await page.reload();
-  await expect.poll(order).toEqual([chiefId, beta.id, alpha.id]);
+  await expect.poll(order).toEqual([gammaId, beta.id, alpha.id]);
 
   let releaseRejectedReorder!: () => void;
   let markRejectedReorderStarted!: () => void;
@@ -209,7 +216,7 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   );
   await sidebar
     .locator(`[data-roster-bot-id="${alpha.id}"]`)
-    .dragTo(sidebar.locator(`[data-roster-bot-id="${chiefId}"]`));
+    .dragTo(sidebar.locator(`[data-roster-bot-id="${gammaId}"]`));
   await rejectedReorderStarted;
 
   const queuedReorderSaved = page.waitForResponse(
@@ -220,9 +227,9 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
     .dragTo(sidebar.locator(`[data-roster-bot-id="${alpha.id}"]`));
   releaseRejectedReorder();
   await queuedReorderSaved;
-  await expect.poll(order).toEqual([beta.id, alpha.id, chiefId]);
+  await expect.poll(order).toEqual([beta.id, alpha.id, gammaId]);
   await page.reload();
-  await expect.poll(order).toEqual([beta.id, alpha.id, chiefId]);
+  await expect.poll(order).toEqual([beta.id, alpha.id, gammaId]);
 });
 
 test("chat composer controls are vertically centered", async ({ page }, testInfo) => {
