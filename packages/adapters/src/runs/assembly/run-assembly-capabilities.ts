@@ -11,7 +11,13 @@ import {
   messagingDmSurfaceNote,
   nonOwnerChatPrivacyBlock,
 } from "@rakazo/core";
-import { availableInSpace, parseComputerMode } from "@rakazo/db";
+import type { PrismaClient } from "@rakazo/db";
+import {
+  availableInSpace,
+  ensureBotCapabilities,
+  parseComputerMode,
+  runAsSystem,
+} from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { createApprovedEffectReplayQueue } from "../../approvals/approval-effect.js";
 import { appendOutsideText, taskPromptIsOutside } from "../../approvals/review-target-sources.js";
@@ -236,6 +242,15 @@ export async function startTurnModel(
 
 export type StartedTurnModel = NonNullable<Awaited<ReturnType<typeof startTurnModel>>>;
 
+/** Its rows belong to the bot's owner and Space, whoever started the run. */
+function repairedBotComputer(prisma: PrismaClient, botId: string) {
+  return runAsSystem("give a bot made on an older version what creation gives", async () => {
+    await ensureBotCapabilities(prisma, botId);
+    return (await prisma.bot.findUnique({ where: { id: botId }, select: { computer: true } }))
+      ?.computer;
+  });
+}
+
 export async function prepareRunComputer(
   hold: RunHold,
   parts: {
@@ -250,8 +265,9 @@ export async function prepareRunComputer(
   const { context, runAbortController } = parts.connected;
   const { currentTurnMessage, history, historyMessages, turnBlocks } = parts.turnContext;
   const { resolved, runModelId, runModelProvider } = parts.model;
-  if (!bot.computer) throw new Error("Bot has no computer");
-  const storedComputer = bot.computer;
+  // A bot made on an older version may have no computer yet; it gets one before its first run.
+  const storedComputer = bot.computer ?? (await repairedBotComputer(deps.prisma, bot.id));
+  if (!storedComputer) throw new Error("Bot has no computer");
   const computerMode = parseComputerMode(storedComputer.scope);
   const artifacts = deps.artifacts;
   const recentFilesInput = {

@@ -1,4 +1,5 @@
 import type { AgentRunRequest } from "@rakazo/adapter-kit";
+import { PRIMARY_BOT_SPAWN_KEY } from "@rakazo/contracts";
 import {
   expandSkillReferencesInPrompt,
   formatSkillRunPrompt,
@@ -435,8 +436,14 @@ export async function buildTurnPrompt(
     ? undefined
     : await loadBotGroupDirectory(deps.prisma, run);
   const botDirectory =
-    [renderBotDirectory(parts.tools.teammates), groupDirectory].filter(Boolean).join("\n\n") ||
-    undefined;
+    [
+      renderBotDirectory(parts.tools.teammates, {
+        primary: parts.records.bot.spawnKey === PRIMARY_BOT_SPAWN_KEY,
+      }),
+      groupDirectory,
+    ]
+      .filter(Boolean)
+      .join("\n\n") || undefined;
   return {
     pluginLine,
     taughtSkillsLine,

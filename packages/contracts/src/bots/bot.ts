@@ -219,3 +219,6 @@ export const UpdateBotInput = z
     }
   });
 export type UpdateBotInput = z.infer<typeof UpdateBotInput>;
+
+/** The spawn key of a Space's main bot, which routes work to the other bots. */
+export const PRIMARY_BOT_SPAWN_KEY = "onboarding:first";
