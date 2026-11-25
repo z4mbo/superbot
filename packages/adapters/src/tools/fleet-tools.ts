@@ -359,6 +359,8 @@ async function prepareChildRoutine(
   const timing = compactScheduleInput(scheduleTimingArgs(args));
   const on = argumentGiven(args.on) ? toolEventsFromArg(args.on) : undefined;
   if (on && "error" in on) return refuse(on.error);
+  if (on?.on.apps.length)
+    return refuse("Add app events from that bot's own chat or routine editor.");
   const asksEvents = Boolean(on && (on.on.webhook || on.on.git || on.on.chat || on.on.email));
   const eventsOnly = asksEvents && Object.keys(timing).length === 0;
   const resolved = eventsOnly ? undefined : resolveScheduleTiming(timing, timezone);

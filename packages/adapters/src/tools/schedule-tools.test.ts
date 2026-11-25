@@ -1399,15 +1399,17 @@ describe("updateScheduleFromTool", () => {
     await expect(update({ prompt: "x", scopeThreadId: "group-thread-1" })).resolves.toEqual({
       error: "Schedule not found.",
     });
-    expect(findFirst).toHaveBeenCalledWith({
-      where: {
-        spaceId: "ws-1",
-        botId: "bot-1",
-        threadId: "group-thread-1",
-        id: "routine-1",
-        bot: { archivedAt: null },
-      },
-    });
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          spaceId: "ws-1",
+          botId: "bot-1",
+          threadId: "group-thread-1",
+          id: "routine-1",
+          bot: { archivedAt: null },
+        },
+      }),
+    );
     expect(updateMany).not.toHaveBeenCalled();
   });
 

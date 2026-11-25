@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export type InboundSource = "webhook" | "github" | "messaging" | "email";
+export type InboundSource = "webhook" | "github" | "messaging" | "email" | "app";
 
 /** Idempotency key of a messaging wake: one per provider message. */
 export function messagingWakeIdempotencyKey(provider: string, handle: string): string {

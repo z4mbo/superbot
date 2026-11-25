@@ -1,6 +1,6 @@
 import type { JobPublisher, SecretStore } from "@rakazo/adapter-kit";
 import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
-import type { InboundSource } from "@rakazo/adapters";
+import type { AppEventConnectors, InboundSource } from "@rakazo/adapters";
 import {
   inboundDeliveryClientNonce,
   inboundRoutineModelPin,
@@ -40,6 +40,8 @@ export type WebhookDeps = {
   secrets: SecretStore;
   events: WebhookEvents;
   jobs: Pick<JobPublisher, "enqueue">;
+  /** Verifies app event deliveries; absent where no integration provider pushes them. */
+  connectors?: AppEventConnectors;
 };
 
 export type WebhookTarget = {
@@ -276,7 +278,9 @@ export async function deliverWebhookEvent(
               ? "Inbound messaging event:"
               : input.source === "email"
                 ? "Inbound email:"
-                : "Inbound webhook payload:",
+                : input.source === "app"
+                  ? "Inbound app event:"
+                  : "Inbound webhook payload:",
           input.prompt,
         ].join("\n")
       : input.prompt;

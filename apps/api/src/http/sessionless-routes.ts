@@ -22,6 +22,8 @@ export const SESSIONLESS_ROUTES: Readonly<Record<string, string>> = {
   "POST /api/v1/bots/:botId/github": "a body signature made with the bot's webhook secret",
   "POST /api/v1/bots/:botId/github/issues/opened":
     "the same bot-specific body signature as the GitHub webhook, for opened issues only",
+  "POST /api/v1/app-events/:connectorId":
+    "the integration provider's body signature, checked by its adapter",
   "GET /api/v1/email/unsubscribe": "a signed token in the link, bound to one user",
   "POST /api/v1/email/unsubscribe": "a signed token in the link, bound to one user",
   "GET /api/meetings/media": "public: static meeting camera page, no session data",

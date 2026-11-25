@@ -22,8 +22,14 @@ import {
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { Prisma, runAsSystemInTransaction } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import * as z from "zod";
+import type { AppEventConnectors } from "../routines/routine-app-events.js";
+import {
+  releaseRoutineAppEventsIn,
+  settleRoutineAppEvents,
+} from "../routines/routine-app-events.js";
 import { postRoutineNotice, routineEditChange, routineEdited } from "../routines/routine-notice.js";
-import type { RoutineEvents } from "../routines/routine-triggers.js";
+import type { RoutineEvents, ToolAppEvent } from "../routines/routine-triggers.js";
 import {
   hasRoutineEvents,
   NO_ROUTINE_EVENTS,
@@ -38,6 +44,12 @@ import {
 } from "../routines/routine-triggers.prompt.js";
 import { validateRoutineWatch } from "../routines/routine-watch.js";
 import { localDateTime } from "../runs/assembly/current-time.prompt.js";
+import {
+  attachToolAppEvents,
+  TOOL_CHECKED_APP_EVENT_CONFLICT,
+  toolAppEventsFor,
+  toolAppEventsView,
+} from "./schedule-app-events.js";
 import type { ScheduleUnit } from "./schedule-intervals.js";
 import { intervalRangeError } from "./schedule-intervals.js";
 
@@ -303,6 +315,8 @@ export interface ScheduleToolDeps {
   inboundEmailDomain?: string;
   /** Holds the bot's webhook key, made when a routine first needs one. */
   secretStore?: Pick<SecretStore, "put">;
+  /** Subscribes app events at the integration provider that serves them. */
+  connectors?: AppEventConnectors;
 }
 
 const ONE_SHOT_FIELDS = ["runAt", "delayMinutes", "delaySeconds"] as const;
@@ -314,19 +328,22 @@ const ONE_SHOT_FIELDS = ["runAt", "delayMinutes", "delaySeconds"] as const;
 async function routineEventsFor(
   deps: Pick<ScheduleToolDeps, "prisma" | "inboundEmailDomain">,
   input: { spaceId: string; botId: string; userId: string; on: unknown; oneShot: boolean },
-): Promise<{ ok: true; events: RoutineEvents } | { error: string }> {
-  if (input.on === undefined) return { ok: true, events: NO_ROUTINE_EVENTS };
+): Promise<{ ok: true; events: RoutineEvents; apps: ToolAppEvent[] } | { error: string }> {
+  if (input.on === undefined) return { ok: true, events: NO_ROUTINE_EVENTS, apps: [] };
   const parsed = toolEventsFromArg(input.on);
   if ("error" in parsed) return parsed;
-  const { webhook, git, chat, email } = parsed.on;
-  if (!webhook && !git && !chat && !email) return { ok: true, events: NO_ROUTINE_EVENTS };
-  if (input.oneShot) return { error: "A one-time schedule takes no events (on)." };
+  const { webhook, git, chat, email, apps } = parsed.on;
+  if (input.oneShot && (webhook || git || chat || email || apps.length)) {
+    return { error: "A one-time schedule takes no events (on)." };
+  }
+  if (!webhook && !git && !chat && !email) return { ok: true, events: NO_ROUTINE_EVENTS, apps };
   const bot = await deps.prisma.bot.findFirst({
     where: { id: input.botId, spaceId: input.spaceId, archivedAt: null },
     select: { id: true, userId: true },
   });
   if (!bot) return { error: "Bot not found." };
-  return resolveRoutineEvents(deps, bot, input.userId, parsed.on);
+  const resolved = await resolveRoutineEvents(deps, bot, input.userId, parsed.on);
+  return "error" in resolved ? resolved : { ...resolved, apps };
 }
 
 /** Make the bot's webhook key if a webhook or Git event needs one and it has none yet. */
@@ -622,11 +639,39 @@ export async function createScheduleFromTool(
   });
   if ("error" in resolvedEvents) return { error: resolvedEvents.error };
   const { events } = resolvedEvents;
+  const appEvents = await toolAppEventsFor(
+    deps,
+    { spaceId: input.spaceId, userId: input.userId, botId: routineBotId },
+    resolvedEvents.apps,
+  );
+  if ("error" in appEvents) return { error: appEvents.error };
+  // App events are saved with the routine; one that cannot be saved takes the routine back out.
+  const withAppEvents = async <T extends { error: string } | { ok: true; routineId: string }>(
+    created: T,
+  ) => {
+    if (!("ok" in created) || !appEvents.events.length) return created;
+    const routine = { id: created.routineId, spaceId: input.spaceId, userId: input.userId };
+    const error = await attachToolAppEvents(deps, routine, appEvents.events);
+    if (error) {
+      await deps.prisma.routine.deleteMany({ where: { id: routine.id, spaceId: routine.spaceId } });
+      await deps.jobs.cancel(routineJobKey(routine.id));
+      return { error };
+    }
+    return { ...created, apps: toolAppEventsView(appEvents.events) };
+  };
+  if (appEvents.watch) {
+    if (hasScheduleTiming(input.schedule)) return { error: TOOL_CHECKED_APP_EVENT_CONFLICT };
+    const schedule = { watch: appEvents.watch };
+    return withAppEvents(
+      await createWatchFromTool(deps, { ...input, schedule, name, prompt, events }),
+    );
+  }
   if (input.schedule.watch !== undefined) {
-    return createWatchFromTool(deps, { ...input, name, prompt, events });
+    return withAppEvents(await createWatchFromTool(deps, { ...input, name, prompt, events }));
   }
   // Only events start it: no timing, so nothing to wake.
-  const eventsOnly = hasRoutineEvents(events) && !hasScheduleTiming(input.schedule);
+  const eventsOnly =
+    (hasRoutineEvents(events) || appEvents.events.length > 0) && !hasScheduleTiming(input.schedule);
   if (eventsOnly && isScheduleValueProvided(input.schedule.startAt)) {
     return { error: "startAt is only for repeating schedules." };
   }
@@ -716,7 +761,7 @@ export async function createScheduleFromTool(
     name: row.name,
   });
 
-  return {
+  return withAppEvents({
     ok: true as const,
     routineId: row.id,
     name: row.name,
@@ -725,7 +770,7 @@ export async function createScheduleFromTool(
     oneShot: isOneShotRoutineCrons(row.crons),
     ...describeRoutineTiming(row),
     ...eventsResult(events),
-  };
+  });
 }
 
 /** `schedule_create` tool arguments as createScheduleFromTool takes them. */
@@ -922,7 +967,15 @@ export async function listSchedulesFromTool(
   const rows = await deps.prisma.routine.findMany({
     where: { spaceId: input.spaceId, botId: input.botId },
     orderBy: { createdAt: "desc" },
+    include: { appEvents: { select: { app: true, event: true, settings: true } } },
   });
+  const appsOf = (row: (typeof rows)[number]) =>
+    toolAppEventsView(
+      (row.appEvents ?? []).map((event) => ({
+        ...event,
+        params: StringParams.safeParse(event.settings).data ?? {},
+      })),
+    );
   return {
     ...(input.groupThreadId ? { note: GROUP_LIST_NOTE } : {}),
     routines: rows.map((row) => ({
@@ -937,10 +990,13 @@ export async function listSchedulesFromTool(
       ...describeRoutineTiming(row),
       ...(row.watch ? { watch: row.watch, lastCheck: row.watchState ?? null } : {}),
       ...(hasRoutineEvents(row) ? { on: routineEventsView(row) } : {}),
+      ...(appsOf(row).length ? { apps: appsOf(row) } : {}),
       ...(input.groupThreadId ? { inThisChat: row.threadId === input.groupThreadId } : {}),
     })),
   };
 }
+
+const StringParams = z.record(z.string(), z.string());
 
 const GROUP_LIST_NOTE =
   "inThisChat marks the routines this group chat can change; change the others from the bot's own chat.";
@@ -1027,6 +1083,18 @@ export async function updateScheduleFromTool(
   };
   const existing = await deps.prisma.routine.findFirst({
     where: { ...scope, id: routineId, bot: { archivedAt: null } },
+    include: {
+      appEvents: {
+        select: {
+          app: true,
+          event: true,
+          settings: true,
+          checked: true,
+          handle: true,
+          connectorId: true,
+        },
+      },
+    },
   });
   if (!existing) {
     return input.scopeThreadId
@@ -1132,6 +1200,8 @@ export async function updateScheduleFromTool(
     messageProvider: existing.messageProvider,
     emailSenders: RoutineEmailSendersSchema.safeParse(existing.emailSenders).data ?? null,
   };
+  const existingAppEvents = existing.appEvents ?? [];
+  let appEvents: Awaited<ReturnType<typeof toolAppEventsFor>> | undefined;
   if (input.on !== undefined) {
     const resolved = await routineEventsFor(deps, {
       spaceId: input.spaceId,
@@ -1142,10 +1212,28 @@ export async function updateScheduleFromTool(
     });
     if ("error" in resolved) return { error: resolved.error };
     events = resolved.events;
+    // An app event checked for changes is the routine's watch, made or changed in the editor.
+    if (existingAppEvents.some((event) => event.checked)) {
+      return { error: "Change this routine's app event in the routine editor." };
+    }
+    appEvents = await toolAppEventsFor(
+      deps,
+      { spaceId: input.spaceId, userId: input.userId, botId: input.botId },
+      resolved.apps,
+    );
+    if ("error" in appEvents) return { error: appEvents.error };
+    if (appEvents.watch) return { error: TOOL_CHECKED_APP_EVENT_CONFLICT };
   } else if (isOneShotRoutineCrons(crons) && hasRoutineEvents(events)) {
     return { error: "A one-time schedule takes no events; remove them with on {} first." };
   }
-  if (crons.length === 0 && existing.watch == null && !hasRoutineEvents(events)) {
+  const appEventCount =
+    appEvents && "ok" in appEvents ? appEvents.events.length : existingAppEvents.length;
+  if (
+    crons.length === 0 &&
+    existing.watch == null &&
+    !hasRoutineEvents(events) &&
+    appEventCount === 0
+  ) {
     return { error: "A routine needs a schedule or an event. Cancel it instead." };
   }
   const eventsChanged =
@@ -1190,6 +1278,16 @@ export async function updateScheduleFromTool(
         ? "The schedule changed while saving. Call schedule_list and try again."
         : "Schedule not found.",
     };
+  }
+  const savedAppEvents = appEvents && "ok" in appEvents ? appEvents.events : undefined;
+  const pausedOrResumed =
+    active !== existing.active && existingAppEvents.some((event) => !event.checked);
+  if (savedAppEvents?.length || (savedAppEvents && existingAppEvents.length) || pausedOrResumed) {
+    const routine = { id: existing.id, spaceId: input.spaceId, userId: existing.userId };
+    const error = await attachToolAppEvents(deps, routine, savedAppEvents, {
+      syncNeeded: active !== existing.active,
+    });
+    if (error) return { error };
   }
   await deps.events.publishSpaceChange?.(input.spaceId, "routines");
 
@@ -1237,6 +1335,7 @@ export async function updateScheduleFromTool(
     oneShot: isOneShotRoutineCrons(crons),
     ...timing,
     ...(eventsChanged || input.on !== undefined ? eventsResult(events) : {}),
+    ...(savedAppEvents?.length ? { apps: toolAppEventsView(savedAppEvents) } : {}),
     // An unchanged prompt is not echoed; an edited one appears only in `changes`, before and after.
     changes: routineChanges(
       {
@@ -1315,6 +1414,7 @@ export async function cancelScheduleFromTool(
   };
   const existing = await deps.prisma.routine.findFirst({
     where: { ...scope, ...(routineId ? { id: routineId } : { name: name! }) },
+    include: { appEvents: { where: { handle: { not: null } }, select: { id: true } } },
   });
   if (!existing) {
     return input.threadId
@@ -1327,8 +1427,18 @@ export async function cancelScheduleFromTool(
   }
 
   // The scope is part of the delete, so the routine cannot change hands between the read and it.
-  const { count } = await deps.prisma.routine.deleteMany({ where: { ...scope, id: existing.id } });
+  // Its app events' subscriptions go with it: their release jobs commit with the delete.
+  const remove = async (client: Pick<Prisma.TransactionClient, "routine">) =>
+    (await client.routine.deleteMany({ where: { ...scope, id: existing.id } })).count;
+  const { count, releases } = existing.appEvents?.length
+    ? await deps.prisma.$transaction(async (tx) => {
+        const releases = await releaseRoutineAppEventsIn(tx, deps.jobs, existing);
+        const count = await remove(tx);
+        return { count, releases: count ? releases : [] };
+      })
+    : { count: await remove(deps.prisma), releases: [] };
   if (count === 0) return { error: "Schedule not found." };
+  await settleRoutineAppEvents(deps, null, releases);
   await deps.events.publishSpaceChange?.(input.spaceId, "routines");
   await deps.jobs.cancel(routineJobKey(existing.id));
   await postRoutineNotice(deps, {

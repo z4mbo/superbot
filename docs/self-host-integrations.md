@@ -159,6 +159,18 @@ person's account also needs Full Access to the mailbox in Exchange, and a tenant
 consent to the `.Shared` permissions. A new config affects new connections only, so people connected
 before the change must disconnect and reconnect Outlook.
 
+### App events
+
+Routines can start on events from connected apps (see [Routines](./routines.md#app-event)). The
+server creates and removes each subscription itself. To have Composio deliver events as they
+happen, add a webhook in the Composio dashboard for your project that sends trigger events to
+`https://<your API host>/api/v1/app-events/composio`, and set its signing secret as
+`COMPOSIO_WEBHOOK_SECRET` on the API and worker. A deployment that stores its Composio key in the
+app instead can include `webhookSecret` with that key. Composio sends a project's events to one
+webhook, so deployments sharing a Composio project receive each other's deliveries; each ignores
+the ones it did not subscribe. Without the secret, app events are checked every 5 minutes through
+the app's read tools instead. Pipedream declares no app events yet.
+
 `INTEGRATIONS_CATALOG_URL` points API connector search at an
 [integrations.sh](https://integrations.sh/)-compatible catalog, such as a mirror you host. Give the
 base URL; Rakazo appends `api/search`.

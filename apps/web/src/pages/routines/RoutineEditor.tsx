@@ -15,6 +15,7 @@ import { RoutineRunHistory } from "./RoutineRunHistory";
 import { RoutineSchedule } from "./RoutineSchedule";
 import { RoutineOwnerNote } from "./routine-editor/access-note";
 import { AddTriggerMenu } from "./routine-editor/add-trigger-menu";
+import { AppEventTriggerCard } from "./routine-editor/app-event-card";
 import { RoutineModelSettings } from "./routine-editor/model-settings";
 import {
   EmailTriggerCard,
@@ -84,6 +85,9 @@ export function RoutineEditor({
   });
   // Null when this server receives no email or the bot is another member's, which hides the trigger.
   const email = useQuery(queries.bots.emailAddress.queryOptions({ input: { botId: bot.id } })).data;
+  // Older servers have no app events; the menu then offers none.
+  const appEventSources =
+    useQuery({ ...queries.routines.appEventSources.queryOptions(), retry: false }).data ?? [];
   const scheduleDelayed =
     !scheduleStatus.isError &&
     (scheduleStatus.data === undefined
@@ -95,7 +99,8 @@ export function RoutineEditor({
     draft.githubEnabled ||
     Boolean(draft.messageProvider) ||
     Boolean(draft.emailSenders) ||
-    Boolean(draft.watch);
+    Boolean(draft.watch) ||
+    draft.appEvents.length > 0;
   const canTest = Boolean(editing) && !saving && !running;
   // Only the owner changes another member's routine; anyone may still turn it on or off.
   const readOnly = editing?.editable === false;
@@ -251,6 +256,23 @@ export function RoutineEditor({
               />
             ) : null}
 
+            {draft.appEvents.map((appEvent, index) => (
+              <AppEventTriggerCard
+                key={index}
+                value={appEvent}
+                sources={appEventSources}
+                onChange={(next) =>
+                  onChange({
+                    ...draft,
+                    appEvents: draft.appEvents.map((item, i) => (i === index ? next : item)),
+                  })
+                }
+                onRemove={() =>
+                  onChange({ ...draft, appEvents: draft.appEvents.filter((_, i) => i !== index) })
+                }
+              />
+            ))}
+
             {draft.messageProvider ? (
               <MessageTriggerCard
                 provider={draft.messageProvider}
@@ -298,6 +320,7 @@ export function RoutineEditor({
               emailAvailable={Boolean(email)}
               webhookConfigured={webhook.configured}
               onEnsureWebhook={onEnsureWebhook}
+              appEventSources={appEventSources}
             />
           )}
         </div>

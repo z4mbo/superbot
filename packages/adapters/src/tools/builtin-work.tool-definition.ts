@@ -91,6 +91,19 @@ const routineEventsSpec = {
     git: { type: "boolean" },
     chat: { type: "string" },
     email: { type: "string", enum: ["owner", "domain"] },
+    apps: {
+      type: "array",
+      description: "Connected-app events, e.g. a new GitHub issue; an unknown one lists them.",
+      items: {
+        type: "object",
+        properties: {
+          app: { type: "string" },
+          event: { type: "string" },
+          params: { type: "object" },
+        },
+        required: ["app", "event"],
+      },
+    },
   },
   additionalProperties: false,
 };

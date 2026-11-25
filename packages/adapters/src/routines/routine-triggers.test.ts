@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
 import {
+  asksRoutineEvents,
   canonicalToolEvents,
   EMAIL_NOT_RECEIVED,
   resolveRoutineEvents,
@@ -10,7 +11,7 @@ import {
 } from "./routine-triggers.js";
 
 const bot = { id: "bot-1", userId: "owner-1" };
-const none = { webhook: false, git: false, chat: null, email: null };
+const none = { webhook: false, git: false, chat: null, email: null, apps: [] };
 
 function triggerPrisma(options: { providers?: string[]; address?: boolean } = {}) {
   return {
@@ -37,7 +38,7 @@ describe("toolEventsFromArg", () => {
 
   it("refuses unknown fields and senders the editor does not offer", () => {
     expect(toolEventsFromArg({ cron: "0 9 * * *" })).toEqual({
-      error: "on takes webhook, git, chat or email, not cron.",
+      error: "on takes webhook, git, chat, email or apps, not cron.",
     });
     expect(toolEventsFromArg({ email: "anyone" })).toEqual({
       error: 'on.email is "owner" or "domain".',
@@ -48,6 +49,24 @@ describe("toolEventsFromArg", () => {
     expect(toolEventsFromArg("not json")).toEqual({
       error: 'on must be an object like {"webhook":true}.',
     });
+    expect(toolEventsFromArg({ apps: [{ app: "github" }] })).toEqual({
+      error: "on.apps is a list of up to 5 {app, event, params} objects.",
+    });
+  });
+
+  it("reads app events with their settings", () => {
+    expect(
+      toolEventsFromArg({
+        apps: [{ app: "github", event: "issue_added", params: { repository: "octo/hello" } }],
+      }),
+    ).toMatchObject({
+      ok: true,
+      on: {
+        apps: [{ app: "github", event: "issue_added", params: { repository: "octo/hello" } }],
+      },
+    });
+    expect(asksRoutineEvents({ apps: [{ app: "gmail", event: "new_message" }] })).toBe(true);
+    expect(canonicalToolEvents({ apps: [] })).toEqual({ ok: true, on: {} });
   });
 });
 

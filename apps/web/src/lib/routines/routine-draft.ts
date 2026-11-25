@@ -1,5 +1,11 @@
 import { t } from "@lingui/core/macro";
-import type { Routine, RoutineWatch, RoutineWatchInput } from "@rakazo/contracts";
+import type {
+  Routine,
+  RoutineAppEvent,
+  RoutineAppEventInput,
+  RoutineWatch,
+  RoutineWatchInput,
+} from "@rakazo/contracts";
 import { ROUTINE_WATCH_DEFAULT_MINUTES, RoutineWatchSchema } from "@rakazo/contracts";
 import type { RoutineDraft } from "@rakazo/core";
 import { draftFromRoutine, emptyRoutineDraft, isOneShotRoutineCrons } from "@rakazo/core";
@@ -32,7 +38,29 @@ export type RoutineDraftState = RoutineDraft & {
   inChat: boolean;
   /** Null unless the routine starts when something changes. */
   watch: RoutineWatchDraft | null;
+  /** Events from connected apps; saved ones carry what the server says about them. */
+  appEvents: RoutineAppEventDraft[];
 };
+
+export type RoutineAppEventDraft = RoutineAppEventInput & {
+  params: Record<string, string>;
+} & Partial<Pick<RoutineAppEvent, "label" | "checked" | "error">>;
+
+/** The app events as the api takes them: what the person chose, without the server's notes. */
+export function appEventsFromDraft(
+  events: readonly RoutineAppEventDraft[],
+): RoutineAppEventInput[] {
+  return events.map(({ app, event, connectionId, params }) => ({
+    app,
+    event,
+    connectionId,
+    params: Object.fromEntries(
+      Object.entries(params)
+        .map(([key, value]) => [key, value.trim()] as const)
+        .filter(([, value]) => value),
+    ),
+  }));
+}
 
 /** The change trigger as the editor holds it: free text until saved. */
 export type RoutineWatchDraft = {
@@ -132,6 +160,7 @@ export function emptyRoutineDraftState(): RoutineDraftState {
     thinkingLevel: "",
     inChat: false,
     watch: null,
+    appEvents: [],
   };
 }
 
@@ -149,5 +178,9 @@ export function draftStateFromRoutine(routine: Routine): RoutineDraftState {
     thinkingLevel: routine.thinkingLevel ?? "",
     inChat: routine.inChat,
     watch: watchDraftFromRoutine(routine.watch),
+    appEvents: (routine.appEvents ?? []).map((event) => ({
+      ...event,
+      params: { ...event.params },
+    })),
   };
 }

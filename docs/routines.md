@@ -45,10 +45,27 @@ watch can't be combined with a schedule.
 
 Gives you a URL and key. Any service that can send a POST request can start the routine.
 
+### App event
+
+Runs when something happens in an app you connected in **Plugins**: a new issue, pull request or
+commit in a GitHub repository, or a new Gmail message. Pick the app, the event and, where it asks,
+the repository; with more than one account of the app connected, pick the account too. The server
+sets up the subscription with the app for you when you save, removes it when you pause or delete
+the routine, and stops it if you disconnect the app (the routine then says to reconnect). Each
+event starts one run, even when the app sends it again.
+
+Your server's integration provider delivers events the moment they happen when its operator set up
+event delivery ([self-hosting](./self-host-integrations.md#app-events)). Otherwise the routine
+checks the app every 5 minutes instead, like a change trigger, so it can't be combined with a
+schedule or another change trigger.
+
+You can also ask in chat: "When someone opens an issue in octo/hello, triage it."
+
 ### Git event
 
-Gives you a URL to add as a GitHub webhook, so pushes, issues and pull requests can start the
-routine.
+Gives you a URL to add as a GitHub webhook, so pushes, issues and pull requests from any repository
+it is added to can start the routine. Use an app event instead to pick the repository and events
+without editing GitHub's settings.
 
 ### Email
 
@@ -66,7 +83,7 @@ server [receives email](./self-host-inbound-email.md).
 Runs when the bot receives a message in Slack. Needs [Slack connected](./messaging-apps.md).
 
 > [!NOTE]
-> A routine run started by a webhook, an email or a Slack message follows your
+> A routine run started by a webhook, an app event, an email or a Slack message follows your
 > [approval](./approvals.md) mode and Always allow list. Since outside text could steer it, tools
 > that change something are checked even if they never ask in your own chats. Nobody may be
 > watching, so an approval card it posts expires after 30 minutes by default and the action isn't done.
@@ -84,6 +101,6 @@ Runs when the bot receives a message in Slack. Needs [Slack connected](./messagi
 
 The mobile app lists a bot's routines from its profile. Tap **+** to create one. Tapping a routine
 shows its instruction, schedule, next run and run history, with a switch to pause it and a button to
-test it; **Edit routine** changes its name, instruction and schedules, or deletes it. Webhook, Git event, Slack
-message and change triggers, and a routine's own model, are set up in chat or the web or desktop
-app; mobile shows them and keeps them as they are.
+test it; **Edit routine** changes its name, instruction and schedules, or deletes it. Webhook, Git event, app
+event, Slack message and change triggers, and a routine's own model, are set up in chat or the web
+or desktop app; mobile shows them, keeps them as they are, and can remove them.

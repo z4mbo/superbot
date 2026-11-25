@@ -130,6 +130,8 @@ export interface AppEnv extends MessagingEnvironmentValues {
   /** Every computer provider's options, read through the provider's own environment bindings. */
   sandboxOptions: SandboxProviderOptions;
   composioApiKey: string | undefined;
+  /** Signs the integration provider's app event deliveries; without it, app events are polled. */
+  composioWebhookSecret?: string;
   /** Optional integrations.sh-compatible catalog base URL. */
   integrationsCatalogUrl: string | undefined;
   pipedreamClientId: string | undefined;
@@ -344,6 +346,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
       return sandboxOptions;
     },
     composioApiKey: source.COMPOSIO_API_KEY,
+    composioWebhookSecret: optional(source.COMPOSIO_WEBHOOK_SECRET),
     integrationsCatalogUrl: optional(source.INTEGRATIONS_CATALOG_URL),
     pipedreamClientId: optional(source.PIPEDREAM_CLIENT_ID),
     pipedreamClientSecret: optional(source.PIPEDREAM_CLIENT_SECRET),
