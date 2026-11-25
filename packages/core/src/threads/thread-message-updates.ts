@@ -23,7 +23,9 @@ export function takeoverComputerSettledState(reason: unknown): TakeoverComputerS
 }
 
 /** A computer card still asking the person to take control. */
-export function isPendingTakeoverComputer(block: MessageBlock): boolean {
+export function isPendingTakeoverComputer(
+  block: MessageBlock,
+): block is Extract<MessageBlock, { kind: "computer" }> {
   return block.kind === "computer" && block.state === TAKEOVER_COMPUTER_PENDING_STATE;
 }
 

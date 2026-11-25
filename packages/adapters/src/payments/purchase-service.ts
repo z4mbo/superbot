@@ -17,9 +17,9 @@ import {
 import type { PurchaseCardField } from "@rakazo/contracts";
 import { PurchaseIdInput, PurchaseRequestInput } from "@rakazo/contracts";
 import { deadlineSignal, withAbort } from "@rakazo/core";
-import type { Purchase } from "@rakazo/db";
+import type { Purchase, ThreadEvents } from "@rakazo/db";
 import { recordPayment, releasePayment } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { bestEffort, getLogger } from "@rakazo/logging";
 import { releaseUnpaidPurchase, spendingRefusalError } from "../billing/spending-gate.js";
 import { cardRedactionForms } from "../secrets/bot-secrets.js";
 import {
@@ -32,9 +32,12 @@ import {
 import type { SafeWebFetchOptions } from "../web/web-ssrf.js";
 import type { PaymentWalletDeps } from "./payment-wallets.js";
 import { withPaymentWalletCredential } from "./payment-wallets.js";
+import { syncWalletPurchaseCard, walletCardMethod } from "./purchase-card.js";
 
 export type PurchaseDeps = Omit<PaymentWalletDeps, "paymentWallet"> & {
   jobs: JobPublisher;
+  /** Signals the chat when a purchase's card changes. */
+  events?: Pick<ThreadEvents, "notify">;
   paymentWallet?: PaymentWalletProvider | null;
   paidRequestFetch?: Pick<SafeWebFetchOptions, "fetch" | "resolveHostname">;
 };
@@ -365,6 +368,11 @@ export async function recordSeenStatus(
     data,
   });
   if (saved.count) await releaseUnpaidPurchase(deps.prisma, purchase.operationKey, snapshot.status);
+  if (saved.count)
+    await bestEffort(
+      "purchase card",
+      syncWalletPurchaseCard(deps, purchase.id, { method: walletCardMethod(snapshot.card) }),
+    );
   if (saved.count && data.nextPollAt) await enqueuePurchasePoll(deps, purchase.id, data.nextPollAt);
   return { ...purchase, ...data };
 }

@@ -2,6 +2,7 @@ import { oc } from "@orpc/contract";
 import * as z from "zod";
 import { AnalyticsSurface } from "../account/analytics.js";
 import { Id } from "../ids.js";
+import { PurchaseCardState } from "../threads/message-blocks.js";
 import { AccessGrantInputSchema, AccessGrantSchema } from "./access-grants.js";
 import {
   BillingClientSchema,
@@ -12,6 +13,7 @@ import {
 } from "./billing.js";
 import {
   PaymentWalletStatusSchema,
+  PurchaseIdInput,
   SpendingLimitSchema,
   SpendingPaymentSchema,
   SpendingStatusSchema,
@@ -134,5 +136,7 @@ export const billingRpc = {
     /** Starts a sign-in the user finishes with the provider; `status` then reports it. */
     connect: oc.output(PaymentWalletStatusSchema),
     disconnect: oc.output(PaymentWalletStatusSchema),
+    /** Cancels a purchase its wallet has not paid yet, from the purchase card in chat. */
+    cancelPurchase: oc.input(PurchaseIdInput).output(z.object({ state: PurchaseCardState })),
   },
 };

@@ -41,7 +41,7 @@ function ReceiptRow({
 }
 
 /** A payment's order as the page shows it: its lines, then what is paid, then where it came from. */
-function AskReceiptView({ receipt }: { receipt: AskReceipt }) {
+export function AskReceiptView({ receipt }: { receipt: AskReceipt }) {
   const { button, more, amount, total } = receipt;
   const items = receiptItems(receipt.items, [t`Total`, t`On the button`]);
   const count = more ? `${more.count}${more.atLeast ? "+" : ""}` : "";

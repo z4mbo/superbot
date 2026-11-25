@@ -1647,6 +1647,8 @@ model Purchase {
   paymentChallenge String?
   requestCiphertext String?
   tokenCiphertext String?
+  /// The chat message holding this purchase's card, once it is posted.
+  messageId    String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

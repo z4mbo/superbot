@@ -94,6 +94,8 @@ export function purchaseCardSummary(purchase: PurchaseApproval): FleetCardSummar
   const listed = items.length > CARD_ITEMS ? items.slice(0, CARD_ITEMS - 1) : items;
   return {
     onceOnly: true,
+    // Drawn as an order card with Pay and Cancel; the method is added where the call types a card.
+    payment: { merchant: purchase.site },
     title: purchase.site
       ? `Pay on ${cardName(purchase.site)}?`
       : "Complete a payment on this page?",

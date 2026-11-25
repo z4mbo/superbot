@@ -183,6 +183,8 @@ function replyBlockText(block: MessageBlock): string {
     case "chart":
     case "routine_event":
       return block.name;
+    case "purchase":
+      return block.merchant;
     case "app":
       return block.server;
     case "tool_question":

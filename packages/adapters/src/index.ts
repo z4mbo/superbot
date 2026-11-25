@@ -156,6 +156,7 @@ export * from "./notifications/realtime.js";
 export * from "./payments/paid-services-factory.js";
 export * from "./payments/payment-wallet-factory.js";
 export * from "./payments/payment-wallets.js";
+export * from "./payments/purchase-card.js";
 export * from "./payments/purchase-poll.js";
 export * from "./payments/purchase-service.js";
 export * from "./personal-calendar/native-calendar.js";
