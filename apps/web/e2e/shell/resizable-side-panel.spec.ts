@@ -71,12 +71,21 @@ test("phone composer menu and settings panel stay tappable", async ({ page }, te
   const settings = page.getByTestId("bot-settings");
   await expect(settings).toBeVisible();
   // Trial clicks fail when another element, like the composer, would receive the tap.
-  for (const name of ["More actions", "Close panel", "Settings"]) {
+  for (const name of ["Bot settings", "Close panel", "Activity", "Library"]) {
+    await settings
+      .getByRole(name === "Activity" || name === "Library" ? "tab" : "button", {
+        name,
+        exact: true,
+      })
+      .click({ trial: true, timeout: 5_000 });
+  }
+  await captureScreenshot(page, testInfo, "bot-settings-mobile");
+  await settings.getByRole("button", { name: "Bot settings", exact: true }).click();
+  for (const name of ["Back", "More actions", "Close panel"]) {
     await settings
       .getByRole("button", { name, exact: true })
       .click({ trial: true, timeout: 5_000 });
   }
-  await captureScreenshot(page, testInfo, "bot-settings-mobile");
   await settings.getByRole("button", { name: "More actions", exact: true }).click();
   for (const name of ["Export", "Clear conversation"]) {
     await page.getByRole("menuitem", { name, exact: true }).click({ trial: true, timeout: 5_000 });

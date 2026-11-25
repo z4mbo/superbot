@@ -12,7 +12,7 @@ vi.mock("@lingui/react/macro", () => ({
   Trans: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock("@rakazo/ui-web", () => ({
-  BotAvatar: () => null,
+  BotAvatar: ({ state }: { state?: string }) => <span data-avatar-state={state ?? "status"} />,
   Button: ({
     variant: _variant,
     size: _size,
@@ -56,6 +56,7 @@ async function render(
   onOpen = vi.fn(),
   disk?: { cleaningUpDisk?: boolean; onCleanUpDisk: () => void; onDismissDiskWarning: () => void },
   embeddedScreenUrl: string | null = null,
+  overrides: Partial<ComponentProps<typeof ComputerPanel>> = {},
 ) {
   await act(async () => {
     root.render(
@@ -74,6 +75,7 @@ async function render(
         onRecoveryDismissed={() => undefined}
         onOpen={onOpen}
         {...disk}
+        {...overrides}
       />,
     );
   });
@@ -95,12 +97,72 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
+/** The compact row's two lines: the computer's name, then its state. */
+function rowLines() {
+  const row = container.querySelector('[data-testid="computer-preview"] > div');
+  return [...(row?.firstElementChild?.children ?? [])].map((line) => line.textContent);
+}
+
+it("shows the computer as one row: its name, its state and a thumbnail", async () => {
+  await render(computer("suspended"));
+  expect(rowLines()).toEqual(["Team Computer", "Asleep"]);
+  const thumbnail = container.querySelector('[data-testid="computer-preview-thumbnail"]');
+  expect(thumbnail?.querySelector("[data-avatar-state]")?.getAttribute("data-avatar-state")).toBe(
+    "asleep",
+  );
+  await render({ ...computer("stopped"), mode: "dedicated" });
+  expect(rowLines()).toEqual(["Ada’s computer", "Asleep"]);
+});
+
+it.each([
+  ["booting", "Booting live desktop…"],
+  ["running", "Connecting to the screen…"],
+  ["error", "Computer failed to boot"],
+] as const)("says a %s computer's state on its second line", async (state, line) => {
+  await render(computer(state));
+  expect(rowLines()).toEqual(["Team Computer", line]);
+  expect(container.querySelector("[data-avatar-state]")?.getAttribute("data-avatar-state")).toBe(
+    "status",
+  );
+});
+
+it("says a running computer with its screen is running and shows that screen small", async () => {
+  await render(computer("running"), vi.fn(), undefined, "https://screen.example.test/");
+  expect(rowLines()).toEqual(["Team Computer", "Running"]);
+  expect(
+    container.querySelector('[data-testid="computer-preview-thumbnail"] iframe'),
+  ).not.toBeNull();
+});
+
+it("says the computer is open while it shows in the full window", async () => {
+  const onOpen = await render(computer("running"), vi.fn(), undefined, null, {
+    computerOpen: true,
+  });
+  expect(rowLines()).toEqual(["Team Computer", "Open in full window"]);
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>('[data-testid="computer-preview-open"]')?.click(),
+  );
+  expect(onOpen).toHaveBeenCalledOnce();
+});
+
+it("shows a screen error under the row and does not open from it", async () => {
+  await render(computer("running"), vi.fn(), undefined, "https://screen.example.test/", {
+    computerScreenError: <p role="alert">Screen not connected</p>,
+  });
+  expect(container.querySelector('[data-testid="computer-preview-open"]')).toBeNull();
+  expect(container.querySelector("iframe")).toBeNull();
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe("Screen not connected");
+});
+
 it.each([null, computer("stopped"), computer("suspended")])(
   "shows an idle computer asleep until its Wake button is pressed",
   async (status) => {
     const onOpen = await render(status);
     expect(container.querySelector("iframe")).toBeNull();
     expect(container.querySelector('[data-state="idle"]')?.textContent).toContain("Asleep");
+    expect(container.querySelector('[data-testid="computer-preview-open"]')?.textContent).toBe(
+      "Wake",
+    );
     await act(async () =>
       container.querySelector<HTMLButtonElement>('[data-testid="computer-preview-open"]')?.click(),
     );

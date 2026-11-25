@@ -37,7 +37,14 @@ vi.mock("@lingui/react/macro", () => {
   return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
 });
 vi.mock("@rakazo/ui-web", async (importOriginal) => ({
-  OptionSelect: (await importOriginal<typeof UiWeb>()).OptionSelect,
+  ...(({ OptionSelect, Tabs, TabsContent, TabsList, TabsTrigger, cn }) => ({
+    OptionSelect,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+    cn,
+  }))(await importOriginal<typeof UiWeb>()),
   SectionHeading: ({ variant, ...props }: ComponentProps<"h3"> & { variant?: string }) => (
     <h3 data-variant={variant} {...props} />
   ),
@@ -82,6 +89,7 @@ vi.mock("../../space/ScratchpadSection", () => ({ ScratchpadSection: () => null 
 vi.mock("../../space/KnowledgeSection", () => ({ KnowledgeSection: () => null }));
 vi.mock("./avatar-studio-popover", () => ({ AvatarStudioPopover: () => null }));
 vi.mock("../../../components/pages/PagesList", () => ({ PagesList: () => null }));
+vi.mock("./bot-panel-library", () => ({ BotPanelLibrary: () => null }));
 
 import { BotSettings } from "./bot-panel";
 

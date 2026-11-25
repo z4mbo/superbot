@@ -89,7 +89,7 @@ export function RoutineList({
           type="button"
           data-testid="routine-create-button"
           onClick={onCreate}
-          className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 text-start text-body text-foreground hover:bg-muted"
+          className="flex min-h-12 w-full items-center justify-between gap-3 px-3 text-start text-body text-foreground hover:bg-accent"
         >
           <Trans>New routine</Trans>
           <Plus size={16} strokeWidth={1.6} aria-hidden className="text-muted-foreground" />
@@ -104,6 +104,7 @@ export function RoutineList({
             <RoutineListRow
               key={routine.id}
               routine={routine}
+              compact
               running={runningRoutineId === routine.id}
               onOpen={() => onEdit(routine)}
               onStop={onStop}
@@ -160,12 +161,15 @@ export function RoutineList({
 
 function RoutineListRow({
   routine,
+  compact = false,
   running,
   onOpen,
   onStop,
   onToggle,
 }: {
   routine: Routine;
+  /** A flush row inside a panel card, rather than a rounded row of the whole list. */
+  compact?: boolean;
   running: boolean;
   onOpen: () => void;
   onStop: () => void;
@@ -175,7 +179,9 @@ function RoutineListRow({
   const scheduleLabels = cronLabels(i18n.locale);
   const TriggerIcon = routineTriggerIcon(routine);
   return (
-    <div className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2.5 hover:bg-accent">
+    <div
+      className={`flex w-full items-center gap-2 hover:bg-accent ${compact ? "px-3 py-2" : "rounded-xl px-2.5 py-2.5"}`}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -185,7 +191,10 @@ function RoutineListRow({
           <TriggerIcon size={16} strokeWidth={1.6} className="text-muted-foreground" aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-body-lg font-medium text-foreground" dir="auto">
+          <span
+            className={`block truncate text-foreground ${compact ? "text-body" : "text-body-lg font-medium"}`}
+            dir="auto"
+          >
             {routine.name}
           </span>
           <span className="flex min-w-0 flex-wrap gap-x-2 text-body-sm text-muted-foreground/80">

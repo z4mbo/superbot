@@ -134,6 +134,9 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   });
   await editName("Researcher");
   await descriptionInput.fill("Finds reliable sources and turns them into concise briefs.");
+  const settings = page.getByTestId("bot-settings");
+  // The avatar is edited from the panel itself, back from its settings.
+  await settings.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByTestId("avatar-studio-trigger").click();
   const studio = page.getByTestId("avatar-studio");
   await expect(studio).toBeVisible();
@@ -155,7 +158,7 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(descriptionInput).toHaveValue(
     "Finds reliable sources and turns them into concise briefs.",
   );
-  const settings = page.getByTestId("bot-settings");
+  await settings.getByRole("button", { name: "Back", exact: true }).click();
   await settings.getByTestId("avatar-studio-trigger").click();
   await expect(studio).toBeVisible();
   await expect(yellow).toHaveAttribute("aria-pressed", "true");
@@ -164,18 +167,22 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   const modelRow = settings.getByRole("button", { name: /^Model/ });
   const openWork = settings.getByTestId("bot-scratchpad");
   const notifications = settings.getByRole("switch", { name: "Notifications", exact: true });
-  // Settings fold away by default; the panel itself shows the profile, computer and routines.
+  // Settings sit behind the gear; the panel itself shows the avatar, name and its tabs.
   await page.getByRole("button", { name: "Close panel" }).click();
   await openBotPanel(page);
   await expect(notifications).toHaveCount(0);
   await expect(modelRow).toHaveCount(0);
+  await expect(settings.getByRole("tab", { name: "Activity", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await openBotSettings(page);
   await settings.getByRole("button", { name: "More actions", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Export", exact: true })).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: "Clear conversation", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await openBotSettings(page);
   await expect(notifications).toBeVisible();
   await expect(openWork).toHaveCount(0);
   await expect(modelRow).toBeVisible();
@@ -194,8 +201,9 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
     botId: deletedBotPath.split("/").at(-1),
     title: "First fixture task",
   });
+  // Open work shows on the Activity tab.
   await page.getByRole("button", { name: "Close panel" }).click();
-  await openBotSettings(page);
+  await openBotPanel(page);
   await expect(openWork.getByText("First fixture task", { exact: true })).toBeVisible();
   await openWork.getByRole("button", { name: "Add open work" }).click();
   await openWork.getByRole("textbox", { name: "New open-work item" }).fill("Second fixture task");
