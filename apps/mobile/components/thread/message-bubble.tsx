@@ -54,6 +54,7 @@ import { ChangeUndo, isUndoableChange } from "../cards/change-undo";
 import { ImportSetupCard } from "../cards/ImportSetupCard";
 import { McpApprovalCard } from "../cards/McpApprovalCard";
 import { OutgoingDraftCard } from "../cards/OutgoingDraftCard";
+import { SignInCard } from "../cards/SignInCard";
 import { ToolQuestionCard } from "../cards/ToolQuestionCard";
 import { AudioAttachment } from "../media/audio-attachment";
 import type { ImageArtifactPreviewTarget } from "../media/image-artifact-viewer";
@@ -167,6 +168,7 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
           canAnswer={props.canAnswer}
         />
       );
+    if (first.kind === "sign_in") return <SignInCard key={`sign-in-${index}`} block={first} />;
     if (first.kind === "app") {
       const target = props.groupId
         ? { groupId: props.groupId }

@@ -21,6 +21,7 @@ export function messageHasInlineControls(blocks: readonly MessageBlock[]): boole
       block.kind === "app_connect" ||
       block.kind === "mcp_approval" ||
       block.kind === "tool_question" ||
+      block.kind === "sign_in" ||
       block.kind === "import_setup",
   );
 }
@@ -62,7 +63,8 @@ function isOwnCardBlock(block: MessageBlock): boolean {
     isSpecialMessageBlock(block) ||
     block.kind === "page" ||
     block.kind === "app" ||
-    block.kind === "tool_question"
+    block.kind === "tool_question" ||
+    block.kind === "sign_in"
   );
 }
 
