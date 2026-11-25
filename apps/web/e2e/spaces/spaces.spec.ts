@@ -7,7 +7,7 @@ import {
   signup,
 } from "../helpers/helpers";
 
-test("a new space starts empty, is renamed in its settings, and is deleted with its bots", async ({
+test("a new space opens with its own main bot, is renamed in its settings, and is deleted with its bots", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
