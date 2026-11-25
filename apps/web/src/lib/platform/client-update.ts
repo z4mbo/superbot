@@ -5,6 +5,7 @@ import {
   SERVER_BUILD_HEADER,
 } from "@rakazo/contracts";
 import { toast } from "@rakazo/ui-web";
+import { CLOUD_WEB } from "../../cloud/cloud-mode";
 import { getSnapshot as activeCall } from "../calls/call-session";
 import {
   composerHoldsUnsavedWork,
@@ -35,6 +36,11 @@ export type ClientUpdateDeps = {
   listen: (type: string, listener: () => void) => () => void;
   /** Every API reply. */
   responses: (listener: (response: Response) => void) => () => void;
+  /**
+   * Also ask the web server for a newer build at safe moments, without waiting for an API reply to
+   * name one. The hosted page talks to servers whose builds have nothing to do with its own.
+   */
+  watchServedBuild?: boolean;
   /** The build the web server serves right now, from `/build-id`. */
   servedBuild: () => Promise<string | null>;
   /** The shared recovery reload; false when its loop guard refused. */
@@ -149,7 +155,7 @@ export function createClientUpdates(deps: ClientUpdateDeps) {
   };
 
   const tryAt = (moment: Moment) => {
-    if (!target || checking || !safe(moment)) return;
+    if ((!target && !deps.watchServedBuild) || checking || !safe(moment)) return;
     if (deps.now() - lastCheck < CLIENT_UPDATE_CHECK_SPACING_MS) return;
     void reloadOntoServedBuild(moment);
   };
@@ -234,7 +240,9 @@ export function clientUpdates(): ReturnType<typeof createClientUpdates> {
       target.addEventListener(type, listener, { capture: true, passive: true });
       return () => target.removeEventListener(type, listener, { capture: true });
     },
-    responses: onRpcResponse,
+    // A workspace names its own web build, not the hosted page's, so its replies are not read.
+    responses: CLOUD_WEB ? () => () => {} : onRpcResponse,
+    watchServedBuild: CLOUD_WEB,
     servedBuild: async () => {
       const response = await fetch("/build-id", { cache: "no-store", credentials: "omit" });
       return response.ok ? (await response.text()).trim() : null;

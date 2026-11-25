@@ -8,6 +8,7 @@ import {
   VOICE_RESPONSE_TIMEOUT_MS,
   withAbort,
 } from "@rakazo/core";
+import { apiFetch } from "../api/api-origin";
 import { getActiveUiLocale } from "../locale/i18n.js";
 import { desktopBridge } from "../platform/desktop.js";
 import { selectedSpaceId, withSpaceHeaders } from "../query/rpc.js";
@@ -657,7 +658,7 @@ export class Dictation {
       const audioBase64 = await blobToBase64(blob);
       if (this.token !== mine) return;
       const res = await withAbort(
-        fetch("/api/voice/transcribe", {
+        apiFetch("/api/voice/transcribe", {
           method: "POST",
           headers: withSpaceHeaders({ "content-type": "application/json" }, spaceId),
           credentials: "include",

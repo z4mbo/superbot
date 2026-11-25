@@ -3,6 +3,7 @@ import type { AuditEvent } from "@rakazo/contracts";
 import { Button } from "@rakazo/ui-web";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { apiFetch } from "../../lib/api/api-origin";
 import { downloadArtifactBytes } from "../../lib/pages/artifact-open";
 import { queryClient } from "../../lib/query/query";
 import { recheckSessionOnUnauthorized, rpc, withSpaceHeaders } from "../../lib/query/rpc";
@@ -36,7 +37,7 @@ function detailLabels(event: AuditEvent): string[] {
  * own Space. The Space selected in the sidebar can belong to another organization.
  */
 async function downloadExport(spaceId: string): Promise<void> {
-  const response = await fetch("/api/audit-events/export", {
+  const response = await apiFetch("/api/audit-events/export", {
     headers: withSpaceHeaders(undefined, spaceId),
     credentials: "include",
   });

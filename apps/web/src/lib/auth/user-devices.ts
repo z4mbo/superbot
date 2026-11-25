@@ -1,9 +1,10 @@
 import { t } from "@lingui/core/macro";
 import type { UserDeviceRequest } from "@rakazo/core";
 import { listUserDevicesWith, readBoundedJsonResponse, removeUserDeviceWith } from "@rakazo/core";
+import { apiFetch } from "../api/api-origin";
 
 const request: UserDeviceRequest = async (path, method) => {
-  const response = await fetch(path, {
+  const response = await apiFetch(path, {
     ...(method === "DELETE" ? { method } : {}),
     signal: AbortSignal.timeout(8_000),
   });
