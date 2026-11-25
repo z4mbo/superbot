@@ -554,7 +554,9 @@ function RoutineEditor({
                     update(
                       trigger.key === "webhookEnabled" || trigger.key === "githubEnabled"
                         ? { [trigger.key]: false }
-                        : { [trigger.key]: null },
+                        : trigger.key === "appEvents"
+                          ? { appEvents: [] }
+                          : { [trigger.key]: null },
                     )
                   }
                 >
@@ -571,7 +573,7 @@ function RoutineEditor({
           {locked ? null : (
             <SettingsGroup>
               {/* A change trigger checks on its own interval, so it never shares a schedule. */}
-              {kept?.watch ? null : (
+              {kept?.watch || kept?.appEvents?.some((event) => event.checked) ? null : (
                 <SettingsRow
                   key="add"
                   accessibilityRole="button"

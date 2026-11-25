@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
 import type { AdapterContext, SecretStore } from "@rakazo/adapter-kit";
 import type { RoutineEmailSenders } from "@rakazo/contracts";
-import { RoutineEmailSendersSchema } from "@rakazo/contracts";
+import { ROUTINE_APP_EVENTS_MAX, RoutineEmailSendersSchema } from "@rakazo/contracts";
 import { messagingProviderName, messagingProviderNamed } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
+import * as z from "zod";
 
 export const EMAIL_NOT_RECEIVED = "This server doesn't receive email.";
 
@@ -55,12 +56,28 @@ export async function emailTriggerError(
   return row ? undefined : "Choose an email address for this bot first.";
 }
 
+/** An app event as a bot names it: the app, one of its events, and that event's settings. */
+export type ToolAppEvent = { app: string; event: string; params: Record<string, string> };
+
+const ToolAppEventsSchema = z
+  .array(
+    z
+      .object({
+        app: z.string().trim().min(1).max(100),
+        event: z.string().trim().min(1).max(200),
+        params: z.record(z.string().trim().min(1).max(100), z.string().trim().max(500)).optional(),
+      })
+      .strict(),
+  )
+  .max(ROUTINE_APP_EVENTS_MAX);
+
 /** A bot's `on` argument before the bot's own connections are checked. */
 type ToolEvents = {
   webhook: boolean;
   git: boolean;
   chat: string | null;
   email: RoutineEmailSenders | null;
+  apps: ToolAppEvent[];
 };
 
 /** Read a tool's `on` object (or its JSON text); blank fields count as absent. */
@@ -80,9 +97,11 @@ export function toolEventsFromArg(
   }
   const fields = raw as Record<string, unknown>;
   const unknown = Object.keys(fields).filter(
-    (key) => !["webhook", "git", "chat", "email"].includes(key),
+    (key) => !["webhook", "git", "chat", "email", "apps"].includes(key),
   );
-  if (unknown.length) return { error: `on takes webhook, git, chat or email, not ${unknown[0]}.` };
+  if (unknown.length) {
+    return { error: `on takes webhook, git, chat, email or apps, not ${unknown[0]}.` };
+  }
   const flag = (key: "webhook" | "git") => {
     const field = fields[key];
     if (field === undefined || field === null || field === "") return false;
@@ -108,7 +127,17 @@ export function toolEventsFromArg(
     if (!parsed.success) return { error: 'on.email is "owner" or "domain".' };
     email = parsed.data;
   }
-  return { ok: true, on: { webhook, git, chat, email } };
+  let apps: ToolAppEvent[] = [];
+  if (fields.apps !== undefined && fields.apps !== null && fields.apps !== "") {
+    const parsed = ToolAppEventsSchema.safeParse(fields.apps);
+    if (!parsed.success) {
+      return {
+        error: `on.apps is a list of up to ${ROUTINE_APP_EVENTS_MAX} {app, event, params} objects.`,
+      };
+    }
+    apps = parsed.data.map((entry) => ({ ...entry, params: entry.params ?? {} }));
+  }
+  return { ok: true, on: { webhook, git, chat, email, apps } };
 }
 
 /** A chat app's name is a word or two; anything longer is not one. */
@@ -126,12 +155,13 @@ export function canonicalToolEvents(
   if (value === undefined || value === null || value === "") return { ok: true, on: undefined };
   const parsed = toolEventsFromArg(value);
   if ("error" in parsed) return parsed;
-  const { webhook, git, chat, email } = parsed.on;
+  const { webhook, git, chat, email, apps } = parsed.on;
   const on = {
     ...(webhook ? { webhook: true } : {}),
     ...(git ? { git: true } : {}),
     ...(chat ? { chat } : {}),
     ...(email ? { email } : {}),
+    ...(apps.length ? { apps } : {}),
   };
   return { ok: true, on };
 }
@@ -141,8 +171,8 @@ export function asksRoutineEvents(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return false;
   const parsed = toolEventsFromArg(value);
   if ("error" in parsed) return false;
-  const { webhook, git, chat, email } = parsed.on;
-  return Boolean(webhook || git || chat || email);
+  const { webhook, git, chat, email, apps } = parsed.on;
+  return Boolean(webhook || git || chat || email || apps.length);
 }
 
 /**
@@ -156,7 +186,7 @@ export async function resolveRoutineEvents(
   deps: { prisma: PrismaClient; inboundEmailDomain?: string | undefined },
   bot: { id: string; userId: string },
   userId: string,
-  on: ToolEvents,
+  on: Omit<ToolEvents, "apps">,
 ): Promise<{ ok: true; events: RoutineEvents } | { error: string }> {
   const events: RoutineEvents = {
     webhookEnabled: on.webhook,

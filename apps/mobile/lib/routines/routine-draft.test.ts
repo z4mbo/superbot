@@ -163,6 +163,45 @@ describe("routineSaveRequest", () => {
     });
   });
 
+  it("keeps app events set up on web, removes them together, and leaves them out of a copy", () => {
+    const evented: Routine = {
+      ...routine,
+      crons: [],
+      appEvents: [
+        {
+          app: "github",
+          event: "issue_added",
+          connectionId: "connection-1",
+          params: { repository: "octo/hello" },
+          label: "GitHub: New issue",
+          checked: false,
+          error: null,
+        },
+      ],
+    };
+    const opened = draftFromRoutine(evented);
+    expect(routineSaveRequest({ ...opened, name: "Triage" }, evented, "bot-1", "UTC")).toEqual({
+      update: { routineId: "routine-1", name: "Triage" },
+    });
+    expect(routineSaveRequest({ ...opened, appEvents: [] }, evented, "bot-1", "UTC")).toEqual({
+      error: "trigger",
+    });
+    const scheduled = { ...evented, crons: ["0 9 * * 1-5"] };
+    expect(
+      routineSaveRequest(
+        { ...draftFromRoutine(scheduled), appEvents: [] },
+        scheduled,
+        "bot-1",
+        "UTC",
+      ),
+    ).toEqual({ update: { routineId: "routine-1", appEvents: [] } });
+    // The copier may not have connected the app, so a copy that only events start needs a trigger.
+    const copy = routineCopy(evented, "Triage (copy)")!;
+    expect(routineSaveRequest(draftFromRoutine(copy), null, "bot-1", "UTC", copy)).toEqual({
+      error: "trigger",
+    });
+  });
+
   it("never rewrites a one-shot's schedule", () => {
     const once = { ...routine, crons: ["@once"] };
     const draft = { ...draftFromRoutine(once), name: "Call Dana" };

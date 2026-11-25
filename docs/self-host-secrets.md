@@ -86,6 +86,7 @@ From `.env.images.example` (images installer). Leave blank if unused:
 | `OPENROUTER_API_KEY`                                           | Deployment-wide OpenRouter models                                                                   |
 | `TYPESAFE_API_KEY`                                             | Optional TypeSafe Jev Auto Review verifier (`RAKAZO_AUTO_REVIEW_PROVIDER=jev`)                      |
 | `COMPOSIO_API_KEY`                                             | Composio managed catalog                                                                            |
+| `COMPOSIO_WEBHOOK_SECRET`                                      | App events delivered as they happen; see [app events](./self-host-integrations.md#app-events)       |
 | `E2B_API_KEY` / `DAYTONA_API_KEY` / `BOAT_API_KEY`             | Remote computers when `SANDBOX_PROVIDER` is not `docker`                                            |
 | `EMAIL_PROVIDER` / `EMAIL_API_KEY` / `SMTP_URL` / `EMAIL_FROM` | Optional account email via Resend API or SMTP                                                       |
 | `BOT_EMAIL_SMTP_URL`                                           | Separate TLS SMTP connection for bot sending; see [bot email](./self-host-inbound-email.md#sending) |

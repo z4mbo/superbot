@@ -13,6 +13,7 @@ import { sharedInflight } from "../../lib/query/shared-inflight";
 import { errorCode, errorText } from "../../lib/query/user-error";
 import type { RoutineDraftState } from "../../lib/routines/routine-draft";
 import {
+  appEventsFromDraft,
   draftStateFromRoutine,
   emptyRoutineDraftState,
   routineNeedsOneShotArm,
@@ -218,7 +219,8 @@ export function useRoutineEditor({
             !routineDraft.githubEnabled &&
             !routineDraft.messageProvider &&
             !routineDraft.emailSenders &&
-            !routineDraft.watch
+            !routineDraft.watch &&
+            !routineDraft.appEvents.length
           ) {
             setRoutineError(t`Add a trigger to run this routine.`);
             return;
@@ -229,6 +231,7 @@ export function useRoutineEditor({
             return;
           }
           const watch = watchResult?.watch ?? null;
+          const appEvents = appEventsFromDraft(routineDraft.appEvents);
           const saveRequest = ++routineSaveRequest.current;
           routineSavePending.current = true;
           setSavingRoutine(true);
@@ -283,6 +286,11 @@ export function useRoutineEditor({
                 messageProvider: routineDraft.messageProvider,
                 emailSenders: routineDraft.emailSenders,
                 watch,
+                // Sent only when changed, so a save that leaves them alone never asks the app again.
+                ...(JSON.stringify(appEvents) !==
+                JSON.stringify(appEventsFromDraft(targetRoutine.appEvents ?? []))
+                  ? { appEvents }
+                  : {}),
                 ...(routineDraft.inChat !== targetRoutine.inChat
                   ? { inChat: routineDraft.inChat }
                   : {}),
@@ -307,6 +315,7 @@ export function useRoutineEditor({
                 messageProvider: routineDraft.messageProvider,
                 emailSenders: routineDraft.emailSenders,
                 watch,
+                ...(appEvents.length ? { appEvents } : {}),
                 inChat: routineDraft.inChat,
                 ...routineModel,
               });

@@ -27,6 +27,11 @@ export function formatMessagingEventPrompt(provider: unknown, payload: unknown):
   );
 }
 
+/** An event from one of the owner's connected apps; its data was written by someone else. */
+export function formatAppEventPrompt(payload: Record<string, unknown>): string {
+  return formatUntrustedDeliveryPayload("[App Event]", payload);
+}
+
 export function formatRoutineEmailPrompt(payload: Record<string, unknown>): string {
   return formatUntrustedDeliveryPayload("[Email]", payload);
 }

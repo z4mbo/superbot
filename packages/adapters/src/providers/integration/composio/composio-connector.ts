@@ -30,10 +30,12 @@ import {
   mergeCatalogWithConnected,
 } from "./composio-catalog-cache.js";
 import {
+  isComposioNotFoundError,
   isComposioOutage,
   isStaleConnectedAccountError,
   staleAccountIds,
 } from "./composio-errors.js";
+import { composioEventSource } from "./composio-events.js";
 
 type SdkSession = Awaited<ReturnType<Composio["create"]>>;
 
@@ -48,6 +50,7 @@ export type ComposioClient = {
   tools?: Pick<Composio["tools"], "proxyExecute">;
   sessions: { use(sessionId: string): Promise<ComposioSession> };
   connectedAccounts: Pick<Composio["connectedAccounts"], "list" | "waitForConnection" | "delete">;
+  triggers?: Pick<Composio["triggers"], "create" | "delete">;
   toolkits: {
     get(query: {
       limit?: number;
@@ -462,9 +465,15 @@ export class ComposioConnector implements ComposioProvider {
   /** Only the keyless default connector shares the process-wide directory cache. */
   private readonly directoryCache: typeof composioToolkitDirectory;
 
-  constructor(options: { apiKey?: string; client?: ComposioClient } = {}) {
+  /** `webhookSecret` signs the project's trigger deliveries; without it, app events are polled. */
+  constructor(options: { apiKey?: string; client?: ComposioClient; webhookSecret?: string } = {}) {
     this.apiKey = options.apiKey;
     this.client = options.client;
+    const events = composioEventSource(() => this.sdk(), options.webhookSecret);
+    this.eventTypes = events.eventTypes;
+    this.subscribeEvent = events.subscribeEvent;
+    this.unsubscribeEvent = events.unsubscribeEvent;
+    this.verifyEventDelivery = events.verifyEventDelivery;
     // The directory records which apps this project can sign in to, so each key needs its own.
     this.directoryCache =
       options.client || options.apiKey ? createToolkitDirectoryCache() : composioToolkitDirectory;
@@ -475,6 +484,10 @@ export class ComposioConnector implements ComposioProvider {
     });
     return active.includes(accountId) ? (await this.sdk()).tools : undefined;
   });
+  readonly eventTypes: ManagedConnectorProvider["eventTypes"];
+  readonly subscribeEvent: ManagedConnectorProvider["subscribeEvent"];
+  readonly unsubscribeEvent: ManagedConnectorProvider["unsubscribeEvent"];
+  readonly verifyEventDelivery: ManagedConnectorProvider["verifyEventDelivery"];
   private readonly catalogSessions = new Map<string, string>();
   private readonly executeSessions = new Map<string, { sessionId: string; key: string }>();
 
@@ -1069,12 +1082,6 @@ export class ComposioConnector implements ComposioProvider {
     }
     return this.client;
   }
-}
-
-function isComposioNotFoundError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const candidate = error as { status?: unknown; statusCode?: unknown };
-  return candidate.status === 404 || candidate.statusCode === 404;
 }
 
 function connectedComposioConnections(context: AdapterContext): ConnectedConnector[] {
