@@ -28,9 +28,10 @@ export function computerProviderDescriptor(id: string) {
 export function computerProviderDescriptors(perAccount = false): ComputerProviderDescriptor[] {
   return computerProviderRegistry
     .filter((entry) => !perAccount || entry.capabilities.perAccount)
-    .map(({ id, displayName, fields, capabilities }) => ({
+    .map(({ id, displayName, featured, fields, capabilities }) => ({
       id,
       displayName,
+      featured,
       fields,
       capabilities,
     }));
@@ -41,7 +42,14 @@ function settingsProvider(
   id: string,
   { env = {}, settings }: ComputerProviderDefinition,
 ): SettingsComputerProvider {
-  const { displayName, perAccount = false, fields, validate, verifyConnection } = settings!;
+  const {
+    displayName,
+    featured = false,
+    perAccount = false,
+    fields,
+    validate,
+    verifyConnection,
+  } = settings!;
   const options = new Map(fields.map((field) => [field.key, field.option]));
   const publicFields: ComputerProviderField[] = fields.map(({ option, ...field }) => ({
     ...field,
@@ -51,6 +59,7 @@ function settingsProvider(
   return {
     id,
     displayName,
+    featured,
     capabilities: { perAccount },
     fields: publicFields,
     verify(values) {

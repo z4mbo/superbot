@@ -270,3 +270,107 @@ it("lets an optional choice go back to the provider's default", async () => {
     values: { ...saved.values, region: "" },
   });
 });
+
+const locations = {
+  provider: "default",
+  defaultProvider: "local-runner",
+  defaultLocation: "server" as const,
+  providers: [
+    {
+      id: "other-cloud",
+      displayName: "Other cloud",
+      capabilities: { perAccount: false },
+      fields: [{ key: "apiToken", label: "API token", kind: "secret", required: true }],
+    },
+    {
+      id: "first-cloud",
+      displayName: "First cloud",
+      featured: true,
+      capabilities: { perAccount: false },
+      fields: [
+        { key: "apiKey", label: "API key", kind: "secret", required: true },
+        { key: "org", label: "Organization", kind: "text", required: false },
+      ],
+    },
+    {
+      id: "second-cloud",
+      displayName: "Second cloud",
+      featured: true,
+      capabilities: { perAccount: false },
+      fields: [
+        { key: "apiKey", label: "API key", kind: "secret", required: true },
+        { key: "apiUrl", label: "API URL", kind: "url", required: false },
+      ],
+    },
+  ],
+  values: {},
+  savedSecrets: {},
+};
+
+/** Opens the provider picker and returns its rows: option labels, and a line for each divider. */
+async function openPicker() {
+  await act(async () => host.querySelector<HTMLElement>('[role="combobox"]')?.click());
+  return [
+    ...document.querySelectorAll<HTMLElement>('[role="option"], [data-slot="select-separator"]'),
+  ].map((node) => (node.getAttribute("role") === "option" ? node.textContent : "---"));
+}
+
+async function pick(label: string) {
+  const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+    (node) => node.textContent === label,
+  );
+  await act(async () => option?.click());
+}
+
+function labels() {
+  return [...host.querySelectorAll("label")].map((node) => node.textContent);
+}
+
+it("offers where computers run first: the local default, then featured providers", async () => {
+  deployment.get.mockResolvedValue(locations);
+  deployment.update.mockImplementation(async (next) => ({ ...locations, ...next }));
+  await act(async () => root.render(settings({ scope: "deployment" })));
+  expect(host.querySelector('[role="combobox"]')?.textContent).toContain("Local (this server)");
+  expect(await openPicker()).toEqual([
+    "Local (this server)",
+    "First cloud",
+    "Second cloud",
+    "---",
+    "Other cloud",
+  ]);
+
+  await pick("First cloud");
+  expect(labels()).toEqual(["New computers run on", "API key", "Organization"]);
+  await openPicker();
+  await pick("Second cloud");
+  expect(labels()).toEqual(["New computers run on", "API key", "API URL"]);
+  await act(async () => paste("API key", "example-key"));
+  await act(async () => host.querySelector("form")?.requestSubmit());
+  expect(deployment.update).toHaveBeenLastCalledWith({
+    provider: "second-cloud",
+    values: { apiKey: "example-key" },
+  });
+
+  // The rest stay a choice too.
+  await openPicker();
+  await pick("Other cloud");
+  expect(labels()).toEqual(["New computers run on", "API token"]);
+});
+
+it("names the default for the machine it runs on, and plainly when it is neither", async () => {
+  deployment.get.mockResolvedValue({ ...locations, defaultLocation: "device" });
+  await act(async () => root.render(settings({ scope: "deployment" })));
+  expect(host.querySelector('[role="combobox"]')?.textContent).toContain("Local (this computer)");
+  await act(async () => root.unmount());
+
+  root = createRoot(host);
+  const { defaultLocation: _hosted, ...hosted } = locations;
+  deployment.get.mockResolvedValue({
+    ...hosted,
+    providers: hosted.providers.map(({ featured: _featured, ...provider }) => provider),
+  });
+  await act(async () => root.render(settings({ scope: "deployment" })));
+  expect(host.querySelector('[role="combobox"]')?.textContent).toContain("Default");
+  // Without featured providers nothing is set apart.
+  expect(await openPicker()).toEqual(["Default", "Other cloud", "First cloud", "Second cloud"]);
+});

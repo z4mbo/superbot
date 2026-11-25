@@ -83,9 +83,14 @@ export type ComputerReleaseReason = z.infer<typeof ComputerReleaseReasonSchema>;
 
 export const ComputerProviderFieldSchema = ProviderSettingsFieldSchema;
 export type ComputerProviderField = ProviderSettingsField;
+/** Where a provider's computers run, when that is a machine the viewer knows. */
+export const ComputerLocationSchema = z.enum(["server", "device"]);
+export type ComputerLocation = z.infer<typeof ComputerLocationSchema>;
 export const ComputerProviderDescriptorSchema = z.object({
   id: z.string(),
   displayName: z.string(),
+  /** Offered among the main choices, ahead of the rest. */
+  featured: z.boolean().optional(),
   fields: z.array(ComputerProviderFieldSchema),
   capabilities: z.object({ perAccount: z.boolean() }),
 });
@@ -93,6 +98,8 @@ export type ComputerProviderDescriptor = z.infer<typeof ComputerProviderDescript
 export const ComputerProviderSettingsSchema = z.object({
   provider: z.string(),
   defaultProvider: z.string(),
+  /** Where the default's computers run; absent when that is a hosted service or nowhere. */
+  defaultLocation: ComputerLocationSchema.optional(),
   providers: z.array(ComputerProviderDescriptorSchema),
   values: z.record(z.string(), z.string()),
   savedSecrets: z.record(z.string(), z.boolean()),

@@ -39,7 +39,13 @@ describe.each(computerProviderRegistry)("$id settings conformance", (descriptor)
       if (field.kind === "select") expect(field.options?.length).toBeGreaterThan(0);
     }
     const publicView = computerProviderDescriptors().find((entry) => entry.id === descriptor.id)!;
-    expect(Object.keys(publicView).sort()).toEqual(["capabilities", "displayName", "fields", "id"]);
+    expect(Object.keys(publicView).sort()).toEqual([
+      "capabilities",
+      "displayName",
+      "featured",
+      "fields",
+      "id",
+    ]);
     expect(JSON.stringify(publicView)).not.toContain("example-value");
   });
   it("rejects unknown fields and missing required input", () => {
@@ -99,4 +105,12 @@ it("returns only the options a provider's fields set, so other environment optio
   });
   // A blank region means the provider's default, not the environment's region.
   expect(wuying).toHaveProperty("wuyingRegionId", undefined);
+});
+
+it("features the hosted providers Settings offers first, in registry order", () => {
+  expect(
+    computerProviderDescriptors()
+      .filter((entry) => entry.featured)
+      .map((entry) => entry.id),
+  ).toEqual(["boat", "boxd"]);
 });

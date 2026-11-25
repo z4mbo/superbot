@@ -1,10 +1,12 @@
 import { cn } from "@rakazo/ui-web/lib/utils";
+import { Fragment } from "react";
 import type { FieldSize } from "../../lib/control-size.js";
 import {
   Select,
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "./select.js";
@@ -14,6 +16,8 @@ type SelectOption<T extends string> = {
   readonly value: T;
   readonly label: string;
   readonly disabled?: boolean;
+  /** Draws a line above it, setting it and the options after it apart from those before. */
+  readonly startsGroup?: boolean;
 };
 
 /**
@@ -70,10 +74,13 @@ function OptionSelect<T extends string>({
       {/* As wide as its longest option, never narrower than the button. */}
       <SelectContent className="w-max max-w-(--available-width) min-w-(--anchor-width)">
         <SelectGroup>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
-              {option.label}
-            </SelectItem>
+          {options.map((option, index) => (
+            <Fragment key={option.value}>
+              {option.startsGroup && index > 0 ? <SelectSeparator /> : null}
+              <SelectItem value={option.value} disabled={option.disabled}>
+                {option.label}
+              </SelectItem>
+            </Fragment>
           ))}
         </SelectGroup>
       </SelectContent>

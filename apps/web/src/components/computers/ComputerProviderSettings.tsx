@@ -111,6 +111,27 @@ export function ComputerProviderSettings({
   };
   const descriptor = settings.providers.find((provider) => provider.id === draft.provider);
   if (settings.providers.length === 0) return null;
+  // The default first, named for the machine it runs on when that is one the viewer knows, then
+  // the providers the server features, then the rest set apart below them.
+  const featured = settings.providers.filter((provider) => provider.featured);
+  const others = settings.providers.filter((provider) => !provider.featured);
+  const providerOptions = [
+    {
+      value: "default",
+      label:
+        settings.defaultLocation === "server"
+          ? t`Local (this server)`
+          : settings.defaultLocation === "device"
+            ? t`Local (this computer)`
+            : t`Default`,
+    },
+    ...featured.map((provider) => ({ value: provider.id, label: provider.displayName })),
+    ...others.map((provider, index) => ({
+      value: provider.id,
+      label: provider.displayName,
+      startsGroup: index === 0 && featured.length > 0,
+    })),
+  ];
   return (
     <>
       <form
@@ -136,13 +157,7 @@ export function ComputerProviderSettings({
                   values: provider === settings.provider ? settings.values : {},
                 })
               }
-              options={[
-                { value: "default", label: t`Default` },
-                ...settings.providers.map((provider) => ({
-                  value: provider.id,
-                  label: provider.displayName,
-                })),
-              ]}
+              options={providerOptions}
             />
           </Field>
           {descriptor?.fields.map((field) => {

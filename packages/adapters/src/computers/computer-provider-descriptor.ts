@@ -107,6 +107,8 @@ export interface ComputerProviderDefinition {
   /** Present when a Space or account can connect this provider from Settings. */
   settings?: {
     displayName: string;
+    /** Settings offers it among the main choices, ahead of the rest. */
+    featured?: boolean;
     perAccount?: boolean;
     fields: readonly ComputerSettingsField[];
     /** Checks beyond each field's own. */

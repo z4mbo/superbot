@@ -144,6 +144,8 @@ describe("computer provider settings", () => {
     expect(saved).toMatchObject({
       provider: "desktop",
       defaultProvider: "docker",
+      // The default runs on this deployment's own server, so Settings can say so.
+      defaultLocation: "server",
       values: { desktopId: "ecd-test", mcpUrl: testDesktop.mcpUrl },
       savedSecrets: { accessKeyId: true, accessKeySecret: true, mcpToken: true },
     });

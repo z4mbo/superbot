@@ -37,6 +37,7 @@ export const computerProviderRegistry: readonly SettingsComputerProvider[] = [
   {
     id: "test-cloud",
     displayName: "Test cloud",
+    featured: true,
     capabilities: { perAccount: false },
     fields: [{ key: "apiKey", label: "API key", kind: "secret", required: true }],
     verify(values) {
@@ -53,9 +54,10 @@ export function computerProviderDescriptor(id: string) {
 export function computerProviderDescriptors(perAccount = false) {
   return computerProviderRegistry
     .filter((entry) => !perAccount || entry.capabilities.perAccount)
-    .map(({ id, displayName, capabilities, fields }) => ({
+    .map(({ id, displayName, featured, capabilities, fields }) => ({
       id,
       displayName,
+      featured,
       capabilities,
       fields,
     }));

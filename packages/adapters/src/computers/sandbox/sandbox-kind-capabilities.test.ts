@@ -2,6 +2,7 @@ import type { SandboxKindCapabilities } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
 import type { KnownSandboxKind } from "./sandbox-kind-capabilities.js";
 import {
+  computerLocation,
   isKnownSandboxKind,
   knownSandboxKinds,
   sandboxKindCapabilities,
@@ -23,13 +24,27 @@ type Row = [
   readStoppedFiles?: true,
   sizedUsage?: true,
   maxFileBytes?: number,
+  runsOnServer?: true,
 ];
 
 // What the per-kind id lists in shared code answered before providers declared these themselves,
 // except boxd and railway: those lists had left out their terminal and stored team home.
 const EXPECTED: Record<KnownSandboxKind, Row> = {
   none: [false, false, false, false, DEFAULT_SCREEN, "never", false, false],
-  docker: [true, true, false, false, DEFAULT_SCREEN, "always", false, true],
+  docker: [
+    true,
+    true,
+    false,
+    false,
+    DEFAULT_SCREEN,
+    "always",
+    false,
+    true,
+    undefined,
+    undefined,
+    undefined,
+    true,
+  ],
   e2b: [true, true, false, false, DEFAULT_SCREEN, "never", true, false],
   novita: [true, true, false, false, DEFAULT_SCREEN, "never", true, false],
   daytona: [true, true, false, false, DEFAULT_SCREEN, "never", true, false],
@@ -40,7 +55,20 @@ const EXPECTED: Record<KnownSandboxKind, Row> = {
   railway: [true, true, false, false, DEFAULT_SCREEN, "never", true, false],
   kubernetes: [true, true, false, false, DEFAULT_SCREEN, "optional", true, false],
   incus: [true, true, false, false, DEFAULT_SCREEN, "never", true, false],
-  "local-vm": [true, true, false, false, DEFAULT_SCREEN, "never", true, false],
+  "local-vm": [
+    true,
+    true,
+    false,
+    false,
+    DEFAULT_SCREEN,
+    "never",
+    true,
+    false,
+    undefined,
+    undefined,
+    undefined,
+    true,
+  ],
   wuying: [false, false, true, false, DEFAULT_SCREEN, "never", false, true],
   desktop: [
     false,
@@ -71,6 +99,7 @@ function capabilities([
   readStoppedFiles,
   sizedUsage,
   maxFileBytes,
+  runsOnServer,
 ]: Row): SandboxKindCapabilities {
   return {
     terminal,
@@ -84,6 +113,7 @@ function capabilities([
     ...(readStoppedFiles ? { readStoppedFiles } : {}),
     ...(sizedUsage ? { sizedUsage } : {}),
     ...(maxFileBytes ? { maxFileBytes } : {}),
+    ...(runsOnServer ? { runsOnServer } : {}),
   };
 }
 
@@ -113,5 +143,14 @@ describe("sandbox kind capabilities", () => {
       "wuying",
     ]);
     expect(sandboxKindsWhere((entry) => entry.runsOnUserMachine)).toEqual(["desktop"]);
+    expect(sandboxKindsWhere((entry) => !!entry.runsOnServer)).toEqual(["docker", "local-vm"]);
+  });
+
+  it("names the machine a kind's computers run on, only when the viewer knows it", () => {
+    expect(computerLocation("docker")).toBe("server");
+    expect(computerLocation("desktop")).toBe("device");
+    for (const kind of ["boxd", "boat", "none", "unknown", null]) {
+      expect(computerLocation(kind)).toBeUndefined();
+    }
   });
 });
