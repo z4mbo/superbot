@@ -573,3 +573,112 @@ it("announces the first reply in a thread that opened empty", () => {
   render(baseProps([{ ...textMessage("m1", "bot", "Hello there"), botId: "bot" }]));
   expect(liveRegion()).toBe("Atlas: Hello there");
 });
+
+function workingSlot() {
+  return container.querySelector<HTMLElement>('[data-testid="working-slot"]');
+}
+
+it("parks the working line as the transcript's last row, right above the composer", () => {
+  render(baseProps(history()));
+  const scroller = container.querySelector('[data-testid="transcript"]')!;
+  const slot = workingSlot()!;
+  // Nothing follows it in the column; the composer sits right below the transcript.
+  expect(scroller.lastElementChild).toBe(slot);
+  // A growing spacer keeps it on the composer even when the chat is too short to fill the view.
+  const spacer = slot.previousElementSibling!;
+  expect([...spacer.classList]).toEqual(["-my-3.5", "flex-1"]);
+  expect(spacer.previousElementSibling?.getAttribute("data-message-id")).toBe("m4");
+  // Sticky inside the padding the composer overlaps, so it never scrolls away.
+  expect(slot.classList).toContain("sticky");
+  expect(slot.classList).toContain("bottom-0");
+  expect(scroller.classList).toContain("pb-7");
+
+  const line = slot.querySelector('[data-testid="working-indicator"]')!;
+  expect(line.classList).toContain("min-h-9");
+  const mark = line.querySelector<HTMLElement>("[data-bot-mark]")!;
+  expect(mark.getAttribute("data-bot-mark-state")).toBe("working");
+  expect(mark.style.width).toBe("28px");
+  expect(mark.style.height).toBe("28px");
+  const label = line.querySelector<HTMLElement>('[aria-hidden="true"][dir="auto"]')!;
+  expect([...label.classList]).toEqual(
+    expect.arrayContaining(["text-body", "leading-5.5", "text-shimmer"]),
+  );
+});
+
+it("keeps the same slot height idle and running, so the transcript never jumps", () => {
+  render(baseProps(history()));
+  const running = workingSlot()!;
+  expect(running.className).toContain("pb-2.5 md:pb-3.5");
+  render({ ...baseProps(history()), running: false, workingBots: [] });
+  expect(container.querySelector('[data-testid="working-indicator"]')).toBeNull();
+  const scroller = container.querySelector('[data-testid="transcript"]')!;
+  const spacer = scroller.lastElementChild!;
+  expect(spacer.getAttribute("aria-hidden")).toBe("true");
+  // 36px line plus the gap under it: 46px on phones, 50px from md.
+  expect(spacer.className).toContain("h-11.5 md:h-12.5");
+});
+
+it("steps aside while a reply streams in", () => {
+  render(baseProps([...history(), liveMessage("Checking the dates")]));
+  expect(workingSlot()).toBeNull();
+});
+
+it("announces the work once while the visible phrase turns over", () => {
+  vi.useFakeTimers();
+  try {
+    render(baseProps(history()));
+    const status = () => workingSlot()!.querySelector('[role="status"]')!;
+    const label = () =>
+      workingSlot()!.querySelector('[aria-hidden="true"][dir="auto"]')!.textContent;
+    expect(status().textContent).toBe("Working…");
+    expect(status().classList).toContain("sr-only");
+    const first = label();
+    act(() => vi.advanceTimersByTime(4_000));
+    expect(label()).not.toBe(first);
+    expect(status().textContent).toBe("Working…");
+    for (const phrase of [first, label()]) {
+      expect(["On it", "Thinking it through", "Putting it together", "Still on it"]).toContain(
+        phrase,
+      );
+    }
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("reads the bot's current activity to screen readers when it has one", () => {
+  render({
+    ...baseProps([
+      ...history(),
+      { ...textMessage("m5", "bot", ""), blocks: [{ kind: "steps", steps: [] }] },
+    ]),
+    workingRoutine: "Morning brief",
+  });
+  expect(workingSlot()!.querySelector('[role="status"]')!.textContent).toBe(
+    "Running Morning brief…",
+  );
+  expect(workingSlot()!.querySelector('[aria-hidden="true"][dir="auto"]')!.textContent).toBe(
+    "Running Morning brief…",
+  );
+});
+
+it("shows every concurrent runner in one stacked mark", () => {
+  render({
+    ...baseProps(history()),
+    workingBots: [
+      { botId: "bot", color: "orange", status: "running" },
+      { botId: "atlas", color: "green", status: "running" },
+    ],
+  });
+  const line = workingSlot()!.querySelector('[data-testid="working-indicator"]')!;
+  expect(line.querySelectorAll('[data-bot-mark-state="working"]')).toHaveLength(2);
+  expect(line.querySelector<HTMLElement>(".rakazo-group-avatar")?.style.width).toBe("28px");
+});
+
+it("lifts Jump to latest above the parked working line", () => {
+  render(baseProps(history()));
+  const jump = () => container.querySelector('[aria-label="Jump to latest"]')!;
+  expect(jump().classList).toContain("bottom-20");
+  render({ ...baseProps(history()), running: false, workingBots: [] });
+  expect(jump().classList).toContain("bottom-11");
+});
