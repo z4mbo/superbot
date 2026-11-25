@@ -15,7 +15,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-pub use credentials::CredentialStore;
+pub use credentials::{CredentialStore, SavedSession};
 pub use local_history::LocalHistoryReceipt;
 pub use protocol::{
     Agent, Error, Message, MessageAuthor, SendReceipt, Space, ThreadEvent, ThreadSnapshot,

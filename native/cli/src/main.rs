@@ -1,9 +1,16 @@
 #[cfg(test)]
 mod approval_tests;
 mod approvals;
+#[cfg(test)]
+mod command_tests;
 mod local_app_chat;
 mod local_chat;
 mod roster;
+mod send;
+mod stream;
+#[cfg(test)]
+mod test_fixture;
+mod threads;
 mod workspaces;
 
 use std::{
@@ -15,20 +22,30 @@ use std::{
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use futures_util::StreamExt;
+use serde_json::json;
 use superbot_client::{
     remember_server, selected_server, Agent, Client, CredentialStore, Error, MessageAuthor,
-    SendReceipt, SignUpResult, Space,
+    SavedSession, SendReceipt, SignUpResult, Space,
 };
 use superbot_features::{Features, SpaceFeatures, ThreadSnapshot, ThreadTarget};
 use uuid::Uuid;
+
+use stream::{LinePrinter, Reply, RunEnd, Sink, Update};
 
 #[derive(Parser)]
 #[command(version, about = "Chat with your Superbot agents")]
 struct Args {
     #[arg(long, env = "SUPERBOT_SERVER", global = true)]
     server: Option<String>,
-    #[arg(long, help = "Select a space by name", global = true)]
+    #[arg(
+        long,
+        env = "SUPERBOT_SPACE",
+        help = "Select a space by name",
+        global = true
+    )]
     space: Option<String>,
+    #[arg(long, help = "Print JSON instead of text", global = true)]
+    json: bool,
     #[command(subcommand)]
     command: Option<Command>,
     #[arg(value_name = "AGENT", help = "Open a chat by agent name")]
@@ -41,17 +58,44 @@ enum Command {
     Server { url: Option<String> },
     /// Create an account on the selected server
     Signup,
-    /// Sign in and save the session to your system credential store
+    /// Sign in and save the session on this device
     Login {
         #[arg(long)]
         email: Option<String>,
         #[arg(long, help = "Sign in with a one-time email code")]
         code: bool,
+        #[arg(
+            long,
+            requires = "email",
+            conflicts_with = "code",
+            help = "Read the password from standard input"
+        )]
+        password_stdin: bool,
     },
     /// Revoke and remove the saved session for this server
     Logout,
+    /// Show the signed-in account on this server
+    Whoami,
     /// List available spaces and agents
     List,
+    /// Send one message and print the reply as it streams
+    Send {
+        agent: String,
+        /// The message; read from standard input when left out
+        message: Vec<String>,
+        #[arg(long, conflicts_with = "conversation")]
+        new_conversation: bool,
+        #[arg(long, value_name = "THREAD_ID")]
+        conversation: Option<String>,
+    },
+    /// List an agent's conversations or print one
+    #[command(subcommand)]
+    Threads(threads::ThreadsCommand),
+    /// List the approvals waiting on you, or answer one
+    Approvals {
+        #[command(subcommand)]
+        command: Option<approvals::ApprovalCommand>,
+    },
     /// Create, join, and manage workspaces
     #[command(subcommand)]
     Workspaces(workspaces::WorkspaceCommand),
@@ -81,11 +125,32 @@ async fn main() -> ExitCode {
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
+        // The command already printed what happened.
+        Err(error) if error.is::<Exit>() => {
+            ExitCode::from(error.downcast_ref::<Exit>().map_or(1, |exit| exit.0))
+        }
         Err(error) => {
             eprintln!("superbot: {}", terminal_text(&format!("{error:#}")));
             ExitCode::FAILURE
         }
     }
+}
+
+/// Ends the command with this exit status once its output is printed.
+#[derive(Debug)]
+pub(crate) struct Exit(pub(crate) u8);
+
+impl std::fmt::Display for Exit {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "exit status {}", self.0)
+    }
+}
+
+impl std::error::Error for Exit {}
+
+fn print_json(value: &impl serde::Serialize) -> Result<()> {
+    println!("{}", serde_json::to_string_pretty(value)?);
+    Ok(())
 }
 
 async fn run(args: Args) -> Result<()> {
@@ -103,17 +168,74 @@ async fn run(args: Args) -> Result<()> {
             return Ok(());
         }
         Some(Command::Signup) => return signup(&client).await,
-        Some(Command::Login { email, code }) => return login(&client, email, code).await,
+        Some(Command::Login {
+            email,
+            password_stdin: true,
+            ..
+        }) => return login_from_stdin(&client, email).await,
+        Some(Command::Login { email, code, .. }) => return login(&client, email, code).await,
         Some(Command::Logout) => return logout(&client).await,
+        Some(Command::Whoami) => return whoami(&connect(&client).await?, args.json).await,
         Some(Command::List) => {
             let client = connect(&client).await?;
-            for (space, agents) in discover(&client, args.space.as_deref()).await? {
+            let catalog = discover(&client, args.space.as_deref()).await?;
+            if args.json {
+                let spaces: Vec<_> = catalog
+                    .iter()
+                    .map(|(space, agents)| {
+                        let agents: Vec<_> = agents
+                            .iter()
+                            .map(|agent| json!({ "id": agent.id, "name": agent.name }))
+                            .collect();
+                        json!({ "id": space.id, "name": space.name, "agents": agents })
+                    })
+                    .collect();
+                return print_json(&spaces);
+            }
+            for (space, agents) in catalog {
                 println!("{}", terminal_text(&space.name));
                 for agent in agents {
                     println!("  {}", terminal_text(&agent.name));
                 }
             }
             return Ok(());
+        }
+        Some(Command::Send {
+            agent,
+            message,
+            new_conversation,
+            conversation,
+        }) => {
+            let args_space = args.space.as_deref();
+            let send = send::SendArgs {
+                agent,
+                message,
+                new_conversation,
+                conversation,
+            };
+            return send::run(&connect(&client).await?, args_space, send, args.json).await;
+        }
+        Some(Command::Threads(command)) => {
+            let client = connect(&client).await?;
+            let catalog = discover(&client, args.space.as_deref()).await?;
+            let features = Features::new(client.clone());
+            return match command {
+                threads::ThreadsCommand::List { agent } => {
+                    let (space, agent) = find_agent(&catalog, &agent)?;
+                    let rows = threads::conversations(&features.space(&space.id), agent).await?;
+                    threads::print_conversations(&rows, args.json)
+                }
+                threads::ThreadsCommand::Show { agent, thread_id } => {
+                    let (space, agent) = find_agent(&catalog, &agent)?;
+                    let space = features.space(&space.id);
+                    threads::show(&space, agent, thread_id.as_deref(), args.json).await
+                }
+            };
+        }
+        Some(Command::Approvals { command }) => {
+            let client = connect(&client).await?;
+            let catalog = discover(&client, args.space.as_deref()).await?;
+            return approvals::run(&Features::new(client), &catalog, command, args.json).await;
         }
         Some(Command::Workspaces(command)) => {
             return workspaces::run(
@@ -217,6 +339,42 @@ async fn connect(client: &Client) -> Result<Client> {
         .context("The saved session disappeared. Run superbot login again.")
 }
 
+/// Signs in without a terminal, for scripts: the password is the whole of standard input,
+/// less one trailing line break.
+async fn login_from_stdin(client: &Client, email: Option<String>) -> Result<()> {
+    let email = email.context("Give the account with --email")?;
+    let password = blocking_input(|| io::read_to_string(io::stdin())).await?;
+    let password = password
+        .strip_suffix('\n')
+        .map(|rest| rest.strip_suffix('\r').unwrap_or(rest))
+        .unwrap_or(&password);
+    if password.is_empty() {
+        bail!("Pipe the password to standard input.");
+    }
+    let signed_in = client.sign_in(email.trim(), password).await?;
+    save_session(&signed_in).await
+}
+
+async fn whoami(client: &Client, json: bool) -> Result<()> {
+    let me: serde_json::Value = client.rpc("me", None, json!({})).await.map_err(auth_hint)?;
+    let text = |key: &str| me[key].as_str().unwrap_or_default().to_owned();
+    if json {
+        return print_json(&json!({
+            "server": client.server(),
+            "userId": text("userId"),
+            "email": text("email"),
+            "name": text("name"),
+        }));
+    }
+    println!(
+        "{} <{}>",
+        terminal_text(&text("name")),
+        terminal_text(&text("email"))
+    );
+    println!("{}", terminal_text(client.server()));
+    Ok(())
+}
+
 async fn login(client: &Client, email: Option<String>, code: bool) -> Result<()> {
     if !io::stdin().is_terminal() {
         bail!("Sign-in requires an interactive terminal.");
@@ -265,14 +423,21 @@ async fn signup(client: &Client) -> Result<()> {
 }
 
 async fn save_session(signed_in: &Client) -> Result<()> {
-    if let Err(error) = CredentialStore::save(signed_in).await {
-        if let Err(revoke_error) = signed_in.sign_out().await {
-            eprintln!(
-                "Could not revoke the unsaved session: {}",
-                terminal_text(&revoke_error.to_string())
-            );
+    match CredentialStore::save(signed_in).await {
+        Ok(SavedSession::SystemStore) => {}
+        Ok(SavedSession::File(path)) => eprintln!(
+            "No system credential store is available, so the session is saved in {}, readable only by you.",
+            path.display()
+        ),
+        Err(error) => {
+            if let Err(revoke_error) = signed_in.sign_out().await {
+                eprintln!(
+                    "Could not revoke the unsaved session: {}",
+                    terminal_text(&revoke_error.to_string())
+                );
+            }
+            return Err(error.into());
         }
-        return Err(error.into());
     }
     println!("Signed in to {}", signed_in.server());
     Ok(())
@@ -509,10 +674,19 @@ async fn follow_reply(
     sent_seq: Option<i64>,
     read_approval: &mut impl AsyncFnMut() -> Result<Option<String>>,
 ) -> Result<()> {
+    let mut reply = Reply::default();
+    let mut printer = LinePrinter::new(io::stdout(), &thread.agent.name, true);
     while !runs.is_empty() {
         let waiting = tokio::time::timeout(
             Duration::from_secs(600),
-            follow_until_waiting(thread, cursor, &mut runs, sent_seq),
+            follow_until_waiting(
+                thread,
+                cursor,
+                &mut runs,
+                sent_seq,
+                &mut reply,
+                &mut printer,
+            ),
         )
         .await;
         let run_id = match waiting {
@@ -602,11 +776,14 @@ impl ChatThread<'_> {
     }
 }
 
-async fn follow_until_waiting(
+/// Follows the thread until every pending run ends or one waits for an answer, which it returns.
+pub(crate) async fn follow_until_waiting(
     thread: &ChatThread<'_>,
     cursor: &mut i64,
     pending: &mut Vec<String>,
     sent_seq: Option<i64>,
+    reply: &mut Reply,
+    printer: &mut dyn Sink,
 ) -> Result<Option<String>> {
     let mut reconnects = 0;
     loop {
@@ -627,38 +804,29 @@ async fn follow_until_waiting(
                     }
                     *cursor = event.seq;
                     reconnects = 0;
-                    if let Some(message) = event.message()? {
-                        if message.role == "bot"
-                            || (message.role == "user" && Some(message.seq) != sent_seq)
-                        {
-                            print_message(
-                                thread.agent,
-                                &message.role,
-                                message.author.as_ref(),
-                                &message.text,
-                            );
+                    for update in reply.apply(&event)? {
+                        let shown = match &update {
+                            Update::Message(message) => {
+                                message.role == "bot"
+                                    || (message.role == "user" && Some(message.seq) != sent_seq)
+                            }
+                            Update::RunEnded { run_id, .. } => pending.contains(run_id),
+                            _ => true,
+                        };
+                        if !shown {
+                            continue;
                         }
-                    }
-                    let Some(run_id) = event.run_id.filter(|id| pending.contains(id)) else {
-                        continue;
-                    };
-                    match event.kind.as_str() {
-                        "run.completed" => {}
-                        "run.failed" => {
-                            let reason = event
-                                .data
-                                .get("error")
-                                .and_then(|value| value.as_str())
-                                .unwrap_or("No failure details were provided.");
-                            eprintln!("Agent run failed. {}", terminal_text(reason));
+                        printer.update(&update)?;
+                        let Update::RunEnded { run_id, end } = update else {
+                            continue;
+                        };
+                        if end == RunEnd::WaitingInput {
+                            return Ok(Some(run_id));
                         }
-                        "run.cancelled" => eprintln!("Agent run cancelled."),
-                        "run.waiting_input" => return Ok(Some(run_id)),
-                        _ => continue,
-                    }
-                    pending.retain(|id| *id != run_id);
-                    if pending.is_empty() {
-                        return Ok(None);
+                        pending.retain(|id| *id != run_id);
+                        if pending.is_empty() {
+                            return Ok(None);
+                        }
                     }
                 }
             }
@@ -677,11 +845,7 @@ fn print_message(agent: &Agent, role: &str, author: Option<&MessageAuthor>, text
     if text.trim().is_empty() {
         return;
     }
-    let name = match role {
-        "user" => author.map_or("Member", |author| author.name.as_str()),
-        "bot" => &agent.name,
-        _ => "Superbot",
-    };
+    let name = stream::speaker(&agent.name, role, author);
     println!("{} > {}", terminal_text(name), terminal_text(text));
 }
 

@@ -28,9 +28,10 @@ development server can use a loopback HTTP origin such as
 `http://127.0.0.1:3000`.
 
 The signed session is saved per server in Windows Credential Manager, macOS
-Keychain, or the Linux Secret Service. On Linux an unlocked Secret Service is
-required. Use `superbot logout` to revoke the session and remove it from that
-store. If a session expires, run `superbot login` again. Deployments that
+Keychain, or the Linux Secret Service. A device without one, such as a Linux
+server, saves it in `sessions.json` in the Superbot settings directory
+(`$XDG_CONFIG_HOME/superbot`, or `SUPERBOT_CONFIG_DIR`), readable only by you.
+Use `superbot logout` to revoke the session and remove it. If a session expires, run `superbot login` again. Deployments that
 require browser-only federation must provide a native email sign-in method for
 this client.
 
@@ -58,9 +59,50 @@ Members of the same Space can follow its replies on other devices. Each
 conversation has its own history. The agent uses its selected model across
 conversations.
 
-In chat, press Enter to send a line. Superbot prints message text and agent run
-errors. `/back` returns to the picker, or exits a directly opened chat. `/quit`
+In chat, press Enter to send a line. Replies print as the agent writes them,
+followed by any agent run errors. `/back` returns to the picker, or exits a directly opened chat. `/quit`
 exits from either mode.
+
+### Scripts
+
+Sign in without a terminal by piping the password. `superbot whoami` shows the
+signed-in account.
+
+```shell
+printf '%s' "$PASSWORD" | superbot login --email you@example.com --password-stdin
+superbot whoami
+```
+
+`superbot send NAME MESSAGE` sends one message and prints only the reply as it
+streams. Leave out the message to read it from standard input. `--conversation`
+and `--new-conversation` work as they do for `chat`.
+
+```shell
+superbot send "Research agent" "Summarize today's notes"
+git diff | superbot send "Research agent"
+```
+
+List an agent's conversations, or print the latest messages of one. Leave out
+the ID for the first conversation.
+
+```shell
+superbot threads list "Research agent"
+superbot threads show "Research agent" THREAD_ID
+```
+
+`superbot approvals` lists the approvals waiting on you across your agents and
+their conversations. Answer one by the ID it lists.
+
+```shell
+superbot approvals
+superbot approvals allow ID
+superbot approvals deny ID
+```
+
+Add `--json` to `whoami`, `list`, `send`, `threads` and `approvals` for
+JSON output. `SUPERBOT_SPACE` selects a space like `--space`. A command exits
+with `0` on success and `1` on failure, including a failed or cancelled reply.
+`send` exits with `3` when the reply stops on a card that needs your answer.
 
 ### Create and share a workspace
 
