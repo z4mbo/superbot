@@ -13,6 +13,7 @@ const twMerge = extendTailwindMerge({
         "body-sm",
         "body",
         "body-lg",
+        "chat",
         "heading3",
         "heading2",
         "heading1",

@@ -446,3 +446,57 @@ it("stops a background helper from its saved running card, never a turn's live o
     messageId: "card-1",
   });
 });
+
+it("draws each bubble with the shared chrome and cuts the corners by its place in a run", () => {
+  const positions = [
+    { name: "single", joinAbove: false, joinBelow: false },
+    { name: "first", joinAbove: false, joinBelow: true },
+    { name: "middle", joinAbove: true, joinBelow: true },
+    { name: "last", joinAbove: true, joinBelow: false },
+  ];
+  const corners = (bubble: Element) =>
+    [...bubble.classList].filter((name) => name.endsWith("[6px]")).sort();
+  const cut: Record<string, string[]> = {};
+  for (const side of ["bot", "mine"] as const) {
+    for (const position of positions) {
+      if (side === "bot") {
+        renderView("bot", [{ kind: "text", text: "Hi" }], position);
+      } else {
+        renderView("user", [{ kind: "text", text: "Hi" }], {
+          ...position,
+          message: { ...authored, blocks: [{ kind: "text", text: "Hi" }] },
+          meId: ana.id,
+        });
+      }
+      const bubble = container.querySelector(
+        side === "bot"
+          ? '[data-testid="message-bot-bubble"]'
+          : '[data-testid="message-user-bubble"]',
+      )!;
+      // One pill, 7/12 padding, chat type and a shadow hairline: never a stroke.
+      expect([...bubble.classList]).toEqual(
+        expect.arrayContaining([
+          "rounded-[18px]",
+          "px-3",
+          "py-[7px]",
+          "text-chat",
+          "shadow-bubble",
+        ]),
+      );
+      expect([...bubble.classList].some((name) => /^border(-|$)/.test(name))).toBe(false);
+      cut[`${side} ${position.name}`] = corners(bubble);
+    }
+  }
+  // Reference radii: first 18 18 18 6, middle 6 18 18 6, last 6 18 18 18 on the bot (start)
+  // side, mirrored to the end side for your own bubbles.
+  expect(cut).toEqual({
+    "bot single": [],
+    "bot first": ["rounded-es-[6px]"],
+    "bot middle": ["rounded-es-[6px]", "rounded-ss-[6px]"],
+    "bot last": ["rounded-ss-[6px]"],
+    "mine single": [],
+    "mine first": ["rounded-ee-[6px]"],
+    "mine middle": ["rounded-ee-[6px]", "rounded-se-[6px]"],
+    "mine last": ["rounded-se-[6px]"],
+  });
+});

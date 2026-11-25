@@ -57,6 +57,12 @@ import {
 import { MessageHoverActions } from "./message-hover-actions";
 import { RoutineEventRow } from "./routine-event-row";
 
+/**
+ * Every text bubble's chrome: the 18px pill with its shadow hairline (no stroke) and chat type.
+ * The fill and ink come from the side; a grouped run cuts the corners toward its neighbours.
+ */
+export const BUBBLE = "rounded-[18px] px-3 py-[7px] text-chat shadow-bubble";
+
 export const MessageView = memo(function MessageView({
   artifactTarget,
   canAnswer,
@@ -308,7 +314,7 @@ export const MessageView = memo(function MessageView({
             <div
               data-testid="message-bot-bubble"
               className={cn(
-                "max-w-full space-y-2.5 rounded-[18px] bg-chat-agent px-3 py-[7px] text-body-lg text-foreground",
+                `max-w-full space-y-2.5 ${BUBBLE} bg-chat-agent text-foreground`,
                 joinAbove && topCorner,
                 joinBelow && bottomCorner,
               )}
@@ -467,7 +473,7 @@ export const MessageView = memo(function MessageView({
               >
                 <div
                   data-testid="message-bot-bubble"
-                  className="max-w-full rounded-[18px] bg-chat-agent px-3 py-[7px] text-body-lg text-foreground"
+                  className={`max-w-full ${BUBBLE} bg-chat-agent text-foreground`}
                   dir="auto"
                 >
                   <ChatMarkdown streaming renderMention={renderMention} onOpenPage={openPage}>
@@ -621,7 +627,7 @@ export const MessageView = memo(function MessageView({
                   data-testid="message-user-bubble"
                   data-quote-message-id={quoteMessageId}
                   className={cn(
-                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-[18px] px-3 py-[7px] text-body-lg",
+                    `max-w-full whitespace-pre-wrap wrap-anywhere ${BUBBLE}`,
                     mine
                       ? "bg-chat-user bg-linear-to-b from-white/5 to-transparent text-chat-user-foreground dark:from-white/1"
                       : "bg-chat-agent text-foreground",
@@ -646,7 +652,7 @@ export const MessageView = memo(function MessageView({
                 <div
                   data-testid="message-bot-bubble"
                   className={cn(
-                    "max-w-full rounded-[18px] bg-chat-agent px-3 py-[7px] text-body-lg text-foreground",
+                    `max-w-full ${BUBBLE} bg-chat-agent text-foreground`,
                     joinAbove && i === textAnchorIndex && topCorner,
                     i === lastTextIndex && bottomCorner,
                   )}

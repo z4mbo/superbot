@@ -34,10 +34,17 @@ contributors, under the Apache License, Version 2.0. The Lucide icon notice
 and icon license texts are in superbot-site/NOTICE.txt and superbot-site/licenses/.
 
 Superbot Desktop and the hosted web theme (infra/superbot/theme) bundle
-unmodified Geist and Geist Mono variable font files from the Geist project,
+unmodified Geist Mono variable font files from the Geist project,
 version 1.9.2.
 Copyright 2026 The Geist Project Authors, https://github.com/vercel/geist-font.
 The fonts are distributed under the SIL Open Font License, Version 1.1.
-See native/desktop/assets/fonts/OFL.txt and infra/superbot/theme/fonts/OFL.txt
+See native/desktop/assets/fonts/OFL.txt and infra/superbot/theme/fonts/GeistMono-OFL.txt
 for the license text.
 Source release: https://github.com/vercel/geist-font/releases/tag/v1.9.2
+
+Superbot Desktop and the hosted web theme (infra/superbot/theme) bundle
+unmodified Inter variable font files from the Inter project, version 4.001.
+Copyright (c) 2016 The Inter Project Authors, https://github.com/rsms/inter.
+The fonts are distributed under the SIL Open Font License, Version 1.1.
+See native/desktop/assets/fonts/Inter-OFL.txt and
+infra/superbot/theme/fonts/Inter-OFL.txt for the license text.
