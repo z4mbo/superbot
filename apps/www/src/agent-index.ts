@@ -1,22 +1,26 @@
 import { getCollection } from "astro:content";
 import { getMarkdownAlternate } from "./agent-content";
-import { DOCS_PAGES, docsPath } from "./docs";
+import { BUILD_APP_PROMPT_PATH, DOCS_PAGES, docsPath } from "./docs";
 import type { AgentResourceGroup } from "./marketing-site";
 import { marketing } from "./marketing-site";
-import { SITE_URL } from "./site";
+import { GITHUB_URL, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "./site";
 
-const AGENT_INSTRUCTIONS_INTRO = `# Rakazo
+const AGENT_INSTRUCTIONS_INTRO = `# ${SITE_NAME}
 
-> Open source AI teammates with sandboxed browser and shell access. Your keys, your model, your machine.
+> ${SITE_DESCRIPTION}
 
 ## Canonical resources
 
-- [AI Catalog](https://rakazo.com/.well-known/ai-catalog.json): machine-readable index of the public agent resources.
-- [Website](https://rakazo.com/): product overview, supported models, and common questions.
-- [Website Markdown](https://rakazo.com/index.md): the English product overview as Markdown.
-- [Docs](https://rakazo.com/docs/): getting started, using Rakazo, and self-hosting. Each page has a Markdown version.
-- [Source](https://github.com/elie222/rakazo)
+- [AI Catalog](${SITE_URL}/.well-known/ai-catalog.json): machine-readable index of the public agent resources.
+- [Website](${SITE_URL}/): product overview, the Store, the Apps platform, and common questions.
+- [Website Markdown](${SITE_URL}/index.md): the English product overview as Markdown.
+- [Docs](${SITE_URL}/docs/): getting started, building apps, using Superbot, and self-hosting. Each page has a Markdown version.
+- [Build an app prompt](${SITE_URL}${BUILD_APP_PROMPT_PATH}): plain-text prompt for a coding agent building a Superbot app.
+- [Source](${GITHUB_URL})
 `;
+
+/** Names the catalog's entries after the host the site is served from. */
+const CATALOG_HOST = new URL(SITE_URL).host;
 
 function markdownPath(path: string): string {
   const markdown = getMarkdownAlternate(path);
@@ -63,20 +67,20 @@ export function aiCatalog(groups: readonly AgentResourceGroup[]) {
   return {
     specVersion: "1.0",
     host: {
-      displayName: "Rakazo",
+      displayName: SITE_NAME,
       documentationUrl: `${SITE_URL}${marketing.agentDocumentationPath ?? "/docs/"}`,
     },
     entries: [
       {
-        identifier: "urn:air:rakazo.com:docs:llms",
-        displayName: "Rakazo agent guide",
+        identifier: `urn:air:${CATALOG_HOST}:docs:llms`,
+        displayName: `${SITE_NAME} agent guide`,
         type: "text/plain",
         url: `${SITE_URL}/llms.txt`,
         description: "Product overview, agent-assisted setup guidance, and canonical resources.",
       },
       {
-        identifier: "urn:air:rakazo.com:docs:overview",
-        displayName: "Rakazo overview",
+        identifier: `urn:air:${CATALOG_HOST}:docs:overview`,
+        displayName: `${SITE_NAME} overview`,
         type: "text/markdown",
         url: `${SITE_URL}/index.md`,
         description: "Features, model choices, self-hosting, and common questions.",
@@ -84,7 +88,7 @@ export function aiCatalog(groups: readonly AgentResourceGroup[]) {
       ...marketing.agentCatalogEntries,
       ...groups.flatMap((group) =>
         group.resources.map((resource) => ({
-          identifier: `urn:air:rakazo.com:${group.id}:${resource.id}`,
+          identifier: `urn:air:${CATALOG_HOST}:${group.id}:${resource.id}`,
           displayName: resource.name,
           type: "text/markdown",
           url: `${SITE_URL}${markdownPath(resource.path)}`,

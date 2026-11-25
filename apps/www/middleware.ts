@@ -6,8 +6,6 @@ import {
 } from "./src/agent-content.js";
 
 const VARY_HEADER = "Accept, Accept-Encoding";
-const APEX_ORIGIN = "https://rakazo.com";
-const WWW_HOST = "www.rakazo.com";
 
 export const config = {
   matcher: ["/((?!api|_astro|.*\\..*).*)", "/sitemap.xml"],
@@ -23,13 +21,8 @@ function permanentRedirect(location: string): Response {
 export default function middleware(request: Request): Response {
   const url = new URL(request.url);
 
-  if (url.hostname.toLowerCase() === WWW_HOST) {
-    const destination = new URL(`${url.pathname}${url.search}`, APEX_ORIGIN);
-    return permanentRedirect(destination.toString());
-  }
-
   if (url.pathname === "/sitemap.xml") {
-    const destination = new URL(`/sitemap-index.xml${url.search}`, APEX_ORIGIN);
+    const destination = new URL(`/sitemap-index.xml${url.search}`, url);
     return permanentRedirect(destination.toString());
   }
 

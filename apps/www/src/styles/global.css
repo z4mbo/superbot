@@ -1,13 +1,5 @@
 @import "tailwindcss";
 
-@font-face {
-  font-family: "Aeonik";
-  src: url("/fonts/aeonik-medium.woff") format("woff");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
 :root {
   --page: #fdfdfd;
   --surface: #ffffff;
@@ -195,7 +187,7 @@ button {
 }
 
 .brand-lockup__word {
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 21px;
   font-weight: 500;
   line-height: 36px;
@@ -380,7 +372,7 @@ button.button--secondary:focus-visible {
 .guide h1 {
   margin: 0;
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-weight: 500;
   letter-spacing: -0.02em;
 }
@@ -539,7 +531,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 .feature-card h3 {
   margin: 0;
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 20px;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -823,7 +815,7 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
 
 .stat-value {
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 30px;
   letter-spacing: -0.02em;
 }
@@ -2579,7 +2571,7 @@ button.product-demo__dock-icon {
 .privacy-copy h2 {
   margin: 44px 0 12px;
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 22px;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -2637,7 +2629,7 @@ button.product-demo__dock-icon {
 .enterprise__features h2 {
   margin: 0;
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 20px;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -2705,7 +2697,7 @@ button.product-demo__dock-icon {
 .feature-card p.pricing__price {
   margin-top: 12px;
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 34px;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -3045,7 +3037,7 @@ td:last-child .pricing-hint__tip {
 .alt-page h1 {
   margin: 0 0 18px;
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(2rem, 4vw, 40px);
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -3055,7 +3047,7 @@ td:last-child .pricing-hint__tip {
 .alt-page h2 {
   margin: 48px 0 12px;
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: 28px;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -3371,7 +3363,7 @@ td:last-child .pricing-hint__tip {
 .guide h2 {
   margin: 2.4rem 0 0.7rem;
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(1.6rem, 3vw, 2rem);
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -4232,7 +4224,7 @@ td:last-child .pricing-hint__tip {
 .wide-page h1,
 .wide-page h2 {
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-weight: 500;
   letter-spacing: -0.02em;
 }
@@ -4975,7 +4967,7 @@ td:last-child .pricing-hint__tip {
 .docs-prose h2,
 .docs-prose h3 {
   color: var(--ink);
-  font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+  font-family: Geist, ui-sans-serif, system-ui, sans-serif;
   font-weight: 500;
   letter-spacing: -0.02em;
   scroll-margin-top: calc(var(--docs-top) + 24px);

@@ -6,20 +6,15 @@ import {
   LOCALE_LABELS,
   LOCALES,
   isLocale,
+  localeHashPath,
   localeHomePath,
   type Locale,
 } from "../i18n/locales";
 import { getHomeCopy } from "../i18n/home";
 import type { HomeCopy } from "../i18n/home";
-import {
-  AFFILIATE_PROGRAM_URL,
-  CHANGELOG_URL,
-  GITHUB_URL,
-  INBOX_ZERO_URL,
-  PLUGIN_SUBMIT_PATH,
-  SELF_HOST_GUIDE_PATH,
-} from "../site";
-import { marketing } from "../marketing-site";
+import { APPS_PLATFORM_COPY } from "../i18n/apps-platform";
+import { BUILD_AN_APP_PATH } from "../docs";
+import { CHANGELOG_URL, GITHUB_URL, SELF_HOST_GUIDE_PATH, UPSTREAM_PROJECT } from "../site";
 import Logo from "./Logo.astro";
 
 type Props = {
@@ -56,35 +51,19 @@ const columns: Array<{ heading: string; links: FooterLink[] }> = [
   {
     heading: linkLabels.product,
     links: [
-      { href: "/download/", label: linkLabels.download },
+      // Download and Hosted plans (SUP-12): add their landing anchors here.
+      { href: localeHashPath(currentLocale, "store"), label: APPS_PLATFORM_COPY.nav.store },
       { href: "/docs/", label: linkLabels.docs },
       { href: SELF_HOST_GUIDE_PATH, label: localeCopy.selfHost.heading },
-      { href: "/enterprise/", label: linkLabels.enterprise },
-      { href: "/sandboxes/", label: linkLabels.sandboxes },
-      { href: "/integration-platforms/", label: linkLabels.integrationPlatforms },
-      { href: "/voice-providers/", label: linkLabels.voiceProviders },
-      { href: PLUGIN_SUBMIT_PATH, label: linkLabels.submitPlugin },
       { href: CHANGELOG_URL, label: linkLabels.changelog, external: true },
+    ],
+  },
+  {
+    heading: APPS_PLATFORM_COPY.footer.developers,
+    links: [
+      { href: BUILD_AN_APP_PATH, label: APPS_PLATFORM_COPY.nav.buildAnApp },
+      { href: "/docs/publish-an-app/", label: APPS_PLATFORM_COPY.footer.publish },
       { href: GITHUB_URL, label: "GitHub", external: true },
-    ],
-  },
-  {
-    heading: linkLabels.alternatives,
-    links: [
-      ...marketing.footerAlternatives.map((card) => ({ href: card.href, label: card.name })),
-      { href: "/alternatives/", label: linkLabels.all },
-    ],
-  },
-  {
-    heading: linkLabels.company,
-    links: [
-      { href: "/blog/", label: linkLabels.blog },
-      { href: "/about/", label: linkLabels.about },
-      { href: "/brand/", label: linkLabels.brand },
-      { href: AFFILIATE_PROGRAM_URL, label: linkLabels.affiliates, external: true },
-      { href: "/support/", label: linkLabels.support },
-      { href: "/privacy/", label: linkLabels.privacy },
-      { href: "/terms/", label: linkLabels.terms },
     ],
   },
 ];
@@ -119,8 +98,11 @@ const columns: Array<{ heading: string; links: FooterLink[] }> = [
       </details>
     </nav>
     <span class="site-footer__legal">
-      <span>© 2026 <a href={INBOX_ZERO_URL} target="_blank" rel="noopener">Inbox Zero Inc.</a></span>
       <span>Apache-2.0</span>
+      <span lang="en">
+        {APPS_PLATFORM_COPY.footer.builtOn}
+        <a href={UPSTREAM_PROJECT.url} target="_blank" rel="noopener">{UPSTREAM_PROJECT.name}</a>
+      </span>
     </span>
   </div>
   <nav class="site-footer__columns" aria-label={navLabel}>

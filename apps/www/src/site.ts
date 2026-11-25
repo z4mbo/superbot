@@ -1,29 +1,33 @@
-export const SITE_NAME = "Rakazo";
-export const SITE_URL = "https://rakazo.com";
-export const SITE_DESCRIPTION =
-  "Rakazo is an open source Grok Bot alternative for persistent AI teammates that do real work. Your keys, your model, your machine.";
+// Read at build time (and by the edge functions); client bundles have no `process`.
+const env: Record<string, string | undefined> = typeof process === "undefined" ? {} : process.env;
 
-export const APP_URL = "https://app.rakazo.com";
-export const PLUGIN_SUBMISSIONS_URL = `${APP_URL}/api/v1/plugin-submissions`;
-export const INTEGRATION_CLAIMS_URL = `${APP_URL}/api/v1/integration-claims`;
-export const CATALOG_URL =
-  "https://rakazo-public.fsn1.your-objectstorage.com/integrations/catalog.json";
-export const GITHUB_URL = "https://github.com/elie222/rakazo";
-export const IOS_APP_URL = "https://apps.apple.com/app/rakazo/id6801531099";
-export const GITHUB_API_REPO = "https://api.github.com/repos/elie222/rakazo";
-export const DOCS_URL = "https://github.com/elie222/rakazo/blob/main/docs/self-host.md";
-export const SELF_HOST_SECRETS_URL =
-  "https://github.com/elie222/rakazo/blob/main/docs/self-host-secrets.md";
-export const SELF_HOST_RESTRICTED_URL =
-  "https://github.com/elie222/rakazo/blob/main/docs/self-host-restricted-network.md";
-export const SETUP_PROMPT_URL = "https://github.com/elie222/rakazo/blob/main/SETUP_PROMPT.md";
-export const SELF_HOST_GUIDE_PATH = "/self-hosted-ai-agent/";
-export const PLUGIN_SUBMIT_PATH = "/plugins/submit/";
-export const OPENCLAW_ALTERNATIVE_PATH = "/openclaw-alternative/";
-export const AFFILIATE_PROGRAM_URL = "https://partners.dub.co/inboxzero/rakazo";
-export const CHANGELOG_URL = "https://github.com/elie222/rakazo/releases";
+function origin(value: string): string {
+  return value.trim().replace(/\/+$/, "");
+}
+
+/** Where this site is served: `WWW_SITE_URL`, else the Vercel production domain, else local. */
+export function siteUrl(source: Record<string, string | undefined> = env): string {
+  if (source.WWW_SITE_URL?.trim()) return origin(source.WWW_SITE_URL);
+  const vercel = source.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (vercel) return origin(vercel.startsWith("http") ? vercel : `https://${vercel}`);
+  return `http://localhost:${source.WWW_PORT?.trim() || "4321"}`;
+}
+
+export const SITE_NAME = "Superbot";
+export const SITE_URL = siteUrl();
+export const SITE_DESCRIPTION =
+  "Superbot is open source software for persistent AI teammates that do real work. Run it yourself with your own keys and models, install agents, skills and apps from the Store, or build your own app.";
+
+/** The web app people sign in to. */
+export const APP_URL = origin(
+  env.WWW_APP_URL?.trim() || "https://superbot-web-git-main-z4mbon.vercel.app",
+);
+export const GITHUB_REPO = "z4mbo/superbot";
+export const GITHUB_URL = "https://github.com/z4mbo/superbot";
+export const GITHUB_BRANCH = "main";
+export const GITHUB_API_REPO = "https://api.github.com/repos/z4mbo/superbot";
+export const SELF_HOST_GUIDE_PATH = "/docs/self-host/";
+export const CHANGELOG_URL = "https://github.com/z4mbo/superbot/releases";
 export const LATEST_RELEASE_URL = `${CHANGELOG_URL}/latest`;
-export const INBOX_ZERO_URL =
-  "https://www.getinboxzero.com/?utm_source=rakazo&utm_medium=website&utm_campaign=footer";
-export const X_URL = "https://x.com/rakazobot";
-export const DISCORD_URL = "https://discord.gg/RWwKa2Sn7h";
+/** The open source project Superbot is built from, credited in the footer. */
+export const UPSTREAM_PROJECT = { name: "Rakazo", url: "https://github.com/elie222/rakazo" };

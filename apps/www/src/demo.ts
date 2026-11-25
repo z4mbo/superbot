@@ -48,13 +48,6 @@ export type DemoBot<Text extends string = string> = {
   reply: Text;
 };
 
-export type RosterBot = {
-  name: string;
-  color: string;
-  slug: string;
-  desc: string;
-};
-
 export const DEMO_BOTS: DemoBot<DemoTextKey>[] = [
   {
     id: "chief",

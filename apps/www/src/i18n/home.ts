@@ -1,4 +1,3 @@
-import type { RosterBot } from "../demo";
 import { SITE_DESCRIPTION } from "../site";
 import { CLAUDE_CHATGPT_SUBSCRIPTION_FAQ } from "../subscription-faq";
 import type { Locale } from "./locales";
@@ -34,13 +33,8 @@ export type HomeCopy = {
     primary: string;
     menu: string;
     docs: string;
-    integrations: string;
-    pricing: string;
     github: string;
     getStarted: string;
-    openInNewTab: string;
-    copyWordmark: string;
-    brandKit: string;
   };
   hero: {
     eyebrow: string;
@@ -66,12 +60,6 @@ export type HomeCopy = {
     desktop: string;
     mobile: string;
   };
-  roster: {
-    eyebrow: string;
-    heading: string;
-    copy: string;
-    bots: RosterBot[];
-  };
   channels: {
     heading: string;
     copy: string;
@@ -88,12 +76,6 @@ export type HomeCopy = {
       recording: string;
       skillSaved: string;
     };
-  };
-  testimonials: {
-    heading: string;
-    pause: string;
-    play: string;
-    items: ReadonlyArray<{ quote: string; attribution: string }>;
   };
   faq: {
     heading: string;
@@ -121,843 +103,26 @@ export type HomeCopy = {
       docs: string;
       product: string;
       changelog: string;
-      submitPlugin: string;
-      enterprise: string;
-      alternatives: string;
-      sandboxes: string;
-      integrationPlatforms: string;
-      voiceProviders: string;
-      all: string;
-      about: string;
-      brand: string;
-      affiliates: string;
-      support: string;
-      privacy: string;
-      terms: string;
-      company: string;
-      blog: string;
       download: string;
     };
   };
 };
 
-const EN_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "Research prospects and draft follow-ups.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "Sort email and draft replies.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "Review applications and shortlist candidates.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "Match receipts to payments.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "Make code changes on your computer.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "Prepare replies and track renewals.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "Review ad spend and report changes.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "Prepare briefings and coordinate your bots.",
-  },
-];
-
-const DE_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "Recherchiert Kunden und entwirft Follow-ups.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "Sortiert E-Mails und entwirft Antworten.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "Prüft Bewerbungen und wählt Kandidaten aus.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "Ordnet Belege den Zahlungen zu.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "Ändert Code auf deinem Computer.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "Bereitet Antworten vor und verfolgt Vertragsverlängerungen.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "Prüft Werbeausgaben und meldet Änderungen.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "Erstellt Briefings und koordiniert deine Bots.",
-  },
-];
-
-const KO_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "잠재 고객을 조사하고 후속 메일을 작성합니다.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "메일을 분류하고 답장 초안을 씁니다.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "지원서를 검토하고 후보를 추립니다.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "영수증과 결제 내역을 맞춥니다.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "내 컴퓨터에서 코드를 수정합니다.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "답변을 준비하고 계약 갱신을 챙깁니다.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "광고 지출을 검토하고 변화를 보고합니다.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "브리핑을 준비하고 봇을 조율합니다.",
-  },
-];
-
-const ZH_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "调研客户，起草跟进邮件。",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "整理邮件，起草回复。",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "审核简历，筛选候选人。",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "核对收据与付款。",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "在你的电脑上修改代码。",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "准备回复，跟进续约。",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "检查广告支出，汇报变化。",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "准备简报，协调 Bot。",
-  },
-];
-
-const JA_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "見込み客を調べて、フォローアップを下書きします。",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "メールを仕分けて、返信を下書きします。",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "応募書類を確認して、候補者を絞り込みます。",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "領収書と支払いを照合します。",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "あなたのコンピューターでコードを変更します。",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "返信を準備して、契約更新を管理します。",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "広告費を確認して、変化を報告します。",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "ブリーフィングを準備して、ボットたちを取りまとめます。",
-  },
-];
-
-const ES_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "Investiga prospectos y redacta seguimientos.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "Ordena el correo y redacta respuestas.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "Revisa solicitudes y preselecciona candidatos.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "Concilia recibos con pagos.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "Hace cambios en el código en tu computadora.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "Prepara respuestas y sigue las renovaciones.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "Revisa el gasto en anuncios e informa de los cambios.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "Prepara resúmenes y coordina a tus bots.",
-  },
-];
-
-const FR_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "Recherche des prospects et rédige des relances.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "Trie les e-mails et rédige des réponses.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "Examine les candidatures et présélectionne les candidats.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "Rapproche les reçus des paiements.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "Modifie le code sur votre ordinateur.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "Prépare des réponses et suit les renouvellements.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "Analyse les dépenses publicitaires et signale les changements.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "Prépare des briefings et coordonne vos bots.",
-  },
-];
-
-const PT_BR_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "Pesquisa prospects e escreve follow-ups.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "Organiza e-mails e escreve respostas.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "Analisa candidaturas e pré-seleciona candidatos.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "Concilia recibos com pagamentos.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "Faz alterações no código no seu computador.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "Prepara respostas e acompanha renovações.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "Analisa gastos com anúncios e relata mudanças.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "Prepara resumos e coordena seus bots.",
-  },
-];
-
-const NL_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "Onderzoekt prospects en schrijft follow-ups.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "Sorteert e-mail en schrijft conceptantwoorden.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "Beoordeelt sollicitaties en maakt een shortlist.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "Koppelt bonnetjes aan betalingen.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "Past code aan op je computer.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "Bereidt antwoorden voor en volgt verlengingen.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "Controleert advertentie-uitgaven en meldt wijzigingen.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "Maakt briefings en coördineert je bots.",
-  },
-];
-
-const RU_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "Изучает потенциальных клиентов и готовит повторные письма.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "Сортирует почту и готовит черновики ответов.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "Разбирает отклики и отбирает кандидатов.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "Сопоставляет чеки с платежами.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "Вносит изменения в код на вашем компьютере.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "Готовит ответы и следит за продлениями.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "Проверяет рекламные расходы и сообщает об изменениях.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "Готовит сводки и координирует ваших ботов.",
-  },
-];
-
-const TR_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "Potansiyel müşterileri araştırır ve takip e-postaları hazırlar.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "E-postaları düzenler ve yanıt taslakları hazırlar.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "Başvuruları inceler ve adayları kısa listeye alır.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "Fişleri ödemelerle eşleştirir.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "Bilgisayarınızda kod değişiklikleri yapar.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "Yanıtları hazırlar ve yenilemeleri takip eder.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "Reklam harcamalarını inceler ve değişiklikleri raporlar.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "Brifingler hazırlar ve botlarınızı koordine eder.",
-  },
-];
-
-const HE_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "חוקר לקוחות פוטנציאליים ומנסח הודעות המשך.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "ממיין אימיילים ומנסח תשובות.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "בודק מועמדויות ובוחר מועמדים לשלב הבא.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "מתאים קבלות לתשלומים.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "מבצע שינויים בקוד במחשב שלך.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "מכין תשובות ועוקב אחרי חידושי חוזים.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "בודק הוצאות פרסום ומדווח על שינויים.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "מכין תדריכים ומתאם את הבוטים שלך.",
-  },
-];
-
-const HI_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "संभावित ग्राहकों पर रिसर्च करता है और फ़ॉलो-अप ड्राफ़्ट करता है।",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "ईमेल छांटता है और जवाब ड्राफ़्ट करता है।",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "आवेदनों की समीक्षा करता है और उम्मीदवारों को शॉर्टलिस्ट करता है।",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "रसीदों का भुगतानों से मिलान करता है।",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "आपके कंप्यूटर पर कोड में बदलाव करता है।",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "जवाब तैयार करता है और रिन्यूअल पर नज़र रखता है।",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "विज्ञापन खर्च की समीक्षा करता है और बदलावों की रिपोर्ट देता है।",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "ब्रीफ़िंग तैयार करता है और आपके बॉट्स के बीच तालमेल बिठाता है।",
-  },
-];
-
-const ZH_TW_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "研究潛在客戶，草擬跟進信件。",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "整理郵件，草擬回覆。",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "審閱履歷，篩選候選人。",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "比對收據與付款。",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "在你的電腦上修改程式碼。",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "準備回覆，追蹤續約。",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "檢視廣告支出，回報變化。",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "準備簡報，協調你的機器人。",
-  },
-];
-
-const PL_ROSTER: RosterBot[] = [
-  {
-    name: "Sales Outbound",
-    color: "#F5A03C",
-    slug: "rakazo/sales-outbound",
-    desc: "Sprawdza potencjalnych klientów i przygotowuje kolejne wiadomości.",
-  },
-  {
-    name: "Inbox Manager",
-    color: "#6A6BF5",
-    slug: "rakazo/inbox-manager",
-    desc: "Porządkuje pocztę i przygotowuje odpowiedzi.",
-  },
-  {
-    name: "Talent Scout",
-    color: "#3B82F6",
-    slug: "rakazo/talent-scout",
-    desc: "Przegląda zgłoszenia i wybiera kandydatów.",
-  },
-  {
-    name: "Expense Manager",
-    color: "#F2622A",
-    slug: "rakazo/expense-manager",
-    desc: "Dopasowuje rachunki do płatności.",
-  },
-  {
-    name: "Coding Agent",
-    color: "#5B6EE1",
-    slug: "rakazo/coding-agent",
-    desc: "Wprowadza zmiany w kodzie na Twoim komputerze.",
-  },
-  {
-    name: "Account Manager",
-    color: "#9B5CF6",
-    slug: "rakazo/account-manager",
-    desc: "Przygotowuje odpowiedzi i pilnuje odnowień umów.",
-  },
-  {
-    name: "Paid Media",
-    color: "#3EC5A8",
-    slug: "rakazo/paid-media",
-    desc: "Sprawdza wydatki na reklamy i raportuje zmiany.",
-  },
-  {
-    name: "Chief of Staff",
-    color: "#8B93A8",
-    slug: "rakazo/chief-of-staff",
-    desc: "Przygotowuje podsumowania i koordynuje pracę botów.",
-  },
-];
-
-const TESTIMONIALS: HomeCopy["testimonials"]["items"] = [
-  {
-    quote:
-      "landed here after a first experience with Grok Bot … then found this alternative, and i can confirm that your work rocks. it replaced totally grok bot for me. mobile app is very smooth too",
-    attribution: "@dilog1114",
-  },
-  {
-    quote:
-      "Im a co-founder and cto, loving rakazo, we have it running against private on qwen 3.8 with strong hw/gpus - all private.",
-    attribution: "@bc101101",
-  },
-  {
-    quote:
-      "I use it to find cheap servers and computer parts on ebay and all other marketplaces and send me everything he decided is a good deal.",
-    attribution: "@michaelortnerit",
-  },
-  {
-    quote:
-      "Hermes is good but more complicated setup. Rakazo has better multi agent workflow and simpler to setup",
-    attribution: "@notabot_92732",
-  },
-  {
-    quote: "ive been using rakazo for 1 month in claude oauth no problems yet",
-    attribution: "@hey_cabron",
-  },
-  {
-    quote:
-      "I set up the mobile app today with expo, first time using expo but was easy with rakazo walking me through",
-    attribution: "@mithril0x",
-  },
-];
-
 const HOME_COPY: Record<Locale, HomeCopy> = {
   pl: {
-    title: "Rakazo | Otwarta alternatywa dla Grok Bot",
+    title: "Superbot | Otwarta alternatywa dla Grok Bot",
     description:
-      "Rakazo to otwarta alternatywa dla Grok Bot. Boty AI z własną pamięcią wykonują zadania na Twoim komputerze, z wybranym przez Ciebie modelem.",
-    ogImageAlt: "Rakazo. Twój zespół AI na Twoim komputerze, z Twoimi kluczami i modelem.",
+      "Superbot to otwarta alternatywa dla Grok Bot. Boty AI z własną pamięcią wykonują zadania na Twoim komputerze, z wybranym przez Ciebie modelem.",
+    ogImageAlt: "Superbot. Twój zespół AI na Twoim komputerze, z Twoimi kluczami i modelem.",
     availableLanguage: "Polish",
     skipToContent: "Przejdź do treści",
     nav: {
-      home: "Strona główna Rakazo",
+      home: "Strona główna Superbot",
       primary: "Nawigacja główna",
       menu: "Menu",
       docs: "Dokumentacja",
-      integrations: "Integracje",
-      pricing: "Cennik",
       github: "GitHub",
       getStarted: "Zacznij",
-      openInNewTab: "Otwórz w nowej karcie",
-      copyWordmark: "Kopiuj logotyp jako SVG",
-      brandKit: "Materiały marki",
     },
     hero: {
       eyebrow: "Otwarty kod źródłowy",
@@ -978,7 +143,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
     },
     selfHost: {
       heading: "Na własnym serwerze",
-      copy: "Uruchom Rakazo na swoim komputerze i wybierz modele dla swoich botów.",
+      copy: "Uruchom Superbot na swoim komputerze i wybierz modele dla swoich botów.",
       worksWith: "Współpracuje z",
       mock: {
         weekdays: "W dni robocze o 9:00",
@@ -1000,12 +165,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       web: "Przeglądarka",
       desktop: "Komputer",
       mobile: "Telefon",
-    },
-    roster: {
-      eyebrow: "Twój zespół botów",
-      heading: "Przydziel każdemu botowi zadanie",
-      copy: "Zacznij od szablonu i dostosuj go do siebie.",
-      bots: PL_ROSTER,
     },
     channels: {
       heading: "Pisz do nich z dowolnego miejsca",
@@ -1052,35 +211,24 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "Zapisano jako umiejętność",
       },
     },
-    testimonials: {
-      heading: "Opinie użytkowników",
-      pause: "Wstrzymaj",
-      play: "Odtwórz",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "Pytania i odpowiedzi",
       items: [
         {
           question: "Czy mogę używać subskrypcji Claude Pro/Max lub ChatGPT Plus/Pro?",
           answer:
-            "Tak. Zaloguj się przez ChatGPT z odpowiednim planem. Aby używać Claude Pro lub Max, hostuj Rakazo samodzielnie z kodu źródłowego tylko dla siebie i uruchamiaj je przez oficjalne Claude Code CLI zalogowane na Twoje konto. Możesz też połączyć klucz API. Szczegóły opisano na stronie Model subscriptions w dokumentacji.",
+            "Tak. Zaloguj się przez ChatGPT z odpowiednim planem. Aby używać Claude Pro lub Max, hostuj Superbot samodzielnie z kodu źródłowego tylko dla siebie i uruchamiaj je przez oficjalne Claude Code CLI zalogowane na Twoje konto. Możesz też połączyć klucz API. Szczegóły opisano na stronie Model subscriptions w dokumentacji.",
         },
         {
           question: "Czy mogę uruchomić model lokalnie?",
           answer:
             "Tak. Połącz bota z lokalnym serwerem zgodnym z OpenAI, np. Ollama lub LM Studio. Każdy bot może korzystać z innego modelu.",
         },
-        {
-          question: "Co obejmuje plan w chmurze?",
-          answer:
-            "Komputer w chmurze i miesięczny limit godzin pracy, który rośnie wraz z planem. Jednocześnie może działać do 5 komputerów. Nie ma opłat za przekroczenie limitu.",
-        },
       ],
     },
     openSource: {
       heading: "Otwarty kod źródłowy",
-      copy: "Licencja Apache-2.0. Uruchom Rakazo i dostosuj kod do swoich potrzeb.",
+      copy: "Licencja Apache-2.0. Uruchom Superbot i dostosuj kod do swoich potrzeb.",
       starOnGithub: "Dodaj gwiazdkę na GitHubie",
       readTheDocs: "Przeczytaj dokumentację",
       cloudTitle: "Chmura",
@@ -1105,47 +253,27 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "Dokumentacja",
         product: "Produkt",
         changelog: "Historia zmian",
-        submitPlugin: "Zgłoś wtyczkę",
-        enterprise: "Dla firm",
-        alternatives: "Alternatywy",
-        sandboxes: "Piaskownice",
-        integrationPlatforms: "Platformy integracyjne",
-        voiceProviders: "Dostawcy głosu",
-        all: "Wszystkie",
-        about: "O nas",
-        brand: "Marka",
-        affiliates: "Program partnerski",
-        support: "Pomoc",
-        privacy: "Prywatność",
-        terms: "Regulamin",
-        company: "Firma",
-        blog: "Blog",
         download: "Pobierz",
       },
     },
   },
   en: {
-    title: "Rakazo | Open source Grok Bot alternative",
+    title: "Superbot | Open source AI teammates that do real work",
     description: SITE_DESCRIPTION,
-    ogImageAlt: "Rakazo. AI teammates you actually own. Your keys, your model, your machine.",
+    ogImageAlt: "Superbot. AI teammates you actually own. Your keys, your model, your machine.",
     availableLanguage: "English",
     skipToContent: "Skip to content",
     nav: {
-      home: "Rakazo home",
+      home: "Superbot home",
       primary: "Primary",
       menu: "Menu",
       docs: "Docs",
-      integrations: "Integrations",
-      pricing: "Pricing",
       github: "GitHub",
       getStarted: "Get started",
-      openInNewTab: "Open in new tab",
-      copyWordmark: "Copy wordmark as SVG",
-      brandKit: "Brand kit",
     },
     hero: {
       eyebrow: "Open source",
-      heading: "The open source Grok Bot alternative you actually own",
+      heading: "AI teammates that do real work, on your terms",
       lead: "Give your bots a job. Check in from any device.",
       getStarted: "Get started",
       download: {
@@ -1182,12 +310,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       desktop: "Desktop",
       mobile: "Mobile",
     },
-    roster: {
-      eyebrow: "Your bot team",
-      heading: "Give each bot a job",
-      copy: "Start with a template. Make it yours.",
-      bots: EN_ROSTER,
-    },
     channels: {
       heading: "Message them anywhere",
       copy: "Mention a bot in Slack or text it from your phone.",
@@ -1204,8 +326,8 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
           body: "Your bot can call you in the app and join Zoom or Google Meet for a transcript.",
         },
         apps: {
-          title: "Works in your apps",
-          body: "Connect Gmail, GitHub, Notion, and any MCP server.",
+          title: "Works where you work",
+          body: "Connect GitHub, Gmail, Notion and any MCP server.",
         },
         memory: {
           title: "Remembers",
@@ -1233,12 +355,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "Saved as a skill",
       },
     },
-    testimonials: {
-      heading: "People love it",
-      pause: "Pause",
-      play: "Play",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "FAQ",
       items: [
@@ -1247,11 +363,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
           question: "Can I run a local model?",
           answer:
             "Yes. Point a bot at a local OpenAI-compatible server such as Ollama or LM Studio. Each bot can use a different model.",
-        },
-        {
-          question: "What does the hosted plan include?",
-          answer:
-            "A cloud computer and a monthly allowance of computer hours that grows with your plan, with up to 5 computers running at once. There are no overage charges.",
         },
       ],
     },
@@ -1282,45 +393,25 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "Docs",
         product: "Product",
         changelog: "Changelog",
-        submitPlugin: "Submit a plugin",
-        enterprise: "Enterprise",
-        alternatives: "Alternatives",
-        sandboxes: "Sandboxes",
-        integrationPlatforms: "Integration platforms",
-        voiceProviders: "Voice providers",
-        all: "All",
-        about: "About",
-        brand: "Brand",
-        affiliates: "Affiliates",
-        support: "Support",
-        privacy: "Privacy",
-        terms: "Terms",
-        company: "Company",
-        blog: "Blog",
         download: "Download",
       },
     },
   },
   de: {
-    title: "Rakazo | Open-Source-Alternative zu Grok Bot",
+    title: "Superbot | Open-Source-Alternative zu Grok Bot",
     description:
-      "Rakazo ist eine Open-Source-Alternative zu Grok Bot für persistente KI-Teamkollegen, die echte Arbeit erledigen. Deine Keys, dein Modell, deine Maschine.",
+      "Superbot ist eine Open-Source-Alternative zu Grok Bot für persistente KI-Teamkollegen, die echte Arbeit erledigen. Deine Keys, dein Modell, deine Maschine.",
     ogImageAlt:
-      "Rakazo. KI-Teamkollegen, die dir wirklich gehören. Deine Keys, dein Modell, deine Maschine.",
+      "Superbot. KI-Teamkollegen, die dir wirklich gehören. Deine Keys, dein Modell, deine Maschine.",
     availableLanguage: "German",
     skipToContent: "Zum Inhalt springen",
     nav: {
-      home: "Rakazo-Startseite",
+      home: "Superbot-Startseite",
       primary: "Hauptnavigation",
       menu: "Menü",
       docs: "Docs",
-      integrations: "Integrationen",
-      pricing: "Preise",
       github: "GitHub",
       getStarted: "Loslegen",
-      openInNewTab: "In neuem Tab öffnen",
-      copyWordmark: "Schriftzug als SVG kopieren",
-      brandKit: "Markenkit",
     },
     hero: {
       eyebrow: "Open Source",
@@ -1367,12 +458,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       desktop: "Desktop",
       mobile: "Mobil",
     },
-    roster: {
-      eyebrow: "Dein Bot-Team",
-      heading: "Gib jedem Bot eine Aufgabe",
-      copy: "Wähle eine Vorlage und passe sie an.",
-      bots: DE_ROSTER,
-    },
     channels: {
       heading: "Schreib ihnen überall",
       copy: "Erwähne einen Bot in Slack oder schreib ihm vom Handy.",
@@ -1418,29 +503,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "Als Skill gespeichert",
       },
     },
-    testimonials: {
-      heading: "Die Leute lieben es",
-      pause: "Pause",
-      play: "Weiter",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "FAQ",
       items: [
         {
           question: "Kann ich mein Claude Pro/Max- oder ChatGPT Plus/Pro-Abo nutzen?",
           answer:
-            "Ja. Melde dich mit einem passenden Plan über ChatGPT an. Für Claude Pro oder Max hostest du Rakazo aus dem Quellcode nur für dich selbst und betreibst es über die offizielle Claude Code CLI, angemeldet mit deinem Konto. Du kannst auch einen API-Schlüssel verbinden. Details findest du unter Model subscriptions in der Dokumentation.",
+            "Ja. Melde dich mit einem passenden Plan über ChatGPT an. Für Claude Pro oder Max hostest du Superbot aus dem Quellcode nur für dich selbst und betreibst es über die offizielle Claude Code CLI, angemeldet mit deinem Konto. Du kannst auch einen API-Schlüssel verbinden. Details findest du unter Model subscriptions in der Dokumentation.",
         },
         {
           question: "Kann ich ein lokales Modell nutzen?",
           answer:
             "Ja. Richte einen Bot auf einen lokalen OpenAI-kompatiblen Server wie Ollama oder LM Studio. Jeder Bot kann ein anderes Modell nutzen.",
-        },
-        {
-          question: "Was ist im gehosteten Plan enthalten?",
-          answer:
-            "Ein Cloud-Computer und ein monatliches Kontingent an Computerstunden, das mit deinem Tarif wächst, mit bis zu 5 gleichzeitig laufenden Computern. Es gibt keine Zusatzkosten.",
         },
       ],
     },
@@ -1471,44 +545,24 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "Dokumentation",
         product: "Produkt",
         changelog: "Änderungsprotokoll",
-        submitPlugin: "Plugin einreichen",
-        enterprise: "Enterprise",
-        alternatives: "Alternativen",
-        sandboxes: "Sandboxes",
-        integrationPlatforms: "Integrationsplattformen",
-        voiceProviders: "Sprachanbieter",
-        all: "Alle",
-        about: "Über uns",
-        brand: "Marke",
-        affiliates: "Partnerprogramm",
-        support: "Support",
-        privacy: "Datenschutz",
-        terms: "AGB",
-        company: "Unternehmen",
-        blog: "Blog",
         download: "Download",
       },
     },
   },
   ko: {
-    title: "Rakazo | 오픈소스 Grok Bot 대안",
+    title: "Superbot | 오픈소스 Grok Bot 대안",
     description:
-      "Rakazo는 실제 업무를 수행하는 지속형 AI 팀원을 위한 오픈소스 Grok Bot 대안입니다. 키, 모델, 머신, 모두 당신 것.",
-    ogImageAlt: "Rakazo. 진짜로 내 것인 AI 팀원. 키, 모델, 머신, 모두 당신 것.",
+      "Superbot는 실제 업무를 수행하는 지속형 AI 팀원을 위한 오픈소스 Grok Bot 대안입니다. 키, 모델, 머신, 모두 당신 것.",
+    ogImageAlt: "Superbot. 진짜로 내 것인 AI 팀원. 키, 모델, 머신, 모두 당신 것.",
     availableLanguage: "Korean",
     skipToContent: "본문으로 건너뛰기",
     nav: {
-      home: "Rakazo 홈",
+      home: "Superbot 홈",
       primary: "주 메뉴",
       menu: "메뉴",
       docs: "Docs",
-      integrations: "통합",
-      pricing: "가격",
       github: "GitHub",
       getStarted: "시작하기",
-      openInNewTab: "새 탭에서 열기",
-      copyWordmark: "워드마크를 SVG로 복사",
-      brandKit: "브랜드 키트",
     },
     hero: {
       eyebrow: "오픈 소스",
@@ -1543,12 +597,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       web: "웹",
       desktop: "데스크톱",
       mobile: "모바일",
-    },
-    roster: {
-      eyebrow: "나만의 봇 팀",
-      heading: "봇마다 역할을 주세요",
-      copy: "템플릿을 골라 내 일에 맞추세요.",
-      bots: KO_ROSTER,
     },
     channels: {
       heading: "어디서든 메시지하세요",
@@ -1589,29 +637,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "스킬로 저장됨",
       },
     },
-    testimonials: {
-      heading: "다들 좋아해요",
-      pause: "일시정지",
-      play: "재생",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "질문",
       items: [
         {
           question: "Claude Pro/Max 또는 ChatGPT Plus/Pro 구독을 쓸 수 있나요?",
           answer:
-            "네. 해당 요금제로 ChatGPT에 로그인하세요. Claude Pro나 Max를 쓰려면 소스 코드에서 Rakazo를 본인 전용으로 직접 호스팅하고, 본인 계정으로 로그인한 공식 Claude Code CLI를 통해 실행하세요. API 키를 연결해도 됩니다. 자세한 내용은 문서의 Model subscriptions를 확인하세요.",
+            "네. 해당 요금제로 ChatGPT에 로그인하세요. Claude Pro나 Max를 쓰려면 소스 코드에서 Superbot를 본인 전용으로 직접 호스팅하고, 본인 계정으로 로그인한 공식 Claude Code CLI를 통해 실행하세요. API 키를 연결해도 됩니다. 자세한 내용은 문서의 Model subscriptions를 확인하세요.",
         },
         {
           question: "로컬 모델을 쓸 수 있나요?",
           answer:
             "네. Ollama나 LM Studio 같은 로컬 OpenAI 호환 서버에 봇을 연결하세요. 봇마다 다른 모델을 쓸 수 있습니다.",
-        },
-        {
-          question: "호스팅 플랜에는 무엇이 포함되나요?",
-          answer:
-            "클라우드 컴퓨터와 플랜에 따라 늘어나는 월 컴퓨터 시간이 포함되며, 컴퓨터는 최대 5대까지 동시에 실행할 수 있습니다. 초과 요금은 없습니다.",
         },
       ],
     },
@@ -1642,44 +679,24 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "문서",
         product: "제품",
         changelog: "변경 내역",
-        submitPlugin: "플러그인 제출",
-        enterprise: "엔터프라이즈",
-        alternatives: "대안",
-        sandboxes: "샌드박스",
-        integrationPlatforms: "통합 플랫폼",
-        voiceProviders: "음성 제공업체",
-        all: "전체",
-        about: "소개",
-        brand: "브랜드",
-        affiliates: "제휴 프로그램",
-        support: "지원",
-        privacy: "개인정보 처리방침",
-        terms: "이용약관",
-        company: "회사",
-        blog: "블로그",
         download: "다운로드",
       },
     },
   },
   zh: {
-    title: "Rakazo | 开源 Grok Bot 替代品",
+    title: "Superbot | 开源 Grok Bot 替代品",
     description:
-      "Rakazo 是一个开源 Grok Bot 替代品，用于运行真正干活的持久化 AI 队友。密钥、模型、机器，都归你所有。",
-    ogImageAlt: "Rakazo：真正属于你的 AI 队友。密钥、模型、机器，都归你所有。",
+      "Superbot 是一个开源 Grok Bot 替代品，用于运行真正干活的持久化 AI 队友。密钥、模型、机器，都归你所有。",
+    ogImageAlt: "Superbot：真正属于你的 AI 队友。密钥、模型、机器，都归你所有。",
     availableLanguage: "Chinese",
     skipToContent: "跳到主要内容",
     nav: {
-      home: "Rakazo 首页",
+      home: "Superbot 首页",
       primary: "主导航",
       menu: "菜单",
       docs: "文档",
-      integrations: "集成",
-      pricing: "价格",
       github: "GitHub",
       getStarted: "开始使用",
-      openInNewTab: "在新标签页中打开",
-      copyWordmark: "复制 SVG 格式文字标识",
-      brandKit: "品牌资源",
     },
     hero: {
       eyebrow: "开源",
@@ -1715,12 +732,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       desktop: "桌面端",
       mobile: "移动端",
     },
-    roster: {
-      eyebrow: "你的 Bot 团队",
-      heading: "给每个 Bot 分配工作",
-      copy: "选个模板，按你的需求调整。",
-      bots: ZH_ROSTER,
-    },
     channels: {
       heading: "随时随地发消息",
       copy: "在 Slack 里 @ 一个机器人，或用手机给它发短信。",
@@ -1751,29 +762,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "已存为技能",
       },
     },
-    testimonials: {
-      heading: "大家都爱它",
-      pause: "暂停",
-      play: "播放",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "常见问题",
       items: [
         {
           question: "可以用我的 Claude Pro/Max 或 ChatGPT Plus/Pro 订阅吗？",
           answer:
-            "可以。使用符合条件的套餐登录 ChatGPT。若要使用 Claude Pro 或 Max，请从源码自行托管仅供你本人使用的 Rakazo，并通过用你的账号登录的官方 Claude Code CLI 运行。你也可以连接 API 密钥。详情见文档中的 Model subscriptions。",
+            "可以。使用符合条件的套餐登录 ChatGPT。若要使用 Claude Pro 或 Max，请从源码自行托管仅供你本人使用的 Superbot，并通过用你的账号登录的官方 Claude Code CLI 运行。你也可以连接 API 密钥。详情见文档中的 Model subscriptions。",
         },
         {
           question: "可以用本地模型吗？",
           answer:
             "可以。把 Bot 指向 Ollama 或 LM Studio 这类本地 OpenAI 兼容服务。每个 Bot 可以使用不同的模型。",
-        },
-        {
-          question: "托管套餐包含什么？",
-          answer:
-            "一台云计算机，以及随套餐增加的每月计算机小时，最多同时运行 5 台计算机。没有超额费用。",
         },
       ],
     },
@@ -1804,45 +804,25 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "文档",
         product: "产品",
         changelog: "更新日志",
-        submitPlugin: "提交插件",
-        enterprise: "企业版",
-        alternatives: "替代方案",
-        sandboxes: "沙箱",
-        integrationPlatforms: "集成平台",
-        voiceProviders: "语音服务商",
-        all: "全部",
-        about: "关于",
-        brand: "品牌",
-        affiliates: "联盟计划",
-        support: "支持",
-        privacy: "隐私",
-        terms: "条款",
-        company: "公司",
-        blog: "博客",
         download: "下载",
       },
     },
   },
   ja: {
-    title: "Rakazo | オープンソースの Grok Bot 代替ツール",
+    title: "Superbot | オープンソースの Grok Bot 代替ツール",
     description:
-      "Rakazo は、実際の仕事をこなす常駐型 AI チームメイトのための、オープンソースの Grok Bot 代替ツールです。キーもモデルもマシンも、すべてあなたのものです。",
+      "Superbot は、実際の仕事をこなす常駐型 AI チームメイトのための、オープンソースの Grok Bot 代替ツールです。キーもモデルもマシンも、すべてあなたのものです。",
     ogImageAlt:
-      "Rakazo。本当に自分のものにできる AI チームメイト。キーもモデルもマシンも、すべてあなたのもの。",
+      "Superbot。本当に自分のものにできる AI チームメイト。キーもモデルもマシンも、すべてあなたのもの。",
     availableLanguage: "Japanese",
     skipToContent: "本文へスキップ",
     nav: {
-      home: "Rakazo ホーム",
+      home: "Superbot ホーム",
       primary: "メインナビゲーション",
       menu: "メニュー",
       docs: "ドキュメント",
-      integrations: "連携",
-      pricing: "料金",
       github: "GitHub",
       getStarted: "はじめる",
-      openInNewTab: "新しいタブで開く",
-      copyWordmark: "ワードマークをSVGでコピー",
-      brandKit: "ブランドキット",
     },
     hero: {
       eyebrow: "オープンソース",
@@ -1880,12 +860,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       web: "Web",
       desktop: "デスクトップ",
       mobile: "モバイル",
-    },
-    roster: {
-      eyebrow: "あなたのボットチーム",
-      heading: "ボットごとに仕事を任せましょう",
-      copy: "テンプレートから始めて、自分好みに。",
-      bots: JA_ROSTER,
     },
     channels: {
       heading: "どこからでもメッセージ",
@@ -1926,29 +900,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "スキルとして保存",
       },
     },
-    testimonials: {
-      heading: "多くの人に愛用されています",
-      pause: "一時停止",
-      play: "再生",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "よくある質問",
       items: [
         {
           question: "Claude Pro/Max や ChatGPT Plus/Pro のサブスクリプションを使えますか？",
           answer:
-            "はい。対象プランで ChatGPT にサインインしてください。Claude Pro または Max を使う場合は、Rakazo をソースコードから自分専用にセルフホストし、自分のアカウントでサインインした公式の Claude Code CLI 経由で動かします。API キーを接続することもできます。詳しくはドキュメントの Model subscriptions をご覧ください。",
+            "はい。対象プランで ChatGPT にサインインしてください。Claude Pro または Max を使う場合は、Superbot をソースコードから自分専用にセルフホストし、自分のアカウントでサインインした公式の Claude Code CLI 経由で動かします。API キーを接続することもできます。詳しくはドキュメントの Model subscriptions をご覧ください。",
         },
         {
           question: "ローカルモデルを使えますか？",
           answer:
             "はい。Ollama や LM Studio などのローカルの OpenAI 互換サーバーにボットを接続できます。ボットごとに別のモデルを使えます。",
-        },
-        {
-          question: "ホスト型プランには何が含まれますか？",
-          answer:
-            "クラウドコンピューターと、プランに応じて増える毎月のコンピューター時間が含まれ、同時に 5 台までコンピューターを使えます。超過料金はありません。",
         },
       ],
     },
@@ -1979,45 +942,25 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "ドキュメント",
         product: "製品",
         changelog: "変更履歴",
-        submitPlugin: "プラグインを申請",
-        enterprise: "エンタープライズ",
-        alternatives: "代替ツール",
-        sandboxes: "サンドボックス",
-        integrationPlatforms: "連携プラットフォーム",
-        voiceProviders: "音声プロバイダー",
-        all: "すべて",
-        about: "概要",
-        brand: "ブランド",
-        affiliates: "アフィリエイト",
-        support: "サポート",
-        privacy: "プライバシー",
-        terms: "利用規約",
-        company: "会社情報",
-        blog: "ブログ",
         download: "ダウンロード",
       },
     },
   },
   es: {
-    title: "Rakazo | Alternativa de código abierto a Grok Bot",
+    title: "Superbot | Alternativa de código abierto a Grok Bot",
     description:
-      "Rakazo es una alternativa de código abierto a Grok Bot para compañeros de IA persistentes que hacen trabajo real. Tus claves, tu modelo, tu máquina.",
+      "Superbot es una alternativa de código abierto a Grok Bot para compañeros de IA persistentes que hacen trabajo real. Tus claves, tu modelo, tu máquina.",
     ogImageAlt:
-      "Rakazo. Compañeros de IA que de verdad son tuyos. Tus claves, tu modelo, tu máquina.",
+      "Superbot. Compañeros de IA que de verdad son tuyos. Tus claves, tu modelo, tu máquina.",
     availableLanguage: "Spanish",
     skipToContent: "Saltar al contenido",
     nav: {
-      home: "Inicio de Rakazo",
+      home: "Inicio de Superbot",
       primary: "Navegación principal",
       menu: "Menú",
       docs: "Documentación",
-      integrations: "Integraciones",
-      pricing: "Precios",
       github: "GitHub",
       getStarted: "Empezar",
-      openInNewTab: "Abrir en una pestaña nueva",
-      copyWordmark: "Copiar logotipo de texto como SVG",
-      brandKit: "Kit de marca",
     },
     hero: {
       eyebrow: "Código abierto",
@@ -2057,12 +1000,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       web: "Web",
       desktop: "Escritorio",
       mobile: "Móvil",
-    },
-    roster: {
-      eyebrow: "Tu equipo de bots",
-      heading: "Dale un trabajo a cada bot",
-      copy: "Empieza con una plantilla. Hazla tuya.",
-      bots: ES_ROSTER,
     },
     channels: {
       heading: "Escríbeles desde cualquier lugar",
@@ -2109,29 +1046,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "Guardado como habilidad",
       },
     },
-    testimonials: {
-      heading: "A la gente le encanta",
-      pause: "Pausar",
-      play: "Reproducir",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "Preguntas frecuentes",
       items: [
         {
           question: "¿Puedo usar mi suscripción a Claude Pro/Max o ChatGPT Plus/Pro?",
           answer:
-            "Sí. Inicia sesión con ChatGPT con un plan compatible. Para usar Claude Pro o Max, aloja Rakazo desde el código fuente solo para ti y ejecútalo con la CLI oficial de Claude Code, con tu propia cuenta. También puedes conectar una clave de API. Consulta Model subscriptions en la documentación para más detalles.",
+            "Sí. Inicia sesión con ChatGPT con un plan compatible. Para usar Claude Pro o Max, aloja Superbot desde el código fuente solo para ti y ejecútalo con la CLI oficial de Claude Code, con tu propia cuenta. También puedes conectar una clave de API. Consulta Model subscriptions en la documentación para más detalles.",
         },
         {
           question: "¿Puedo usar un modelo local?",
           answer:
             "Sí. Conecta un bot a un servidor local compatible con OpenAI, como Ollama o LM Studio. Cada bot puede usar un modelo distinto.",
-        },
-        {
-          question: "¿Qué incluye el plan alojado?",
-          answer:
-            "Una computadora en la nube y una asignación mensual de horas de computadora que crece con tu plan, con hasta 5 computadoras funcionando a la vez. No hay cargos por exceso.",
         },
       ],
     },
@@ -2162,45 +1088,25 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "Documentación",
         product: "Producto",
         changelog: "Novedades",
-        submitPlugin: "Enviar un plugin",
-        enterprise: "Empresas",
-        alternatives: "Alternativas",
-        sandboxes: "Sandboxes",
-        integrationPlatforms: "Plataformas de integración",
-        voiceProviders: "Proveedores de voz",
-        all: "Todas",
-        about: "Acerca de",
-        brand: "Marca",
-        affiliates: "Afiliados",
-        support: "Soporte",
-        privacy: "Privacidad",
-        terms: "Términos",
-        company: "Empresa",
-        blog: "Blog",
         download: "Descargar",
       },
     },
   },
   fr: {
-    title: "Rakazo | Alternative open source à Grok Bot",
+    title: "Superbot | Alternative open source à Grok Bot",
     description:
-      "Rakazo est une alternative open source à Grok Bot pour des coéquipiers IA persistants qui font un vrai travail. Vos clés, votre modèle, votre machine.",
+      "Superbot est une alternative open source à Grok Bot pour des coéquipiers IA persistants qui font un vrai travail. Vos clés, votre modèle, votre machine.",
     ogImageAlt:
-      "Rakazo. Des coéquipiers IA qui vous appartiennent vraiment. Vos clés, votre modèle, votre machine.",
+      "Superbot. Des coéquipiers IA qui vous appartiennent vraiment. Vos clés, votre modèle, votre machine.",
     availableLanguage: "French",
     skipToContent: "Aller au contenu",
     nav: {
-      home: "Accueil Rakazo",
+      home: "Accueil Superbot",
       primary: "Navigation principale",
       menu: "Menu",
       docs: "Documentation",
-      integrations: "Intégrations",
-      pricing: "Tarifs",
       github: "GitHub",
       getStarted: "Commencer",
-      openInNewTab: "Ouvrir dans un nouvel onglet",
-      copyWordmark: "Copier le logotype en SVG",
-      brandKit: "Kit de marque",
     },
     hero: {
       eyebrow: "Open source",
@@ -2247,12 +1153,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       desktop: "Ordinateur",
       mobile: "Mobile",
     },
-    roster: {
-      eyebrow: "Votre équipe de bots",
-      heading: "Confiez une mission à chaque bot",
-      copy: "Partez d’un modèle. Adaptez-le à vos besoins.",
-      bots: FR_ROSTER,
-    },
     channels: {
       heading: "Écrivez-leur partout",
       copy: "Mentionnez un bot dans Slack ou envoyez-lui un SMS depuis votre téléphone.",
@@ -2298,29 +1198,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "Enregistré comme compétence",
       },
     },
-    testimonials: {
-      heading: "Ils l’adorent",
-      pause: "Pause",
-      play: "Lecture",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "FAQ",
       items: [
         {
           question: "Puis-je utiliser mon abonnement Claude Pro/Max ou ChatGPT Plus/Pro ?",
           answer:
-            "Oui. Connectez-vous avec ChatGPT si votre offre est éligible. Pour Claude Pro ou Max, auto-hébergez Rakazo à partir du code source pour vous seul et faites-le tourner via la CLI officielle Claude Code, connectée à votre compte. Vous pouvez aussi connecter une clé API. Voir Model subscriptions dans la documentation pour les détails.",
+            "Oui. Connectez-vous avec ChatGPT si votre offre est éligible. Pour Claude Pro ou Max, auto-hébergez Superbot à partir du code source pour vous seul et faites-le tourner via la CLI officielle Claude Code, connectée à votre compte. Vous pouvez aussi connecter une clé API. Voir Model subscriptions dans la documentation pour les détails.",
         },
         {
           question: "Puis-je utiliser un modèle local ?",
           answer:
             "Oui. Reliez un bot à un serveur local compatible OpenAI comme Ollama ou LM Studio. Chaque bot peut utiliser un modèle différent.",
-        },
-        {
-          question: "Que comprend l’offre hébergée ?",
-          answer:
-            "Un ordinateur cloud et un forfait mensuel d’heures-ordinateur qui augmente avec votre offre, avec jusqu’à 5 ordinateurs en même temps. Il n’y a aucun frais de dépassement.",
         },
       ],
     },
@@ -2351,45 +1240,25 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "Documentation",
         product: "Produit",
         changelog: "Nouveautés",
-        submitPlugin: "Proposer un plugin",
-        enterprise: "Entreprise",
-        alternatives: "Alternatives",
-        sandboxes: "Sandbox",
-        integrationPlatforms: "Plateformes d'intégration",
-        voiceProviders: "Fournisseurs de voix",
-        all: "Toutes",
-        about: "À propos",
-        brand: "Marque",
-        affiliates: "Affiliation",
-        support: "Support",
-        privacy: "Confidentialité",
-        terms: "Conditions",
-        company: "Entreprise",
-        blog: "Blog",
         download: "Télécharger",
       },
     },
   },
   "pt-br": {
-    title: "Rakazo | Alternativa de código aberto ao Grok Bot",
+    title: "Superbot | Alternativa de código aberto ao Grok Bot",
     description:
-      "Rakazo é uma alternativa de código aberto ao Grok Bot para colegas de IA persistentes que fazem trabalho de verdade. Suas chaves, seu modelo, sua máquina.",
+      "Superbot é uma alternativa de código aberto ao Grok Bot para colegas de IA persistentes que fazem trabalho de verdade. Suas chaves, seu modelo, sua máquina.",
     ogImageAlt:
-      "Rakazo. Colegas de IA que são realmente seus. Suas chaves, seu modelo, sua máquina.",
+      "Superbot. Colegas de IA que são realmente seus. Suas chaves, seu modelo, sua máquina.",
     availableLanguage: "Portuguese",
     skipToContent: "Pular para o conteúdo",
     nav: {
-      home: "Página inicial do Rakazo",
+      home: "Página inicial do Superbot",
       primary: "Navegação principal",
       menu: "Menu",
       docs: "Documentação",
-      integrations: "Integrações",
-      pricing: "Preços",
       github: "GitHub",
       getStarted: "Começar",
-      openInNewTab: "Abrir em nova aba",
-      copyWordmark: "Copiar logotipo em texto como SVG",
-      brandKit: "Kit de marca",
     },
     hero: {
       eyebrow: "Código aberto",
@@ -2432,12 +1301,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       web: "Web",
       desktop: "Desktop",
       mobile: "Celular",
-    },
-    roster: {
-      eyebrow: "Sua equipe de bots",
-      heading: "Dê um trabalho a cada bot",
-      copy: "Comece com um template. Deixe do seu jeito.",
-      bots: PT_BR_ROSTER,
     },
     channels: {
       heading: "Fale com eles em qualquer lugar",
@@ -2484,29 +1347,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "Salvo como habilidade",
       },
     },
-    testimonials: {
-      heading: "As pessoas adoram",
-      pause: "Pausar",
-      play: "Reproduzir",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "Perguntas frequentes",
       items: [
         {
           question: "Posso usar minha assinatura do Claude Pro/Max ou ChatGPT Plus/Pro?",
           answer:
-            "Sim. Entre com o ChatGPT em um plano elegível. Para usar Claude Pro ou Max, hospede o Rakazo a partir do código-fonte só para você e execute-o pela CLI oficial do Claude Code, conectada à sua conta. Você também pode conectar uma chave de API. Veja Model subscriptions na documentação para mais detalhes.",
+            "Sim. Entre com o ChatGPT em um plano elegível. Para usar Claude Pro ou Max, hospede o Superbot a partir do código-fonte só para você e execute-o pela CLI oficial do Claude Code, conectada à sua conta. Você também pode conectar uma chave de API. Veja Model subscriptions na documentação para mais detalhes.",
         },
         {
           question: "Posso usar um modelo local?",
           answer:
             "Sim. Aponte um bot para um servidor local compatível com OpenAI, como Ollama ou LM Studio. Cada bot pode usar um modelo diferente.",
-        },
-        {
-          question: "O que o plano hospedado inclui?",
-          answer:
-            "Um computador na nuvem e uma cota mensal de horas de computador que cresce com o seu plano, com até 5 computadores rodando ao mesmo tempo. Não há cobrança por excedente.",
         },
       ],
     },
@@ -2537,45 +1389,25 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "Documentação",
         product: "Produto",
         changelog: "Novidades",
-        submitPlugin: "Enviar um plugin",
-        enterprise: "Empresas",
-        alternatives: "Alternativas",
-        sandboxes: "Sandboxes",
-        integrationPlatforms: "Plataformas de integração",
-        voiceProviders: "Provedores de voz",
-        all: "Todas",
-        about: "Sobre",
-        brand: "Marca",
-        affiliates: "Afiliados",
-        support: "Suporte",
-        privacy: "Privacidade",
-        terms: "Termos",
-        company: "Empresa",
-        blog: "Blog",
         download: "Baixar",
       },
     },
   },
   nl: {
-    title: "Rakazo | Open source alternatief voor Grok Bot",
+    title: "Superbot | Open source alternatief voor Grok Bot",
     description:
-      "Rakazo is een open source alternatief voor Grok Bot voor blijvende AI-teamgenoten die echt werk doen. Jouw keys, jouw model, jouw machine.",
+      "Superbot is een open source alternatief voor Grok Bot voor blijvende AI-teamgenoten die echt werk doen. Jouw keys, jouw model, jouw machine.",
     ogImageAlt:
-      "Rakazo. AI-teamgenoten die echt van jou zijn. Jouw keys, jouw model, jouw machine.",
+      "Superbot. AI-teamgenoten die echt van jou zijn. Jouw keys, jouw model, jouw machine.",
     availableLanguage: "Dutch",
     skipToContent: "Naar inhoud springen",
     nav: {
-      home: "Rakazo-startpagina",
+      home: "Superbot-startpagina",
       primary: "Hoofdnavigatie",
       menu: "Menu",
       docs: "Docs",
-      integrations: "Integraties",
-      pricing: "Prijzen",
       github: "GitHub",
       getStarted: "Aan de slag",
-      openInNewTab: "Openen in nieuw tabblad",
-      copyWordmark: "Woordmerk kopiëren als SVG",
-      brandKit: "Merkkit",
     },
     hero: {
       eyebrow: "Open source",
@@ -2619,12 +1451,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       desktop: "Desktop",
       mobile: "Mobiel",
     },
-    roster: {
-      eyebrow: "Je botteam",
-      heading: "Geef elke bot een taak",
-      copy: "Begin met een sjabloon. Maak het je eigen.",
-      bots: NL_ROSTER,
-    },
     channels: {
       heading: "Stuur ze overal een bericht",
       copy: "Noem een bot in Slack of stuur hem een bericht vanaf je telefoon.",
@@ -2667,29 +1493,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "Opgeslagen als skill",
       },
     },
-    testimonials: {
-      heading: "Mensen zijn er dol op",
-      pause: "Pauzeren",
-      play: "Afspelen",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "FAQ",
       items: [
         {
           question: "Kan ik mijn Claude Pro/Max- of ChatGPT Plus/Pro-abonnement gebruiken?",
           answer:
-            "Ja. Log in met ChatGPT met een geschikt abonnement. Voor Claude Pro of Max host je Rakazo vanuit de broncode alleen voor jezelf en draai je het via de officiële Claude Code CLI, ingelogd met je eigen account. Je kunt ook een API-sleutel koppelen. Zie Model subscriptions in de documentatie voor details.",
+            "Ja. Log in met ChatGPT met een geschikt abonnement. Voor Claude Pro of Max host je Superbot vanuit de broncode alleen voor jezelf en draai je het via de officiële Claude Code CLI, ingelogd met je eigen account. Je kunt ook een API-sleutel koppelen. Zie Model subscriptions in de documentatie voor details.",
         },
         {
           question: "Kan ik een lokaal model draaien?",
           answer:
             "Ja. Laat een bot naar een lokale OpenAI-compatibele server wijzen, zoals Ollama of LM Studio. Elke bot kan een ander model gebruiken.",
-        },
-        {
-          question: "Wat zit er in het gehoste abonnement?",
-          answer:
-            "Een cloudcomputer en een maandelijks tegoed aan computeruren dat meegroeit met je abonnement, met tot 5 computers tegelijk. Er zijn geen extra kosten bij overschrijding.",
         },
       ],
     },
@@ -2720,45 +1535,25 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "Documentatie",
         product: "Product",
         changelog: "Wijzigingslog",
-        submitPlugin: "Plugin indienen",
-        enterprise: "Enterprise",
-        alternatives: "Alternatieven",
-        sandboxes: "Sandboxes",
-        integrationPlatforms: "Integratieplatforms",
-        voiceProviders: "Spraakproviders",
-        all: "Alle",
-        about: "Over ons",
-        brand: "Merk",
-        affiliates: "Affiliateprogramma",
-        support: "Support",
-        privacy: "Privacy",
-        terms: "Voorwaarden",
-        company: "Bedrijf",
-        blog: "Blog",
         download: "Downloaden",
       },
     },
   },
   ru: {
-    title: "Rakazo | Альтернатива Grok Bot с открытым исходным кодом",
+    title: "Superbot | Альтернатива Grok Bot с открытым исходным кодом",
     description:
-      "Rakazo — альтернатива Grok Bot с открытым исходным кодом: постоянные ИИ-коллеги, которые выполняют реальную работу. Ваши ключи, ваша модель, ваш компьютер.",
+      "Superbot — альтернатива Grok Bot с открытым исходным кодом: постоянные ИИ-коллеги, которые выполняют реальную работу. Ваши ключи, ваша модель, ваш компьютер.",
     ogImageAlt:
-      "Rakazo. ИИ-коллеги, которые действительно принадлежат вам. Ваши ключи, ваша модель, ваш компьютер.",
+      "Superbot. ИИ-коллеги, которые действительно принадлежат вам. Ваши ключи, ваша модель, ваш компьютер.",
     availableLanguage: "Russian",
     skipToContent: "Перейти к содержимому",
     nav: {
-      home: "Главная Rakazo",
+      home: "Главная Superbot",
       primary: "Основная навигация",
       menu: "Меню",
       docs: "Документация",
-      integrations: "Интеграции",
-      pricing: "Цены",
       github: "GitHub",
       getStarted: "Начать",
-      openInNewTab: "Открыть в новой вкладке",
-      copyWordmark: "Копировать надпись логотипа в SVG",
-      brandKit: "Брендбук",
     },
     hero: {
       eyebrow: "Открытый исходный код",
@@ -2798,12 +1593,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       web: "Веб",
       desktop: "Компьютер",
       mobile: "Телефон",
-    },
-    roster: {
-      eyebrow: "Ваша команда ботов",
-      heading: "Дайте каждому боту работу",
-      copy: "Начните с шаблона. Настройте под себя.",
-      bots: RU_ROSTER,
     },
     channels: {
       heading: "Пишите им где угодно",
@@ -2850,29 +1639,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "Сохранено как навык",
       },
     },
-    testimonials: {
-      heading: "Людям нравится",
-      pause: "Пауза",
-      play: "Воспроизвести",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "Частые вопросы",
       items: [
         {
           question: "Можно ли использовать подписку Claude Pro/Max или ChatGPT Plus/Pro?",
           answer:
-            "Да. Войдите через ChatGPT с подходящим тарифом. Чтобы использовать Claude Pro или Max, разверните Rakazo из исходного кода только для себя и запускайте его через официальный Claude Code CLI, вошедший в ваш аккаунт. Можно также подключить API-ключ. Подробности — на странице Model subscriptions в документации.",
+            "Да. Войдите через ChatGPT с подходящим тарифом. Чтобы использовать Claude Pro или Max, разверните Superbot из исходного кода только для себя и запускайте его через официальный Claude Code CLI, вошедший в ваш аккаунт. Можно также подключить API-ключ. Подробности — на странице Model subscriptions в документации.",
         },
         {
           question: "Можно ли запустить локальную модель?",
           answer:
             "Да. Направьте бота на локальный OpenAI-совместимый сервер, например Ollama или LM Studio. Каждый бот может использовать свою модель.",
-        },
-        {
-          question: "Что входит в облачный тариф?",
-          answer:
-            "Облачный компьютер и месячный запас компьютеро-часов, который растёт вместе с тарифом, и до 5 компьютеров одновременно. Платы за превышение нет.",
         },
       ],
     },
@@ -2903,45 +1681,25 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "Документация",
         product: "Продукт",
         changelog: "Журнал изменений",
-        submitPlugin: "Предложить плагин",
-        enterprise: "Для бизнеса",
-        alternatives: "Альтернативы",
-        sandboxes: "Песочницы",
-        integrationPlatforms: "Платформы интеграций",
-        voiceProviders: "Голосовые провайдеры",
-        all: "Все",
-        about: "О нас",
-        brand: "Бренд",
-        affiliates: "Партнёрская программа",
-        support: "Поддержка",
-        privacy: "Конфиденциальность",
-        terms: "Условия",
-        company: "Компания",
-        blog: "Блог",
         download: "Скачать",
       },
     },
   },
   tr: {
-    title: "Rakazo | Açık kaynaklı Grok Bot alternatifi",
+    title: "Superbot | Açık kaynaklı Grok Bot alternatifi",
     description:
-      "Rakazo, gerçek işler yapan kalıcı yapay zekâ ekip arkadaşları için açık kaynaklı bir Grok Bot alternatifidir. Sizin anahtarlarınız, sizin modeliniz, sizin makineniz.",
+      "Superbot, gerçek işler yapan kalıcı yapay zekâ ekip arkadaşları için açık kaynaklı bir Grok Bot alternatifidir. Sizin anahtarlarınız, sizin modeliniz, sizin makineniz.",
     ogImageAlt:
-      "Rakazo. Gerçekten size ait yapay zekâ ekip arkadaşları. Sizin anahtarlarınız, sizin modeliniz, sizin makineniz.",
+      "Superbot. Gerçekten size ait yapay zekâ ekip arkadaşları. Sizin anahtarlarınız, sizin modeliniz, sizin makineniz.",
     availableLanguage: "Turkish",
     skipToContent: "İçeriğe geç",
     nav: {
-      home: "Rakazo ana sayfa",
+      home: "Superbot ana sayfa",
       primary: "Ana menü",
       menu: "Menü",
       docs: "Belgeler",
-      integrations: "Entegrasyonlar",
-      pricing: "Fiyatlar",
       github: "GitHub",
       getStarted: "Başlayın",
-      openInNewTab: "Yeni sekmede aç",
-      copyWordmark: "Yazı logosunu SVG olarak kopyala",
-      brandKit: "Marka kiti",
     },
     hero: {
       eyebrow: "Açık kaynak",
@@ -2985,12 +1743,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       desktop: "Masaüstü",
       mobile: "Mobil",
     },
-    roster: {
-      eyebrow: "Bot ekibiniz",
-      heading: "Her bota bir iş verin",
-      copy: "Bir şablonla başlayın. Size göre uyarlayın.",
-      bots: TR_ROSTER,
-    },
     channels: {
       heading: "Onlara her yerden yazın",
       copy: "Slack'te bir botu etiketleyin veya telefonunuzdan mesaj atın.",
@@ -3033,29 +1785,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "Beceri olarak kaydedildi",
       },
     },
-    testimonials: {
-      heading: "Kullanıcılar bayılıyor",
-      pause: "Duraklat",
-      play: "Oynat",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "SSS",
       items: [
         {
           question: "Claude Pro/Max veya ChatGPT Plus/Pro aboneliğimi kullanabilir miyim?",
           answer:
-            "Evet. Uygun bir planla ChatGPT ile giriş yapın. Claude Pro veya Max kullanmak için Rakazo'yu kaynak koddan yalnızca kendiniz için barındırın ve kendi hesabınızla giriş yapılmış resmi Claude Code CLI üzerinden çalıştırın. Bir API anahtarı da bağlayabilirsiniz. Ayrıntılar için belgelerdeki Model subscriptions sayfasına bakın.",
+            "Evet. Uygun bir planla ChatGPT ile giriş yapın. Claude Pro veya Max kullanmak için Superbot'yu kaynak koddan yalnızca kendiniz için barındırın ve kendi hesabınızla giriş yapılmış resmi Claude Code CLI üzerinden çalıştırın. Bir API anahtarı da bağlayabilirsiniz. Ayrıntılar için belgelerdeki Model subscriptions sayfasına bakın.",
         },
         {
           question: "Yerel bir model çalıştırabilir miyim?",
           answer:
             "Evet. Bir botu Ollama veya LM Studio gibi yerel bir OpenAI uyumlu sunucuya yönlendirin. Her bot farklı bir model kullanabilir.",
-        },
-        {
-          question: "Barındırılan plana neler dahil?",
-          answer:
-            "Bir bulut bilgisayar ve planınızla birlikte artan aylık bilgisayar saati hakkı; aynı anda en fazla 5 bilgisayar çalışabilir. Aşım ücreti yok.",
         },
       ],
     },
@@ -3086,44 +1827,24 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "Belgeler",
         product: "Ürün",
         changelog: "Değişiklik günlüğü",
-        submitPlugin: "Eklenti gönder",
-        enterprise: "Kurumsal",
-        alternatives: "Alternatifler",
-        sandboxes: "Sandbox'lar",
-        integrationPlatforms: "Entegrasyon platformları",
-        voiceProviders: "Ses sağlayıcıları",
-        all: "Tümü",
-        about: "Hakkımızda",
-        brand: "Marka",
-        affiliates: "Ortaklık programı",
-        support: "Destek",
-        privacy: "Gizlilik",
-        terms: "Koşullar",
-        company: "Şirket",
-        blog: "Blog",
         download: "İndir",
       },
     },
   },
   he: {
-    title: "Rakazo | חלופת קוד פתוח ל-Grok Bot",
+    title: "Superbot | חלופת קוד פתוח ל-Grok Bot",
     description:
-      "Rakazo היא חלופת קוד פתוח ל-Grok Bot לעמיתי AI קבועים שעושים עבודה אמיתית. המפתחות שלך, המודל שלך, המכונה שלך.",
-    ogImageAlt: "Rakazo. עמיתי AI ששייכים לך באמת. המפתחות שלך, המודל שלך, המכונה שלך.",
+      "Superbot היא חלופת קוד פתוח ל-Grok Bot לעמיתי AI קבועים שעושים עבודה אמיתית. המפתחות שלך, המודל שלך, המכונה שלך.",
+    ogImageAlt: "Superbot. עמיתי AI ששייכים לך באמת. המפתחות שלך, המודל שלך, המכונה שלך.",
     availableLanguage: "Hebrew",
     skipToContent: "דילוג לתוכן",
     nav: {
-      home: "דף הבית של Rakazo",
+      home: "דף הבית של Superbot",
       primary: "ניווט ראשי",
       menu: "תפריט",
       docs: "תיעוד",
-      integrations: "אינטגרציות",
-      pricing: "מחירים",
       github: "GitHub",
       getStarted: "להתחיל",
-      openInNewTab: "פתיחה בכרטיסייה חדשה",
-      copyWordmark: "העתקת הלוגו הטקסטואלי כ-SVG",
-      brandKit: "ערכת מותג",
     },
     hero: {
       eyebrow: "קוד פתוח",
@@ -3164,12 +1885,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       desktop: "דסקטופ",
       mobile: "מובייל",
     },
-    roster: {
-      eyebrow: "צוות הבוטים שלך",
-      heading: "לכל בוט תפקיד משלו",
-      copy: "מתחילים מתבנית ומתאימים אותה.",
-      bots: HE_ROSTER,
-    },
     channels: {
       heading: "שולחים להם הודעה מכל מקום",
       copy: "מתייגים בוט ב-Slack או שולחים לו הודעה מהטלפון.",
@@ -3209,29 +1924,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "נשמר כמיומנות",
       },
     },
-    testimonials: {
-      heading: "אנשים אוהבים את זה",
-      pause: "השהיה",
-      play: "הפעלה",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "שאלות נפוצות",
       items: [
         {
           question: "אפשר להשתמש במנוי Claude Pro/Max או ChatGPT Plus/Pro שלי?",
           answer:
-            "כן. התחברו עם ChatGPT בתוכנית מתאימה. כדי להשתמש ב-Claude Pro או Max, ארחו את Rakazo מקוד המקור לשימושכם בלבד והריצו אותו דרך ה-CLI הרשמי של Claude Code, מחובר לחשבון שלכם. אפשר גם לחבר מפתח API. פרטים נוספים בעמוד Model subscriptions בתיעוד.",
+            "כן. התחברו עם ChatGPT בתוכנית מתאימה. כדי להשתמש ב-Claude Pro או Max, ארחו את Superbot מקוד המקור לשימושכם בלבד והריצו אותו דרך ה-CLI הרשמי של Claude Code, מחובר לחשבון שלכם. אפשר גם לחבר מפתח API. פרטים נוספים בעמוד Model subscriptions בתיעוד.",
         },
         {
           question: "אפשר להריץ מודל מקומי?",
           answer:
             "כן. מכוונים בוט לשרת מקומי תואם OpenAI כמו Ollama או LM Studio. כל בוט יכול להשתמש במודל אחר.",
-        },
-        {
-          question: "מה כולל המסלול המנוהל?",
-          answer:
-            "מחשב ענן ומכסה חודשית של שעות מחשב שגדלה עם המסלול שלך, עם עד 5 מחשבים שרצים במקביל. אין חיובים על חריגה.",
         },
       ],
     },
@@ -3262,44 +1966,24 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "תיעוד",
         product: "מוצר",
         changelog: "יומן שינויים",
-        submitPlugin: "הגשת תוסף",
-        enterprise: "ארגונים",
-        alternatives: "חלופות",
-        sandboxes: "ארגזי חול",
-        integrationPlatforms: "פלטפורמות אינטגרציה",
-        voiceProviders: "ספקי קול",
-        all: "הכול",
-        about: "אודות",
-        brand: "מותג",
-        affiliates: "תוכנית שותפים",
-        support: "תמיכה",
-        privacy: "פרטיות",
-        terms: "תנאים",
-        company: "חברה",
-        blog: "בלוג",
         download: "הורדה",
       },
     },
   },
   hi: {
-    title: "Rakazo | Grok Bot का ओपन सोर्स विकल्प",
+    title: "Superbot | Grok Bot का ओपन सोर्स विकल्प",
     description:
-      "Rakazo, Grok Bot का ओपन सोर्स विकल्प है, ऐसे स्थायी AI साथियों के लिए जो असली काम करते हैं। आपकी कुंजियाँ, आपका मॉडल, आपकी मशीन।",
-    ogImageAlt: "Rakazo. ऐसे AI साथी जो सच में आपके अपने हैं। आपकी कुंजियाँ, आपका मॉडल, आपकी मशीन।",
+      "Superbot, Grok Bot का ओपन सोर्स विकल्प है, ऐसे स्थायी AI साथियों के लिए जो असली काम करते हैं। आपकी कुंजियाँ, आपका मॉडल, आपकी मशीन।",
+    ogImageAlt: "Superbot. ऐसे AI साथी जो सच में आपके अपने हैं। आपकी कुंजियाँ, आपका मॉडल, आपकी मशीन।",
     availableLanguage: "Hindi",
     skipToContent: "सामग्री पर जाएं",
     nav: {
-      home: "Rakazo होम",
+      home: "Superbot होम",
       primary: "मुख्य नेविगेशन",
       menu: "मेनू",
       docs: "दस्तावेज़",
-      integrations: "इंटीग्रेशन",
-      pricing: "मूल्य",
       github: "GitHub",
       getStarted: "शुरू करें",
-      openInNewTab: "नए टैब में खोलें",
-      copyWordmark: "वर्डमार्क को SVG के रूप में कॉपी करें",
-      brandKit: "ब्रांड किट",
     },
     hero: {
       eyebrow: "ओपन सोर्स",
@@ -3339,12 +2023,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       web: "वेब",
       desktop: "डेस्कटॉप",
       mobile: "मोबाइल",
-    },
-    roster: {
-      eyebrow: "आपकी बॉट टीम",
-      heading: "हर बॉट को एक काम दें",
-      copy: "किसी टेम्पलेट से शुरू करें। उसे अपने हिसाब से बनाएं।",
-      bots: HI_ROSTER,
     },
     channels: {
       heading: "कहीं से भी मैसेज करें",
@@ -3391,29 +2069,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "स्किल के रूप में सहेजा गया",
       },
     },
-    testimonials: {
-      heading: "लोगों को यह पसंद है",
-      pause: "रोकें",
-      play: "चलाएं",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "अक्सर पूछे जाने वाले सवाल",
       items: [
         {
           question: "क्या मेरा Claude Pro/Max या ChatGPT Plus/Pro सब्सक्रिप्शन इस्तेमाल हो सकता है?",
           answer:
-            "हाँ। योग्य प्लान के साथ ChatGPT से साइन इन करें। Claude Pro या Max इस्तेमाल करने के लिए Rakazo को सोर्स कोड से सिर्फ़ अपने लिए खुद होस्ट करें और अपने खाते से साइन इन किए गए आधिकारिक Claude Code CLI के ज़रिए चलाएँ। आप API कुंजी भी जोड़ सकते हैं। विवरण के लिए डॉक्स में Model subscriptions देखें।",
+            "हाँ। योग्य प्लान के साथ ChatGPT से साइन इन करें। Claude Pro या Max इस्तेमाल करने के लिए Superbot को सोर्स कोड से सिर्फ़ अपने लिए खुद होस्ट करें और अपने खाते से साइन इन किए गए आधिकारिक Claude Code CLI के ज़रिए चलाएँ। आप API कुंजी भी जोड़ सकते हैं। विवरण के लिए डॉक्स में Model subscriptions देखें।",
         },
         {
           question: "क्या लोकल मॉडल चलाया जा सकता है?",
           answer:
             "हाँ। बॉट को Ollama या LM Studio जैसे किसी लोकल OpenAI-संगत सर्वर से जोड़ें। हर बॉट अलग मॉडल इस्तेमाल कर सकता है।",
-        },
-        {
-          question: "होस्टेड प्लान में क्या शामिल है?",
-          answer:
-            "एक क्लाउड कंप्यूटर और हर महीने कंप्यूटर-घंटों का कोटा, जो आपके प्लान के साथ बढ़ता है, और एक साथ 5 कंप्यूटर तक चल सकते हैं। कोई ओवरेज शुल्क नहीं है।",
         },
       ],
     },
@@ -3444,44 +2111,24 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "दस्तावेज़",
         product: "प्रोडक्ट",
         changelog: "चेंजलॉग",
-        submitPlugin: "प्लगइन सबमिट करें",
-        enterprise: "एंटरप्राइज़",
-        alternatives: "विकल्प",
-        sandboxes: "सैंडबॉक्स",
-        integrationPlatforms: "इंटीग्रेशन प्लेटफ़ॉर्म",
-        voiceProviders: "वॉइस प्रदाता",
-        all: "सभी",
-        about: "हमारे बारे में",
-        brand: "ब्रांड",
-        affiliates: "एफ़िलिएट प्रोग्राम",
-        support: "सहायता",
-        privacy: "गोपनीयता",
-        terms: "शर्तें",
-        company: "कंपनी",
-        blog: "ब्लॉग",
         download: "डाउनलोड",
       },
     },
   },
   "zh-tw": {
-    title: "Rakazo | 開源 Grok Bot 替代方案",
+    title: "Superbot | 開源 Grok Bot 替代方案",
     description:
-      "Rakazo 是開源的 Grok Bot 替代方案，讓常駐的 AI 隊友幫你完成實際工作。金鑰、模型、機器，全都屬於你。",
-    ogImageAlt: "Rakazo：真正屬於你的 AI 隊友。金鑰、模型、機器，全都屬於你。",
+      "Superbot 是開源的 Grok Bot 替代方案，讓常駐的 AI 隊友幫你完成實際工作。金鑰、模型、機器，全都屬於你。",
+    ogImageAlt: "Superbot：真正屬於你的 AI 隊友。金鑰、模型、機器，全都屬於你。",
     availableLanguage: "Chinese (Traditional)",
     skipToContent: "跳至主要內容",
     nav: {
-      home: "Rakazo 首頁",
+      home: "Superbot 首頁",
       primary: "主要導覽",
       menu: "選單",
       docs: "說明文件",
-      integrations: "整合",
-      pricing: "價格",
       github: "GitHub",
       getStarted: "開始使用",
-      openInNewTab: "在新分頁中開啟",
-      copyWordmark: "複製 SVG 格式文字標誌",
-      brandKit: "品牌資源",
     },
     hero: {
       eyebrow: "開源",
@@ -3517,12 +2164,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       desktop: "桌面版",
       mobile: "行動版",
     },
-    roster: {
-      eyebrow: "你的機器人團隊",
-      heading: "為每個機器人分配工作",
-      copy: "從範本開始，調整成你要的樣子。",
-      bots: ZH_TW_ROSTER,
-    },
     channels: {
       heading: "隨處傳訊息",
       copy: "在 Slack 中提及機器人，或用手機傳訊息給它。",
@@ -3553,29 +2194,18 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         skillSaved: "已存成技能",
       },
     },
-    testimonials: {
-      heading: "大家都愛用",
-      pause: "暫停",
-      play: "播放",
-      items: TESTIMONIALS,
-    },
     faq: {
       heading: "常見問題",
       items: [
         {
           question: "可以用我的 Claude Pro/Max 或 ChatGPT Plus/Pro 訂閱嗎？",
           answer:
-            "可以。使用符合資格的方案登入 ChatGPT。若要使用 Claude Pro 或 Max，請從原始碼自行託管僅供你本人使用的 Rakazo，並透過以你的帳號登入的官方 Claude Code CLI 執行。你也可以連接 API 金鑰。詳情請見文件中的 Model subscriptions。",
+            "可以。使用符合資格的方案登入 ChatGPT。若要使用 Claude Pro 或 Max，請從原始碼自行託管僅供你本人使用的 Superbot，並透過以你的帳號登入的官方 Claude Code CLI 執行。你也可以連接 API 金鑰。詳情請見文件中的 Model subscriptions。",
         },
         {
           question: "可以執行本機模型嗎？",
           answer:
             "可以。將機器人指向 Ollama 或 LM Studio 等本機 OpenAI 相容伺服器。每個機器人都可以使用不同的模型。",
-        },
-        {
-          question: "託管方案包含哪些內容？",
-          answer:
-            "一台雲端電腦，以及隨方案增加的每月電腦小時，最多同時執行 5 台電腦。沒有超額費用。",
         },
       ],
     },
@@ -3606,21 +2236,6 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
         docs: "說明文件",
         product: "產品",
         changelog: "更新紀錄",
-        submitPlugin: "提交外掛",
-        enterprise: "企業版",
-        alternatives: "替代方案",
-        sandboxes: "沙箱",
-        integrationPlatforms: "整合平台",
-        voiceProviders: "語音服務商",
-        all: "全部",
-        about: "關於我們",
-        brand: "品牌",
-        affiliates: "聯盟計畫",
-        support: "支援",
-        privacy: "隱私權",
-        terms: "條款",
-        company: "公司",
-        blog: "部落格",
         download: "下載",
       },
     },

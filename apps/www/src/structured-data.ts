@@ -1,5 +1,5 @@
-import { PRICE_OFFERS } from "./pricing";
-import { DISCORD_URL, GITHUB_URL, SITE_NAME, SITE_URL, X_URL } from "./site";
+import { MARK_SVG_PATH } from "./brand";
+import { GITHUB_BRANCH, GITHUB_URL, SITE_NAME, SITE_URL } from "./site";
 
 export type FaqItem = {
   question: string;
@@ -8,8 +8,6 @@ export type FaqItem = {
 
 /** What a post's head says about it: og:type article, its dates and its author's profile URL. */
 export type ArticleMeta = { published: Date; modified: Date; authorUrl: string };
-
-const LEGAL_NAME = "Inbox Zero Inc.";
 
 export const ORGANIZATION_ID = `${SITE_URL}/#organization`;
 /** Points at the home page's Organization, and names it for readers that see one page alone. */
@@ -104,42 +102,6 @@ export function articleStructuredData(input: ArticleInput, ...nodes: readonly ob
   ]);
 }
 
-function usd(cents: number): string {
-  return String(cents / 100);
-}
-
-/** Offers built from the plans the pricing page shows. */
-export function priceOffers() {
-  return PRICE_OFFERS.map((offer) => {
-    const base = { "@type": "Offer", name: offer.name, url: `${SITE_URL}/pricing/` };
-    if ("fromMonthlyCents" in offer) {
-      return {
-        ...base,
-        description: offer.description,
-        priceSpecification: {
-          "@type": "UnitPriceSpecification",
-          minPrice: usd(offer.fromMonthlyCents),
-          priceCurrency: "USD",
-          billingDuration: "P1M",
-          unitCode: "MON",
-        },
-      };
-    }
-    const price = { price: usd(offer.monthlyCents), priceCurrency: "USD" };
-    if (offer.monthlyCents === 0) return { ...base, ...price };
-    return {
-      ...base,
-      ...price,
-      priceSpecification: {
-        "@type": "UnitPriceSpecification",
-        ...price,
-        billingDuration: "P1M",
-        unitCode: "MON",
-      },
-    };
-  });
-}
-
 function softwareApplicationNode(extra: object) {
   return {
     "@type": "SoftwareApplication",
@@ -150,9 +112,8 @@ function softwareApplicationNode(extra: object) {
     applicationSubCategory: "AI agent platform",
     isAccessibleForFree: true,
     codeRepository: GITHUB_URL,
-    license: `${GITHUB_URL}/blob/main/LICENSE`,
+    license: `${GITHUB_URL}/blob/${GITHUB_BRANCH}/LICENSE`,
     provider: ORGANIZATION,
-    offers: priceOffers(),
     ...extra,
   };
 }
@@ -190,26 +151,9 @@ export function homeStructuredData(input: HomeStructuredDataInput) {
       "@type": "Organization",
       "@id": ORGANIZATION_ID,
       name: SITE_NAME,
-      legalName: LEGAL_NAME,
       url: `${SITE_URL}/`,
-      logo: `${SITE_URL}/brand/rakazo-mark.png`,
-      email: "hello@rakazo.com",
-      contactPoint: {
-        "@type": "ContactPoint",
-        contactType: "customer support",
-        email: "hello@rakazo.com",
-        url: `${SITE_URL}/support/`,
-        availableLanguage: input.availableLanguages,
-      },
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: "131 Continental Dr, Suite 305",
-        addressLocality: "Newark",
-        addressRegion: "DE",
-        postalCode: "19713",
-        addressCountry: "US",
-      },
-      sameAs: [GITHUB_URL, X_URL, DISCORD_URL, "https://www.getinboxzero.com/"],
+      logo: `${SITE_URL}${MARK_SVG_PATH}`,
+      sameAs: [GITHUB_URL],
     },
     {
       "@type": "WebSite",

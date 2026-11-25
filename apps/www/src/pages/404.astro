@@ -4,24 +4,23 @@ import Footer from "../components/Footer.astro";
 import Header from "../components/Header.astro";
 import { githubStarsLabel } from "../github";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { SELF_HOST_GUIDE_PATH } from "../site";
 
 const starsLabel = await githubStarsLabel();
 ---
 
 <BaseLayout
-  title="Page not found · Rakazo"
-  description="The requested Rakazo page does not exist."
+  title="Page not found · Superbot"
+  description="The requested Superbot page does not exist."
   index={false}
 >
   <div class="container">
     <Header starsLabel={starsLabel} />
     <main id="main" class="privacy-copy">
       <h1>Page not found</h1>
-      <p>The page you requested does not exist. Return home or continue with the self-hosting guide.</p>
+      <p>The page you requested does not exist. Return home or continue with the docs.</p>
       <div class="cta-actions">
         <Button href="/">Home</Button>
-        <Button href={SELF_HOST_GUIDE_PATH} variant="secondary">Read the docs</Button>
+        <Button href="/docs/" variant="secondary">Read the docs</Button>
       </div>
     </main>
     <Footer />

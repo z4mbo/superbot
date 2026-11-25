@@ -1,0 +1,409 @@
+---
+import { BUILD_AN_APP_PATH } from "../docs";
+import { APPS_PLATFORM_COPY } from "../i18n/apps-platform";
+import CopyPromptButton from "./CopyPromptButton.astro";
+
+type Props = {
+  /** Set on translated pages, whose copy here is still English. */
+  lang?: string;
+};
+
+const { lang } = Astro.props;
+const copy = APPS_PLATFORM_COPY.platform;
+const chat = copy.example.chat;
+
+// Simple line icons, one per capability.
+const ICONS: Record<(typeof copy.capabilities)[number]["id"], string> = {
+  data: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>',
+  functions: '<path d="M9 4c-2 0-3 1-3 3v2.5C6 11 5 12 4 12c1 0 2 1 2 2.5V17c0 2 1 3 3 3"/><path d="M15 4c2 0 3 1 3 3v2.5c0 1.5 1 2.5 2 2.5-1 0-2 1-2 2.5V17c0 2-1 3-3 3"/>',
+  permissions: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/>',
+  tools: '<path d="M14.5 5.5a4 4 0 0 0-5.3 5.3L4 16v4h4l5.2-5.2a4 4 0 0 0 5.3-5.3l-2.6 2.6-2.7-.6-.6-2.7z"/>',
+  cards: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 9h10M7 13h6"/>',
+};
+---
+
+<section id="apps-platform" class="section apps-platform" aria-labelledby="apps-platform-heading" lang={lang}>
+  <div class="section-intro">
+    <div class="eyebrow">{copy.eyebrow}</div>
+    <h2 id="apps-platform-heading" class="section-heading">{copy.heading}</h2>
+    <p class="section-copy">{copy.copy}</p>
+  </div>
+
+  <ul class="apps-platform__capabilities">
+    {
+      copy.capabilities.map((capability) => (
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true" set:html={ICONS[capability.id]} />
+          <h3>{capability.title}</h3>
+          <p>{capability.body}</p>
+        </li>
+      ))
+    }
+  </ul>
+
+  <div class="apps-platform__example">
+    <div class="apps-platform__story">
+      <div class="eyebrow">{copy.example.eyebrow}</div>
+      <h3>{copy.example.heading}</h3>
+      <p>{copy.example.copy}</p>
+      <ol class="apps-platform__steps">
+        {
+          copy.steps.map((step, index) => (
+            <li>
+              <span class="apps-platform__step-number" aria-hidden="true">{index + 1}</span>
+              <div>
+                <b>{step.title}</b>
+                <span>{step.body}</span>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+
+    <figure class="diary-chat" aria-hidden="true">
+      <div class="diary-chat__bar">
+        <span class="diary-chat__avatar"></span>
+        <b>{chat.coach}</b>
+        <span class="diary-chat__note">{chat.exampleData}</span>
+      </div>
+      <div class="diary-chat__body">
+        <div class="diary-chat__event">
+          <b>{chat.install}</b> · {chat.installDetail}
+        </div>
+        <div class="diary-card">
+          <div class="diary-card__title">{chat.formTitle}</div>
+          {
+            chat.fields.map((field) => (
+              <div class="diary-card__field">
+                <span>{field.label}</span>
+                <span class="diary-card__input">{field.value}</span>
+              </div>
+            ))
+          }
+          <span class="diary-card__button">{chat.save}</span>
+        </div>
+        <div class="diary-chat__bubble diary-chat__bubble--you">{chat.ask}</div>
+        <div class="diary-chat__tool">{chat.toolCall}</div>
+        <div class="diary-chat__bubble">{chat.reply}</div>
+        <div class="diary-card diary-card--summary">
+          <div class="diary-card__title">{chat.summaryTitle}</div>
+          {
+            chat.summaryRows.map((row) => (
+              <div class="diary-card__row">
+                <span>{row.label}</span>
+                <span>{row.value}</span>
+              </div>
+            ))
+          }
+          <div class="diary-card__row diary-card__row--total">
+            <span>{chat.summaryTotal.label}</span>
+            <span>{chat.summaryTotal.value}</span>
+          </div>
+        </div>
+      </div>
+    </figure>
+  </div>
+
+  <div class="apps-platform__cta">
+    <div>
+      <h3>{copy.cta.heading}</h3>
+      <p>{copy.cta.copy}</p>
+    </div>
+    <div class="apps-platform__cta-actions">
+      <CopyPromptButton placement="home" />
+      <a class="button button--secondary" href={BUILD_AN_APP_PATH} data-attr="home-build-app-docs">
+        {copy.cta.readGuide}
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .apps-platform__capabilities {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+    margin: 44px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .apps-platform__capabilities li {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .apps-platform__capabilities svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: var(--blue);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .apps-platform__capabilities h3 {
+    margin: 14px 0 0;
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .apps-platform__capabilities p {
+    margin: 8px 0 0;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .apps-platform__example {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: 48px;
+    align-items: center;
+    margin-top: 72px;
+  }
+
+  .apps-platform__story h3 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  .apps-platform__story > p {
+    margin: 14px 0 0;
+    color: var(--muted-2);
+    font-size: 17px;
+    line-height: 1.6;
+  }
+
+  .apps-platform__steps {
+    display: grid;
+    gap: 14px;
+    margin: 28px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .apps-platform__steps li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .apps-platform__steps b {
+    display: block;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .apps-platform__steps span {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .apps-platform__step-number {
+    display: grid;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .diary-chat {
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius-frame);
+    background: var(--surface);
+    box-shadow: var(--shadow-demo);
+  }
+
+  .diary-chat__bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    font-size: 15px;
+  }
+
+  .diary-chat__avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--green);
+  }
+
+  .diary-chat__note {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .diary-chat__body {
+    display: grid;
+    gap: 12px;
+    padding: 18px;
+    background: var(--surface-soft);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .diary-chat__event,
+  .diary-chat__tool {
+    justify-self: center;
+    border-radius: 999px;
+    padding: 4px 12px;
+    background: var(--line);
+    color: var(--muted-2);
+    font-size: 12px;
+  }
+
+  .diary-chat__tool {
+    justify-self: start;
+    background: var(--green-soft);
+    color: var(--green);
+  }
+
+  .diary-chat__bubble {
+    max-width: 85%;
+    border-radius: 16px;
+    padding: 10px 14px;
+    background: var(--surface);
+    color: var(--body);
+  }
+
+  .diary-chat__bubble--you {
+    justify-self: end;
+    background: var(--ink);
+    color: #fff;
+  }
+
+  .diary-card {
+    display: grid;
+    gap: 8px;
+    max-width: 85%;
+    border: 1px solid var(--line-2);
+    border-radius: 16px;
+    padding: 14px;
+    background: var(--surface);
+  }
+
+  .diary-card__title {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .diary-card__field {
+    display: grid;
+    gap: 4px;
+    color: var(--muted-2);
+    font-size: 12px;
+  }
+
+  .diary-card__input {
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    padding: 6px 10px;
+    color: var(--ink);
+    font-size: 14px;
+  }
+
+  .diary-card__button {
+    justify-self: start;
+    border-radius: 10px;
+    padding: 6px 14px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 13px;
+  }
+
+  .diary-card__row {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted-2);
+  }
+
+  .diary-card__row--total {
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .apps-platform__cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px 40px;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 72px;
+    border-radius: var(--radius-card);
+    padding: 32px;
+    background: var(--blue-soft);
+  }
+
+  .apps-platform__cta > div:first-child {
+    flex: 1 1 360px;
+  }
+
+  .apps-platform__cta h3 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  .apps-platform__cta p {
+    margin: 10px 0 0;
+    color: var(--muted-2);
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  .apps-platform__cta-actions {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  @media (max-width: 1100px) {
+    .apps-platform__capabilities {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 860px) {
+    .apps-platform__example {
+      grid-template-columns: 1fr;
+      gap: 32px;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .apps-platform__capabilities {
+      grid-template-columns: 1fr;
+    }
+
+    .apps-platform__cta {
+      padding: 24px;
+    }
+  }
+</style>

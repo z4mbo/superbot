@@ -1,23 +1,48 @@
+import { BUILD_AN_APP_PATH, BUILD_APP_PROMPT_PATH } from "./docs";
+import { APPS_PLATFORM_COPY } from "./i18n/apps-platform";
 import { getHomeCopy, HOME_CHANNELS, HOME_FEATURE_KINDS, HOME_MODEL_PROVIDERS } from "./i18n/home";
 import { DEFAULT_LOCALE, isLocale } from "./i18n/locales";
-import { APP_URL } from "./site";
+import {
+  APP_URL,
+  GITHUB_URL,
+  SELF_HOST_GUIDE_PATH,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_URL,
+} from "./site";
 
 export const AGENT_DISCOVERY_LINKS =
   '</llms.txt>; rel="describedby"; type="text/plain", </.well-known/ai-catalog.json>; rel="ai-catalog"; type="application/ai-catalog+json"';
 
 const home = getHomeCopy("en");
+const apps = APPS_PLATFORM_COPY;
 
-export const HOME_MARKDOWN = `# Rakazo
+export const HOME_MARKDOWN = `# ${SITE_NAME}
 
-${home.hero.eyebrow}
+${SITE_DESCRIPTION}
 
 ${home.hero.lead}
 
-## ${home.roster.heading}
+## ${apps.store.heading}
 
-${home.roster.copy}
+${apps.store.copy}
 
-${home.roster.bots.map((bot) => `- **${bot.name}:** ${bot.desc}`).join("\n")}
+${apps.store.sections.map((section) => `- **${section.title}:** ${section.body}`).join("\n")}
+
+## ${apps.platform.heading}
+
+${apps.platform.copy}
+
+${apps.platform.capabilities.map((item) => `- **${item.title}:** ${item.body}`).join("\n")}
+
+### ${apps.platform.example.heading}
+
+${apps.platform.example.copy}
+
+${apps.platform.steps.map((step, index) => `${index + 1}. **${step.title}:** ${step.body}`).join("\n")}
+
+- [Build an app](${SITE_URL}${BUILD_AN_APP_PATH})
+- [Build an app prompt](${SITE_URL}${BUILD_APP_PROMPT_PATH}): paste it into a coding agent.
 
 ## ${home.channels.heading}
 
@@ -28,10 +53,6 @@ ${HOME_CHANNELS.map((channel) => `- ${channel.name}${channel.selfHosted ? ` (${h
 ## ${home.features.heading}
 
 ${HOME_FEATURE_KINDS.map((kind) => `- **${home.features.items[kind].title}:** ${home.features.items[kind].body}`).join("\n")}
-
-## ${home.testimonials.heading}
-
-${home.testimonials.items.map((item) => `> ${item.quote}\n>\n> — ${item.attribution}`).join("\n\n")}
 
 ## ${home.selfHost.heading}
 
@@ -45,56 +66,30 @@ ${home.selfHost.worksWith}: ${HOME_MODEL_PROVIDERS.join(", ")}.
 
 ${home.openSource.copy}
 
-[${home.openSource.cloudTitle}](${APP_URL}): ${home.openSource.cloudBadge}.
-
 ## FAQ
 
-${getHomeCopy("en")
-  .faq.items.map((item) => `### ${item.question}\n\n${item.answer}`)
-  .join("\n\n")}
+${home.faq.items.map((item) => `### ${item.question}\n\n${item.answer}`).join("\n\n")}
 
 ## ${home.cta.heading}
 
 ${home.cta.copy}
 
-- [Agent setup prompt](https://github.com/elie222/rakazo/blob/main/SETUP_PROMPT.md)
-- [Self-hosting guide](https://rakazo.com/self-hosted-ai-agent/)
-- [Full self-hosting reference](https://github.com/elie222/rakazo/blob/main/docs/self-host.md)
-- [OpenClaw comparison](https://rakazo.com/openclaw-alternative/)
-- [Source code](https://github.com/elie222/rakazo)
-
-## Site index
-
-- [Agent instructions](https://rakazo.com/llms.txt)
-- [Self-hosted AI agent](https://rakazo.com/self-hosted-ai-agent/)
-- [OpenClaw comparison](https://rakazo.com/openclaw-alternative/)
-- [Alternatives](https://rakazo.com/alternatives/)
-- [Docs](https://rakazo.com/docs/)
-- [Integrations](https://rakazo.com/integrations/)
-- [Sandboxes for AI agents](https://rakazo.com/sandboxes/)
-- [Integration platforms for AI agents](https://rakazo.com/integration-platforms/)
-- [Voice providers for AI agents](https://rakazo.com/voice-providers/)
-- [Blog](https://rakazo.com/blog/)
-- [Grok Bot alternatives](https://rakazo.com/grok-bot-alternative/)
-- [Pricing](https://rakazo.com/pricing/): free to self-host, or hosted with your own model or Rakazo credits.
-- [Enterprise](https://rakazo.com/enterprise/): SSO, SCIM, audit log, encryption at rest, and approval rules on your own infrastructure.
-- [Download](https://rakazo.com/download/): desktop, mobile, and web apps.
-- [About](https://rakazo.com/about/)
-- [Brand](https://rakazo.com/brand/)
-- [Support](https://rakazo.com/support/)
-- [Privacy](https://rakazo.com/privacy/)
-- [Terms](https://rakazo.com/terms/)
-- [Sitemap](https://rakazo.com/sitemap-index.xml)
+- [Web app](${APP_URL})
+- [Docs](${SITE_URL}/docs/)
+- [Self-hosting guide](${SITE_URL}${SELF_HOST_GUIDE_PATH})
+- [Source code](${GITHUB_URL})
+- [Agent instructions](${SITE_URL}/llms.txt)
+- [Sitemap](${SITE_URL}/sitemap-index.xml)
 `;
 
 export const NOT_FOUND_MARKDOWN = `# Page not found
 
-The requested Rakazo page does not exist.
+The requested ${SITE_NAME} page does not exist.
 
-- [Agent instructions](https://rakazo.com/llms.txt)
-- [Site map](https://rakazo.com/sitemap-index.xml)
-- [Home](https://rakazo.com/)
-- [Self-hosting guide](https://rakazo.com/self-hosted-ai-agent/)
+- [Agent instructions](${SITE_URL}/llms.txt)
+- [Site map](${SITE_URL}/sitemap-index.xml)
+- [Home](${SITE_URL}/)
+- [Docs](${SITE_URL}/docs/)
 `;
 
 type MediaPreference = {
