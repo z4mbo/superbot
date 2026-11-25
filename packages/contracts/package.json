@@ -10,6 +10,11 @@
       "default": "./src/index.ts"
     },
     "./local-settings": "./src/clients/local-settings.js",
+    "./cloud-web": {
+      "types": "./src/clients/cloud-web.ts",
+      "development": "./src/clients/cloud-web.ts",
+      "default": "./src/clients/cloud-web.ts"
+    },
     "./client-build": {
       "types": "./src/clients/client-build.ts",
       "development": "./src/clients/client-build.ts",

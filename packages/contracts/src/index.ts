@@ -33,6 +33,7 @@ export * from "./bots/builtin-tools.js";
 export * from "./bots/memory-layers.js";
 export * from "./bots/scratchpad.js";
 export * from "./clients/client-build.js";
+export * from "./clients/cloud-web.js";
 export * from "./clients/desktop.js";
 export * from "./clients/local-settings.js";
 export * from "./clients/nav-links.js";
