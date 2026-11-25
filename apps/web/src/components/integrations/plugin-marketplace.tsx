@@ -209,7 +209,7 @@ export function PluginDetail({
         if (!cancelled) setPreview(result);
       })
       .catch((err) => {
-        if (!cancelled) setError(errorDetails(err, t`Could not preview plugin`));
+        if (!cancelled) setError(errorDetails(err, t`Could not preview app`));
       })
       .finally(() => {
         if (!cancelled) setPreviewLoading(false);
@@ -350,7 +350,7 @@ export function PluginDetail({
             variant="destructive"
             disabled={busy}
             onClick={() =>
-              void setParts("header", toggle(headerPart, false), t`Could not remove plugin`)
+              void setParts("header", toggle(headerPart, false), t`Could not remove app`)
             }
           >
             {pending === "header" ? (
@@ -372,9 +372,7 @@ export function PluginDetail({
         size="lg"
         className="px-5"
         disabled={busy || !ready}
-        onClick={() =>
-          void setParts("header", toggle(headerPart, true), t`Could not install plugin`)
-        }
+        onClick={() => void setParts("header", toggle(headerPart, true), t`Could not install app`)}
       >
         {pending === "header" ? (
           skillPack ? (
@@ -463,7 +461,7 @@ export function PluginDetail({
       {!skillsOnly && (managed || connectorCount) ? (
         <section>
           <h3 className="mb-2 flex gap-2 px-1 text-body font-medium text-foreground">
-            <Trans>Apps</Trans>
+            <Trans>Connections</Trans>
             <span className="text-muted-foreground">{managed ? 1 : connectorCount}</span>
           </h3>
           <ul className="divide-y divide-border/60 rounded-xl border border-border/70">

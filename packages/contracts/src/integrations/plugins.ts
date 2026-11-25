@@ -96,6 +96,8 @@ export const PluginMarketplaceCatalogSchema = z.object({
 export type PluginMarketplaceCatalog = z.infer<typeof PluginMarketplaceCatalogSchema>;
 
 export const PLUGIN_SUBMISSIONS_PATH = "/api/v1/plugin-submissions";
+/** The same submission endpoint under the name people see; the plugin path keeps working. */
+export const APP_SUBMISSIONS_PATH = "/api/v1/app-submissions";
 /** Approved claims, public so the marketing site can show each owner's page at build time. */
 export const INTEGRATION_CLAIMS_PATH = "/api/v1/integration-claims";
 /** Opened from the email that proves a claimant reads mail at the app's domain. */

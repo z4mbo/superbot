@@ -37,7 +37,7 @@ describe("readShellOverlay", () => {
   });
 
   it("reads flag overlays with or without a value", () => {
-    expect(read("?integrations")).toEqual({ kind: "integrations" });
+    expect(read("?connections")).toEqual({ kind: "connections" });
     expect(read("?mcp=")).toEqual({ kind: "mcp" });
     expect(read("?mcp=srv_1")).toEqual({ kind: "mcp", serverId: "srv_1" });
   });
@@ -52,13 +52,13 @@ describe("withShellOverlay", () => {
     searchString(withShellOverlay(new URLSearchParams(search), overlay));
 
   it("keeps unrelated params and writes flags bare", () => {
-    expect(write("?m=msg_1", { kind: "integrations" })).toBe("?m=msg_1&integrations");
+    expect(write("?m=msg_1", { kind: "connections" })).toBe("?m=msg_1&connections");
   });
 
   it("replaces the open overlay instead of stacking another", () => {
-    expect(write("?integrations&routine=r_1", { kind: "mcp" })).toBe("?routine=r_1&mcp");
+    expect(write("?connections&routine=r_1", { kind: "mcp" })).toBe("?routine=r_1&mcp");
     expect(write("", { kind: "mcp", serverId: "srv_1" })).toBe("?mcp=srv_1");
-    expect(write("?settings=models&space=sp_1", { kind: "integrations" })).toBe("?integrations");
+    expect(write("?settings=models&space=sp_1", { kind: "connections" })).toBe("?connections");
   });
 
   it("writes the settings section and space", () => {
@@ -94,20 +94,36 @@ describe("Store sections", () => {
   it("opens each Store section from its own link, including the links its dialogs had", () => {
     expect(storeSection(read("?templates"))).toBe("agents");
     expect(storeSection(read("?skills"))).toBe("skills");
-    expect(storeSection(read("?plugins"))).toBe("plugins");
-    expect(storeSection(read("?integrations"))).toBe("apps");
+    expect(storeSection(read("?apps"))).toBe("apps");
+    expect(storeSection(read("?connections"))).toBe("connections");
     expect(storeSection(read("?mcp"))).toBeNull();
     expect(storeSection(null)).toBeNull();
   });
 
+  it("opens Apps and Connections from the links they had before they were renamed", () => {
+    expect(read("?plugins")).toEqual({ kind: "apps" });
+    expect(read("?integrations")).toEqual({ kind: "connections" });
+    expect(storeSection(read("?plugins"))).toBe("apps");
+    expect(storeSection(read("?integrations"))).toBe("connections");
+  });
+
+  it("replaces an old Store link with the current one", () => {
+    expect(
+      searchString(
+        withShellOverlay(new URLSearchParams("plugins&m=msg_1"), { kind: "connections" }),
+      ),
+    ).toBe("?m=msg_1&connections");
+    expect(shellOverlaySearch(new URLSearchParams("?integrations&m=msg_1"))).toBe("?connections");
+  });
+
   it("writes a section back as the link that reopens it", () => {
-    for (const section of ["agents", "skills", "plugins", "apps"] as const) {
+    for (const section of ["agents", "skills", "apps", "connections"] as const) {
       const params = withShellOverlay(new URLSearchParams("m=msg_1"), storeOverlay(section));
       expect(storeSection(readShellOverlay(params))).toBe(section);
       expect(params.get("m")).toBe("msg_1");
     }
-    expect(searchString(withShellOverlay(new URLSearchParams(), storeOverlay("plugins")))).toBe(
-      "?plugins",
+    expect(searchString(withShellOverlay(new URLSearchParams(), storeOverlay("apps")))).toBe(
+      "?apps",
     );
   });
 });

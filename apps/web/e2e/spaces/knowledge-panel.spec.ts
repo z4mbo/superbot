@@ -236,7 +236,7 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   );
   await skillRow.click();
   await expect(editor).toHaveAttribute("readonly", "");
-  await expect(knowledge.getByText("Plugin", { exact: true })).toBeVisible();
+  await expect(knowledge.getByText("App", { exact: true })).toBeVisible();
   await expect(knowledge.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
   await expect(knowledge.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
   await knowledge.getByRole("button", { name: "Close", exact: true }).click();

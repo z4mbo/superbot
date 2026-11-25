@@ -96,8 +96,8 @@ export function CommunityDetail({
         <BackButton onBack={onBack} />
         <div role="alert" className="flex items-center gap-3 text-body text-destructive">
           {versions.isError
-            ? errorText(versions.error, t`Could not load this plugin`)
-            : t`This plugin is no longer available.`}
+            ? errorText(versions.error, t`Could not load this app`)
+            : t`This app is no longer available.`}
           {versions.isError ? (
             <Button variant="outline" size="sm" onClick={() => void versions.refetch()}>
               <Trans>Retry</Trans>
@@ -199,7 +199,7 @@ export function CommunityDetail({
   }
 
   const failure = change.error
-    ? errorText(change.error, t`Could not change this plugin`)
+    ? errorText(change.error, t`Could not change this app`)
     : grants.error
       ? errorText(grants.error, t`Could not change bot access`)
       : null;
@@ -214,7 +214,7 @@ export function CommunityDetail({
   ) : !viewingInstalled ? null : !bots.length ? (
     <Trans>Create a bot to give it access.</Trans>
   ) : shown.manifest.parts.some((part) => part.kind === "mcp") ? (
-    <Trans>Bots ask before calling a plugin's tools.</Trans>
+    <Trans>Bots ask before calling an app's tools.</Trans>
   ) : null;
 
   return (

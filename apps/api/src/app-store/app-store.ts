@@ -116,7 +116,7 @@ export async function submitApp(
       });
     });
     if (deps.sendEmail && deps.webOrigin) {
-      const reviewUrl = new URL("/admin/plugins", deps.webOrigin).href;
+      const reviewUrl = new URL("/admin/apps", deps.webOrigin).href;
       for (const admin of deps.adminEmails ?? [])
         deps.sendEmail(pluginSubmissionAdminEmail(admin, submission, reviewUrl));
     }

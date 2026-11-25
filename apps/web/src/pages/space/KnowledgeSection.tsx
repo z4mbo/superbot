@@ -315,7 +315,7 @@ function SkillSourceBadge({ source }: { source: AgentSkillCatalogEntry["source"]
       variant="secondary"
       className="rounded-full px-1.5 py-0 text-caption font-normal text-muted-foreground"
     >
-      {source === "builtin" ? <Trans>Built-in</Trans> : <Trans>Plugin</Trans>}
+      {source === "builtin" ? <Trans>Built-in</Trans> : <Trans>App</Trans>}
     </Badge>
   );
 }

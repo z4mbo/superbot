@@ -58,9 +58,9 @@ export function usePaletteActions({
     },
     {
       id: "integrations",
-      label: t`Connect apps`,
+      label: t`Connections`,
       icon: Plug,
-      onSelect: () => setOverlay({ kind: "integrations" }),
+      onSelect: () => setOverlay({ kind: "connections" }),
     },
     {
       id: "bot-templates",

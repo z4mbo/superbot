@@ -23,13 +23,13 @@ vi.mock("./community/community-store", () => ({
     <p>community {initialPick?.slug ?? "list"}</p>
   ),
 }));
-vi.mock("./apps-section", () => ({
-  AppsSection: ({
-    onOpenPlugins,
+vi.mock("./connections-section", () => ({
+  ConnectionsSection: ({
+    onOpenApps,
   }: {
-    onOpenPlugins: (pick?: { kind: "community"; slug: string }) => void;
+    onOpenApps: (pick?: { kind: "community"; slug: string }) => void;
   }) => (
-    <button type="button" onClick={() => onOpenPlugins({ kind: "community", slug: "kcal-diary" })}>
+    <button type="button" onClick={() => onOpenApps({ kind: "community", slug: "kcal-diary" })}>
       open diary
     </button>
   ),
@@ -58,8 +58,8 @@ function store() {
   return document.querySelector<HTMLElement>('[data-testid="store"]')!;
 }
 
-it("shows one section at a time and hands a community pick from Apps to Plugins", async () => {
-  let section: StoreSection = "apps";
+it("shows one section at a time and hands a community pick from Connections to Apps", async () => {
+  let section: StoreSection = "connections";
   const render = () =>
     act(async () =>
       root.render(
@@ -78,17 +78,19 @@ it("shows one section at a time and hands a community pick from Apps to Plugins"
   expect([...store().querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)).toEqual([
     "Agents",
     "Skills",
-    "Plugins",
     "Apps",
+    "Connections",
   ]);
-  expect(store().querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe("Apps");
+  expect(store().querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
+    "Connections",
+  );
 
   await act(async () =>
     [...store().querySelectorAll("button")]
       .find((button) => button.textContent === "open diary")!
       .click(),
   );
-  expect(section).toBe("plugins");
+  expect(section).toBe("apps");
   expect(store().textContent).toContain("community kcal-diary");
 
   await act(async () =>
@@ -96,8 +98,6 @@ it("shows one section at a time and hands a community pick from Apps to Plugins"
   );
   expect(section).toBe("agents");
   expect(store().textContent).toContain("agent templates");
-  await act(async () =>
-    store().querySelector<HTMLElement>('[data-testid="store-plugins"]')!.click(),
-  );
+  await act(async () => store().querySelector<HTMLElement>('[data-testid="store-apps"]')!.click());
   expect(store().textContent).toContain("community list");
 });

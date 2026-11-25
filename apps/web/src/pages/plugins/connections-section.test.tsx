@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { AppsSection } from "./apps-section";
+import { ConnectionsSection } from "./connections-section";
 import { SourceFormView, useSourceForm } from "./source-form";
 
 const api = vi.hoisted(() => ({
@@ -163,7 +163,7 @@ afterEach(async () => {
 });
 
 function searchBox() {
-  return host.querySelector<HTMLInputElement>('input[aria-label="Search apps"]')!;
+  return host.querySelector<HTMLInputElement>('input[aria-label="Search connections"]')!;
 }
 
 async function type(input: HTMLInputElement, value: string) {
@@ -190,7 +190,7 @@ it("offers the public catalog for a search and sends nothing there until it is p
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenPlugins={() => {}} />
+        <ConnectionsSection onOpenApps={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -204,7 +204,9 @@ it("offers the public catalog for a search and sends nothing there until it is p
   expect(publicCatalogRow()).toBeUndefined();
 
   await type(searchBox(), " canva ");
-  expect(host.querySelector('[role="status"]')?.textContent).toBe("No apps match your search.");
+  expect(host.querySelector('[role="status"]')?.textContent).toBe(
+    "No connections match your search.",
+  );
   expect(publicCatalogRow()?.textContent).toBe("Search MCP servers for “canva”");
   expect(publicSearches()).toHaveLength(0);
 
@@ -229,7 +231,7 @@ it("keeps complete Unicode initials in the connected-app marks", async () => {
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenPlugins={() => {}} />
+        <ConnectionsSection onOpenApps={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -254,7 +256,7 @@ it("opens both Unicode fallback screenshot targets through browse and manage", a
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenPlugins={() => {}} />
+        <ConnectionsSection onOpenApps={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -322,7 +324,7 @@ it("leads from an app that is also a chat app here to messaging, and says nothin
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenPlugins={() => {}} onOpenMessaging={onOpenMessaging} />
+        <ConnectionsSection onOpenApps={() => {}} onOpenMessaging={onOpenMessaging} />
       </QueryClientProvider>,
     ),
   );
@@ -336,7 +338,7 @@ it("leads from an app that is also a chat app here to messaging, and says nothin
   expect(onOpenMessaging).toHaveBeenCalledOnce();
 });
 
-it("finds community plugins from the Apps search and opens them in Plugins", async () => {
+it("finds community apps from the Connections search and opens them in Apps", async () => {
   const diary = {
     id: "kcal-diary-v1",
     slug: "kcal-diary",
@@ -362,11 +364,11 @@ it("finds community plugins from the Apps search and opens them in Plugins", asy
     items: !input.query || "kcal diary".includes(input.query.toLowerCase()) ? [diary] : [],
     nextAfter: null,
   }));
-  const onOpenPlugins = vi.fn();
+  const onOpenApps = vi.fn();
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenPlugins={onOpenPlugins} />
+        <ConnectionsSection onOpenApps={onOpenApps} />
       </QueryClientProvider>,
     ),
   );
@@ -380,7 +382,7 @@ it("finds community plugins from the Apps search and opens them in Plugins", asy
     ...host.querySelectorAll<HTMLButtonElement>("[data-testid=plugin-picks] button"),
   ].find((button) => button.textContent === "Add")!;
   await act(async () => pick.click());
-  expect(onOpenPlugins).toHaveBeenCalledWith({ kind: "community", slug: "kcal-diary" });
+  expect(onOpenApps).toHaveBeenCalledWith({ kind: "community", slug: "kcal-diary" });
 
   await type(searchBox(), "weather");
   await vi.waitFor(() =>
@@ -430,7 +432,7 @@ it("offers the server's connector presets when there is no managed catalog, even
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenPlugins={() => {}} />
+        <ConnectionsSection onOpenApps={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -445,7 +447,7 @@ it("offers the server's connector presets when there is no managed catalog, even
     "Tracker",
     "Code host",
   ]);
-  expect(host.textContent).not.toContain("Configure a plugin catalog");
+  expect(host.textContent).not.toContain("Configure a connection catalog");
   expect(host.querySelector("[data-testid=plugin-picks]")).toBeNull();
 
   await type(searchBox(), "code");
@@ -454,7 +456,7 @@ it("offers the server's connector presets when there is no managed catalog, even
       expect.stringMatching(/Code host\s*Connect$/),
     ]),
   );
-  expect(host.textContent).not.toContain("No apps match your search.");
+  expect(host.textContent).not.toContain("No connections match your search.");
 
   const connect = [...rows()[0]!.querySelectorAll("button")].find(
     (button) => button.textContent === "Connect",
@@ -489,7 +491,7 @@ it("offers a connector preset once, as the managed app, when the catalog also co
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenPlugins={() => {}} />
+        <ConnectionsSection onOpenApps={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -508,7 +510,7 @@ it("offers a connector preset once, as the managed app, when the catalog also co
   );
 });
 
-it("leads Apps with what is already connected and sends an added preset to its management", async () => {
+it("leads Connections with what is already connected and sends an added preset to its management", async () => {
   api.connections.catalog.mockResolvedValue([
     {
       connectorId: "fixture",
@@ -550,7 +552,7 @@ it("leads Apps with what is already connected and sends an added preset to its m
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenPlugins={() => {}} />
+        <ConnectionsSection onOpenApps={() => {}} />
       </QueryClientProvider>,
     ),
   );
@@ -578,7 +580,7 @@ it("leads Apps with what is already connected and sends an added preset to its m
   expect(host.querySelector('[data-testid="integrations-source-form"]')).toBeNull();
 });
 
-it("lists services in Apps and offers matching plugin packages only from its search", async () => {
+it("lists services in Connections and offers matching app packages only from its search", async () => {
   api.marketplace.catalog.mockResolvedValue({
     entries: [
       {
@@ -617,11 +619,11 @@ it("lists services in Apps and offers matching plugin packages only from its sea
     unavailableRegistries: [],
     skippedEntries: 0,
   });
-  const onOpenPlugins = vi.fn();
+  const onOpenApps = vi.fn();
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <AppsSection onOpenPlugins={onOpenPlugins} />
+        <ConnectionsSection onOpenApps={onOpenApps} />
       </QueryClientProvider>,
     ),
   );
@@ -641,7 +643,7 @@ it("lists services in Apps and offers matching plugin packages only from its sea
     (button) => button.textContent === "Add",
   )!;
   await act(async () => add.click());
-  expect(onOpenPlugins).toHaveBeenCalledWith({
+  expect(onOpenApps).toHaveBeenCalledWith({
     kind: "package",
     selection: expect.objectContaining({ installedSource: "https://example.test/weather-kit" }),
   });

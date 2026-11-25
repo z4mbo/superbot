@@ -17,6 +17,7 @@ import type {
   PluginSubmissionStatus,
 } from "@rakazo/contracts";
 import {
+  APP_SUBMISSIONS_PATH,
   appPermissionSchema,
   INTEGRATION_CLAIM_CONFIRM_PATH,
   INTEGRATION_CLAIMS_PATH,
@@ -177,14 +178,14 @@ export function pluginSubmissionRoutes(
   const confirmations = windowCounter(24 * HOUR_MS);
   const adminNotices = windowCounter(24 * HOUR_MS);
   const notifyAdmins = (row: PluginSubmissionRow) => {
-    const reviewUrl = new URL("/admin/plugins", deps.webOrigin).href;
+    const reviewUrl = new URL("/admin/apps", deps.webOrigin).href;
     for (const admin of deps.adminEmails) {
       if (adminNotices(admin.trim().toLowerCase()) > ADMIN_NOTICES_PER_EMAIL_PER_DAY) continue;
       sendLater(deps, pluginSubmissionAdminEmail(admin, row, reviewUrl));
     }
   };
 
-  app.post(PLUGIN_SUBMISSIONS_PATH, async (c) => {
+  app.on("POST", [PLUGIN_SUBMISSIONS_PATH, APP_SUBMISSIONS_PATH], async (c) => {
     if (submissions(throttleKey(deps.clientIp(c))) > SUBMISSIONS_PER_IP_PER_HOUR) {
       return c.json({ error: "Too many submissions. Try again later." }, 429, {
         "retry-after": String(HOUR_MS / 1000),

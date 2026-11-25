@@ -13,7 +13,9 @@ test("direct services in the Store load their bundled logos without a managed ca
   );
   expect(presets.length).toBeGreaterThan(0);
   await page.route("**/rpc/connections/catalog", (route) => route.fulfill({ json: { json: [] } }));
+  // The link from before Integrations became Connections still opens it.
   await page.goto(`/app/${bot.id}?integrations`);
+  await expect(page.getByTestId("store-connections")).toHaveAttribute("aria-selected", "true");
   const rows = page.getByTestId("source-presets");
   for (const { name, logo } of presets) {
     expect(logo).toMatch(/^\/service-logos\//);
@@ -35,7 +37,9 @@ test("ordinary accounts can add personal MCP connections without server setup", 
   await completeOnboarding(page);
   await page.goto("/integrations/setup");
   await expect(page.getByRole("heading", { name: "Add MCP server" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Search apps", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Search connections", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Server integrations" })).toBeHidden();
   for (const name of ["Composio", "Pipedream", "Executor"]) {
     await expect(page.getByRole("button", { name, exact: true })).toBeHidden();
@@ -86,7 +90,7 @@ test("ordinary accounts can add personal MCP connections without server setup", 
       json: { json: { defined: false, code: "MCP_OAUTH_REDIRECT_MISMATCH", status: 400, message } },
     }),
   );
-  await page.getByRole("textbox", { name: "Search apps", exact: true }).fill("Notion");
+  await page.getByRole("textbox", { name: "Search connections", exact: true }).fill("Notion");
   await page.getByRole("button", { name: "Search integrations.sh", exact: true }).click();
   await expect(page.getByText("Notion", { exact: true })).toBeVisible();
   await expect(page.getByText("Keyed tool", { exact: true })).toBeHidden();

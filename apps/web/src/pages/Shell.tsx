@@ -412,7 +412,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
           setPanel("create-group");
           return true;
         case "integrations":
-          setOverlay({ kind: "integrations" });
+          setOverlay({ kind: "connections" });
           return true;
         case "chat-panel":
           // A form in the side panel (a new group, an import) keeps its unsaved input.
@@ -718,7 +718,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
     groups,
     inGroup,
     groupId,
-    integrationsOpen: overlay?.kind === "integrations",
+    integrationsOpen: overlay?.kind === "connections",
     initialBotsLoaded,
   });
   // Not while the shell is leaving: a roster with nothing anywhere is on its way to onboarding,
@@ -1140,7 +1140,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
         user={session.data?.user}
         navLinks={desktopBridge() ? [] : (bootstrapMe?.navLinks ?? [])}
         openSettings={openSettings}
-        openIntegrations={() => setOverlay({ kind: "integrations" })}
+        openIntegrations={() => setOverlay({ kind: "connections" })}
         openSkills={() => setOverlay({ kind: "skills" })}
         openSpaceChat={openSpaceChat}
       />

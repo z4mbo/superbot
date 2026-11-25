@@ -83,7 +83,10 @@ test("an admin reviews plugin submissions from the emailed admin link", async ({
     await route.fulfill({ json: { json: submissions.find((row) => row.id === input.id) } });
   });
 
+  // Review links in emails sent before the page moved still land on it.
   await page.goto("/admin/plugins");
+  await expect(page).toHaveURL(/\/admin\/apps$/);
+  await expect(page.getByRole("heading", { name: "App submissions" })).toBeVisible();
   const panel = page.getByTestId("plugin-submissions");
   const rows = panel.getByTestId("plugin-submission");
   await expect(rows).toHaveCount(3);

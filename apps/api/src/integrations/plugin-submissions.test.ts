@@ -1,5 +1,6 @@
 import { EmailEmulator } from "@rakazo/adapters";
 import {
+  APP_SUBMISSIONS_PATH,
   INTEGRATION_CLAIMS_PATH,
   PLUGIN_SUBMISSIONS_PATH,
   PluginSubmissionSchema,
@@ -137,8 +138,8 @@ function routes(
       throw error;
     },
   });
-  const submit = (body: unknown) =>
-    app.request(PLUGIN_SUBMISSIONS_PATH, {
+  const submit = (body: unknown, path = PLUGIN_SUBMISSIONS_PATH) =>
+    app.request(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
@@ -171,7 +172,15 @@ describe("public plugin submissions", () => {
     expect(submitter.text).not.toContain(valid.name);
     const admin = email.sent.find((message) => message.to === "admin@example.test")!;
     expect(admin.subject).toContain(valid.name);
-    expect(admin.text).toContain("https://app.example.test/admin/plugins");
+    expect(admin.text).toContain("https://app.example.test/admin/apps");
+  });
+
+  it("takes the same submission at the app path", async () => {
+    const { rows, prisma } = fakePrisma();
+    const { submit } = routes(prisma);
+    const response = await submit(valid, APP_SUBMISSIONS_PATH);
+    expect(response.status).toBe(201);
+    expect(rows).toHaveLength(1);
   });
 
   it("updates a pending submission for the same repository instead of queueing it twice", async () => {

@@ -1172,7 +1172,7 @@ export default function Integrations() {
                 {catalogsReady && catalog.length === 0 && plugins.length === 0 && !filtering ? (
                   <Text
                     style={styles.secondary}
-                  >{t`Configure a plugin catalog on the server to connect apps.`}</Text>
+                  >{t`Configure a connection catalog on the server.`}</Text>
                 ) : null}
 
                 {catalogReady && catalog.length > 0 && !category ? (
@@ -1200,9 +1200,7 @@ export default function Integrations() {
                                   {tile.label}
                                 </Text>
                                 {disabled ? (
-                                  <Text style={styles.secondary}>
-                                    {t`Not in the plugin catalog`}
-                                  </Text>
+                                  <Text style={styles.secondary}>{t`Not in the catalog`}</Text>
                                 ) : null}
                               </View>
                             </View>
@@ -1263,7 +1261,7 @@ export default function Integrations() {
                 {pluginsState !== "loading" ? (
                   <NativeActionButton
                     fill={false}
-                    label={t`Submit a plugin`}
+                    label={t`Submit an app`}
                     onPress={() => void openExternalUrl(SUBMIT_PLUGIN_URL)}
                     prominence="quiet"
                     size="compact"

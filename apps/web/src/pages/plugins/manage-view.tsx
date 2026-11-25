@@ -57,7 +57,7 @@ export function ManageView({
   const hasApps = appCount > 0 || Boolean(mcpError);
   return (
     <div data-testid="integrations-manage" className="space-y-8">
-      <ViewTitle title={<Trans>Your apps</Trans>} onBack={onBack} />
+      <ViewTitle title={<Trans>Your connections</Trans>} onBack={onBack} />
 
       {hasApps ? (
         <section data-testid="connected-apps">

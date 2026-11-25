@@ -20,6 +20,7 @@ const api = vi.hoisted(() => ({
   capabilities: { list: vi.fn(), catalogSearch: vi.fn(), sourcePresets: vi.fn() },
   mcp: { servers: { list: vi.fn() }, assignments: { list: vi.fn() } },
   marketplace: { catalog: vi.fn(), preview: vi.fn() },
+  apps: { catalog: vi.fn(), installed: vi.fn() },
   pluginRegistry: {
     discover: vi.fn(),
     installations: vi.fn(),
@@ -104,6 +105,8 @@ beforeEach(() => {
   api.capabilities.sourcePresets.mockReset().mockResolvedValue([]);
   api.mcp.servers.list.mockReset().mockResolvedValue([]);
   api.mcp.assignments.list.mockReset().mockResolvedValue([]);
+  api.apps.catalog.mockReset().mockResolvedValue([]);
+  api.apps.installed.mockReset().mockResolvedValue([]);
   api.marketplace.catalog
     .mockReset()
     .mockResolvedValue({ entries: [], unavailableRegistries: [], skippedEntries: 0 });
@@ -226,7 +229,7 @@ it("finds releases beyond loaded pages and keeps search cursors and versions sco
   api.pluginRegistry.install.mockResolvedValue(installation([]));
   await render();
   const searchInput = () =>
-    container.querySelector<HTMLInputElement>('[aria-label="Search plugins"]')!;
+    container.querySelector<HTMLInputElement>('[aria-label="Search apps"]')!;
   async function searchFor(text: string) {
     vi.useFakeTimers();
     try {
@@ -284,8 +287,38 @@ it("finds releases beyond loaded pages and keeps search cursors and versions sco
     ),
   );
   await settle();
-  expect(container.textContent).toContain("No plugins match your search.");
+  expect(container.textContent).toContain("No apps match your search.");
   expect(container.contains(searchAgain)).toBe(true);
+});
+
+it("lists reviewed page apps above the community results and opens one", async () => {
+  const listing = {
+    releaseId: "release-1",
+    appId: "kcal-diary",
+    name: "Kcal diary",
+    description: "Calories per day",
+    version: "1.0.0",
+    icon: null,
+    permissions: [],
+    digest: "sha256-test",
+  };
+  api.apps.catalog.mockImplementation(async (input: { query: string }) =>
+    "kcal diary".includes(input.query.toLowerCase()) ? [listing] : [],
+  );
+  await render();
+  const section = container.querySelector('[data-testid="app-section"]')!;
+  expect(section.textContent).toContain("Kcal diary");
+  expect(
+    section.compareDocumentPosition(container.querySelector('[data-testid="community-results"]')!) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+
+  await click(button("Add", section as HTMLElement));
+  expect(container.querySelector('[data-testid="app-detail"]')?.textContent).toContain(
+    "Kcal diary",
+  );
+  await click(button("Back"));
+  expect(container.querySelector('[data-testid="app-section"]')).not.toBeNull();
 });
 
 it("grants and revokes one part for the open bot only", async () => {
@@ -797,10 +830,7 @@ it("lists marketplace packages beside community entries and searches both", asyn
 
   vi.useFakeTimers();
   try {
-    await type(
-      container.querySelector<HTMLInputElement>('[aria-label="Search plugins"]')!,
-      "weather",
-    );
+    await type(container.querySelector<HTMLInputElement>('[aria-label="Search apps"]')!, "weather");
     await act(async () => vi.advanceTimersByTimeAsync(200));
     await act(async () => vi.advanceTimersByTimeAsync(0));
   } finally {

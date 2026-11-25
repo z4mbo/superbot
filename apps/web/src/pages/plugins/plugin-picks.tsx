@@ -16,12 +16,12 @@ import { usePluginCategoryLabel } from "./use-catalog-browse";
 const SHOWN = 4;
 const READ = 12;
 
-/** What the Store's Plugins opens: a community entry by its ID, or a marketplace package. */
+/** What the Store's Apps opens: a community entry by its ID, or a marketplace package. */
 export type PluginPick =
   | { kind: "community"; slug: string }
   | { kind: "package"; selection: PluginSelection };
 
-/** Plugins matching an Apps search, from the marketplace and the community, opened in Plugins. */
+/** Apps matching a Connections search, from the marketplace and the community, opened in Apps. */
 export function PluginPicks({
   query,
   packages,
@@ -30,7 +30,7 @@ export function PluginPicks({
   onViewAll,
 }: {
   query: string;
-  /** Marketplace packages that connect a service the app catalog does not offer itself. */
+  /** Marketplace packages that connect a service the connection catalog does not offer itself. */
   packages: readonly PluginMarketplaceEntry[];
   installs: readonly CapabilityInstall[];
   onOpen: (pick: PluginPick) => void;
@@ -61,9 +61,9 @@ export function PluginPicks({
     <section data-testid="plugin-picks" className="mt-8 first:mt-0">
       <div className="mb-2 flex items-center justify-between px-2.5">
         <SectionHeading as="h2">
-          <Trans>Plugins</Trans>
+          <Trans>Apps</Trans>
         </SectionHeading>
-        <Button variant="text" size="sm" aria-label={t`View all plugins`} onClick={onViewAll}>
+        <Button variant="text" size="sm" aria-label={t`View all apps`} onClick={onViewAll}>
           <Trans>View all</Trans>
         </Button>
       </div>

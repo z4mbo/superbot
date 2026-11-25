@@ -22,10 +22,10 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 /** The shell overlay a URL opens; the URL is its only source of truth so links and reloads keep it. */
 export type ShellOverlay =
   | { kind: "settings"; section: SettingsSection; spaceId: string | null }
-  | { kind: "integrations" }
+  | { kind: "connections" }
   | { kind: "skills" }
   | { kind: "templates" }
-  | { kind: "plugins" }
+  | { kind: "apps" }
   | { kind: "import" }
   | { kind: "mcp"; serverId?: string }
   | null;
@@ -33,9 +33,12 @@ export type ShellOverlay =
 const OVERLAY_KEYS = [
   "settings",
   "space",
-  "integrations",
+  "connections",
   "skills",
   "templates",
+  "apps",
+  // Links to the Store's Connections and Apps from before they were renamed.
+  "integrations",
   "plugins",
   "import",
   "mcp",
@@ -55,10 +58,10 @@ export function readShellOverlay(params: URLSearchParams): ShellOverlay {
       spaceId: params.get("space") || null,
     };
   }
-  if (params.has("integrations")) return { kind: "integrations" };
+  if (params.has("connections") || params.has("integrations")) return { kind: "connections" };
   if (params.has("skills")) return { kind: "skills" };
   if (params.has("templates")) return { kind: "templates" };
-  if (params.has("plugins")) return { kind: "plugins" };
+  if (params.has("apps") || params.has("plugins")) return { kind: "apps" };
   if (params.has("import")) return { kind: "import" };
   if (params.has("mcp")) {
     const serverId = params.get("mcp");
@@ -84,7 +87,7 @@ export function withShellOverlay(params: URLSearchParams, overlay: ShellOverlay)
   return next;
 }
 
-/** A `?search` string that writes flag params bare (`?integrations`, not `?integrations=`). */
+/** A `?search` string that writes flag params bare (`?connections`, not `?connections=`). */
 export function searchString(params: URLSearchParams): string {
   const query = params.toString().replace(/=(?=&|$)/g, "");
   return query ? `?${query}` : "";
@@ -101,8 +104,8 @@ export function shellOverlaySearch(params: URLSearchParams): string {
 const STORE_KINDS = {
   templates: "agents",
   skills: "skills",
-  plugins: "plugins",
-  integrations: "apps",
+  apps: "apps",
+  connections: "connections",
 } as const;
 type StoreKind = keyof typeof STORE_KINDS;
 export type StoreSection = (typeof STORE_KINDS)[StoreKind];

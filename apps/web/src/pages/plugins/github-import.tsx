@@ -33,13 +33,13 @@ export function GithubImport({
       >
         <Field>
           <FieldLabel htmlFor="plugin-git-url">
-            <Trans>Plugin GitHub URL</Trans>
+            <Trans>App GitHub URL</Trans>
           </FieldLabel>
           <Input
             id="plugin-git-url"
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            placeholder="https://github.com/owner/plugin"
+            placeholder="https://github.com/owner/repo"
             maxLength={2048}
             autoFocus
           />

@@ -58,7 +58,7 @@ export function PluginSubmissionsPanel() {
       toast.error(
         errorText(
           error,
-          input.decision === "reject" ? t`Could not reject plugin` : t`Could not approve plugin`,
+          input.decision === "reject" ? t`Could not reject app` : t`Could not approve app`,
         ),
       ),
   });

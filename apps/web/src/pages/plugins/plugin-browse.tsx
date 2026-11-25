@@ -18,7 +18,7 @@ import { CatalogTile } from "./parts";
 import type { CatalogBrowse } from "./use-catalog-browse";
 import type { PluginConnections } from "./use-plugin-connections";
 
-/** The Apps page under the search: what is connected, featured and recommended apps, then the rest. */
+/** The Connections page under the search: what is connected, featured and recommended, then the rest. */
 export function PluginBrowse({
   browse,
   state,
@@ -29,7 +29,6 @@ export function PluginBrowse({
   onConnectPreset,
   onManageConnections,
   plugins,
-  apps,
 }: {
   browse: CatalogBrowse;
   state: PluginConnections;
@@ -43,10 +42,8 @@ export function PluginBrowse({
   onConnectPreset: (preset: McpSourcePreset) => void;
   /** Shows the connections already added, where a preset's server is managed. */
   onManageConnections: () => void;
-  /** Plugins matching the search, which the Store opens in Plugins. */
+  /** Apps matching the search, which the Store opens in Apps. */
   plugins?: ReactNode;
-  /** Reviewed apps, listed after the featured connectors in browse and ahead of the plugins in search. */
-  apps?: ReactNode;
 }) {
   const { catalogLoaded, catalog } = state;
   const {
@@ -178,7 +175,7 @@ export function PluginBrowse({
               presetGrid
             ) : !catalogsReady ? null : (
               <p className="text-body leading-6 text-muted-foreground/80">
-                <Trans>Configure a plugin catalog on the server to connect apps.</Trans>
+                <Trans>Configure a connection catalog on the server.</Trans>
               </p>
             )
           ) : (
@@ -211,7 +208,7 @@ export function PluginBrowse({
                         </div>
                         {disabled ? (
                           <div className="truncate text-body-sm text-muted-foreground">
-                            <Trans>Not in the plugin catalog</Trans>
+                            <Trans>Not in the catalog</Trans>
                           </div>
                         ) : null}
                       </div>
@@ -226,16 +223,15 @@ export function PluginBrowse({
 
       {catalogsReady && visible.length === 0 && !showFeatured && !presets.length ? (
         <p className="text-muted-foreground/80" role="status">
-          <Trans>No apps match your search.</Trans>
+          <Trans>No connections match your search.</Trans>
         </p>
       ) : null}
       {showFeatured ? (
         <>
-          {apps}
           {recommended}
           {catalogLoaded && catalog.length > 0 ? (
             <SectionHeading as="h2" className="mt-8 mb-2 px-2.5">
-              <Trans>More apps</Trans>
+              <Trans>More connections</Trans>
             </SectionHeading>
           ) : null}
           {visible.length > 0 ? (
@@ -271,7 +267,6 @@ export function PluginBrowse({
             </div>
           ) : null}
           {presetGrid ? <div className="mb-2">{presetGrid}</div> : null}
-          {apps}
           {plugins}
           {rendered.length > 0 ? (
             <div className="mt-2 grid grid-cols-2 gap-2">

@@ -37,7 +37,7 @@ export function KeyboardShortcutsDialog({
     modelPicker && { label: t`Switch model`, keys: [[mod, shift, "M"]] },
     modelPicker && { label: t`Next thinking level`, keys: [[mod, shift, "E"]] },
     { label: t`Chat details`, keys: [[mod, shift, ","]] },
-    host.desktop && { label: t`Connect apps`, keys: [[mod, shift, "A"]] },
+    host.desktop && { label: t`Connections`, keys: [[mod, shift, "A"]] },
     host.desktop && { label: t`Go to bot`, keys: [[mod, "1–9"]] },
     {
       label: t`Next or previous bot`,

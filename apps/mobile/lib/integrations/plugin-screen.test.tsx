@@ -200,21 +200,21 @@ it("keeps an install that succeeded when the reload after it fails", async () =>
     expect.objectContaining({ kind: "plugin", source: SOURCE, pluginParts: ["connector"] }),
     pinned,
   );
-  expect(container.textContent).toContain("Could not load plugin");
-  expect(container.textContent).not.toContain("Could not install plugin");
+  expect(container.textContent).toContain("Could not load app");
+  expect(container.textContent).not.toContain("Could not install app");
 
   answers["capabilities/list"] = async () => [install];
   answers["mcp/servers/list"] = async () => [server];
   await refocus();
   expect(headerLabel()).toBe("Remove");
-  expect(container.textContent).not.toContain("Could not load plugin");
+  expect(container.textContent).not.toContain("Could not load app");
 });
 
 it("reports an install that failed", async () => {
   await render();
   answers["capabilities/install"] = () => Promise.reject(new Error());
   await pressHeader();
-  expect(container.textContent).toContain("Could not install plugin");
+  expect(container.textContent).toContain("Could not install app");
   expect(headerLabel()).toBe("Connect");
 });
 
@@ -231,23 +231,23 @@ it("keeps a connector enabled for the bot when the reload after it fails", async
     { botId: "bot-1", serverId: "server-1" },
     pinned,
   );
-  expect(container.textContent).toContain("Could not load plugin");
+  expect(container.textContent).toContain("Could not load app");
   expect(container.textContent).not.toContain("Could not enable tools");
 
   answers["mcp/servers/list"] = async () => [server];
   answers["mcp/assignments/list"] = async () => [{ serverId: "server-1" }];
   await refocus();
   expect(container.textContent).toContain("In this bot");
-  expect(container.textContent).not.toContain("Could not load plugin");
+  expect(container.textContent).not.toContain("Could not load app");
 });
 
 it("shows the preview again after a failed read and Retry", async () => {
   answers["capabilities/pluginPreview"] = () => Promise.reject(new Error());
   await render();
-  expect(container.textContent).toContain("Could not preview plugin");
+  expect(container.textContent).toContain("Could not preview app");
   answers["capabilities/pluginPreview"] = async () => preview;
   await press("Retry");
-  expect(container.textContent).not.toContain("Could not preview plugin");
+  expect(container.textContent).not.toContain("Could not preview app");
   expect(container.textContent).toContain("https://notes.example.test/mcp");
 });
 

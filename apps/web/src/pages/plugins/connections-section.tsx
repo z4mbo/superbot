@@ -1,6 +1,5 @@
 import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type {
-  AppListing,
   CapabilityInstall,
   ConnectionCatalogItem,
   IntegrationCatalogResult,
@@ -30,8 +29,6 @@ import { connectMcpOauth } from "../../lib/integrations/mcp-connect";
 import { rpc } from "../../lib/query/rpc";
 import { errorCode, errorText } from "../../lib/query/user-error";
 import { AddMenu } from "./add-menu";
-import { AppDetail } from "./apps/app-detail";
-import { AppSection } from "./apps/app-section";
 import { ConnectorDetail } from "./connector-detail";
 import { DomainSearch, useDomainSearch } from "./domain-search";
 import { GithubImport } from "./github-import";
@@ -48,18 +45,18 @@ import { usePluginConnections } from "./use-plugin-connections";
 
 type OverlayView = "browse" | "manage" | "github" | "source" | "browseMcp" | "domain";
 
-/** The Store's Apps: every connection, the server's presets, and what is already connected. */
-export function AppsSection({
+/** The Store's Connections: every connection, the server's presets, and what is already connected. */
+export function ConnectionsSection({
   onOpenMcp,
   onOpenMessaging,
-  onOpenPlugins,
+  onOpenApps,
   activeBotId,
   actions,
 }: {
   onOpenMcp?: () => void;
   onOpenMessaging?: () => void;
-  /** Opens one plugin, or all of them, in the Store's Plugins. */
-  onOpenPlugins: (pick?: PluginPick) => void;
+  /** Opens one app, or all of them, in the Store's Apps. */
+  onOpenApps: (pick?: PluginPick) => void;
   activeBotId?: string;
   /** Where the section's own controls go in the Store's header; inline when absent. */
   actions?: HTMLElement | null;
@@ -75,7 +72,6 @@ export function AppsSection({
   // Where a source form returns: the domain search that prefilled it, or browse.
   const [sourceBack, setSourceBack] = useState<OverlayView>("browse");
   const [plugin, setPlugin] = useState<PluginSelection | null>(null);
-  const [appListing, setAppListing] = useState<AppListing | null>(null);
   const [gitSource, setGitSource] = useState("");
   const [detailKey, setDetailKey] = useState<{
     connectorId: string;
@@ -159,7 +155,7 @@ export function AppsSection({
     }),
   ].slice(0, 4);
 
-  const browsing = !plugin && !appListing && !detailItem && view === "browse";
+  const browsing = !plugin && !detailItem && view === "browse";
 
   function openPlugin(selection: PluginSelection) {
     setCatalogError(null);
@@ -347,7 +343,6 @@ export function AppsSection({
 
   function openAddView(next: OverlayView) {
     setPlugin(null);
-    setAppListing(null);
     setDetailKey(null);
     setSourceError(null);
     setOauthError(null);
@@ -423,8 +418,8 @@ export function AppsSection({
               setQuery(event.target.value);
               setVisibleCount(CONNECTION_CATALOG_PAGE_SIZE);
             }}
-            aria-label={t`Search apps`}
-            placeholder={t`Search apps`}
+            aria-label={t`Search connections`}
+            placeholder={t`Search connections`}
             size="xl"
           />
         </div>
@@ -432,7 +427,7 @@ export function AppsSection({
 
       {loading ? (
         <div className="grid flex-1 place-items-center" aria-busy="true">
-          <Spinner className="size-5 text-muted-foreground" aria-label={t`Loading integrations…`} />
+          <Spinner className="size-5 text-muted-foreground" aria-label={t`Loading connections…`} />
         </div>
       ) : null}
 
@@ -452,13 +447,7 @@ export function AppsSection({
           </div>
         ) : null}
 
-        {appListing ? (
-          <AppDetail
-            key={appListing.appId}
-            listing={appListing}
-            onBack={() => setAppListing(null)}
-          />
-        ) : plugin ? (
+        {plugin ? (
           <PluginDetail
             key={plugin.installedSource}
             selection={plugin}
@@ -524,7 +513,7 @@ export function AppsSection({
               onDone={() => {
                 setView("manage");
                 void refresh().catch((err: unknown) =>
-                  setCatalogError(errorText(err, t`Could not load integrations`)),
+                  setCatalogError(errorText(err, t`Could not load connections`)),
                 );
               }}
             />
@@ -546,8 +535,8 @@ export function AppsSection({
                     (entry) => entry.hasConnector && !managedAppFor(entry, catalog),
                   )}
                   installs={pluginInstalls}
-                  onOpen={onOpenPlugins}
-                  onViewAll={() => onOpenPlugins()}
+                  onOpen={onOpenApps}
+                  onViewAll={() => onOpenApps()}
                 />
               ) : null
             }
@@ -555,7 +544,6 @@ export function AppsSection({
               setPublicCatalogQuery(publicQuery);
               openAddView("browseMcp");
             }}
-            apps={<AppSection query={query} onOpen={setAppListing} />}
           />
         )}
       </div>

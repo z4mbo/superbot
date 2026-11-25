@@ -108,8 +108,8 @@ export function AddCustomForm({
           <TextInput
             value={gitUrl}
             onChangeText={setGitUrl}
-            accessibilityLabel={t`Plugin GitHub URL`}
-            placeholder="https://github.com/owner/plugin"
+            accessibilityLabel={t`App GitHub URL`}
+            placeholder="https://github.com/owner/repo"
             placeholderTextColor={native.tertiaryLabel}
             autoCapitalize="none"
             autoCorrect={false}
