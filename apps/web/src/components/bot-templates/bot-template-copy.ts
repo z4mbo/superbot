@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import type { BotTemplate } from "@rakazo/contracts";
+import type { BotTemplate, BotTemplateCategory } from "@rakazo/contracts";
 
 export type BotTemplateCopy = Pick<BotTemplate, "name" | "summary" | "sample">;
 
@@ -84,4 +84,31 @@ Nothing new on battery recycling.`,
         return template;
     }
   };
+}
+
+/** Each template category's name in the app's language. */
+export function useBotTemplateCategoryLabel(): (category: BotTemplateCategory) => string {
+  const { t } = useLingui();
+  const labels: Record<BotTemplateCategory, string> = {
+    assistant: t`Personal assistant`,
+    email: t`Email`,
+    meetings: t`Meetings`,
+    research: t`Research`,
+    engineering: t`Engineering`,
+    qa: t`Testing`,
+    product: t`Product`,
+    design: t`Design`,
+    sales: t`Sales`,
+    marketing: t`Marketing`,
+    recruiting: t`Recruiting`,
+    operations: t`Operations`,
+    finance: t`Finance`,
+    career: t`Job search`,
+    travel: t`Travel`,
+    shopping: t`Shopping`,
+    health: t`Health & food`,
+    home: t`Home & family`,
+    privacy: t`Privacy & security`,
+  };
+  return (category) => labels[category];
 }

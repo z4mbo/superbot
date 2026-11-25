@@ -57,6 +57,7 @@ const template: BotTemplateListing = {
   id: "weekly-digest",
   version: 3,
   name: "Weekly digest",
+  category: "assistant",
   summary: "A summary every Friday",
   sample: "**Friday**",
   description: "",
