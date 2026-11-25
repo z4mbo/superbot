@@ -1,0 +1,33 @@
+{
+  "name": "superbot-cli",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "superbot": "./bin/superbot.js"
+  },
+  "engines": {
+    "node": "^24.15.0 || >=26.0.0"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root ../.. apps/cli/src"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "2.1.2",
+    "@rakazo/cli-client": "workspace:*",
+    "@rakazo/contracts": "workspace:*",
+    "@rakazo/core": "workspace:*",
+    "ink": "8.0.0",
+    "react": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "esbuild": "0.28.2",
+    "ink-testing-library": "4.0.0",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}

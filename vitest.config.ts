@@ -16,6 +16,7 @@ const include = [
   "apps/mobile/plugins/**/*.test.js",
   "apps/api/src/**/*.test.ts",
   "apps/worker/src/**/*.test.ts",
+  "apps/cli/src/**/*.test.{ts,tsx}",
 ];
 
 // Files that mock modules, stub globals, or change the environment keep a fresh module graph;

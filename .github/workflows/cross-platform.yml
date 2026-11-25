@@ -50,6 +50,10 @@ env:
     packages/testkit/src/runtime/runtime-model-wiring.test.ts
     packages/adapters/src/runs/turn/run-model-wiring.test.ts
     packages/testkit/src/runtime/pi-durable/durable-spike.test.ts
+    apps/cli/src/cli/bin.test.ts
+    apps/cli/src/cli/run-cli.test.ts
+    apps/cli/src/local/local-chat.test.ts
+    apps/cli/src/local/engines/engines.test.ts
   # ── Extension point 2: desktop Playwright specs run on every OS (file names in apps/desktop/e2e). ──
   DESKTOP_SPECS: >-
     smoke.spec.ts
