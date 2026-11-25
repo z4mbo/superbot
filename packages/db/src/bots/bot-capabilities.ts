@@ -8,6 +8,7 @@ import {
 } from "../computers/computers.js";
 import type { Prisma, PrismaClient } from "../database/client.js";
 import { isUniqueViolation } from "../database/prisma-errors.js";
+import { runAsSystem } from "../database/row-security.js";
 import { withTransactionRetry } from "../database/transaction-retry.js";
 
 /**
@@ -115,6 +116,18 @@ export async function ensureBotCapabilities(
     }
   }
   return added;
+}
+
+/**
+ * The bot's computer, after giving it what creation would have when it had none. Its rows belong
+ * to the bot's owner and Space, whoever is asking, so this acts across them.
+ */
+export function repairedBotComputer(prisma: PrismaClient, botId: string) {
+  return runAsSystem("give a bot made on an older version what creation gives", async () => {
+    await ensureBotCapabilities(prisma, botId);
+    const bot = await prisma.bot.findUnique({ where: { id: botId }, select: { computer: true } });
+    return bot?.computer ?? null;
+  });
 }
 
 /** Bot counts for one Space: how many lack each capability, and settings left as stored. */

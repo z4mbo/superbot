@@ -6,7 +6,11 @@ import { asSystem } from "../database/row-security.js";
 import { provisionMessagingIdentity } from "../messaging/messaging.js";
 import { createThreadMessage } from "../threads/messages.js";
 import type { BotCapabilityAudit } from "./bot-capabilities.js";
-import { auditBotCapabilities, ensureBotCapabilities } from "./bot-capabilities.js";
+import {
+  auditBotCapabilities,
+  ensureBotCapabilities,
+  repairedBotComputer,
+} from "./bot-capabilities.js";
 import { createRepos } from "./bot-repository.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -262,6 +266,8 @@ describePostgres("bots made on older versions (PostgreSQL)", { timeout: 120_000 
       select: { computerId: true, thread: { select: { id: true } } },
     });
     expect(rows.every((bot) => bot.computerId === computers[0]!.id && bot.thread)).toBe(true);
+    // What a run calls when its bot has no computer: it gets the one now linked.
+    expect((await repairedBotComputer(prisma, bots[0]!))?.id).toBe(computers[0]!.id);
     expect(
       await prisma.memoryDocument.count({ where: { botId: { in: bots }, path: "MEMORY.md" } }),
     ).toBe(bots.length);

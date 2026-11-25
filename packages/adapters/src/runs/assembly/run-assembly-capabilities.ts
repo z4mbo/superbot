@@ -11,13 +11,7 @@ import {
   messagingDmSurfaceNote,
   nonOwnerChatPrivacyBlock,
 } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
-import {
-  availableInSpace,
-  ensureBotCapabilities,
-  parseComputerMode,
-  runAsSystem,
-} from "@rakazo/db";
+import { availableInSpace, parseComputerMode, repairedBotComputer } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { createApprovedEffectReplayQueue } from "../../approvals/approval-effect.js";
 import { appendOutsideText, taskPromptIsOutside } from "../../approvals/review-target-sources.js";
@@ -241,15 +235,6 @@ export async function startTurnModel(
 }
 
 export type StartedTurnModel = NonNullable<Awaited<ReturnType<typeof startTurnModel>>>;
-
-/** Its rows belong to the bot's owner and Space, whoever started the run. */
-function repairedBotComputer(prisma: PrismaClient, botId: string) {
-  return runAsSystem("give a bot made on an older version what creation gives", async () => {
-    await ensureBotCapabilities(prisma, botId);
-    return (await prisma.bot.findUnique({ where: { id: botId }, select: { computer: true } }))
-      ?.computer;
-  });
-}
 
 export async function prepareRunComputer(
   hold: RunHold,
