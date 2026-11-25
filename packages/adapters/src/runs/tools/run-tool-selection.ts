@@ -131,6 +131,8 @@ export function selectBuiltinToolsForRun(options: {
   semanticMemoryReflects?: boolean;
   cloudAgentEnabled?: boolean;
   cloudAgentCleanupEnabled?: boolean;
+  /** The deployment offers a sign-in source; the tool asks the user to connect one when needed. */
+  signInSourceEnabled?: boolean;
   /** The run's user connected a payment wallet. */
   paymentWalletEnabled?: boolean;
   mediaImagesEnabled?: boolean;
@@ -202,6 +204,10 @@ export function selectBuiltinToolsForRun(options: {
       (options.fleetManagement || tool.name !== "spawn_bot") &&
       (ownerStartedRun || (tool.name !== "update_preferences" && tool.name !== "feedback")) &&
       (options.paymentWalletEnabled || !PURCHASE_TOOL_NAMES.has(tool.name)) &&
+      // Signing in fills a login in the page browser, so it goes where that browser is offered.
+      (tool.name !== "sign_in" ||
+        (Boolean(options.signInSourceEnabled) &&
+          (options.pageBrowserAllowed ?? options.graphicalToolsAllowed))) &&
       (options.mediaImagesEnabled || tool.name !== "generate_image") &&
       (options.mediaVideoEnabled || tool.name !== "generate_video") &&
       (options.paidServicesEnabled || !PAID_SERVICE_TOOL_NAMES.has(tool.name)) &&

@@ -94,5 +94,6 @@ export {
   handQueuedRunToWorkingRun,
 } from "./threads/thread-steering.js";
 export * from "./threads/thread-takeover.js";
+export * from "./threads/sign-in-blocks.js";
 export * from "./threads/tool-questions.js";
 export * from "./threads/unread-inbox-chats.js";

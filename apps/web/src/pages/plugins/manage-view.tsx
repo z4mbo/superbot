@@ -5,6 +5,7 @@ import { catalogItemKey } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { useId } from "react";
 import type { PluginSelection } from "../../components/integrations/plugin-marketplace";
+import { SignInSourceConnection } from "../../components/sign-in-source/SignInSourceConnection";
 import {
   PluginLogo,
   ROW_BUTTON,
@@ -57,7 +58,12 @@ export function ManageView({
   const hasApps = appCount > 0 || Boolean(mcpError);
   return (
     <div data-testid="integrations-manage" className="space-y-8">
+<<<<<<< HEAD
       <ViewTitle title={<Trans>Your connections</Trans>} onBack={onBack} />
+=======
+      <ViewTitle title={<Trans>Your apps</Trans>} onBack={onBack} />
+      <SignInSourceConnection />
+>>>>>>> 6c9c42ebd (WIP: sign-in source)
 
       {hasApps ? (
         <section data-testid="connected-apps">

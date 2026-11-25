@@ -29,6 +29,7 @@ import {
   createLifecycleEmailSender,
   createMediaGenerationProvider,
   createPaymentWalletProvider,
+  createSignInSourceProvider,
   createPostgresReconciliationLeadership,
   createProductAnalytics,
   createReservedGraphileJobWorkerHost,
@@ -234,6 +235,7 @@ async function main() {
   // One provider instance so emulator launches and polls share the same Map.
   const cloudAgent = createCloudAgentConnection();
   const paymentWallet = await createPaymentWalletProvider();
+  const signInSource = await createSignInSourceProvider();
   // One instance: the executor submits videos and background polls finish them.
   const mediaGeneration = createMediaGenerationProvider();
   // Shared with the reconciler so a stuck wait uses the same push path as a finish notice.
@@ -338,6 +340,7 @@ async function main() {
       },
     ),
     paymentWallet,
+    signInSource,
     stoppingSignal: shutdown.signal,
     shutdownSignal: runDrain.signal,
   });

@@ -44,6 +44,7 @@ import {
   createLifecycleEmailSender,
   createMediaGenerationProvider,
   createPaymentWalletProvider,
+  createSignInSourceProvider,
   createProductAnalytics,
   createRunReconciler,
   createRunRuntime,
@@ -689,6 +690,11 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     PAYMENT_WALLET_PROVIDER: env.paymentWalletProvider,
     PAYMENT_WALLET_CLIENT_ID: env.paymentWalletClientId,
   });
+  const signInSource = await createSignInSourceProvider({
+    SIGN_IN_SOURCE_PROVIDER: env.signInSourceProvider,
+    SIGN_IN_SOURCE_CLIENT_ID: env.signInSourceClientId,
+    SIGN_IN_SOURCE_CLIENT_SECRET: env.signInSourceClientSecret,
+  });
   // One cache serves models.list, selection validation, and run-time model
   // resolution alike, so a list call warms the run path in this process.
   const codexCatalog = new CodexCatalogCache();
@@ -763,6 +769,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           token: env.sandboxOptions.hostComputerToken,
         }),
       paymentWallet,
+      signInSource,
       web,
       stoppingSignal: shutdown.signal,
       shutdownSignal: runDrain.signal,
@@ -882,6 +889,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     cloudAgent,
     userCloudAgents,
     paymentWallet,
+    signInSource,
     codexCatalog,
     prisma,
     notifications,

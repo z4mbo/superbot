@@ -10,6 +10,7 @@ import { AgentImportSetupItemSchema } from "../integrations/agent-import-setup.j
 import { McpTransportSchema } from "../integrations/mcp.js";
 import { McpAppCspSchema } from "../integrations/mcp-app.js";
 import { OutgoingDraft } from "../integrations/outgoing-draft.js";
+import { SignInBlockSchema } from "../integrations/sign-in-sources.js";
 import { ToolQuestionSchema } from "../integrations/tool-question.js";
 
 export const MessageRole = z.enum(["user", "bot", "system"]);
@@ -354,6 +355,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     /** The person's values sealed to `publicKey`, held only until the waiting call takes them. */
     sealedValues: z.string().max(100_000).optional(),
   }),
+  SignInBlockSchema,
   z.object({
     /** A page the bot saved. Title and version are as sent; read the page for its latest. */
     kind: z.literal("page"),

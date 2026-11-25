@@ -187,6 +187,8 @@ function replyBlockText(block: MessageBlock): string {
       return block.server;
     case "tool_question":
       return block.question.source;
+    case "sign_in":
+      return block.site;
     case "import_setup":
       if (block.undone) return "";
       return block.items.map((item) => ("name" in item ? item.name : item.title)).join(", ");

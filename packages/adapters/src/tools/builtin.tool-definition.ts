@@ -3,6 +3,7 @@ import { FLEET_TOOL_NAMES } from "@rakazo/contracts";
 import { findAppsTool, openAppTool } from "../apps/app-tools.tool-definition.js";
 import { meetingTranscriptTool } from "../meetings/meeting-chat.tool-definition.js";
 import { personalCalendarTools } from "../personal-calendar/personal-calendar.tool-definition.js";
+import { signInTool } from "../sign-in-sources/sign-in.tool-definition.js";
 import { appTools } from "./builtin-apps.tool-definition.js";
 import { computerTools } from "./builtin-computer.tool-definition.js";
 import { conversationTools } from "./builtin-conversation.tool-definition.js";
@@ -28,6 +29,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   openAppTool,
   meetingTranscriptTool,
   ...serviceTools,
+  signInTool,
   ...memoryTools,
   ...workTools,
   ...personalCalendarTools,

@@ -30,6 +30,7 @@ import {
   ToolSteps,
 } from "../../../components/messages/ToolActivityDisclosure";
 import { ToolQuestionCard } from "../../../components/messages/ToolQuestionCard";
+import { SignInCard } from "../../../components/sign-in-source/SignInCard";
 import { PageBlockCard } from "../../../components/pages/PageBlockCard";
 import { SkillDraftCard } from "../../../components/teach/SkillDraftCard";
 import {
@@ -567,6 +568,14 @@ export const MessageView = memo(function MessageView({
                   target={artifactTarget}
                   canAnswer={canAnswer}
                 />
+              </div>
+            );
+          }
+          if (block.kind === "sign_in") {
+            // The server answers only the request's own person; anyone else is told it is closed.
+            return (
+              <div key={i} className="flex justify-start">
+                <SignInCard block={block} canAct />
               </div>
             );
           }

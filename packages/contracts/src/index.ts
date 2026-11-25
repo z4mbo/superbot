@@ -55,6 +55,7 @@ export * from "./integrations/integration-settings.js";
 export * from "./integrations/local-app-records.js";
 export * from "./integrations/mcp.js";
 export * from "./integrations/mcp-app.js";
+export * from "./integrations/sign-in-sources.js";
 export * from "./integrations/mcp-oauth-return.js";
 export * from "./integrations/messaging.js";
 export * from "./integrations/outgoing-draft.js";

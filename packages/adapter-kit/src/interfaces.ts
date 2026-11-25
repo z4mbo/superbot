@@ -1,6 +1,7 @@
 import type { ComputerSize } from "@rakazo/contracts";
 import type { ConnectorEventSource } from "./connector-events.js";
 import type { ConnectedCalendarProvider } from "./personal-calendar.js";
+import type { SignInFillCall } from "./sign-in-sources.js";
 import type {
   AdapterContext,
   AdapterDescriptor,
@@ -818,6 +819,17 @@ export interface BrowserProvider {
     request: BrowserPurchaseCheckRequest,
     context: AdapterContext,
   ): Promise<BrowserPurchaseCheckResult>;
+  /**
+   * Make a sign-in source's fill call in the tab on `origin`, where that source's browser extension
+   * fills and submits a login the person approved (see SignInFillPort). The call may carry the
+   * connection's tokens: hold it in memory for this one call only. A browser without such an
+   * extension leaves this out, and those sign-ins are refused.
+   */
+  signInFill?(
+    computer: ComputerRef,
+    request: { origin: string; call: SignInFillCall },
+    context: AdapterContext,
+  ): Promise<unknown>;
 }
 
 /**
