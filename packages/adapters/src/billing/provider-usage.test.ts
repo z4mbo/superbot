@@ -43,6 +43,9 @@ function member(rows: Row[], secrets: Record<string, StoredModelSecret | string 
             .filter((row) => secrets[row.secretId] !== undefined)
             .map((row) => ({ id: row.secretId, ciphertext: row.secretId })),
         ),
+        findFirst: vi.fn(async ({ where }: { where: { id: string } }) =>
+          secrets[where.id] === undefined ? null : { id: where.id, ciphertext: where.id },
+        ),
       },
     } as never,
     secretStore: {
@@ -217,6 +220,51 @@ describe("readMemberProviderUsage", () => {
       status: "ok",
       readAt: new Date(NOW).toISOString(),
     });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads an expired sign-in once its renewal is stored, and stops waiting for a slow one", async () => {
+    const rows: Row[] = [{ id: "c1", provider: "anthropic", label: "Claude", secretId: "s1" }];
+    let secret: StoredModelSecret = {
+      kind: "oauth",
+      credential: credential({ expires: NOW - 1 }),
+    };
+    const { prisma, secretStore } = member(rows, { s1: "placeholder" });
+    secretStore.load = async () => serializeModelSecret(secret);
+    const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => json(claudeBody));
+    const read = (onExpired: () => Promise<void>) =>
+      readMemberProviderUsage(
+        prisma,
+        secretStore,
+        "u1",
+        new PlanLimitsReader(fetchImpl as typeof fetch, () => now),
+        onExpired,
+      );
+
+    const [renewed] = await read(async () => {
+      secret = { kind: "oauth", credential: credential({ access: "renewed-token" }) };
+    });
+    expect(renewed).toMatchObject({ status: "ok", readAt: new Date(NOW).toISOString() });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(new Headers(fetchImpl.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(
+      "Bearer renewed-token",
+    );
+
+    secret = { kind: "oauth", credential: credential({ expires: NOW - 1 }) };
+    const [revoked] = await read(async () => {
+      secret = { kind: "oauth", reconnectRequired: true };
+    });
+    expect(revoked).toMatchObject({ status: "not_signed_in", windows: [] });
+
+    secret = { kind: "oauth", credential: credential({ expires: NOW - 1 }) };
+    vi.useFakeTimers();
+    try {
+      const slow = read(() => new Promise<void>(() => {}));
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect((await slow)[0]).toMatchObject({ status: "error", readAt: null });
+    } finally {
+      vi.useRealTimers();
+    }
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 

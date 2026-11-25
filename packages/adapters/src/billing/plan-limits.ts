@@ -230,6 +230,25 @@ export async function loadMemberModelSecrets(
   );
 }
 
+/** One connection's stored secret as it is now, or null when it is missing or cannot be read. */
+export async function loadMemberModelSecret(
+  prisma: Pick<PrismaClient, "secret">,
+  secretStore: Pick<SecretStore, "load">,
+  userId: string,
+  secretId: string,
+): Promise<StoredModelSecret | null> {
+  const row = await prisma.secret.findFirst({
+    where: { id: secretId, userId, spaceId: null },
+    select: { id: true, ciphertext: true },
+  });
+  if (!row) return null;
+  try {
+    return parseModelSecret(await secretStore.load(row.ciphertext, row.id));
+  } catch {
+    return null;
+  }
+}
+
 /** Allowances for each of the member's subscription sign-ins that can report one. */
 export async function readMemberPlanLimits(
   prisma: Pick<PrismaClient, "userModelCredential" | "secret">,

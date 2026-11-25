@@ -1,12 +1,13 @@
 import type { SecretStore } from "@rakazo/adapter-kit";
 import type { ProviderUsage } from "@rakazo/contracts";
 import { canonicalPiProviderId } from "@rakazo/contracts";
+import { abortableDelay } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import type { StoredModelSecret } from "../models/model-secret.js";
 import type { PiCatalogEntry } from "../runtime/pi/models/pi-models.js";
 import { listPiCatalog } from "../runtime/pi/models/pi-models.js";
 import type { PlanLimitsReader, UsageOutcome } from "./plan-limits.js";
-import { loadMemberModelSecrets } from "./plan-limits.js";
+import { loadMemberModelSecret, loadMemberModelSecrets } from "./plan-limits.js";
 import { oauthUsageReader } from "./usage-readers.js";
 
 let catalogNames: { entries: readonly PiCatalogEntry[]; names: Map<string, string> } | undefined;
@@ -23,14 +24,31 @@ function catalogProviderName(provider: string): string | undefined {
   return catalogNames.names.get(canonicalPiProviderId(provider));
 }
 
-function outcomeFor(
+/** A sign-in being renewed is waited for this long; a slower renewal shows on the next read. */
+const RENEWAL_WAIT_MS = 5_000;
+
+/** Whether the renewal ended in time. */
+async function renewalEnded(renewal: Promise<void>): Promise<boolean> {
+  const stop = new AbortController();
+  try {
+    return await Promise.race([
+      renewal.then(() => true),
+      abortableDelay(RENEWAL_WAIT_MS, stop.signal).then(() => false),
+    ]);
+  } finally {
+    stop.abort();
+  }
+}
+
+async function outcomeFor(
   reader: PlanLimitsReader,
   key: string,
   provider: string,
   secret: StoredModelSecret | null,
   refresh: boolean,
-  onExpiredToken: () => void,
-): Promise<UsageOutcome> | UsageOutcome {
+  onExpiredToken: () => void | Promise<void>,
+  reload: () => Promise<StoredModelSecret | null>,
+): Promise<UsageOutcome> {
   if (!secret) return { status: "error", reading: null, readAt: null };
   if (secret.kind === "api_key")
     return reader.usage(key, provider, { kind: "api_key", key: secret.key }, { refresh });
@@ -38,8 +56,23 @@ function outcomeFor(
   if (secret.kind !== "oauth") return { status: "unavailable", reading: null, readAt: null };
   if (secret.reconnectRequired) return { status: "not_signed_in", reading: null, readAt: null };
   const credential = secret.credential;
-  if (credential.expires <= Date.now()) onExpiredToken();
-  return reader.usage(key, provider, { kind: "oauth", credential }, { refresh });
+  if (credential.expires > Date.now())
+    return reader.usage(key, provider, { kind: "oauth", credential }, { refresh });
+  const renewal = onExpiredToken();
+  const outcome = await reader.usage(key, provider, { kind: "oauth", credential }, { refresh });
+  // A recent reading still shows. Without one, the renewed sign-in is read as soon as it is
+  // stored, so opening the app after a night away does not start on a failed row.
+  if (outcome.status !== "error" || !renewal || !(await renewalEnded(renewal))) return outcome;
+  const renewed = await reload();
+  if (renewed?.kind !== "oauth") return outcome;
+  if (renewed.reconnectRequired) return { status: "not_signed_in", reading: null, readAt: null };
+  if (renewed.credential.expires <= Date.now()) return outcome;
+  return reader.usage(
+    key,
+    provider,
+    { kind: "oauth", credential: renewed.credential },
+    { refresh },
+  );
 }
 
 /**
@@ -51,7 +84,7 @@ export async function readMemberProviderUsage(
   secretStore: Pick<SecretStore, "load">,
   userId: string,
   reader: PlanLimitsReader,
-  onExpiredToken: (secretId: string, provider: string) => void,
+  onExpiredToken: (secretId: string, provider: string) => void | Promise<void>,
   options: { refresh?: boolean } = {},
 ): Promise<ProviderUsage[]> {
   const connections = await loadMemberModelSecrets(prisma, secretStore, userId);
@@ -65,6 +98,7 @@ export async function readMemberProviderUsage(
         secret,
         options.refresh === true,
         () => onExpiredToken(row.secretId, row.provider),
+        () => loadMemberModelSecret(prisma, secretStore, userId, row.secretId),
       );
       const subscription = secret?.kind === "oauth";
       const shown = outcome.status === "ok" ? outcome.reading : null;
