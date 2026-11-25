@@ -5,9 +5,16 @@ import { GITHUB_API_REPO } from "./site";
 export const GITHUB_STARS_TIMEOUT_MS = 5_000;
 export const MAX_GITHUB_STARS_RESPONSE_BYTES = 64 * 1024;
 
-export type DesktopDownloads = Partial<Record<"mac" | "windows" | "linux", string>>;
+/** Installer file endings in a release; Linux has an AppImage and a Debian package. */
+const DESKTOP_ASSET_SUFFIXES = {
+  mac: ".dmg",
+  windows: ".exe",
+  linux: ".AppImage",
+  "linux-deb": ".deb",
+} as const;
 
-const DESKTOP_ASSET_SUFFIXES = { mac: ".dmg", windows: ".exe", linux: ".AppImage" } as const;
+export type DesktopDownloadPlatform = keyof typeof DESKTOP_ASSET_SUFFIXES;
+export type DesktopDownloads = Partial<Record<DesktopDownloadPlatform, string>>;
 export const MAX_GITHUB_RELEASE_RESPONSE_BYTES = 256 * 1024;
 export const MAX_GITHUB_COMMITS_RESPONSE_BYTES = 512 * 1024;
 
@@ -16,29 +23,40 @@ export type RecentChange = { title: string; pr: string | null; url: string; date
 // Housekeeping commits say nothing about the product.
 const QUIET_COMMIT = /^(chore|test|ci|build|docs|style|refactor)(\(.*?\))?!?:|^Merge /i;
 
-async function fetchGithubStars(fetchImpl: typeof fetch = fetch): Promise<number | null> {
+export async function fetchGithubStars(fetchImpl: typeof fetch = fetch): Promise<number | null> {
   const payload = await fetchGithubJson<{ stargazers_count?: unknown }>(
     GITHUB_API_REPO,
     MAX_GITHUB_STARS_RESPONSE_BYTES,
     fetchImpl,
   );
-  return typeof payload?.stargazers_count === "number" ? payload.stargazers_count : null;
+  const count = payload?.stargazers_count;
+  return typeof count === "number" && Number.isInteger(count) && count >= 0 ? count : null;
 }
 
-// Last known count, shown when the build cannot reach GitHub.
-const GITHUB_STARS_FALLBACK = 8_000;
-let githubStars: Promise<number> | undefined;
+let githubStars: Promise<number | null> | undefined;
 
-/** One lookup per build: anonymous requests share a 60/hour limit, and every page shows the count. */
-export async function githubStarsLabel(): Promise<string> {
-  githubStars ??= fetchGithubStars().then((count) => count ?? GITHUB_STARS_FALLBACK);
-  return formatStarCount(await githubStars);
+/**
+ * The repository's star count, or null when the build cannot reach GitHub: pages then show no
+ * number rather than a made-up one. One lookup per build, because anonymous requests share a
+ * 60/hour limit and every page shows the count.
+ */
+export function githubStarsCount(): Promise<number | null> {
+  githubStars ??= fetchGithubStars();
+  return githubStars;
+}
+
+export async function githubStarsLabel(): Promise<string | null> {
+  return starsLabel(await githubStarsCount());
+}
+
+export function starsLabel(count: number | null): string | null {
+  return count === null ? null : formatStarCount(count);
 }
 
 export const DESKTOP_PLATFORMS = ["mac", "windows", "linux"] as const;
 
 /** The redirect resolves the newest installer per request, so releases need no site rebuild. */
-export function desktopDownloadHref(platform: keyof DesktopDownloads) {
+export function desktopDownloadHref(platform: DesktopDownloadPlatform) {
   return `/api/download?platform=${platform}`;
 }
 
@@ -57,7 +75,7 @@ export async function fetchDesktopDownloads(
     if (typeof name !== "string" || typeof url !== "string" || !url.startsWith("https://"))
       continue;
     for (const [platform, suffix] of Object.entries(DESKTOP_ASSET_SUFFIXES)) {
-      if (name.endsWith(suffix)) downloads[platform as keyof DesktopDownloads] ??= url;
+      if (name.endsWith(suffix)) downloads[platform as DesktopDownloadPlatform] ??= url;
     }
   }
   return downloads;
@@ -112,7 +130,7 @@ async function fetchGithubJson<T>(
       fetchImpl(url, {
         headers: {
           Accept: "application/vnd.github+json",
-          "User-Agent": "rakazo-www",
+          "User-Agent": "superbot-www",
           // Optional: anonymous requests share a 60/hour limit per IP.
           ...(process.env.GITHUB_TOKEN
             ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }

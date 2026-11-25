@@ -1,11 +1,14 @@
-import type { DesktopDownloads } from "../src/github.js";
+import type { DesktopDownloadPlatform } from "../src/github.js";
 import { fetchDesktopDownloads } from "../src/github.js";
-import { LATEST_RELEASE_URL } from "../src/site.js";
+import { CHANGELOG_URL } from "../src/site.js";
 
 // Edge functions are bundled, which resolves the extensionless source imports.
 export const config = { runtime: "edge" };
 
-/** Redirects to the newest installer so a desktop release needs no site rebuild. */
+/**
+ * Redirects to the newest installer so a desktop release needs no site rebuild. Without a
+ * release, a matching asset or a known platform it sends people to the releases page.
+ */
 export async function fetchDownload(
   request: Request,
   fetchImpl: typeof fetch = fetch,
@@ -14,8 +17,8 @@ export async function fetchDownload(
   const downloads = await fetchDesktopDownloads(fetchImpl);
   const location =
     (platform && Object.hasOwn(downloads, platform)
-      ? downloads[platform as keyof DesktopDownloads]
-      : undefined) ?? LATEST_RELEASE_URL;
+      ? downloads[platform as DesktopDownloadPlatform]
+      : undefined) ?? CHANGELOG_URL;
   return new Response(null, {
     status: 302,
     headers: {
