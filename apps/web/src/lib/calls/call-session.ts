@@ -47,12 +47,8 @@ import { recheckSessionOnUnauthorized, rpc } from "../query/rpc.js";
 import { errorText } from "../query/user-error";
 import { pickUp } from "./call-pickup.js";
 import { dictation, usesServerDictation } from "./dictation.js";
-import type { RealtimeAudio, RealtimeSocketFactory } from "./realtime-voice.js";
-import {
-  browserRealtimeAudio,
-  browserRealtimeSocket,
-  RealtimeVoiceConnection,
-} from "./realtime-voice.js";
+import { startRealtimeCall } from "./realtime-call.js";
+import type { RealtimeVoiceConnection } from "./realtime-voice.js";
 import { speaker } from "./tts.js";
 
 /** `ringing` until the call picks up; the rest describe the conversation. */
@@ -508,7 +504,7 @@ export function setTurnMode(turnMode: VoiceTurnMode): void {
 
 /** Push to talk: the talk control or Space went down. It cuts off a reply still playing. */
 export function pressToTalk(): void {
-  if (!state || state.turnMode !== "push-to-talk" || state.talking) return;
+  if (state?.turnMode !== "push-to-talk" || state.talking) return;
   if (state.phase === "ringing") return;
   set({ talking: true, caption: "" });
   if (state.engine === "realtime") {
@@ -538,82 +534,28 @@ export function releaseToTalk(): void {
 }
 
 let realtime: RealtimeVoiceConnection | null = null;
-const browserRealtimeIo = { audio: browserRealtimeAudio, socket: browserRealtimeSocket };
-let realtimeIo: { audio: (sampleRate: number) => RealtimeAudio; socket: RealtimeSocketFactory } =
-  browserRealtimeIo;
 
-/** Tests replace the browser's microphone, speaker and socket. */
-export function setRealtimeVoiceIo(io: typeof realtimeIo | null): void {
-  realtimeIo = io ?? browserRealtimeIo;
-}
-
-/**
- * A realtime call: the server opens a short-lived session, then the page talks to the provider
- * itself. Each finished turn is filed in the thread under the call, like a voice chat's.
- */
 function startRealtime(botId: string): void {
   const opening = new AbortController();
   pickup = opening;
-  const stale = () => opening.signal.aborted || !state || state.botId !== botId;
-  void (async () => {
-    let connection: RealtimeVoiceConnection | null = null;
-    try {
-      const session = await rpc.voice.realtimeSession(
-        { botId, turnMode: state?.turnMode ?? "open-mic" },
-        { signal: opening.signal },
-      );
-      if (stale()) return;
-      callId = session.callId;
-      const sessionCallId = session.callId;
-      const record = (role: "user" | "bot", text: string, turnId: string) => {
-        const request = rpc.voice.recordRealtimeTurn({
-          botId,
-          callId: sessionCallId,
-          turnId,
-          role,
-          text,
-        });
-        const release = callSends.track(sessionCallId, request);
-        void request.catch((error) => reportClientError(error, "voice.turn")).finally(release);
-      };
-      connection = new RealtimeVoiceConnection(
-        session,
-        {
-          onPhase: (phase) => {
-            if (phase !== "connecting" && state?.phase !== "ringing") set({ phase });
-          },
-          onHeard: (heard) => set({ heard }),
-          onTurn: ({ role, text, turnId }) => {
-            if (!state || callId !== sessionCallId) return;
-            set({ exchanges: [...state.exchanges, { role, text }] });
-            record(role, text, turnId);
-          },
-          onError: (message) => set({ caption: message }),
-          onClosed: () => {
-            if (callId === sessionCallId) endCall();
-          },
-        },
-        realtimeIo.audio(session.audio.sampleRate),
-        realtimeIo.socket,
-      );
+  startRealtimeCall({
+    botId,
+    turnMode: state?.turnMode ?? "open-mic",
+    signal: opening.signal,
+    current: () => state?.botId === botId,
+    view: () => state,
+    update: set,
+    callId: () => callId,
+    setCallId: (id) => {
+      callId = id;
+    },
+    track: callSends.track,
+    hangUp: endCall,
+    connected: (connection) => {
       realtime = connection;
-      await connection.open();
-      if (stale()) {
-        connection.close();
-        return;
-      }
       pickup = null;
-      connection.setMuted(state?.muted ?? false);
-      set({ phase: "listening", connectedAt: Date.now() });
-    } catch (error) {
-      connection?.close();
-      if (realtime === connection) realtime = null;
-      if (stale()) return;
-      pickup = null;
-      reportClientError(error, "voice.realtime");
-      set({ phase: "listening", caption: errorText(error, t`Could not start the voice chat`) });
-    }
-  })();
+    },
+  });
 }
 
 export function setCallMinimized(minimized: boolean): void {

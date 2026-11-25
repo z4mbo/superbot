@@ -47,7 +47,7 @@ export function BotPanelVoiceChat({
   const save = useSave({
     save: (voiceLanguage: string | null, client) =>
       client.bots.update({ botId: bot.id, voiceLanguage }),
-    stale: [queries.bots.list.key()],
+    stale: () => [queries.bots.list.key()],
     onSaved: (saved) => onSaved?.(saved),
     onFailed: (error) => toast.error(errorText(error, t`Could not save the voice chat settings`)),
   });

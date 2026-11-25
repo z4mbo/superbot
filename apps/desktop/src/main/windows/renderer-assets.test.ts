@@ -1,6 +1,7 @@
 import path from "node:path";
+import { realtimeVoiceConnectSources } from "@rakazo/adapters/realtime-voice-sources";
 import {
-  APP_CONTENT_SECURITY_POLICY,
+  appContentSecurityPolicy,
   CSP_REPORTING_ENDPOINTS,
   HTML_VIEWER_PATH,
 } from "@rakazo/contracts/content-security-policy";
@@ -58,7 +59,11 @@ describe("bundled desktop renderer", () => {
   it("sends the web server's CSP with bundled documents", () => {
     const index = path.join(root, "index.html");
     const app = bundledRendererHeaders(index, `${origin}/bots/1?tab=chat`);
-    expect(app.get("content-security-policy")).toBe(APP_CONTENT_SECURITY_POLICY);
+    // The page reaches realtime voice providers itself, as the web server allows.
+    expect(app.get("content-security-policy")).toBe(
+      appContentSecurityPolicy({ connectSrc: realtimeVoiceConnectSources }),
+    );
+    expect(app.get("content-security-policy")).toContain("connect-src 'self' wss://api.x.ai;");
     expect(app.get("reporting-endpoints")).toBe(CSP_REPORTING_ENDPOINTS);
     expect(app.get("x-content-type-options")).toBe("nosniff");
     expect(app.get("cache-control")).toBe("no-cache");

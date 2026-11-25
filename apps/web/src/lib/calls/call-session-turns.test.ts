@@ -8,11 +8,11 @@ import {
   getSnapshot,
   pressToTalk,
   releaseToTalk,
-  setRealtimeVoiceIo,
   setTurnMode,
   startCall,
 } from "./call-session";
 import { dictation } from "./dictation.js";
+import { setRealtimeVoiceIo } from "./realtime-call.js";
 import type { RealtimeAudio, RealtimeSocket } from "./realtime-voice";
 import { speaker } from "./tts.js";
 

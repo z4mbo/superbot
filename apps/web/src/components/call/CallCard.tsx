@@ -3,6 +3,7 @@ import { useNow } from "@rakazo/chat-ui/hooks";
 import type { VoiceTurnMode } from "@rakazo/contracts";
 import { BotAvatar, Button, cn, ToggleGroup, ToggleGroupItem } from "@rakazo/ui-web";
 import { Captions, ChevronDown, Mic, MicOff, PhoneOff, Settings } from "lucide-react";
+import type { MouseEvent, PointerEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { CallState } from "../../lib/calls/call-session";
 import {
@@ -198,39 +199,35 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
         />
       ) : null}
       <div className="flex items-center justify-center gap-3">
-        {pushToTalk ? (
-          <Button
-            variant={call.talking ? "default" : "secondary"}
-            size="icon-lg"
-            className="size-14 touch-none select-none rounded-full md:size-12 [-webkit-touch-callout:none]"
-            aria-label={t`Hold to talk`}
-            aria-pressed={call.talking}
-            title={t`Hold to talk, or hold Space`}
-            disabled={ringing}
-            data-testid="call-talk"
-            onPointerDown={(event) => {
-              if (event.button !== 0) return;
-              event.currentTarget.setPointerCapture?.(event.pointerId);
-              pressToTalk();
-            }}
-            onPointerUp={releaseToTalk}
-            onPointerCancel={releaseToTalk}
-            onContextMenu={(event) => event.preventDefault()}
-          >
-            <Mic className="size-5" />
-          </Button>
-        ) : (
-          <Button
-            variant={call.muted ? "default" : "secondary"}
-            size="icon-lg"
-            className="size-14 rounded-full md:size-12"
-            aria-label={call.muted ? t`Unmute` : t`Mute`}
-            aria-pressed={call.muted}
-            onClick={toggleMute}
-          >
-            {call.muted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
-          </Button>
-        )}
+        {/* One microphone control: held to talk in push to talk, a mute switch otherwise. */}
+        <Button
+          variant={(pushToTalk ? call.talking : call.muted) ? "default" : "secondary"}
+          size="icon-lg"
+          className="size-14 touch-none select-none rounded-full md:size-12 [-webkit-touch-callout:none]"
+          {...(pushToTalk
+            ? {
+                "aria-label": t`Hold to talk`,
+                "aria-pressed": call.talking,
+                title: t`Hold to talk, or hold Space`,
+                disabled: ringing,
+                "data-testid": "call-talk",
+                onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+                  if (event.button !== 0) return;
+                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                  pressToTalk();
+                },
+                onPointerUp: releaseToTalk,
+                onPointerCancel: releaseToTalk,
+                onContextMenu: (event: MouseEvent) => event.preventDefault(),
+              }
+            : {
+                "aria-label": call.muted ? t`Unmute` : t`Mute`,
+                "aria-pressed": call.muted,
+                onClick: toggleMute,
+              })}
+        >
+          {!pushToTalk && call.muted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
+        </Button>
         <Button
           variant="destructive"
           size="icon-lg"

@@ -50,6 +50,7 @@ import { voiceHttpError } from "../voice/http-errors.js";
 import { withSpeechCost } from "../voice/operator-cost.js";
 import { liveVoiceFor } from "./live-voice-status.js";
 import type { SpeechSummarizer } from "./speech-summary.js";
+import { decodeAudioBase64, optionalString, parseVoiceRequestBody } from "./voice-request-body.js";
 
 export interface VoiceDeps {
   prisma: PrismaClient;
@@ -986,25 +987,4 @@ export function mountVoiceHttpRoutes(
       return voiceHttpError(c, error);
     }
   });
-}
-
-function parseVoiceRequestBody(raw: string): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function decodeAudioBase64(value: string): Uint8Array {
-  if (!value.trim()) throw new ORPCError("BAD_REQUEST", { message: "Recording is empty." });
-  // Decoding skips what is not base64 rather than failing; an empty result is refused later.
-  return new Uint8Array(Buffer.from(value, "base64"));
 }

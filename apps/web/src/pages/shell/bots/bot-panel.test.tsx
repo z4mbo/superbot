@@ -25,7 +25,7 @@ vi.mock("../../../lib/query/rpc", () => {
       // This server receives no email, so the panel offers no address.
       emailAddress: vi.fn(async () => null),
     },
-    voice: { voices: vi.fn().mockResolvedValue([]) },
+    voice: { voices: vi.fn().mockResolvedValue([]), status: vi.fn().mockResolvedValue(null) },
     models: {
       credentials: vi.fn().mockResolvedValue([]),
       list: vi.fn().mockResolvedValue([]),
@@ -358,6 +358,27 @@ it("shows the avatar and name over the Activity and Library tabs, Activity first
 
   await act(async () => tabs()[0]!.click());
   expect(container.querySelector('[data-testid="bot-panel-activity"]')).not.toBeNull();
+});
+
+it("puts Voice chat right after the computer once voice is connected", async () => {
+  vi.mocked(rpc.voice.status).mockResolvedValue({
+    configured: true,
+    ready: true,
+    transcribe: true,
+    provider: "fake-voice",
+    voiceId: "voice-1",
+    dictation: true,
+    live: { engine: "cascaded", turnModes: ["push-to-talk", "open-mic"] },
+  });
+  await render("Billing", {}, 0, { computer: <div data-testid="computer-card" /> });
+  await vi.waitFor(() =>
+    expect(container.querySelector('[data-testid="bot-voice-chat"]')).not.toBeNull(),
+  );
+  const sections = [
+    ...container.querySelectorAll('[data-testid="bot-panel-activity"] > section'),
+  ].map((section) => section.getAttribute("data-testid"));
+  expect(sections.slice(0, 2)).toEqual(["bot-panel-computer", "bot-voice-chat"]);
+  vi.mocked(rpc.voice.status).mockResolvedValue(null as never);
 });
 
 it("keeps every setting behind the gear and comes back from it", async () => {

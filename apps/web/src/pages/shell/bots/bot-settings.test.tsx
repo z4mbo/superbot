@@ -15,7 +15,7 @@ vi.mock("../../../lib/query/rpc", () => {
   const rpc = {
     // No earlier versions of the computer's files to restore.
     computer: { homeVersions: vi.fn(async () => []) },
-    voice: { voices: vi.fn(async () => []) },
+    voice: { voices: vi.fn(async () => []), status: vi.fn(async () => null) },
     models: {
       credentials: vi.fn(async () => []),
       list: vi.fn(async () => []),

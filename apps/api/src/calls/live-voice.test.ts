@@ -288,7 +288,9 @@ describe("recordRealtimeVoiceTurn", () => {
       },
       message: {
         create: vi.fn(async ({ data }: { data: { clientNonce: string } }) => {
-          if (created.some((row) => (row as { clientNonce: string }).clientNonce === data.clientNonce))
+          if (
+            created.some((row) => (row as { clientNonce: string }).clientNonce === data.clientNonce)
+          )
             throw Object.assign(new Error("unique"), { code: "P2002" });
           created.push(data);
           return { id: `message-${created.length}`, ...data };
@@ -301,10 +303,10 @@ describe("recordRealtimeVoiceTurn", () => {
     const notify = vi.fn(async () => {});
     vi.mocked(db.appendEventInTransaction).mockResolvedValue({ seq: 7 } as never);
     vi.mocked(db.loadMessageAuthor).mockResolvedValue({ id: "test-user" } as never);
-    vi.mocked(db.createThreadMessageInTransaction).mockImplementation(
-      (async (client: typeof tx, input: { clientNonce: string }) =>
-        client.message.create({ data: input })) as never,
-    );
+    vi.mocked(db.createThreadMessageInTransaction).mockImplementation((async (
+      client: typeof tx,
+      input: { clientNonce: string },
+    ) => client.message.create({ data: input })) as never);
     const input = {
       botId: "bot-1",
       callId: "call-1",
