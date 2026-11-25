@@ -1,6 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { deadlineSignal, withAbort } from "@rakazo/core";
@@ -23,9 +23,13 @@ export async function within<T>(ms: number, work: Promise<T>): Promise<T> {
   }
 }
 
-/** A temporary directory for one engine process. */
-export function engineDirectory(): Promise<string> {
-  return mkdtemp(path.join(tmpdir(), ".superbot-engine-"));
+/**
+ * A temporary directory for one engine process, as the path the process itself will report: the
+ * engine is told its working directory and compares it with its own, and macOS keeps temporary
+ * files behind a symbolic link.
+ */
+export async function engineDirectory(): Promise<string> {
+  return realpath(await mkdtemp(path.join(tmpdir(), ".superbot-engine-")));
 }
 
 /** Removes an engine directory, trying again while Windows is still releasing it. */
