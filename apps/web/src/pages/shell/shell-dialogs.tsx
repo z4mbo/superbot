@@ -29,6 +29,13 @@ import {
 } from "./create-delete-dialogs";
 import type { Panel } from "./right-panel-state";
 
+// Mounted only while someone shares a bot, so its form stays out of the startup bundle.
+const ShareTemplateDialog = lazyComponent(() =>
+  import("../../components/bot-templates/share-template-dialog").then(
+    (module) => module.ShareTemplateDialog,
+  ),
+);
+
 // Mounted only while someone creates a bot, so its picker stays out of the startup bundle.
 const CreateBotDialog = lazyComponent(() =>
   import("./bots/create-bot-dialog").then((module) => module.CreateBotDialog),
@@ -40,6 +47,7 @@ type SectionTarget = { section: BotSection; spaceId: string };
 /** Which of the shell's dialogs and menus are open, and on what. */
 export function useShellDialogs() {
   const [deleteTarget, setDeleteTarget] = useState<Bot | null>(null);
+  const [shareTarget, setShareTarget] = useState<Bot | null>(null);
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<Group | null>(null);
   const [deleteSpaceTarget, setDeleteSpaceTarget] = useState<Space | null>(null);
   const [spaceMenu, setSpaceMenu] = useState<{
@@ -63,6 +71,8 @@ export function useShellDialogs() {
   return {
     deleteTarget,
     setDeleteTarget,
+    shareTarget,
+    setShareTarget,
     deleteGroupTarget,
     setDeleteGroupTarget,
     deleteSpaceTarget,
@@ -135,6 +145,8 @@ export function ShellDialogs({
   const {
     deleteTarget,
     setDeleteTarget,
+    shareTarget,
+    setShareTarget,
     deleteGroupTarget,
     setDeleteGroupTarget,
     deleteSpaceTarget,
@@ -234,6 +246,12 @@ export function ShellDialogs({
             await refreshBots(true);
           }}
         />
+      ) : null}
+
+      {shareTarget ? (
+        <Suspense fallback={null}>
+          <ShareTemplateDialog botId={shareTarget.id} onClose={() => setShareTarget(null)} />
+        </Suspense>
       ) : null}
 
       {deleteGroupTarget ? (

@@ -197,12 +197,15 @@ export async function communityTemplateDraft(
   const apps = [
     ...new Set(
       (await appCatalog(bot.id))
-        .filter((entry) => entry.connected && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.slug))
-        .map((entry) => entry.slug),
+        .filter((entry) => entry.connected)
+        // Catalog slugs match case-insensitively; a template keeps the lowercase form.
+        .map((entry) => entry.slug.toLowerCase())
+        .filter((slug) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)),
     ),
   ];
   return {
     name: clip(bot.name, BOT_NAME_MAX_LENGTH),
+    category: null,
     summary: clip(bot.label ?? "", 120),
     sample: "",
     description: clip(bot.description, BOT_DESCRIPTION_MAX_LENGTH),

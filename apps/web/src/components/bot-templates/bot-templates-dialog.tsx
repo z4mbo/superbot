@@ -4,6 +4,7 @@ import type {
   Bot,
   BotTemplateCategory,
   BotTemplateListing,
+  CommunityTemplateListing,
   ConnectionCatalogItem,
 } from "@rakazo/contracts";
 import { BOT_TEMPLATE_CATEGORIES, isBotTemplateChanged } from "@rakazo/contracts";
@@ -58,8 +59,10 @@ import { cronLabels } from "../../lib/routines/cron";
 import { ErrorNotice } from "../ErrorNotice";
 import { PluginLogo, ROW_HOVER } from "../integrations/plugin-marketplace";
 import { useBotTemplateCategoryLabel, useBotTemplateCopy } from "./bot-template-copy";
+import { MySharedTemplates, useCommunityByline } from "./community-templates";
 
 const NO_TEMPLATES: BotTemplateListing[] = [];
+const NO_COMMUNITY: CommunityTemplateListing[] = [];
 const PAGE_SIZE = 24;
 const CHIP_COUNT = 6;
 
@@ -129,17 +132,26 @@ export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void
   const queries = useSpaceQueries();
   const copy = useBotTemplateCopy();
   const categoryLabel = useBotTemplateCategoryLabel();
+  const sharedBy = useCommunityByline();
   // Read afresh each time it opens: a template's bot may have been made or deleted since.
   const templates = useQuery({ ...queries.bots.templates.queryOptions(), staleTime: 0 });
+  // Shared by people on this server and approved by its admins; listed apart from Superbot's.
+  const community = useQuery({
+    ...queries.communityTemplates.list.queryOptions(),
+    staleTime: 0,
+  });
   const [openId, setOpenId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<BotTemplateCategory | null>(null);
   const all = templates.data ?? NO_TEMPLATES;
-  const open = all.find((template) => template.id === openId);
+  const shared = community.data ?? NO_COMMUNITY;
+  const open =
+    all.find((template) => template.id === openId) ??
+    shared.find((template) => template.id === openId);
   const categories = BOT_TEMPLATE_CATEGORIES.filter((name) =>
-    all.some((template) => template.category === name),
+    [...all, ...shared].some((template) => template.category === name),
   );
-  const matches = (list: readonly BotTemplateListing[]) =>
+  const matches = <T extends BotTemplateListing>(list: readonly T[]) =>
     list.filter((template) => {
       if (category && template.category !== category) return false;
       const shown = copy(template);
@@ -171,10 +183,11 @@ export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void
           template={open}
           onBack={() => setOpenId(null)}
           onOpenBot={onOpenBot}
-          onChanged={() => void templates.refetch()}
+          onChanged={() => void ("author" in open ? community.refetch() : templates.refetch())}
         />
       );
     const firstParty = matches(templates.data);
+    const fromCommunity = matches(shared);
     return (
       <div className="space-y-6">
         <div className="space-y-4">
@@ -202,11 +215,22 @@ export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void
             templates={firstParty}
             onOpen={(template) => setOpenId(template.id)}
           />
-        ) : (
+        ) : null}
+        {fromCommunity.length ? (
+          <TemplateGroup
+            key={`community:${category ?? "all"}:${query}`}
+            title={t`Community`}
+            templates={fromCommunity}
+            byline={(template) => sharedBy(template.author)}
+            onOpen={(template) => setOpenId(template.id)}
+          />
+        ) : null}
+        {firstParty.length || fromCommunity.length ? null : (
           <p className="px-2.5 text-body text-muted-foreground">
             <Trans>No agents match</Trans>
           </p>
         )}
+        <MySharedTemplates />
       </div>
     );
   }
@@ -271,14 +295,17 @@ function CategoryFilter({
 }
 
 /** One titled group of template cards, a page at a time. */
-export function TemplateGroup({
+export function TemplateGroup<T extends BotTemplateListing>({
   title,
   templates,
+  byline,
   onOpen,
 }: {
   title: string;
-  templates: readonly BotTemplateListing[];
-  onOpen: (template: BotTemplateListing) => void;
+  templates: readonly T[];
+  /** Who made each one, under its summary. */
+  byline?: (template: T) => string;
+  onOpen: (template: T) => void;
 }) {
   const copy = useBotTemplateCopy();
   const cardId = useId();
@@ -318,6 +345,11 @@ export function TemplateGroup({
                   >
                     {summary}
                   </span>
+                  {byline ? (
+                    <span className="block truncate text-label text-muted-foreground">
+                      {byline(template)}
+                    </span>
+                  ) : null}
                 </span>
               </span>
               {/* A glimpse of the example; the template's page shows all of it. */}
@@ -349,7 +381,8 @@ function TemplateDetail({
   onOpenBot,
   onChanged,
 }: {
-  template: BotTemplateListing;
+  /** A community template carries its author, and its instructions show open. */
+  template: BotTemplateListing | CommunityTemplateListing;
   onBack: () => void;
   onOpenBot: (bot: Bot) => void;
   onChanged: () => void;
@@ -357,7 +390,10 @@ function TemplateDetail({
   const { t, i18n } = useLingui();
   const queries = useSpaceQueries();
   const { name, summary, sample } = useBotTemplateCopy()(template);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const sharedBy = useCommunityByline();
+  const byline = "author" in template ? sharedBy(template.author) : null;
+  // Someone else wrote a community template's instructions, so they show before creating.
+  const [expanded, setExpanded] = useState<string | null>(byline ? "bot" : null);
   const open = useSave({
     save: async (input: { create: true } | { botId: string }, rpc) =>
       "botId" in input
@@ -436,6 +472,14 @@ function TemplateDetail({
         <div className="min-w-0 flex-1 pt-1">
           <h2 className="truncate text-heading2 font-semibold text-foreground">{name}</h2>
           <p className="truncate text-body text-muted-foreground">{summary}</p>
+          {byline ? (
+            <p
+              data-testid="bot-template-author"
+              className="truncate text-body-sm text-muted-foreground"
+            >
+              {byline}
+            </p>
+          ) : null}
         </div>
         <div className="shrink-0 pt-2">
           {template.botId ? (

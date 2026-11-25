@@ -1,6 +1,10 @@
 import * as z from "zod";
 import { Id } from "../ids.js";
-import { BotTemplateListingSchema, BotTemplateSchema } from "./bot-template.js";
+import {
+  BotTemplateCategorySchema,
+  BotTemplateListingSchema,
+  BotTemplateSchema,
+} from "./bot-template.js";
 
 /**
  * What a person shares of their bot: a template without its id and version, which the server
@@ -17,6 +21,8 @@ export type CommunityTemplateRecipe = z.infer<typeof CommunityTemplateRecipeSche
  */
 export const CommunityTemplateDraftSchema = z.object({
   name: z.string(),
+  /** Null until the author picks one. */
+  category: BotTemplateCategorySchema.nullable(),
   summary: z.string(),
   sample: z.string(),
   description: z.string(),

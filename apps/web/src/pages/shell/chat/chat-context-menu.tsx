@@ -161,6 +161,14 @@ export function ChatContextMenu({
           navigate(bot ? `/app/${copy.id}` : `/app/g/${copy.id}`);
         });
       }}
+      onShare={
+        bot
+          ? () => {
+              dialogs.setShareTarget(bot);
+              onClose();
+            }
+          : undefined
+      }
       onClear={() => {
         dialogs.setClearTarget(target);
         onClose();

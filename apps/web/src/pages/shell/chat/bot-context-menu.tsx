@@ -22,6 +22,7 @@ import {
   FolderPlus,
   Pencil,
   Pin,
+  Share,
   Trash2,
 } from "lucide-react";
 
@@ -43,6 +44,7 @@ export function BotContextMenu({
   onSnooze,
   onEdit,
   onDuplicate,
+  onShare,
   onClear,
   onArchive,
   onDelete,
@@ -63,6 +65,8 @@ export function BotContextMenu({
   onSnooze: (until: string | null) => void;
   onEdit: () => void;
   onDuplicate: () => void;
+  /** Bots only: shares it as a template for others to make their own from. */
+  onShare?: () => void;
   onClear: () => void;
   onArchive: () => void;
   onDelete: () => void;
@@ -166,6 +170,12 @@ export function BotContextMenu({
         <Copy />
         {t`Duplicate`}
       </ContextMenuItem>
+      {onShare ? (
+        <ContextMenuItem onClick={onShare}>
+          <Share />
+          {t`Share as template`}
+        </ContextMenuItem>
+      ) : null}
       <ContextMenuSeparator />
       <ContextMenuItem onClick={onClear}>
         <Eraser />
