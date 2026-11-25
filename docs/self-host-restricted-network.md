@@ -17,9 +17,9 @@ English | [简体中文](./zh-CN/self-host-restricted-network.md)
 When raw GitHub is unreachable, download the installer from your mirror:
 
 ```bash
-export RAKAZO_INSTALLER_URL=https://example.com/mirror/rakazo/infra/compose/install-images.sh
-export RAKAZO_DOWNLOAD_BASE=https://example.com/mirror/rakazo/infra/compose
-mkdir -p rakazo && cd rakazo &&
+export RAKAZO_INSTALLER_URL=https://example.com/mirror/superbot/infra/compose/install-images.sh
+export RAKAZO_DOWNLOAD_BASE=https://example.com/mirror/superbot/infra/compose
+mkdir -p superbot && cd superbot &&
 curl -fsSL -o install-images.sh "${RAKAZO_INSTALLER_URL}" &&
 bash install-images.sh --prepare-only
 ```
@@ -33,7 +33,7 @@ To mirror `docker-compose.images.yml` and `.env.images.example`, point the insta
 mirror of `infra/compose`:
 
 ```bash
-export RAKAZO_DOWNLOAD_BASE=https://example.com/mirror/rakazo/infra/compose
+export RAKAZO_DOWNLOAD_BASE=https://example.com/mirror/superbot/infra/compose
 bash install-images.sh --prepare-only
 ```
 

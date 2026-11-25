@@ -1,6 +1,6 @@
 # Production deployment
 
-Run Rakazo on a public server with automatic HTTPS, hardened hosts and zero-downtime deploys.
+Run Superbot on a public server with automatic HTTPS, hardened hosts and zero-downtime deploys.
 
 For a single-node cluster, see [Kubernetes / k3s installation](./self-host-kubernetes.md).
 Putting a cookie-based login gate in front of any deployment also needs
