@@ -312,6 +312,10 @@ export function describeToolActivity(
     return `Searching the web: ${detail(record.query)}`;
   if (toolName === "web_fetch" || KEYED_PAGE_READ_TOOLS.has(toolName))
     return `Reading page: ${detail(redactActivityUrl(record.url))}`;
+  if (toolName === "vision_analyze" || toolName === "video_analyze")
+    return `${toolName === "video_analyze" ? "Watching" : "Looking at"} ${detail(
+      record.url ? redactActivityUrl(record.url) : (record.path ?? record.attachment),
+    )}`;
   if (toolName === "service_search") return `Finding a service: ${detail(record.query)}`;
   if (toolName === "service_call") return `Using service: ${detail(record.service)}`;
   if (toolName === "skill_read")

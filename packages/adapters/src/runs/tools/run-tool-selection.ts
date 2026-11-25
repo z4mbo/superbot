@@ -62,6 +62,8 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
   "web_search",
   "web_fetch",
   ...KEYED_RESEARCH_TOOL_NAMES,
+  "vision_analyze",
+  "video_analyze",
   "service_search",
   "browser_snapshot",
   "list_secrets",
@@ -177,6 +179,10 @@ export function selectBuiltinToolsForRun(options: {
   mediaVideoEnabled?: boolean;
   /** The providers and models each media tool may name, appended to its description. */
   mediaChoices?: Partial<Record<string, string>>;
+  /** A connected model this run reaches can read images. */
+  imageUnderstandingAvailable?: boolean;
+  /** A connected model this run reaches can read video. */
+  videoUnderstandingAvailable?: boolean;
   /** The deployment configured paid data services. */
   paidServicesEnabled?: boolean;
   /** Research tools whose provider the run's user saved a key for. */
@@ -267,6 +273,8 @@ export function selectBuiltinToolsForRun(options: {
         (options.mediaImagesEnabled || tool.name !== "generate_image") &&
         (options.mediaImageEditEnabled || tool.name !== "edit_image") &&
         (options.mediaVideoEnabled || tool.name !== "generate_video") &&
+        (options.imageUnderstandingAvailable || tool.name !== "vision_analyze") &&
+        (options.videoUnderstandingAvailable || tool.name !== "video_analyze") &&
         (options.paidServicesEnabled || !PAID_SERVICE_TOOL_NAMES.has(tool.name)) &&
         // The key spends its owner's account, so people messaging from a chat app never use it.
         (!KEYED_RESEARCH_TOOL_NAMES_SET.has(tool.name) ||

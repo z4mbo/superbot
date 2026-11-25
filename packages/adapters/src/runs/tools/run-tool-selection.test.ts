@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { FIND_TOOL } from "../../tools/builtin.tool-definition.js";
+import { CORE_BUILTIN_TOOL_NAMES, partitionTools } from "../../tools/builtin-tool-bridge.js";
 import {
   BUILTIN_AGENT_TOOL_NAMES,
+  READ_ONLY_AGENT_TOOLS,
   selectBuiltinToolsForRun,
   unavailableBuiltinToolReasons,
 } from "./run-tool-selection.js";
@@ -296,5 +299,52 @@ describe("keyed research tool selection", () => {
       [{ name: "exa_search" }],
     );
     expect(withKey.exa_search).toBeUndefined();
+  });
+});
+
+describe("media understanding selection", () => {
+  const names = (options: {
+    imageUnderstandingAvailable?: boolean;
+    videoUnderstandingAvailable?: boolean;
+  }) =>
+    selectBuiltinToolsForRun({
+      graphicalToolsAllowed: false,
+      groupId: null,
+      trigger: "user",
+      semanticMemoryEnabled: false,
+      messagingChannelRun: false,
+      ...options,
+    }).map((tool) => tool.name);
+
+  it("offers each analysis tool only when a connected model reads that kind", () => {
+    expect(names({})).not.toContain("vision_analyze");
+    expect(names({})).not.toContain("video_analyze");
+    expect(names({ imageUnderstandingAvailable: true })).toContain("vision_analyze");
+    expect(names({ imageUnderstandingAvailable: true })).not.toContain("video_analyze");
+    expect(names({ videoUnderstandingAvailable: true })).toContain("video_analyze");
+    expect(names({ videoUnderstandingAvailable: true })).not.toContain("vision_analyze");
+  });
+
+  it("keeps them deferred, read-only and grouped with media", () => {
+    for (const name of ["vision_analyze", "video_analyze"]) {
+      expect(BUILTIN_AGENT_TOOL_NAMES.has(name)).toBe(true);
+      expect(CORE_BUILTIN_TOOL_NAMES.has(name)).toBe(false);
+      expect(READ_ONLY_AGENT_TOOLS.has(name)).toBe(true);
+    }
+    const { listed } = partitionTools(
+      selectBuiltinToolsForRun({
+        graphicalToolsAllowed: false,
+        groupId: null,
+        trigger: "user",
+        semanticMemoryEnabled: false,
+        messagingChannelRun: false,
+        imageUnderstandingAvailable: true,
+        videoUnderstandingAvailable: true,
+      }),
+    );
+    const index = listed.find((tool) => tool.name === FIND_TOOL)!.description;
+    const media = index.match(/^media:\n {2}(.*)$/m)?.[1]?.split(", ");
+    expect(media).toEqual(expect.arrayContaining(["vision_analyze", "video_analyze"]));
+    expect(listed.some((tool) => tool.name === "vision_analyze")).toBe(false);
   });
 });

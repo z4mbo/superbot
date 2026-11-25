@@ -52,6 +52,17 @@ for a simple daily check.
 > Bots that use the computer's screen need a model that can read images. Models that can't are
 > marked **Can't read images** in the picker.
 
+## Image and video understanding
+
+Bots can look at an image in their workspace, at a web address, or attached to the chat, and
+describe it or answer a question about it. They use a model you already connected: the bot's own
+model when it can read images, otherwise your **Computer-use model**. The call is billed and shown
+under **Usage** like the bot's other model calls. When neither model can read images, the bot is
+not offered the tool, and it says so instead of guessing from a file name.
+
+None of the connected models can read video yet, so bots tell you they can't analyze a video
+rather than describe it from its name.
+
 ## Usage
 
 **Settings → Usage** shows runs, tokens and cost by model.

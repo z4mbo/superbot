@@ -18,6 +18,7 @@ import { loadTurnContext, readThreadHistory } from "./run-assembly-history.js";
 import type { ConnectedRun } from "./run-assembly-records.js";
 import { connectRun, loadRunRecords, loadSavedTurn } from "./run-assembly-records.js";
 import { disabledBuiltinsForTurnInstructions } from "./run-instructions.prompt.js";
+import { runMediaAnalysis } from "./run-media-analysis.js";
 
 /** Undefined when setup ended the run or handed it back, so there is no turn to run. */
 export async function assembleRunTurn(services: RunExecutorServices, hold: RunHold) {
@@ -44,6 +45,13 @@ export async function assembleRunTurn(services: RunExecutorServices, hold: RunHo
         recentChatMeetings(hold.deps.prisma, hold.run),
       )) ?? [])
     : [];
+  const mediaAnalysis = await runMediaAnalysis(hold, {
+    saved,
+    records,
+    model,
+    computer,
+    capabilities,
+  });
   const tools = await selectRunTools(services, hold, {
     saved,
     records,
@@ -51,6 +59,7 @@ export async function assembleRunTurn(services: RunExecutorServices, hold: RunHo
     turnContext,
     capabilities,
     meetingTranscriptsAvailable: meetings.some(({ status }) => status === "ready"),
+    mediaUnderstanding: mediaAnalysis.available,
   });
   const computerInstructions = await loadComputerInstructions(hold, {
     records,
@@ -70,6 +79,7 @@ export async function assembleRunTurn(services: RunExecutorServices, hold: RunHo
     tools,
     computerInstructions,
     meetingChat,
+    mediaAnalyzers: mediaAnalysis.analyzers,
   });
   const prompt = await buildTurnPrompt(hold, {
     saved,

@@ -68,6 +68,8 @@ export const BUILTIN_TOOL_NAMES = [
   "generate_image",
   "edit_image",
   "generate_video",
+  "vision_analyze",
+  "video_analyze",
   "add_mcp_server",
   "remove_mcp_server",
   "remember",

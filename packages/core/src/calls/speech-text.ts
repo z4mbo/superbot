@@ -309,6 +309,8 @@ export function narrateTool(toolName: string): string | null {
       "reading a page",
     ]),
     [/^(screenshot|computer_observe)$/, "looking at the screen"],
+    [/^vision_analyze$/, "looking at an image"],
+    [/^video_analyze$/, "watching a video"],
     [/^(browser_navigate|browser_snapshot|browser_act)$/, "using the page"],
     [/^(click|type_text|press_key|scroll|computer_batch|computer_act)$/, "using the computer"],
     [/^open_url$/, "opening a page"],

@@ -85,6 +85,8 @@ const OUTSIDE_RUN_SAFE_BUILTIN_TOOLS = new Set([
   "task_catalog",
   "web_fetch",
   ...KEYED_RESEARCH_TOOL_NAMES,
+  "vision_analyze",
+  "video_analyze",
   "web_search",
 ]);
 
@@ -543,6 +545,8 @@ export function outboundSiteGate(input: {
 export const SITE_SENDING_TOOLS: ReadonlySet<string> = new Set([
   "web_fetch",
   ...KEYED_PAGE_READ_TOOL_NAMES,
+  "vision_analyze",
+  "video_analyze",
   "paid_request",
 ]);
 
