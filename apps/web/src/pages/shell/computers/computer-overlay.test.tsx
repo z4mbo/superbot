@@ -143,6 +143,8 @@ it("lets the title give way and wraps the actions rather than cutting one off", 
   const actions = container.querySelector<HTMLElement>('[data-testid="computer-overlay-actions"]')!;
   const title = chrome.firstElementChild as HTMLElement;
   expect(chrome.classList).toContain("flex-wrap");
+  // The window's own controls at the top right never cover an action.
+  expect(chrome.style.paddingInlineEnd).toBe("calc(18px + var(--window-controls-inset, 0px))");
   // The title shrinks and truncates first, down to a small floor before the actions wrap.
   expect([...title.classList]).toEqual(expect.arrayContaining(["min-w-0", "flex-1", "basis-32"]));
   // The actions keep to the row's width and wrap inside it, right-aligned on their own line.

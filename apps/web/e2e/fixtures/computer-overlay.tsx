@@ -1,12 +1,14 @@
 import { I18nProvider } from "@lingui/react";
 import type { Bot, ComputerStatus } from "@rakazo/contracts";
 import { createRoot } from "react-dom/client";
+import { WindowControls } from "../../src/components/WindowControls";
 import { bootstrapI18n, i18n } from "../../src/lib/locale/i18n";
 import { ComputerOverlay } from "../../src/pages/shell/computers/computer-overlay";
 import "../../src/styles.css";
 
 // `?control=takeover` shows the actions of someone holding control while the bot asks it back;
-// otherwise a running bot's Stop and Take control. `?theme=light` picks the light theme.
+// otherwise a running bot's Stop and Take control. `?theme=light` picks the light theme. With a
+// desktop bridge, the window's own controls show at the top right as in the app.
 const params = new URLSearchParams(location.search);
 document.documentElement.dataset.theme = params.get("theme") === "light" ? "light" : "dark";
 const takeover = params.get("control") === "takeover";
@@ -61,6 +63,7 @@ void bootstrapI18n("en").then(() => {
         onRefreshTeaching={async () => undefined}
         onClose={() => undefined}
       />
+      <WindowControls />
     </I18nProvider>,
   );
 });

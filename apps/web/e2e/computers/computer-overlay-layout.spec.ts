@@ -1,12 +1,31 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot } from "../helpers/helpers";
 
-for (const control of ["bot", "takeover"] as const) {
+for (const [control, desktop] of [
+  ["bot", false],
+  ["takeover", false],
+  ["bot", true],
+] as const) {
   for (const width of [360, 420, 480, 1280]) {
-    test(`computer overlay actions all show: ${control}, ${width}px`, async ({
-      page,
-    }, testInfo) => {
+    const name = `${control}${desktop ? ", window controls" : ""}, ${width}px`;
+    test(`computer overlay actions all show: ${name}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 700 });
+      if (desktop)
+        // A Linux desktop window, whose page draws minimize, maximize and close at the top right.
+        await page.addInitScript(() => {
+          Object.defineProperty(window, "rakazoDesktop", {
+            value: {
+              platform: "linux",
+              nativeWindowFrame: false,
+              window: {
+                close: async () => {},
+                minimize: async () => {},
+                toggleMaximize: async () => {},
+                state: async () => ({ minimized: false, maximized: false, fullScreen: false }),
+              },
+            },
+          });
+        });
       // No server behind the fixture: teaching finds no recording in progress.
       await page.route("**/rpc/skills/list", (route) =>
         route.fulfill({ json: { json: [] }, contentType: "application/json" }),
@@ -20,6 +39,9 @@ for (const control of ["bot", "takeover"] as const) {
       const buttons = names.map((name) => chrome.getByRole("button", { name, exact: true }));
       for (const button of buttons) await expect(button).toBeVisible();
       const row = (await chrome.boundingBox())!;
+      const windowControls = desktop
+        ? (await page.getByTestId("window-controls").boundingBox())!
+        : null;
       const boxes = await Promise.all(buttons.map(async (button) => (await button.boundingBox())!));
       for (const [index, box] of boxes.entries()) {
         // Each button sits whole inside the row and the window, its label not cut short.
@@ -30,8 +52,11 @@ for (const control of ["bot", "takeover"] as const) {
           await buttons[index]!.evaluate((node) => node.scrollWidth <= node.clientWidth),
           names[index],
         ).toBe(true);
-        // And no two overlap.
-        for (const other of boxes.slice(index + 1)) {
+        // And no two overlap, nor does the window's own close sit over one.
+        for (const other of [
+          ...boxes.slice(index + 1),
+          ...(windowControls ? [windowControls] : []),
+        ]) {
           const apart =
             box.x + box.width <= other.x ||
             other.x + other.width <= box.x ||
@@ -45,7 +70,11 @@ for (const control of ["bot", "takeover"] as const) {
         const tops = new Set(boxes.map((box) => Math.round(box.y)));
         expect(tops.size).toBe(1);
       }
-      await captureScreenshot(page, testInfo, `computer-overlay-${control}-${width}`);
+      await captureScreenshot(
+        page,
+        testInfo,
+        `computer-overlay-${control}${desktop ? "-desktop" : ""}-${width}`,
+      );
     });
   }
 }

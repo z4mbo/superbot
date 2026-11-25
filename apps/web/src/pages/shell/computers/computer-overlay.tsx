@@ -88,11 +88,13 @@ export function ComputerOverlay({
           // The title gives way first; when the actions still do not fit beside it they move to
           // their own line, and wrap there, so no button is ever cut off.
           className="app-no-drag flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-sidebar-border px-[18px] py-3.5"
-          style={
-            windowControlsKind(desktopBridge()) === "traffic-lights"
+          style={{
+            // Clear of the window's own controls on either side, so they never cover an action.
+            paddingInlineEnd: "calc(18px + var(--window-controls-inset, 0px))",
+            ...(windowControlsKind(desktopBridge()) === "traffic-lights"
               ? { paddingLeft: DARWIN_WINDOW_CONTROLS_WIDTH_PX + 18 }
-              : undefined
-          }
+              : {}),
+          }}
         >
           <div className="flex min-w-0 flex-1 basis-32 items-center gap-3">
             <BotAvatar
