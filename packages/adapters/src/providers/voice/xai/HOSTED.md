@@ -72,3 +72,23 @@ Before enabling hosted traffic, use synthetic/consented examples on the operator
 Operator needs: a dedicated server API key with speech access, account spend limits, validated
 voices/models, approved allowance policy, grant provisioning/revocation, and an evidence import
 for actual provider costs. No production keys were read or used for this implementation.
+
+## Realtime voice (researched 2026-11-25)
+
+The adapter's `realtime` opens speech-to-speech conversations for the live voice mode. The API
+mints a client secret with the stored key (`POST /v1/realtime/client_secrets`,
+`expires_after.seconds: 300`) and the browser connects to `wss://api.x.ai/v1/realtime` with
+the subprotocol `xai-client-secret.<secret>`; the key never reaches the page. Open mic sets
+`turn_detection: { type: "server_vad" }`; push to talk sets it to `null` and the client commits
+the held audio and sends `response.create`. Input transcription uses `grok-transcribe`, so
+user turns can be filed in the thread.
+
+- [xAI pricing](https://docs.x.ai/developers/pricing): speech to speech (grok-voice-3.0, which
+  `grok-voice-latest` points at) $0.08/min ($4.80/hr) plus $0.004 per text input.
+- [Speech to speech guide](https://docs.x.ai/developers/model-capabilities/audio/speech-to-speech)
+  and [ephemeral tokens](https://docs.x.ai/developers/model-capabilities/audio/ephemeral-tokens).
+
+The realtime API reports no usage on `response.done`, so no usage is recorded for these
+conversations and they are not offered as operator-funded (deployment) voice. Billing goes to
+the account whose key or xAI sign-in is connected. No live session was opened for this change;
+all coverage is offline.
