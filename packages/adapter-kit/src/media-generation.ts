@@ -44,7 +44,8 @@ export type GeneratedMedia = {
 export type MediaVideoJob =
   | { id: string; status: "queued" | "running"; progress?: number }
   | { id: string; status: "completed"; output: GeneratedMedia }
-  | { id: string; status: "failed" };
+  /** `code` says why, when the provider does (`content_policy` for a refused video). */
+  | { id: string; status: "failed"; code?: MediaGenerationErrorCode };
 export interface MediaGenerationProvider {
   readonly id: string;
   readonly capabilities: {
