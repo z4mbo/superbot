@@ -64,7 +64,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-async function render(bots: SpaceBot[], others: Space[] = []) {
+async function render(bots: SpaceBot[], others: Space[] = [], own: Partial<Space> = {}) {
   const space = {
     id: "space-1",
     name: "Personal",
@@ -74,6 +74,7 @@ async function render(bots: SpaceBot[], others: Space[] = []) {
     groups: [],
     externalConversations: [],
     botSections: [],
+    ...own,
   } as Space;
   const props: ComponentProps<typeof SidebarRoster> = {
     sidebarGroups: sidebarGroupsForSpaces([space, ...others], ""),
@@ -110,6 +111,7 @@ async function render(bots: SpaceBot[], others: Space[] = []) {
       </BotLookProvider>,
     ),
   );
+  return props;
 }
 
 const tiles = () => [
@@ -176,7 +178,45 @@ it("names each Space above its tiles when several Spaces are listed", async () =
   expect(host.querySelectorAll(".lucide-star")).toHaveLength(2);
 });
 
-it("leaves a lone Space's tiles unlabelled", async () => {
-  await render([ada, chief]);
-  expect(host.querySelector("[data-pinned-space]")).toBeNull();
+/** Opens the Space menu from its actions button, and reports the Space it opened for. */
+async function openSpaceActions(name: string, setSpaceMenu: ReturnType<typeof vi.fn>) {
+  const button = host.querySelector<HTMLButtonElement>(`button[aria-label="Actions for ${name}"]`);
+  expect(button).not.toBeNull();
+  await act(async () => button!.click());
+  return setSpaceMenu.mock.calls.at(-1)?.[0]?.id;
+}
+
+it.each([
+  ["holds only its main bot", [chief]],
+  ["holds its main bot and other bots", [ada, chief]],
+  ["also holds a person's own pin", [ada, namesake, chief]],
+])("keeps the Space's actions reachable when the Space %s", async (_state, bots) => {
+  const { setSpaceMenu } = await render(bots);
+  // The tiles come first, so they carry the Space's name and its one actions button.
+  const heading = host.querySelector('[data-sidebar-group="pinned"] [data-pinned-space-heading]');
+  expect(heading?.textContent).toContain("Personal");
+  expect(host.querySelectorAll('button[aria-label="Actions for Personal"]')).toHaveLength(1);
+  expect(await openSpaceActions("Personal", setSpaceMenu as ReturnType<typeof vi.fn>)).toBe(
+    "space-1",
+  );
+});
+
+it("keeps every Space's actions reachable for an invitee who sees several Spaces", async () => {
+  const home = {
+    id: "space-2",
+    name: "Home",
+    isDefault: false,
+    hasContent: true,
+    shared: true,
+    canRename: false,
+    canDelete: false,
+    bots: [bot("chief-2", CHIEF_BOT.name, { spaceId: "space-2", spawnKey: CHIEF_BOT.spawnKey })],
+    groups: [],
+    externalConversations: [],
+    botSections: [],
+  } as Space;
+  const { setSpaceMenu } = await render([ada, chief], [home]);
+  const spy = setSpaceMenu as ReturnType<typeof vi.fn>;
+  expect(await openSpaceActions("Personal", spy)).toBe("space-1");
+  expect(await openSpaceActions("Home", spy)).toBe("space-2");
 });

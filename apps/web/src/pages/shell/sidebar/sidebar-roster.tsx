@@ -123,6 +123,8 @@ export function SidebarRoster({
               chatMenu={chatMenu}
               ownSpaceId={bootstrapMe?.spaceId}
               openSpaceChat={openSpaceChat}
+              spaceMenuAnchor={spaceMenuAnchor}
+              setSpaceMenu={setSpaceMenu}
             />
           );
         }
@@ -545,6 +547,8 @@ function PinnedTiles({
   chatMenu,
   ownSpaceId,
   openSpaceChat,
+  spaceMenuAnchor,
+  setSpaceMenu,
 }: {
   group: RosterGroup;
   inGroup: boolean;
@@ -554,27 +558,65 @@ function PinnedTiles({
   chatMenu: ChatMenuState;
   ownSpaceId: string | undefined;
   openSpaceChat: (spaceId: string, path: string) => void;
+  spaceMenuAnchor: RefObject<HTMLElement | null>;
+  setSpaceMenu: (menu: { id: string; position: { x: number; y: number } }) => void;
 }) {
   const { t } = useLingui();
+  // The first group of a Space carries its heading and actions; with the main bot always pinned,
+  // that is these tiles. Several Spaces listed also name each one above its tiles.
+  const heading = group.canOpenSpaceSettings || group.showLock;
   return (
     <div data-sidebar-group={group.key} className="flex flex-wrap justify-center gap-1 pt-2.5 pb-2">
-      {/* With several Spaces listed, each one's tiles are named by their Space, as sections are. */}
-      {group.showLock ? (
-        <span
-          data-pinned-space
-          className="flex basis-full items-center gap-1.5 px-2 pb-1 text-body-sm text-muted-foreground"
+      {heading ? (
+        <div
+          data-pinned-space-heading
+          className="flex basis-full items-center justify-between gap-2 ps-2 pb-1"
+          onContextMenu={
+            group.canOpenSpaceSettings
+              ? (event) => {
+                  event.preventDefault();
+                  spaceMenuAnchor.current = event.currentTarget;
+                  setSpaceMenu({
+                    id: group.spaceId,
+                    position: { x: event.clientX, y: event.clientY },
+                  });
+                }
+              : undefined
+          }
         >
-          {group.hasGuests ? (
-            <Globe size={11} strokeWidth={2} aria-hidden="true" />
-          ) : group.shared ? (
-            <Users size={11} strokeWidth={2} aria-hidden="true" />
-          ) : (
-            <Lock size={11} strokeWidth={2} aria-hidden="true" />
-          )}
-          <span dir="auto" className="truncate">
-            {group.title}
+          <span
+            data-pinned-space
+            className="flex min-w-0 items-center gap-1.5 text-body-sm text-muted-foreground"
+          >
+            {group.hasGuests ? (
+              <Globe size={11} strokeWidth={2} aria-hidden="true" />
+            ) : group.showLock ? (
+              group.shared ? (
+                <Users size={11} strokeWidth={2} aria-hidden="true" />
+              ) : (
+                <Lock size={11} strokeWidth={2} aria-hidden="true" />
+              )
+            ) : null}
+            <span dir="auto" className="truncate">
+              {group.spaceName}
+            </span>
+            {group.hasGuests ? <span className="sr-only">{t`Shared with guests`}</span> : null}
           </span>
-        </span>
+          {group.canOpenSpaceSettings ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t`Actions for ${group.spaceName}`}
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                spaceMenuAnchor.current = event.currentTarget;
+                setSpaceMenu({ id: group.spaceId, position: { x: rect.left, y: rect.bottom } });
+              }}
+            >
+              <MoreHorizontal size={14} aria-hidden="true" />
+            </Button>
+          ) : null}
+        </div>
       ) : null}
       {group.bots.map((item) => {
         const selected =
