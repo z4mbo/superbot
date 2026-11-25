@@ -7,6 +7,7 @@ export const appleContainerComputer: ComputerProviderDefinition = {
     inPlaceUpdate: true,
     nativeShell: false,
     runsOnUserMachine: false,
+    runsOnServer: true,
     screen: DEFAULT_COMPUTER_SCREEN,
     serverHomeMount: "never",
     serverOwnsStoredTeamHome: true,

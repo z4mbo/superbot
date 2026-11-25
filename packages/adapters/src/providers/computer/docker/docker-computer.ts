@@ -8,6 +8,7 @@ export const dockerComputer: ComputerProviderDefinition = {
     inPlaceUpdate: true,
     nativeShell: false,
     runsOnUserMachine: false,
+    runsOnServer: true,
     screen: DEFAULT_COMPUTER_SCREEN,
     serverHomeMount: "always",
     serverOwnsStoredTeamHome: false,

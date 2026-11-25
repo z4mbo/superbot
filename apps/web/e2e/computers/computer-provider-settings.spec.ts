@@ -38,6 +38,7 @@ test("an admin selects a computer provider and sees its fields", async ({ page }
         json: {
           provider: "default",
           defaultProvider: "docker",
+          defaultLocation: "server",
           providers: computerProviderDescriptors(),
           values: {},
           savedSecrets: {},
@@ -48,14 +49,26 @@ test("an admin selects a computer provider and sees its fields", async ({ page }
   await page.reload();
   const settings = await openUserSettings(page, "computer");
   const form = settings.getByTestId("computer-provider-settings");
-  await chooseOption(form.getByLabel("New computers run on"), "Test desktop");
+  const picker = form.getByLabel("New computers run on");
+  // The default says which machine it runs on; featured providers come before the rest.
+  await expect(picker).toContainText("Local (this server)");
+  await picker.click();
+  await expect(page.getByRole("option")).toHaveText([
+    "Local (this server)",
+    "Test cloud",
+    "Test desktop",
+  ]);
+  await expect(page.locator("[data-slot=select-separator]")).toHaveCount(1);
+  await captureScreenshot(page, testInfo, "computer-provider-locations");
+  await page.keyboard.press("Escape");
+  await chooseOption(picker, "Test desktop");
   await form.getByLabel("Desktop ID").fill("ecd-example");
   await form.getByLabel("End user ID").fill("example-user");
   await form.getByLabel("Region").fill("cn-hangzhou");
   await form.getByLabel("Gateway URL").fill("https://gateway.example.com/mcp");
   await expect(form.getByLabel("Access key secret")).toHaveAttribute("type", "password");
   await captureScreenshot(page, testInfo, "computer-provider-settings");
-  await chooseOption(form.getByLabel("New computers run on"), "Test cloud");
+  await chooseOption(picker, "Test cloud");
   await expect(form.getByLabel("API key")).toBeVisible();
   await expect(form.getByLabel("Desktop ID")).toHaveCount(0);
 });

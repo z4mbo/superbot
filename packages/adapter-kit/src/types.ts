@@ -299,6 +299,8 @@ export interface SandboxKindCapabilities {
   nativeShell: boolean;
   /** The computer is the user's own machine, which costs nothing and owns its own lifetime. */
   runsOnUserMachine: boolean;
+  /** The computer runs on the machine the server itself runs on. */
+  runsOnServer?: boolean;
   screen: { width: number; height: number };
   /** Whether the computer works in the server's home directory itself rather than a copy. */
   serverHomeMount: "always" | "optional" | "never";

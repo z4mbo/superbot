@@ -52,3 +52,34 @@ it("shows and picks an option whose value is empty", async () => {
     container.remove();
   }
 });
+
+it("sets an option that starts a group apart with a line above it", async () => {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(
+        <OptionSelect
+          aria-label="Model"
+          value="a"
+          options={[
+            { value: "a", label: "Alpha", startsGroup: true },
+            { value: "b", label: "Beta" },
+            { value: "c", label: "Gamma", startsGroup: true },
+          ]}
+          onValueChange={() => {}}
+        />,
+      ),
+    );
+    await act(async () => document.querySelector<HTMLElement>('[role="combobox"]')?.click());
+    const rows = [
+      ...document.querySelectorAll('[role="option"], [data-slot="select-separator"]'),
+    ].map((node) => node.textContent || "---");
+    // Never above the first option, where there is nothing to set it apart from.
+    expect(rows).toEqual(["Alpha", "Beta", "---", "Gamma"]);
+  } finally {
+    act(() => root.unmount());
+    container.remove();
+  }
+});

@@ -10,6 +10,7 @@ import {
   assertSafeWebUrl,
   COMPUTER_PROVIDER_SECRET_KIND,
   cleanUpUnsavedSecret,
+  computerLocation,
   computerProviderDescriptor,
   computerProviderDescriptors,
   computerSettingsForProvider,
@@ -58,9 +59,11 @@ function view(
       else values[field.key] = saved.values[field.key] ?? "";
     }
   }
+  const defaultLocation = computerLocation(defaultProvider);
   return {
     provider,
     defaultProvider,
+    ...(defaultLocation ? { defaultLocation } : {}),
     values,
     savedSecrets,
     providers: enabled ? computerProviderDescriptors(account) : [],

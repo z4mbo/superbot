@@ -1,4 +1,5 @@
 import type { SandboxKindCapabilities } from "@rakazo/adapter-kit";
+import type { ComputerLocation } from "@rakazo/contracts";
 import { DEFAULT_COMPUTER_SCREEN } from "@rakazo/core";
 import { computerProviders, isKnownSandboxKind, knownSandboxKinds } from "../computer-providers.js";
 
@@ -25,6 +26,14 @@ export function sandboxKindCapabilities(kind: string | null | undefined): Sandbo
   return isKnownSandboxKind(kind)
     ? computerProviders[kind].capabilities
     : UNDECLARED_KIND_CAPABILITIES;
+}
+
+/** Which machine a kind's computers run on, when it is the server's own or the user's. */
+export function computerLocation(kind: string | null | undefined): ComputerLocation | undefined {
+  const capabilities = sandboxKindCapabilities(kind);
+  if (capabilities.runsOnUserMachine) return "device";
+  if (capabilities.runsOnServer) return "server";
+  return undefined;
 }
 
 export function sandboxKindsWhere(
