@@ -111,6 +111,33 @@ Tailscale's 100.64.0.0/10). Anything else is ignored and logged as a warning. On
 are trusted; the default is none. `WEB_ORIGIN` stays the address used in links, passkeys and OAuth
 callbacks.
 
+### Signing in from the hosted web app
+
+Off by default. To let listed accounts use this server from the hosted web app, set the first three
+together on the API (setting only some is a startup error):
+
+```env
+SUPERBOT_CLOUD_WEB_ORIGINS=https://app.example.com
+SUPERBOT_CLOUD_ISSUER=https://accounts.example.com
+SUPERBOT_CLOUD_ALLOWED_EMAILS=you@example.com,friend@example.com=local-friend@example.com
+SUPERBOT_CLOUD_JWKS_URL=        # optional; defaults to <issuer>/.well-known/jwks.json
+SUPERBOT_CLOUD_SERVER_NAME=     # optional; the name the hosted app shows; defaults to Superbot
+```
+
+- `SUPERBOT_CLOUD_WEB_ORIGINS` lists the hosted app's origins, comma-separated, each `https://` with
+  no path (`http://localhost` and `http://127.0.0.1` for development). One `*` may stand for part of
+  the first host label after a fixed prefix, such as `https://app-*.example.com` for preview
+  deployments; it never matches a dot. Prefer exact origins: anyone can claim an unused name under
+  a shared suffix.
+- `SUPERBOT_CLOUD_ALLOWED_EMAILS` names who may sign in. `email` signs in as the local account with
+  the same email, or, on a server with a single account, as that account. `email=local-email` signs
+  in as the named local account. No account is created.
+
+The hosted app sends a short-lived account token with every request; the API checks it against the
+issuer's published keys and signs the request in as the local account. These origins get CORS
+without credentials, so cookies are never accepted from them. `GET /api/health` answers whether
+this is on. See [docs/cloud-web.md](cloud-web.md).
+
 ## Feature switches
 
 | Variable               | Default         | Effect                                                                                                                                                  |

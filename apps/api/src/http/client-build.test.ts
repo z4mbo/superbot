@@ -53,6 +53,39 @@ describe("client build handshake", () => {
     expect((await call(hono)).status).toBe(200);
   });
 
+  it("never asks a page served from another origin to reload onto this server's build", async () => {
+    const hosted = "https://hosted.example.com";
+    const hono = new Hono();
+    hono.use(
+      "/rpc/*",
+      clientBuildMiddleware({
+        webBuild: "20261022093015",
+        minimums: { web: "20261022000000" },
+        servedElsewhere: (origin) => origin === hosted,
+      }),
+    );
+    hono.post("/rpc/me", (c) => c.json({ json: { ok: true } }));
+    const fromHosted = (build: string) =>
+      hono.request("/rpc/me", {
+        method: "POST",
+        headers: { origin: hosted, [CLIENT_BUILD_HEADER]: build },
+      });
+
+    // A hosted build newer or older than the server's own web build goes through untouched.
+    for (const build of ["web/20261101000000", "web/20261022000000"]) {
+      const response = await fromHosted(build);
+      expect(response.status).toBe(200);
+      expect(response.headers.get(SERVER_BUILD_HEADER)).toBeNull();
+    }
+    // Only a configured minimum refuses it.
+    const refused = await fromHosted("web/20261021235959");
+    expect(refused.status).toBe(426);
+    expect(refused.headers.get(SERVER_BUILD_HEADER)).toBeNull();
+    // The server's own page still hears about its build.
+    const own = await call(hono, "web/20261022000000");
+    expect(own.headers.get(SERVER_BUILD_HEADER)).toBe("20261022093015");
+  });
+
   it("reads the web build id written beside the web assets", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "rk-build-"));
     const file = path.join(dir, "build-id");

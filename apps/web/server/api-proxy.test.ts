@@ -4,10 +4,10 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { USER_DEVICE_CONNECT_PATH } from "@rakazo/contracts";
-import type { PreviewServer } from "vite";
+import type { PreviewOptions, PreviewServer } from "vite";
 import { preview } from "vite";
 import { afterEach, describe, expect, it } from "vitest";
-import { apiProxy, hostAllowed } from "./api-proxy.js";
+import { apiProxy, hostAllowed, webServerCors } from "./api-proxy.js";
 
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -15,9 +15,9 @@ afterEach(async () => {
 });
 
 /** A stand-in API that accepts upgrades and echoes the headers each request arrived with. */
-async function startApi() {
+async function startApi(handler?: http.RequestListener) {
   const upgrades: http.IncomingHttpHeaders[] = [];
-  const api = http.createServer((req, res) => res.end(JSON.stringify(req.headers)));
+  const api = http.createServer(handler ?? ((req, res) => res.end(JSON.stringify(req.headers))));
   api.on("upgrade", (req, socket) => {
     upgrades.push(req.headers);
     socket.end(
@@ -32,6 +32,7 @@ async function startApi() {
 async function startPreview(
   target: string,
   allowedHosts: string[] | true = ["app.example.test", ".team.example.test"],
+  cors: PreviewOptions["cors"] | "vite-default" = webServerCors,
 ) {
   const root = await mkdtemp(path.join(tmpdir(), "rakazo-api-proxy-"));
   cleanup.push(() => rm(root, { recursive: true, force: true }));
@@ -46,6 +47,7 @@ async function startPreview(
       port: 0,
       allowedHosts,
       proxy: apiProxy(target, () => allowedHosts),
+      ...(cors === "vite-default" ? {} : { cors }),
     },
   });
   cleanup.push(() => server.close());
@@ -151,6 +153,86 @@ describe("apiProxy", () => {
     await expect(upgrade(port, { headers: { Host: "evil.example" } })).resolves.toBe(404);
     await expect(upgrade(port, { headers: { Host: "app.example.test" } })).resolves.toBe(101);
     expect(upgrades).toHaveLength(1);
+  });
+});
+
+describe("CORS on the web server", () => {
+  const hosted = "https://hosted-abc.example.test";
+  /** A stand-in API with its own CORS answer, recording the method of each request. */
+  async function startCorsApi() {
+    const seen: { method?: string; url?: string; forwardedFor?: string }[] = [];
+    const api = await startApi((req, res) => {
+      seen.push({
+        method: req.method,
+        url: req.url,
+        forwardedFor: String(req.headers["x-forwarded-for"]),
+      });
+      res.writeHead(req.method === "OPTIONS" ? 204 : 200, {
+        "access-control-allow-origin": String(req.headers.origin),
+        "access-control-allow-private-network": "true",
+        "access-control-max-age": "600",
+        vary: "Origin",
+      });
+      res.end(req.method === "OPTIONS" ? undefined : "{}");
+    });
+    return { ...api, seen };
+  }
+  const preflight = (port: number, pathname: string, origin = hosted) =>
+    fetch(`http://127.0.0.1:${port}${pathname}`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: origin,
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "authorization,content-type",
+        "Access-Control-Request-Private-Network": "true",
+      },
+    });
+
+  it.each(["/rpc/me", "/api/health"])(
+    "forwards a preflight for %s to the API and returns its CORS answer untouched",
+    async (pathname) => {
+      const { target, seen } = await startCorsApi();
+      const port = await startPreview(target);
+
+      const response = await preflight(port, pathname);
+      expect(response.status).toBe(204);
+      expect(seen).toEqual([{ method: "OPTIONS", url: pathname, forwardedFor: "127.0.0.1" }]);
+      expect(response.headers.get("access-control-allow-origin")).toBe(hosted);
+      expect(response.headers.get("access-control-allow-private-network")).toBe("true");
+      expect(response.headers.get("access-control-max-age")).toBe("600");
+      expect(response.headers.get("vary")).toBe("Origin");
+      expect(response.headers.has("access-control-allow-methods")).toBe(false);
+      expect(response.headers.has("access-control-allow-credentials")).toBe(false);
+
+      const actual = await fetch(`http://127.0.0.1:${port}${pathname}`, {
+        method: "POST",
+        headers: { Origin: hosted },
+      });
+      expect(actual.headers.get("access-control-allow-origin")).toBe(hosted);
+    },
+  );
+
+  it("would answer an API preflight itself with Vite's default CORS", async () => {
+    const { target, seen } = await startCorsApi();
+    const port = await startPreview(target, undefined, "vite-default");
+
+    const response = await preflight(port, "/rpc/me");
+    expect(response.status).toBe(204);
+    expect(seen).toEqual([]);
+    expect(response.headers.has("access-control-allow-origin")).toBe(false);
+  });
+
+  it("keeps Vite's default CORS for the app's own files", async () => {
+    const { target, seen } = await startCorsApi();
+    const port = await startPreview(target);
+
+    const local = await preflight(port, "/index.html", "http://localhost:5173");
+    expect(local.status).toBe(204);
+    expect(local.headers.get("access-control-allow-origin")).toBe("http://localhost:5173");
+    const foreign = await preflight(port, "/index.html");
+    expect(foreign.status).toBe(204);
+    expect(foreign.headers.has("access-control-allow-origin")).toBe(false);
+    expect(seen).toEqual([]);
   });
 });
 

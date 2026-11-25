@@ -9,6 +9,8 @@
  */
 export const SESSIONLESS_ROUTES: Readonly<Record<string, string>> = {
   "GET /api/auth/capabilities": "public: sign-in options from configuration, no database",
+  "GET /api/health":
+    "public: the server's name, web build and whether the hosted web app may sign in, no database",
   "GET /api/auth/*": "the auth library: its own credential and session checks, on account tables",
   "POST /api/auth/*": "the auth library: its own credential and session checks, on account tables",
   "GET /api/auth/scim/v2/*": "the directory's bearer token",
