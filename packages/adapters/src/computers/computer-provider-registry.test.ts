@@ -107,10 +107,17 @@ it("returns only the options a provider's fields set, so other environment optio
   expect(wuying).toHaveProperty("wuyingRegionId", undefined);
 });
 
-it("features the hosted providers Settings offers first, in registry order", () => {
-  expect(
-    computerProviderDescriptors()
-      .filter((entry) => entry.featured)
-      .map((entry) => entry.id),
-  ).toEqual(["boat", "boxd"]);
+it("lists featured providers first by rank, then the rest in registry order", () => {
+  const listed = computerProviderDescriptors().map((entry) => entry.id);
+  expect(listed.slice(0, 2)).toEqual(["boxd", "boat"]);
+  expect(computerProviderDescriptors().filter((entry) => entry.featured)).toHaveLength(2);
+  expect(listed.slice(2)).toEqual(
+    computerProviderRegistry
+      .map((entry) => entry.id)
+      .filter((id) => id !== "boxd" && id !== "boat"),
+  );
+  // The registry itself, and with it the environment's provider list, keeps its order.
+  expect(Object.keys(computerProviders).indexOf("boat")).toBeLessThan(
+    Object.keys(computerProviders).indexOf("boxd"),
+  );
 });

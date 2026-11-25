@@ -33,7 +33,7 @@ export const boatComputer: ComputerProviderDefinition = {
   },
   settings: {
     displayName: "boat.dev",
-    featured: true,
+    featured: 2,
     fields: [
       { key: "apiKey", option: "boatApiKey", label: "API key", kind: "secret" },
       { key: "apiUrl", option: "boatApiUrl", label: "API URL", kind: "url" },
