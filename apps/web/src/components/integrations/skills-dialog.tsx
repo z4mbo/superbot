@@ -183,7 +183,7 @@ export function SkillsPanel({
         {skillSets.length ? (
           <section data-testid="plugin-skill-sets">
             <h3 className="mb-2 px-2.5 text-body font-medium text-muted-foreground">
-              <Trans>Plugins</Trans>
+              <Trans>Apps</Trans>
             </h3>
             <div className="grid grid-cols-2 gap-2">
               {skillSets.map((install) => {
@@ -232,7 +232,7 @@ export function SkillsPanel({
               role="alert"
               className="mb-4 flex items-center gap-3 text-body text-muted-foreground"
             >
-              <Trans>Some plugins could not be loaded.</Trans>
+              <Trans>Some apps could not be loaded.</Trans>
               <Button variant="outline" size="sm" onClick={() => void catalog.refetch()}>
                 <Trans>Retry</Trans>
               </Button>

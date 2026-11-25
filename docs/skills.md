@@ -15,8 +15,8 @@ Open the **Store** from the sidebar and choose **Skills**. The Store's other sec
 accounts your bots can use).
 
 - **Your skills** lists skills you or your bots have saved.
-- **Plugins** lists skill sets you've added from plugins.
-- **Browse** finds ready-made skills: Superbot's own library first, then skill packs from plugin
+- **Apps** lists skill sets that came with apps you added from the Store.
+- **Browse** finds ready-made skills: Superbot's own library first, then skill packs from app
   registries. Search to narrow the list.
 
 Skills you add are available to all your bots in the space.
@@ -50,7 +50,7 @@ repository or folder URL, then **Preview** and **Add**. Adding a catalog install
 skills in one action.
 
 > [!NOTE]
-> Skills added from GitHub or a plugin are instructions only. Any scripts they include are not run.
+> Skills added from GitHub or an app are instructions only. Any scripts they include are not run.
 
 ## Bots save skills too
 

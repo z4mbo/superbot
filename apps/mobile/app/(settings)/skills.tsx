@@ -173,7 +173,7 @@ export default function SkillsScreen() {
         </Pressable>
         {skillSets.length ? (
           <View testID="plugin-skill-sets" style={styles.list}>
-            <Text style={styles.section}>{t`Plugins`}</Text>
+            <Text style={styles.section}>{t`Apps`}</Text>
             {skillSets.map((install) => {
               const params = setParams(install);
               const count = pluginSkillCount(install);
@@ -220,9 +220,7 @@ export default function SkillsScreen() {
         />
         {state === "partial" ? (
           <View style={styles.row}>
-            <Text style={[styles.secondary, styles.grow]}>
-              {t`Some plugins could not be loaded.`}
-            </Text>
+            <Text style={[styles.secondary, styles.grow]}>{t`Some apps could not be loaded.`}</Text>
             <NativeActionButton
               fill={false}
               label={t`Retry`}

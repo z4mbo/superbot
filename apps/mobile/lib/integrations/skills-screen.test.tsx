@@ -110,7 +110,7 @@ it("offers Retry when a browse read fails and loads again from it", async () => 
     return method === "marketplace/catalog" ? catalog : [];
   });
   await render();
-  expect(container.textContent).toContain("Some plugins could not be loaded.");
+  expect(container.textContent).toContain("Some apps could not be loaded.");
   expect(spinner()).toBeNull();
 
   let finish!: Deferred<unknown[]>;
@@ -128,7 +128,7 @@ it("offers Retry when a browse read fails and loads again from it", async () => 
   await act(async () => finish.resolve([]));
   await settle();
   expect(spinner()).toBeNull();
-  expect(container.textContent).not.toContain("Some plugins could not be loaded.");
+  expect(container.textContent).not.toContain("Some apps could not be loaded.");
 });
 
 it("marks the list partial when a plugin registry is unavailable", async () => {
@@ -136,5 +136,5 @@ it("marks the list partial when a plugin registry is unavailable", async () => {
     method === "marketplace/catalog" ? { ...catalog, unavailableRegistries: ["registry"] } : [],
   );
   await render();
-  expect(container.textContent).toContain("Some plugins could not be loaded.");
+  expect(container.textContent).toContain("Some apps could not be loaded.");
 });
