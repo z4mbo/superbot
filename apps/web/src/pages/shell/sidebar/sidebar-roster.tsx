@@ -558,6 +558,24 @@ function PinnedTiles({
   const { t } = useLingui();
   return (
     <div data-sidebar-group={group.key} className="flex flex-wrap justify-center gap-1 pt-2.5 pb-2">
+      {/* With several Spaces listed, each one's tiles are named by their Space, as sections are. */}
+      {group.showLock ? (
+        <span
+          data-pinned-space
+          className="flex basis-full items-center gap-1.5 px-2 pb-1 text-body-sm text-muted-foreground"
+        >
+          {group.hasGuests ? (
+            <Globe size={11} strokeWidth={2} aria-hidden="true" />
+          ) : group.shared ? (
+            <Users size={11} strokeWidth={2} aria-hidden="true" />
+          ) : (
+            <Lock size={11} strokeWidth={2} aria-hidden="true" />
+          )}
+          <span dir="auto" className="truncate">
+            {group.title}
+          </span>
+        </span>
+      ) : null}
       {group.bots.map((item) => {
         const selected =
           (item.kind === "bot" && !inGroup && active?.id === item.chat.id) ||

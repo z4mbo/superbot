@@ -169,7 +169,9 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
       botId: activeBotId(page),
       scope: "bot",
     }),
-  ).toContainEqual(expect.objectContaining({ content: `# Superbot\n\n${botMarker}\n`, revision: 3 }));
+  ).toContainEqual(
+    expect.objectContaining({ content: `# Superbot\n\n${botMarker}\n`, revision: 3 }),
+  );
   await botMemoryRow.click();
   await expect(botDocEditor).toHaveValue(new RegExp(botMarker));
   await botMemory.getByRole("button", { name: "Cancel", exact: true }).click();

@@ -64,7 +64,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-async function render(bots: SpaceBot[]) {
+async function render(bots: SpaceBot[], others: Space[] = []) {
   const space = {
     id: "space-1",
     name: "Personal",
@@ -76,11 +76,11 @@ async function render(bots: SpaceBot[]) {
     botSections: [],
   } as Space;
   const props: ComponentProps<typeof SidebarRoster> = {
-    sidebarGroups: sidebarGroupsForSpaces([space], ""),
+    sidebarGroups: sidebarGroupsForSpaces([space, ...others], ""),
     collapsedSidebarSections: new Set(),
     bootstrapMe: { spaceId: "space-1" },
     botSections: [],
-    spaces: [space],
+    spaces: [space, ...others],
     rosterDropKey: null,
     setRosterDropKey: vi.fn(),
     rosterDropAction: () => null,
@@ -154,4 +154,29 @@ it("shows no tiles when there is no main bot and nothing is pinned", async () =>
   await render([ada, bot("bo", "Bo")]);
   expect(tiles()).toEqual([]);
   expect(host.querySelectorAll(".lucide-star")).toHaveLength(0);
+});
+
+it("names each Space above its tiles when several Spaces are listed", async () => {
+  const projects = {
+    id: "space-2",
+    name: "Projects",
+    isDefault: false,
+    hasContent: true,
+    bots: [bot("chief-2", CHIEF_BOT.name, { spaceId: "space-2", spawnKey: CHIEF_BOT.spawnKey })],
+    groups: [],
+    externalConversations: [],
+    botSections: [],
+  } as Space;
+  await render([ada, chief], [projects]);
+  const pinned = [...host.querySelectorAll<HTMLElement>('[data-sidebar-group$="pinned"]')];
+  expect(pinned.map((group) => group.querySelector("[data-pinned-space]")?.textContent)).toEqual([
+    "Personal",
+    "Projects",
+  ]);
+  expect(host.querySelectorAll(".lucide-star")).toHaveLength(2);
+});
+
+it("leaves a lone Space's tiles unlabelled", async () => {
+  await render([ada, chief]);
+  expect(host.querySelector("[data-pinned-space]")).toBeNull();
 });

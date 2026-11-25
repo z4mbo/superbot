@@ -282,7 +282,10 @@ test(
       testInfo,
     );
 
-    const line = transcript.getByTestId("peer-receipt-chip").filter({ hasText: "Superbot" }).first();
+    const line = transcript
+      .getByTestId("peer-receipt-chip")
+      .filter({ hasText: "Superbot" })
+      .first();
     await expect(transcript.getByTestId("peer-replies-toggle")).toHaveCount(0);
     await captureScreenshot(page, testInfo, "peer-line-folded");
     await line.click();
