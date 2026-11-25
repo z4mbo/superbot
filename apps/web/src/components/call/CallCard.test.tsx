@@ -12,6 +12,7 @@ vi.mock("@lingui/react/macro", () => ({
     t: (parts: TemplateStringsArray, ...values: unknown[]) => String.raw(parts, ...values),
   }),
 }));
+let pickToggle: (value: string) => void = () => {};
 vi.mock("@rakazo/ui-web", () => ({
   BotAvatar: () => null,
   cn: (...classes: unknown[]) => classes.filter(Boolean).join(" "),
@@ -21,28 +22,18 @@ vi.mock("@rakazo/ui-web", () => ({
   ),
   ToggleGroup: ({
     children,
-    value: _value,
     onValueChange,
-    ...props
+    "data-testid": testId,
   }: {
     children: ReactNode;
-    value: string[];
     onValueChange: (value: string[]) => void;
-  }) => (
-    // biome-ignore lint/a11y/useSemanticElements: a stand-in for the group
-    <div
-      role="group"
-      {...props}
-      onClick={(event) => {
-        const pick = (event.target as HTMLElement).dataset.value;
-        if (pick) onValueChange([pick]);
-      }}
-    >
-      {children}
-    </div>
-  ),
+    "data-testid": string;
+  }) => {
+    pickToggle = (value) => onValueChange([value]);
+    return <fieldset data-testid={testId}>{children}</fieldset>;
+  },
   ToggleGroupItem: ({ children, value }: { children: ReactNode; value: string }) => (
-    <button type="button" data-value={value}>
+    <button type="button" data-value={value} onClick={() => pickToggle(value)}>
       {children}
     </button>
   ),

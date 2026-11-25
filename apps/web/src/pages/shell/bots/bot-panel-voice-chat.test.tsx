@@ -84,12 +84,18 @@ describe("BotPanelVoiceChat", () => {
     vi.clearAllMocks();
   });
 
+  const onVoiceIdChange = vi.fn();
   function render(onSaved = vi.fn()) {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     act(() =>
       root.render(
         <QueryClientProvider client={client}>
-          <BotPanelVoiceChat bot={bot} onSaved={onSaved} />
+          <BotPanelVoiceChat
+            bot={bot}
+            voiceId=""
+            onVoiceIdChange={onVoiceIdChange}
+            onSaved={onSaved}
+          />
         </QueryClientProvider>,
       ),
     );
@@ -106,7 +112,7 @@ describe("BotPanelVoiceChat", () => {
     expect(container.querySelector('[data-testid="bot-voice-chat"]')).toBeNull();
   });
 
-  it("offers the bot's voice and language, and saves a language to the bot", async () => {
+  it("offers the bot's voice and language, saving the language to the bot and the voice through the panel", async () => {
     vi.mocked(rpc.voice.status).mockResolvedValue(status({}));
     const saved = { ...bot, voiceLanguage: "pt-BR" };
     vi.mocked(rpc.bots.update).mockResolvedValue(saved as never);
@@ -123,9 +129,8 @@ describe("BotPanelVoiceChat", () => {
     expect(rpc.bots.update).toHaveBeenCalledWith({ botId: "bot-1", voiceLanguage: "pt-BR" });
 
     act(() => button("Eve")!.click());
-    await vi.waitFor(() =>
-      expect(rpc.bots.update).toHaveBeenLastCalledWith({ botId: "bot-1", voiceId: "eve" }),
-    );
+    expect(onVoiceIdChange).toHaveBeenCalledWith("eve");
+    expect(rpc.bots.update).toHaveBeenCalledTimes(1);
   });
 
   it("shows the language alone for dictation without a voice to speak with", async () => {

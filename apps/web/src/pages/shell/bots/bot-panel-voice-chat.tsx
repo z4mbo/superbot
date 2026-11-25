@@ -9,8 +9,6 @@ import { useSave, useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
 import { PanelCardRow, PanelCardSection } from "./bot-panel-card";
 
-type VoiceChatPatch = { voiceId?: string | null; voiceLanguage?: string | null };
-
 /** A language tag's name in the app's language, or the tag when the browser cannot name it. */
 function languageName(tag: string, locale: string): string {
   try {
@@ -22,13 +20,18 @@ function languageName(tag: string, locale: string): string {
 
 /**
  * The bot's voice and the language its voice chats and dictation use. Shown only once the
- * account has voice connected: before that there is nothing to choose.
+ * account has voice connected: before that there is nothing to choose. The voice is the panel's
+ * own, which its settings show too, so both rows edit one value through one save.
  */
 export function BotPanelVoiceChat({
   bot,
+  voiceId,
+  onVoiceIdChange,
   onSaved,
 }: {
   bot: Bot;
+  voiceId: string;
+  onVoiceIdChange: (voiceId: string) => void;
   /** The saved bot, for the panel that holds the roster. */
   onSaved?: (bot: Bot) => void;
 }) {
@@ -42,18 +45,14 @@ export function BotPanelVoiceChat({
     enabled: available && Boolean(status?.ready),
   }).data;
   const save = useSave({
-    save: (patch: VoiceChatPatch, client) => client.bots.update({ botId: bot.id, ...patch }),
+    save: (voiceLanguage: string | null, client) =>
+      client.bots.update({ botId: bot.id, voiceLanguage }),
     stale: [queries.bots.list.key()],
     onSaved: (saved) => onSaved?.(saved),
     onFailed: (error) => toast.error(errorText(error, t`Could not save the voice chat settings`)),
   });
   if (!available) return null;
-  const pending = save.pending ? save.input : undefined;
-  const voiceId = pending?.voiceId !== undefined ? (pending.voiceId ?? "") : (bot.voiceId ?? "");
-  const language =
-    pending?.voiceLanguage !== undefined
-      ? (pending.voiceLanguage ?? "")
-      : (bot.voiceLanguage ?? "");
+  const language = save.pending ? (save.input ?? "") : (bot.voiceLanguage ?? "");
   const locale = getActiveUiLocale();
   const languages: { value: string; label: string }[] = VOICE_LANGUAGE_TAGS.map((tag) => ({
     value: tag,
@@ -74,8 +73,7 @@ export function BotPanelVoiceChat({
             size="sm"
             className="w-fit max-w-2/3"
             value={voiceId}
-            disabled={save.pending}
-            onValueChange={(next) => save.run({ voiceId: next || null })}
+            onValueChange={onVoiceIdChange}
             options={[
               { value: "", label: t`Account default` },
               ...voices.map((voice) => ({ value: voice.id, label: voice.label })),
@@ -93,7 +91,7 @@ export function BotPanelVoiceChat({
           className="w-fit max-w-2/3"
           value={language}
           disabled={save.pending}
-          onValueChange={(next) => save.run({ voiceLanguage: next || null })}
+          onValueChange={(next) => save.run(next || null)}
           options={[{ value: "", label: t`Auto-detect` }, ...languages]}
         />
       </PanelCardRow>

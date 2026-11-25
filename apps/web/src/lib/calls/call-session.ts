@@ -574,9 +574,7 @@ function startRealtime(botId: string): void {
           text,
         });
         const release = callSends.track(sessionCallId, request);
-        void request
-          .catch((error) => reportClientError(error, "voice.turn"))
-          .finally(release);
+        void request.catch((error) => reportClientError(error, "voice.turn")).finally(release);
       };
       connection = new RealtimeVoiceConnection(
         session,

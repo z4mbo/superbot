@@ -582,7 +582,7 @@ export function BotSettings({
               onOpenRoutines={() => onViewChange?.("routines")}
               computer={computer}
             >
-              <BotPanelVoiceChat bot={bot} />
+              <BotPanelVoiceChat bot={bot} voiceId={voiceId} onVoiceIdChange={setVoiceId} />
               <ErrorBoundary fallback={<SectionLoadFailed />}>
                 <Suspense fallback={null}>
                   <ScratchpadSection botId={bot.id} />

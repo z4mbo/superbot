@@ -87,10 +87,15 @@ async function connect(turnMode: RealtimeVoiceSession["turnMode"]) {
     onError: vi.fn(),
     onClosed: vi.fn(),
   };
-  const connection = new RealtimeVoiceConnection(session(turnMode), handlers, audio, (url, protocols) => {
-    socket = new FakeSocket(url, protocols);
-    return socket;
-  });
+  const connection = new RealtimeVoiceConnection(
+    session(turnMode),
+    handlers,
+    audio,
+    (url, protocols) => {
+      socket = new FakeSocket(url, protocols);
+      return socket;
+    },
+  );
   const opened = connection.open();
   socket!.open();
   await opened;
