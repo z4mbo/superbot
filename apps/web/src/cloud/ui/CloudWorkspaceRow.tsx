@@ -102,9 +102,11 @@ export function CloudWorkspaceRow({
                 <Trans>How to fix</Trans>
               </span>
             }
-            contentClassName="pt-2"
           >
-            <CloudWorkspaceHelp status={status} />
+            {/* Padding inside, so the folded content takes no room. */}
+            <div className="pt-2">
+              <CloudWorkspaceHelp status={status} />
+            </div>
           </Disclosure>
         ) : null}
       </SettingsRow>
