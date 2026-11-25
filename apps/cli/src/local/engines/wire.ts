@@ -28,10 +28,17 @@ export function engineDirectory(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), ".superbot-engine-"));
 }
 
+/** Removes an engine directory, trying again while Windows is still releasing it. */
+function removeEngineDirectory(cwd: string): Promise<void> {
+  return rm(cwd, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+}
+
 /** Newline-delimited JSON frames to and from one engine process. */
 export class Wire {
   readonly cwd: string;
   readonly #child: ChildProcess;
+  /** Settles once the engine process is gone, or never started. */
+  readonly #exited: Promise<void>;
   #partial: Buffer = Buffer.alloc(0);
   readonly #frames: Buffer[] = [];
   #ended = false;
@@ -43,6 +50,10 @@ export class Wire {
   private constructor(child: ChildProcess, cwd: string) {
     this.#child = child;
     this.cwd = cwd;
+    this.#exited = new Promise((resolve) => {
+      child.once("exit", () => resolve());
+      child.once("error", () => resolve());
+    });
     child.stdout?.on("data", (chunk: Buffer) => this.#receive(chunk));
     const end = () => {
       this.#ended = true;
@@ -71,7 +82,7 @@ export class Wire {
       });
       return new Wire(child, cwd);
     } catch (error) {
-      await rm(cwd, { recursive: true, force: true });
+      await removeEngineDirectory(cwd);
       if (error instanceof EngineError) throw error;
       throw new EngineError("start");
     }
@@ -175,14 +186,21 @@ export class Wire {
     return this.acp(method, params, REQUEST_TIMEOUT_MS);
   }
 
+  /** Ends the engine at once; it gets no chance to refuse, so `close` cannot wait on it forever. */
   terminate(): void {
-    if (this.#child.exitCode === null && this.#child.signalCode === null) this.#child.kill();
+    if (this.#child.exitCode === null && this.#child.signalCode === null) {
+      this.#child.kill("SIGKILL");
+    }
   }
 
-  /** Stops the engine and removes its working directory. */
+  /**
+   * Stops the engine and removes its working directory. Windows keeps a running process's
+   * working directory locked, so removal waits for the process to be gone.
+   */
   async close(): Promise<void> {
     this.terminate();
-    await rm(this.cwd, { recursive: true, force: true });
+    await this.#exited;
+    await removeEngineDirectory(this.cwd);
   }
 
   #receive(chunk: Buffer): void {
@@ -231,6 +249,6 @@ export async function inEngineDirectory<T>(work: (cwd: string) => Promise<T>): P
   try {
     return await work(cwd);
   } finally {
-    await rm(cwd, { recursive: true, force: true });
+    await removeEngineDirectory(cwd);
   }
 }
