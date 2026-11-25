@@ -5,7 +5,11 @@ import type { CloudWorkspace, WorkspaceDirectory } from "./workspace-directory.j
 import { createWorkspaceDirectory } from "./workspace-directory.js";
 import type { WorkspaceStatus } from "./workspace-status.js";
 import type { WorkspacesStoreDeps } from "./workspaces-store.js";
-import { createWorkspacesStore, WORKSPACE_PROBE_INTERVAL_MS } from "./workspaces-store.js";
+import {
+  CONNECTED_WORKSPACES_KEY,
+  createWorkspacesStore,
+  WORKSPACE_PROBE_INTERVAL_MS,
+} from "./workspaces-store.js";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const items = new Map(Object.entries(initial));
@@ -259,7 +263,7 @@ describe("workspaces store", () => {
     await signedIn(h);
     h.probe.mockClear();
     const added = await h.store.add({ name: "Work", url: "https://work.example" });
-    expect(h.probe).toHaveBeenCalledWith("https://work.example");
+    expect(h.probe).toHaveBeenCalledWith("https://work.example", false);
     expect(h.store.getState().workspaces.map((w) => w.id)).toEqual(["home", added.id]);
     expect(h.navigate).not.toHaveBeenCalled();
     expect(h.store.getState().activeId).toBe("home");
@@ -334,5 +338,26 @@ describe("workspaces store", () => {
     h.fire("recheck");
     expect(h.probe.mock.calls.map(([url]) => url)).toEqual([work.url]);
     expect(h.store.getState().statuses.get("work")).toEqual({ state: "checking" });
+  });
+
+  it("tells a later probe that the workspace was online before, and forgets removed ones", async () => {
+    const h = harness({
+      probe: async (url) => (url === home.url ? ONLINE : { state: "not-enabled" }),
+    });
+    await signedIn(h);
+    expect(h.probe.mock.calls.map(([url, before]) => [url, before])).toEqual([
+      [home.url, false],
+      [work.url, false],
+    ]);
+    expect(JSON.parse(h.storage.getItem(CONNECTED_WORKSPACES_KEY) ?? "[]")).toEqual(["home"]);
+    h.probe.mockClear();
+    h.store.recheck();
+    expect(h.probe.mock.calls.map(([url, before]) => [url, before])).toEqual([
+      [home.url, true],
+      [work.url, false],
+    ]);
+    await flush();
+    await h.store.remove("home");
+    expect(JSON.parse(h.storage.getItem(CONNECTED_WORKSPACES_KEY) ?? "[]")).toEqual([]);
   });
 });

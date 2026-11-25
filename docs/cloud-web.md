@@ -83,21 +83,21 @@ With these set, the API:
 
 The page probes each workspace every 15 seconds, when the window regains focus and on demand, with a 5 second timeout:
 
-| What happens                                                                      | Shown as                                                       |
-| --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `/api/health` answers, `cloudApi` matches, `/api/cloud/session` accepts the token | online                                                         |
-| `/api/health` answers with another `cloudApi`                                     | incompatible                                                   |
-| `/api/health` answers, `/api/cloud/session` refuses                               | unauthorized, with the reason and the setting to change        |
-| `/api/health` fails, but an opaque `no-cors` request to the same URL succeeds     | reachable, not enabled for this site, with the settings to add |
-| nothing answers                                                                   | offline                                                        |
+| What happens                                                                      | Shown as                                                                                             |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `/api/health` answers, `cloudApi` matches, `/api/cloud/session` accepts the token | online                                                                                               |
+| `/api/health` answers with another `cloudApi`                                     | incompatible                                                                                         |
+| `/api/health` answers, `/api/cloud/session` refuses                               | unauthorized, with the reason and the setting to change                                              |
+| `/api/health` fails, but an opaque `no-cors` request to the same URL succeeds     | not set up for this site, with the settings to add; offline if this browser has had it online before |
+| nothing answers                                                                   | offline                                                                                              |
 
-The `no-cors` probe matters because a server that has not listed the site sends no CORS headers, which a normal `fetch` cannot tell apart from a dead server. When the active workspace is not online the page shows that state with a retry and a way to switch, instead of a broken app.
+The `no-cors` probe matters because a server that has not listed the site sends no CORS headers, which a normal `fetch` cannot tell apart from a dead server. An opaque answer cannot be read either, so a reverse proxy's error page for a stopped server looks the same as a server that never listed the site. The page therefore remembers, in the browser, which workspaces it has had online: for those an unreadable answer means offline, and only a workspace that never connected is shown as not set up. When the active workspace is not online the page shows that state with a retry and a way to switch, instead of a broken app.
 
 ### Private and tailnet servers
 
 A browser reaches a server only if the device it runs on can. For a server on a tailnet (`https://<host>.<tailnet>.ts.net`):
 
-- **(a) The browser's device is on the tailnet.** Works today. Chromium treats tailnet addresses (`100.64.0.0/10`) as a private network: a public page calling one triggers the browser's local network access permission prompt once per site, and the server must answer the preflight with `Access-Control-Allow-Private-Network: true`, which it does when cloud access is on.
+- **(a) The browser's device is on the tailnet.** Works today. Chromium treats tailnet addresses (`100.64.0.0/10`) as a private network: a public page calling one triggers the browser's local network access permission prompt once per site (until it is allowed the workspace shows as offline), and the server must answer the preflight with `Access-Control-Allow-Private-Network: true`, which it does when cloud access is on.
 - **(b) Tailscale Funnel on the server's web port.** Gives the server a public HTTPS address, so any device works. The operator must turn it on, and the server is then exposed to the internet behind its own sign-in.
 - **(c) A Superbot relay.** The server keeps an outbound connection to a relay we host and the page talks to the relay. Needs no inbound access at all. Not built; hosted workspaces need it anyway.
 

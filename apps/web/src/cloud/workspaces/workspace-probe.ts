@@ -15,6 +15,12 @@ export type ProbeDeps = {
   fetch: typeof fetch;
   getToken: () => Promise<string | null>;
   timeoutMs?: number;
+  /**
+   * This browser has had this server online before. An answer the page cannot read then means the
+   * server stopped working (a proxy in front answering for a stopped app), not that it was never
+   * set up.
+   */
+  connectedBefore?: boolean;
 };
 
 function discard(response: Response): void {
@@ -45,16 +51,17 @@ export async function probeWorkspace(url: string, deps: ProbeDeps): Promise<Work
     return { response, signal };
   };
 
+  const unreadable: WorkspaceStatus = { state: deps.connectedBefore ? "offline" : "not-enabled" };
   const health = request(CLOUD_HEALTH_PATH, { mode: "cors" });
   let healthResponse: Response;
   try {
     healthResponse = await health.response;
   } catch {
-    return reachableWithoutCors(request);
+    return reachableWithoutCors(request, unreadable);
   }
   if (!healthResponse.ok) {
     discard(healthResponse);
-    return { state: "not-enabled" };
+    return unreadable;
   }
   const answer = parseCloudHealth(await readJson(healthResponse, health.signal));
   if (!answer?.cloudEnabled) return { state: "not-enabled" };
@@ -92,13 +99,16 @@ export async function probeWorkspace(url: string, deps: ProbeDeps): Promise<Work
  * A server that does not list this site sends no CORS headers, and the browser then fails the
  * request exactly as if nothing answered. An opaque `no-cors` request to the same address still
  * resolves when something answers, which tells "set up the server" apart from "the server is down".
+ * The answer itself stays unreadable, so a proxy's error page for a stopped app looks the same as
+ * a server that never listed this site; `unreadable` is what the caller makes of that.
  */
 async function reachableWithoutCors(
   request: (path: string, init: RequestInit) => { response: Promise<Response> },
+  unreadable: WorkspaceStatus,
 ): Promise<WorkspaceStatus> {
   try {
     await request(CLOUD_HEALTH_PATH, { mode: "no-cors" }).response;
-    return { state: "not-enabled" };
+    return unreadable;
   } catch {
     return { state: "offline" };
   }

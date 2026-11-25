@@ -19,6 +19,25 @@ import type { WorkspaceStatus } from "./workspace-status";
 export const WORKSPACE_PROBE_INTERVAL_MS = 15_000;
 /** The account document that holds the list. */
 export const WORKSPACES_DOCUMENT = "workspaces";
+/** The workspaces this browser has had online, so a later unreadable answer reads as offline. */
+export const CONNECTED_WORKSPACES_KEY = "superbot:cloud:connected-workspaces";
+
+function readConnected(storage: ActiveWorkspaceStorage | null): Set<string> {
+  try {
+    const value: unknown = JSON.parse(storage?.getItem(CONNECTED_WORKSPACES_KEY) ?? "[]");
+    return new Set(Array.isArray(value) ? value.filter((id) => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeConnected(storage: ActiveWorkspaceStorage | null, ids: Set<string>): void {
+  try {
+    storage?.setItem(CONNECTED_WORKSPACES_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Without storage the memory lasts for this page only.
+  }
+}
 
 export type WorkspacesState = {
   ready: boolean;
@@ -30,7 +49,8 @@ export type WorkspacesState = {
 
 export type WorkspacesStoreDeps = {
   directory: WorkspaceDirectory;
-  probe: (url: string) => Promise<WorkspaceStatus>;
+  /** `connectedBefore`: this browser has had the workspace online. */
+  probe: (url: string, connectedBefore: boolean) => Promise<WorkspaceStatus>;
   storage: ActiveWorkspaceStorage | null;
   /** The workspace the page was loaded for. */
   initialActive: ActiveWorkspace | null;
@@ -64,12 +84,17 @@ export function createWorkspacesStore(deps: WorkspacesStoreDeps) {
   let generation = 0;
   const inFlight = new Map<string, number>();
   let stopPolling: (() => void) | null = null;
+  const connected = readConnected(deps.storage);
 
   const update = (patch: Partial<WorkspacesState>) => {
     state = { ...state, ...patch };
     for (const listener of listeners) listener();
   };
   const setStatus = (id: string, status: WorkspaceStatus) => {
+    if (status.state === "online" && !connected.has(id)) {
+      connected.add(id);
+      writeConnected(deps.storage, connected);
+    }
     update({ statuses: new Map(state.statuses).set(id, status) });
   };
 
@@ -81,7 +106,7 @@ export function createWorkspacesStore(deps: WorkspacesStoreDeps) {
     const mine = generation;
     inFlight.set(workspace.id, mine);
     void deps
-      .probe(workspace.url)
+      .probe(workspace.url, connected.has(workspace.id))
       .catch((): WorkspaceStatus => ({ state: "offline" }))
       .then((status) => {
         if (inFlight.get(workspace.id) === mine) inFlight.delete(workspace.id);
@@ -101,6 +126,11 @@ export function createWorkspacesStore(deps: WorkspacesStoreDeps) {
       activeId = null;
     }
     const kept = new Set(workspaces.map((workspace) => workspace.id));
+    const forgotten = [...connected].filter((id) => !kept.has(id));
+    if (forgotten.length > 0) {
+      for (const id of forgotten) connected.delete(id);
+      writeConnected(deps.storage, connected);
+    }
     const statuses = new Map([...state.statuses].filter(([id]) => kept.has(id)));
     update({ ready: true, failed: false, workspaces, activeId, statuses });
   };
@@ -230,10 +260,11 @@ export function workspacesStoreFor(accounts: CloudAccounts): WorkspacesStore {
       read: () => accounts.readDocument(WORKSPACES_DOCUMENT),
       write: (value) => accounts.writeDocument(WORKSPACES_DOCUMENT, value),
     }),
-    probe: (url) =>
+    probe: (url, connectedBefore) =>
       probeWorkspace(url, {
         fetch: (input, init) => fetch(input, init),
         getToken: () => accounts.getToken(),
+        connectedBefore,
       }),
     storage: browserStorage(),
     initialActive: startupActiveWorkspace(),

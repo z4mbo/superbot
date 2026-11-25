@@ -140,6 +140,31 @@ describe("probeWorkspace", () => {
     expect(fetch.mock.calls[1]![0]).toBe(`${URL}/api/health`);
   });
 
+  it("is offline when a server that was online before answers something unreadable", async () => {
+    // A proxy answering for a stopped app: reachable, but not the server's own reply.
+    const fetch = server({
+      health: new TypeError("Failed to fetch"),
+      opaque: new Response(null, { status: 200 }),
+    });
+    expect(
+      await probeWorkspace(URL, {
+        fetch,
+        getToken: async () => "token-1",
+        timeoutMs: 50,
+        connectedBefore: true,
+      }),
+    ).toEqual({ state: "offline" });
+    const readable = server({ health: new Response("bad gateway", { status: 502 }) });
+    expect(
+      await probeWorkspace(URL, {
+        fetch: readable,
+        getToken: async () => "token-1",
+        timeoutMs: 50,
+        connectedBefore: true,
+      }),
+    ).toEqual({ state: "offline" });
+  });
+
   it("is offline when neither request reaches the server", async () => {
     const fetch = server({
       health: new TypeError("Failed to fetch"),
