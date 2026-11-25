@@ -219,6 +219,7 @@ export type ClientOperation =
   | "mobile.startup"
   | "voice.microphone"
   | "voice.turn"
+  | "voice.realtime"
   | "rpc.transport"
   | "desktop.startup"
   | "desktop.update"

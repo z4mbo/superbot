@@ -9,6 +9,7 @@ import net from "node:net";
 import path from "node:path";
 import type { Duplex } from "node:stream";
 import tls from "node:tls";
+import { realtimeVoiceConnectSources } from "@rakazo/adapters/realtime-voice-sources";
 import { wuyingScreenPolicy } from "@rakazo/adapters/wuying-screen-policy";
 import type { DesktopStackProbeResponse } from "@rakazo/contracts";
 import {
@@ -585,10 +586,11 @@ export function webServerSettings(read: (name: string) => string | undefined, lo
         "RAKAZO_CSP_SCRIPT_SRC",
         read("RAKAZO_CSP_SCRIPT_SRC"),
       ),
-      connectSrc: parseContentSecuritySources(
-        "RAKAZO_CSP_CONNECT_SRC",
-        read("RAKAZO_CSP_CONNECT_SRC"),
-      ),
+      connectSrc: [
+        ...parseContentSecuritySources("RAKAZO_CSP_CONNECT_SRC", read("RAKAZO_CSP_CONNECT_SRC")),
+        // Realtime voice chats connect from the page straight to the provider.
+        ...realtimeVoiceConnectSources,
+      ],
       crisp: parseCrispWebsiteId(read("CRISP_WEBSITE_ID")) !== null,
     }),
   };

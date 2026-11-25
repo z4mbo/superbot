@@ -1,5 +1,12 @@
 import { t } from "@lingui/core/macro";
-import type { BotAvatarSet, ProductEvent, ThreadMessage, ThreadSnapshot } from "@rakazo/contracts";
+import type {
+  BotAvatarSet,
+  LiveVoice,
+  ProductEvent,
+  ThreadMessage,
+  ThreadSnapshot,
+  VoiceTurnMode,
+} from "@rakazo/contracts";
 import type { CallExchange } from "@rakazo/core";
 import {
   CALL_FAREWELL_TIMEOUT_MS,
@@ -35,10 +42,17 @@ import {
   webLogoAvatarActivity,
 } from "../bots/logo-avatar-activity.js";
 import { reportClientError } from "../platform/monitoring";
+import { preferredTurnMode, voiceTurnModePreference } from "../preferences/voice-turn-mode";
 import { recheckSessionOnUnauthorized, rpc } from "../query/rpc.js";
 import { errorText } from "../query/user-error";
 import { pickUp } from "./call-pickup.js";
 import { dictation, usesServerDictation } from "./dictation.js";
+import type { RealtimeAudio, RealtimeSocketFactory } from "./realtime-voice.js";
+import {
+  browserRealtimeAudio,
+  browserRealtimeSocket,
+  RealtimeVoiceConnection,
+} from "./realtime-voice.js";
 import { speaker } from "./tts.js";
 
 /** `ringing` until the call picks up; the rest describe the conversation. */
@@ -59,6 +73,13 @@ export interface CallState {
   caption: string;
   heard: string;
   exchanges: CallExchange[];
+  /** One speech model answering directly, or the bot's own run between transcription and speech. */
+  engine: LiveVoice["engine"];
+  turnMode: VoiceTurnMode;
+  /** The modes this call can switch between; the toggle shows only with more than one. */
+  turnModes: VoiceTurnMode[];
+  /** Push to talk: the talk control is held. */
+  talking: boolean;
 }
 
 /**
@@ -94,6 +115,7 @@ const hangUps = new Set<Promise<void>>();
 /** Bumped when the session ends: a hang-up still queued then would run signed out or as someone else. */
 let sessionEpoch = 0;
 let transcribe: boolean | undefined;
+let language: string | undefined;
 let thread: ThreadSnapshot | null = null;
 let feed: {
   controller: AbortController;
@@ -165,6 +187,10 @@ export function startCall(call: {
   botColor?: string;
   botAvatarSet?: BotAvatarSet;
   transcribe?: boolean;
+  /** The voice mode the server offers; a call the bot placed is always cascaded. */
+  live?: LiveVoice | null;
+  /** The bot's voice language, which the microphone listens for. */
+  language?: string;
   /** The bot called and the user picked up: no ringing, and the bot speaks first. */
   answered?: { callId: string; opening: string };
 }): void {
@@ -172,7 +198,11 @@ export function startCall(call: {
   endCall();
   prepareCallAudio();
   callId = call.answered?.callId ?? newClientId();
+  const engine = call.answered ? "cascaded" : (call.live?.engine ?? "cascaded");
+  const turnModes: VoiceTurnMode[] =
+    call.live && call.live.engine === engine ? [...call.live.turnModes] : ["open-mic"];
   transcribe = call.transcribe;
+  language = call.language;
   spokenMemory.clear();
   replySpeech.clear();
   streamRunId = null;
@@ -196,7 +226,16 @@ export function startCall(call: {
     caption: "",
     heard: "",
     exchanges: [],
+    engine,
+    turnMode: preferredTurnMode(turnModes),
+    turnModes,
+    talking: false,
   };
+  if (engine === "realtime") {
+    emit();
+    startRealtime(call.botId);
+    return;
+  }
   unsubSpeech = speaker.subscribe((speech) => {
     if (!state || state.phase === "ringing") return;
     if (openingPending && speech.status === "idle") openingPending = false;
@@ -296,6 +335,8 @@ export function endCall(): void {
 function dropCall(): void {
   pickup?.abort();
   pickup = null;
+  realtime?.close();
+  realtime = null;
   openingPending = false;
   feed?.controller.abort();
   feed = null;
@@ -424,6 +465,11 @@ export function toggleMute(): void {
   if (!state) return;
   const muted = !state.muted;
   set({ muted });
+  if (state.engine === "realtime") {
+    realtime?.setMuted(muted);
+    if (muted) set({ heard: "" });
+    return;
+  }
   if (muted) {
     dictation.stop("cancel");
     micOpen = false;
@@ -437,6 +483,139 @@ export function toggleMute(): void {
 export function toggleTranscript(): void {
   if (!state) return;
   set({ transcriptOpen: !state.transcriptOpen });
+}
+
+/** Switches between holding to talk and an open microphone, and remembers the choice. */
+export function setTurnMode(turnMode: VoiceTurnMode): void {
+  if (!state || state.turnMode === turnMode || !state.turnModes.includes(turnMode)) return;
+  voiceTurnModePreference.set(turnMode);
+  // Holding to talk has no mute: the microphone is shut unless the control is held.
+  set({ turnMode, talking: false, muted: false, heard: "" });
+  if (state.engine === "realtime") {
+    realtime?.setMuted(false);
+    realtime?.setTurnMode(turnMode);
+    return;
+  }
+  if (turnMode === "push-to-talk") {
+    dictation.stop("cancel");
+    micOpen = false;
+  } else if (state.phase === "listening") {
+    void listen();
+  } else if (state.phase === "speaking") {
+    void openMic();
+  }
+}
+
+/** Push to talk: the talk control or Space went down. It cuts off a reply still playing. */
+export function pressToTalk(): void {
+  if (!state || state.turnMode !== "push-to-talk" || state.talking) return;
+  if (state.phase === "ringing") return;
+  set({ talking: true, caption: "" });
+  if (state.engine === "realtime") {
+    realtime?.pressTalk();
+    return;
+  }
+  if (state.phase === "speaking" || speaker.isSpeaking()) {
+    bargedIn = true;
+    speaker.stop();
+    sealStream();
+  }
+  if (guardTimer) clearTimeout(guardTimer);
+  guardTimer = null;
+  set({ phase: "listening", heard: "" });
+  void openMic();
+}
+
+/** Push to talk: the control was let go, so what was said is sent as the turn. */
+export function releaseToTalk(): void {
+  if (!state?.talking) return;
+  set({ talking: false });
+  if (state.engine === "realtime") {
+    realtime?.releaseTalk();
+    return;
+  }
+  if (micOpen) dictation.submitHold();
+}
+
+let realtime: RealtimeVoiceConnection | null = null;
+const browserRealtimeIo = { audio: browserRealtimeAudio, socket: browserRealtimeSocket };
+let realtimeIo: { audio: (sampleRate: number) => RealtimeAudio; socket: RealtimeSocketFactory } =
+  browserRealtimeIo;
+
+/** Tests replace the browser's microphone, speaker and socket. */
+export function setRealtimeVoiceIo(io: typeof realtimeIo | null): void {
+  realtimeIo = io ?? browserRealtimeIo;
+}
+
+/**
+ * A realtime call: the server opens a short-lived session, then the page talks to the provider
+ * itself. Each finished turn is filed in the thread under the call, like a voice chat's.
+ */
+function startRealtime(botId: string): void {
+  const opening = new AbortController();
+  pickup = opening;
+  const stale = () => opening.signal.aborted || !state || state.botId !== botId;
+  void (async () => {
+    let connection: RealtimeVoiceConnection | null = null;
+    try {
+      const session = await rpc.voice.realtimeSession(
+        { botId, turnMode: state?.turnMode ?? "open-mic" },
+        { signal: opening.signal },
+      );
+      if (stale()) return;
+      callId = session.callId;
+      const sessionCallId = session.callId;
+      const record = (role: "user" | "bot", text: string, turnId: string) => {
+        const request = rpc.voice.recordRealtimeTurn({
+          botId,
+          callId: sessionCallId,
+          turnId,
+          role,
+          text,
+        });
+        const release = callSends.track(sessionCallId, request);
+        void request
+          .catch((error) => reportClientError(error, "voice.turn"))
+          .finally(release);
+      };
+      connection = new RealtimeVoiceConnection(
+        session,
+        {
+          onPhase: (phase) => {
+            if (phase !== "connecting" && state?.phase !== "ringing") set({ phase });
+          },
+          onHeard: (heard) => set({ heard }),
+          onTurn: ({ role, text, turnId }) => {
+            if (!state || callId !== sessionCallId) return;
+            set({ exchanges: [...state.exchanges, { role, text }] });
+            record(role, text, turnId);
+          },
+          onError: (message) => set({ caption: message }),
+          onClosed: () => {
+            if (callId === sessionCallId) endCall();
+          },
+        },
+        realtimeIo.audio(session.audio.sampleRate),
+        realtimeIo.socket,
+      );
+      realtime = connection;
+      await connection.open();
+      if (stale()) {
+        connection.close();
+        return;
+      }
+      pickup = null;
+      connection.setMuted(state?.muted ?? false);
+      set({ phase: "listening", connectedAt: Date.now() });
+    } catch (error) {
+      connection?.close();
+      if (realtime === connection) realtime = null;
+      if (stale()) return;
+      pickup = null;
+      reportClientError(error, "voice.realtime");
+      set({ phase: "listening", caption: errorText(error, t`Could not start the voice chat`) });
+    }
+  })();
 }
 
 export function setCallMinimized(minimized: boolean): void {
@@ -594,16 +773,22 @@ async function listen() {
   await openMic();
 }
 
-/** Starts dictation unless it is already running, muted, or waiting on a typed secret. */
+/**
+ * Starts dictation unless it is already running, muted, or waiting on a typed secret. Push to
+ * talk opens it only while the talk control is held.
+ */
 async function openMic() {
   if (!state || micOpen || state.muted || pendingCallSecretAsk(thread)) return;
+  const holding = state.turnMode === "push-to-talk";
+  if (holding && !state.talking) return;
   if (state.phase === "speaking" && usesServerDictation(transcribe)) return;
   micOpen = true;
   try {
     await dictation.listen({
-      mode: "endpoint",
+      mode: holding ? "hold" : "endpoint",
       callId,
       transcribe,
+      language,
       onFinal: (text) => void handleTranscript(text),
     });
   } catch (error) {

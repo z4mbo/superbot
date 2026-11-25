@@ -23,11 +23,14 @@ import {
   ModelRoleViewSchema,
 } from "./model-roles.js";
 import {
+  RealtimeVoiceSessionSchema,
+  VoiceCallIdSchema,
   VoiceCatalogEntrySchema,
   VoiceCredentialSchema,
   VoiceInfoSchema,
   VoiceModelInfoSchema,
   VoiceStatusSchema,
+  VoiceTurnModeSchema,
 } from "./voice.js";
 
 export const modelsRpc = {
@@ -208,5 +211,31 @@ export const modelsRpc = {
         }),
       )
       .output(z.object({ ready: z.boolean(), utterances: z.array(z.string()) })),
+    /**
+     * Opens a realtime voice conversation with a bot: a short-lived session the browser connects
+     * to itself. Refused when the account has no realtime voice connected.
+     */
+    realtimeSession: oc
+      .input(z.object({ botId: Id, turnMode: VoiceTurnModeSchema }))
+      .output(RealtimeVoiceSessionSchema),
+    /**
+     * Files one finished turn of a realtime conversation in the bot's thread, grouped by its call
+     * like a voice chat's. The same `turnId` twice files it once.
+     */
+    recordRealtimeTurn: oc
+      .input(
+        z.object({
+          botId: Id,
+          callId: VoiceCallIdSchema,
+          turnId: z
+            .string()
+            .min(1)
+            .max(80)
+            .regex(/^[A-Za-z0-9_-]+$/),
+          role: z.enum(["user", "bot"]),
+          text: z.string().trim().min(1).max(8000),
+        }),
+      )
+      .output(z.object({ ok: z.literal(true) })),
   },
 };

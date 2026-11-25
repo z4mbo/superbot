@@ -56,6 +56,8 @@ import { aiConsentStatus, allowAiConsent } from "../account/ai-consent.js";
 import { createAccessGrant, listAccessGrants, revokeAccessGrant } from "../auth/access-grants.js";
 import { requireAdmin } from "../auth/admins.js";
 import type { BillingService } from "../billing/billing.js";
+import { createRealtimeVoiceSession, recordRealtimeVoiceTurn } from "../calls/live-voice.js";
+import { liveVoiceFor } from "../calls/live-voice-status.js";
 import {
   accountVoiceCatalog,
   disconnectVoiceCredential,
@@ -88,7 +90,7 @@ const ORGANIZATIONS_CHANGED = Symbol("organizations changed");
 const SIGNAL_FAILURE_HOLD_MS = 30_000;
 
 export function accountRoutes(ctx: RouterContext) {
-  const { deps, os, authed } = ctx;
+  const { deps, os, authed, callsEnabled } = ctx;
   return {
     aiConsent: {
       status: authed.aiConsent.status.handler(({ context, input }) =>
@@ -662,7 +664,9 @@ export function accountRoutes(ctx: RouterContext) {
             { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
           ),
         );
-        return toVoiceStatus(cred);
+        // The settings screen writes this into the status the composer reads, so it is whole.
+        const status = toVoiceStatus(cred);
+        return { ...status, live: await liveVoiceFor(deps, context.actor, status, input.scope) };
       }),
       setSpeechModel: authed.voice.setSpeechModel.handler(async ({ context, input }) =>
         updateVoiceSpeechModel(deps, context.actor, { ...input, signal: context.signal }),
@@ -704,6 +708,12 @@ export function accountRoutes(ctx: RouterContext) {
       }),
       prepare: authed.voice.prepare.handler(async ({ context, input }) =>
         prepareVoice(deps, context.actor, { ...input, signal: context.signal }),
+      ),
+      realtimeSession: callsEnabled.voice.realtimeSession.handler(async ({ context, input }) =>
+        createRealtimeVoiceSession(deps, context.actor, { ...input, signal: context.signal }),
+      ),
+      recordRealtimeTurn: callsEnabled.voice.recordRealtimeTurn.handler(
+        async ({ context, input }) => recordRealtimeVoiceTurn(deps, context.actor, input),
       ),
     },
   };

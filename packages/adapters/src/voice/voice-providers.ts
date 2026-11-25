@@ -5,6 +5,7 @@ import { macOsVoice } from "../providers/voice/macos/macos-voice.js";
 import { openaiVoice } from "../providers/voice/openai/openai-voice.js";
 import { openAiCompatibleVoice } from "../providers/voice/openai-compatible/openai-compatible-voice.js";
 import { openRouterVoice } from "../providers/voice/openrouter/openrouter-voice.js";
+import { scriptedRealtimeVoice } from "../providers/voice/scripted/scripted-realtime-voice.js";
 import { scriptedVoice } from "../providers/voice/scripted/scripted-voice.js";
 import { xaiVoice } from "../providers/voice/xai/xai-voice.js";
 import type { VoiceProviderDefinition } from "./voice-provider-descriptor.js";
@@ -23,6 +24,7 @@ export const voiceProviders = {
   openrouter: openRouterVoice,
   "openai-compatible": openAiCompatibleVoice,
   scripted: scriptedVoice,
+  "scripted-realtime": scriptedRealtimeVoice,
 } satisfies Record<string, VoiceProviderDefinition>;
 
 /** An id this build has a voice provider for. Outside adapters a provider id is an opaque string. */

@@ -46,6 +46,8 @@ function deps(override = false, cred: unknown = null) {
       userVoicePreference: { findFirst: vi.fn().mockResolvedValue(cred) },
       spaceVoicePreference: { findFirst: vi.fn().mockResolvedValue(null) },
       userVoiceCredential: { findFirst: vi.fn().mockResolvedValue(null) },
+      userModelPreference: { findMany: vi.fn().mockResolvedValue([]) },
+      userModelCredential: { findMany: vi.fn().mockResolvedValue([]) },
       secret: { findFirst: vi.fn().mockResolvedValue(null) },
       speechAllowance: {
         findFirst: vi.fn().mockResolvedValue({ limitMicros: 1000000n, usedMicros: 0n }),

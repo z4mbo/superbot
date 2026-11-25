@@ -485,6 +485,7 @@ export function botsRoutes(ctx: RouterContext) {
             memoryScope: input.memoryScope,
             sectionId: input.sectionId,
             voiceId: input.voiceId,
+            voiceLanguage: input.voiceLanguage,
             autoSpeak: input.autoSpeak,
             ...(input.modelProvider !== undefined
               ? { modelProvider: input.modelProvider, modelId: input.modelId ?? null }

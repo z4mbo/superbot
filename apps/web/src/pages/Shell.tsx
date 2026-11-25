@@ -248,10 +248,10 @@ function SpaceShell({ threadId }: { threadId?: string }) {
         ? null
         : undefined;
   const call = useCallSession();
-  /** Calls a bot, or opens voice settings first when no voice is connected. */
+  /** Calls a bot, or opens voice settings first when nothing connected can hold a voice chat. */
   const callBot = (bot: Bot) => {
     if (!bootstrapMe?.phoneCallsEnabled) return;
-    if (!voiceStatus?.ready) {
+    if (!voiceStatus?.live) {
       openSettings("voice");
       return;
     }
@@ -260,7 +260,9 @@ function SpaceShell({ threadId }: { threadId?: string }) {
       botName: bot.name,
       botColor: bot.color,
       botAvatarSet: bot.avatarSet,
-      transcribe: voiceStatus ? Boolean(voiceStatus.transcribe) : undefined,
+      transcribe: Boolean(voiceStatus.transcribe),
+      live: voiceStatus.live,
+      language: bot.voiceLanguage ?? undefined,
     });
   };
   const voiceStatus: VoiceStatus | null =
@@ -1336,7 +1338,9 @@ function SpaceShell({ threadId }: { threadId?: string }) {
                   : undefined
               }
               voiceReady={Boolean(voiceStatus?.ready)}
-              dictationTranscribe={voiceStatus ? Boolean(voiceStatus.transcribe) : undefined}
+              dictation={voiceStatus?.dictation}
+              dictationLanguage={inGroup ? undefined : (active?.voiceLanguage ?? undefined)}
+              liveVoice={voiceStatus ? voiceStatus.live !== null : undefined}
               artifactTarget={transcriptArtifactTarget}
               replyTarget={composer.replyTarget}
               replyQuote={composer.replyQuote}

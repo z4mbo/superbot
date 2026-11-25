@@ -12,6 +12,7 @@ import type {
   ToolQuestion,
   ToolQuestionAnswer,
   VoiceAccountErrorCode,
+  VoiceTurnMode,
 } from "@rakazo/contracts";
 
 export interface AdapterContext {
@@ -975,6 +976,51 @@ export interface VoiceCapabilities {
   transcribe: boolean;
   /** The provider can filter its listed voices by language. */
   languages?: boolean;
+  /** The provider can hold a realtime speech-to-speech conversation (see `RealtimeVoice`). */
+  realtime?: boolean;
+}
+
+export interface RealtimeVoiceSessionRequest {
+  /** The bearer the provider takes: a key, or a token read from the account's connection. */
+  apiKey: string;
+  /** The provider's voice id; omitted uses its default voice. */
+  voiceId?: string;
+  /** Who the speaker is and how it behaves: the bot's own instructions. */
+  instructions: string;
+  /** BCP-47 tag the conversation is held in; omitted detects it. */
+  language?: string;
+  turnMode: VoiceTurnMode;
+  signal?: AbortSignal;
+}
+
+/**
+ * What a browser needs to hold the conversation with the provider itself. Nothing in it outlives
+ * `expiresAt` except an open connection: the only credential is a short-lived client secret,
+ * never the stored key. Messages follow the realtime event family (`session.update`,
+ * `input_audio_buffer.*`, `response.*`), so one browser client speaks to every provider.
+ */
+export interface RealtimeVoiceSession {
+  transport: "websocket";
+  url: string;
+  /** WebSocket subprotocols to offer; providers put the client secret here. */
+  protocols: string[];
+  expiresAt: Date;
+  /** Raw little-endian 16-bit mono audio, both ways, at this rate. */
+  audio: { encoding: "pcm16"; sampleRate: number };
+  /** Sent in order once the socket opens: voice, instructions, transcription and turn taking. */
+  setup: Record<string, unknown>[];
+  /** The provider's model, for usage records. */
+  model: string;
+}
+
+/** A provider's realtime speech-to-speech conversations. */
+export interface RealtimeVoice {
+  /** The turn modes its sessions support. */
+  turnModes: readonly VoiceTurnMode[];
+  createSession(
+    request: RealtimeVoiceSessionRequest,
+    context: AdapterContext,
+  ): Promise<RealtimeVoiceSession>;
 }
 
 export interface VoiceVerifyResult {

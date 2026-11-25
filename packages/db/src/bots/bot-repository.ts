@@ -97,6 +97,7 @@ function mapBot(
     thread: { id: string; reads: Array<{ unread: boolean; snoozedUntil: Date | null }> } | null;
     computer: { scope: string } | null;
     voiceId?: string | null;
+    voiceLanguage?: string | null;
     autoSpeak?: boolean;
     modelProvider?: string | null;
     modelId?: string | null;
@@ -150,6 +151,7 @@ function mapBot(
     createdAt: bot.createdAt.toISOString(),
     updatedAt: updatedAt.toISOString(),
     voiceId: bot.voiceId ?? null,
+    voiceLanguage: bot.voiceLanguage ?? null,
     autoSpeak: bot.autoSpeak ?? false,
     modelProvider: bot.modelProvider ? canonicalPiProviderId(bot.modelProvider) : null,
     modelId: bot.modelId ?? null,

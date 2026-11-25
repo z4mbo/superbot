@@ -1,5 +1,5 @@
-import type { ModelUsageLookup } from "@rakazo/adapter-kit";
-import type { ModelOAuthSignInMode, ModelRoutingField } from "@rakazo/contracts";
+import type { ModelUsageLookup, RealtimeVoice } from "@rakazo/adapter-kit";
+import type { ModelOAuthSignInMode, ModelRoutingField, VoiceTurnMode } from "@rakazo/contracts";
 import { bestEffort } from "@rakazo/logging";
 import {
   CLAUDE_CODE_CREDENTIAL_SOURCE,
@@ -40,6 +40,11 @@ export interface ModelProviderDefinition {
   routingFields?: ModelRoutingField[];
   /** A connection can ask that requests only reach endpoints that keep no prompts or replies. */
   dataRetentionControl?: true;
+  /**
+   * The connection's sign-in also holds realtime voice conversations, such as a subscription's
+   * own voice mode. Its bearer is the connection's current token; loaded when a call starts.
+   */
+  liveVoice?: { turnModes: readonly VoiceTurnMode[]; load(): Promise<RealtimeVoice> };
 }
 
 const bearer = (apiKey: string) => ({ Authorization: `Bearer ${apiKey}` });
@@ -57,6 +62,9 @@ export const modelProviders = {
       billing:
         "Sign in with ChatGPT Plus or Pro. Uses your OpenAI subscription. Superbot does not pay.",
     },
+    // No `liveVoice`: the subscription's voice mode is reached only through an unpublished
+    // signaling endpoint that admits the vendor's own desktop client (its client identity and a
+    // device attestation), so it cannot be implemented from public documentation.
   },
   openai: { recommendedModel: "gpt-6-luna" },
   openrouter: {
@@ -141,6 +149,13 @@ export function modelProviderDefinition(id: string): ModelProviderDefinition | u
   return Object.hasOwn(modelProviders, id)
     ? (modelProviders as Record<string, ModelProviderDefinition>)[id]
     : undefined;
+}
+
+/** Model providers whose sign-in holds realtime voice conversations, in registry order. */
+export function liveVoiceModelProviders(): string[] {
+  return Object.entries(modelProviders as Record<string, ModelProviderDefinition>).flatMap(
+    ([id, definition]) => (definition.liveVoice ? [id] : []),
+  );
 }
 
 async function googleKeyWasRejected(response: Response): Promise<boolean> {

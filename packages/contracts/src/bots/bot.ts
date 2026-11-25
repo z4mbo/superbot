@@ -1,6 +1,7 @@
 import * as z from "zod";
 import { ComputerModeSchema } from "../computers/computer.js";
 import { Id, ReplyModeSchema, ThinkingLevelSchema } from "../ids.js";
+import { VoiceLanguageSchema } from "../models/voice.js";
 import { TEAM_CHAT_RULES_MAX_LENGTH } from "../threads/external-conversations.js";
 import { BotSettingsValuesSchema } from "../threads/message-blocks.js";
 import { AGENT_SECRET_NAME_PATTERN } from "./agent-secret-name.js";
@@ -90,6 +91,8 @@ export const BotSchema = z.object({
   updatedAt: z.string(),
   createdAt: z.string(),
   voiceId: z.string().nullable(),
+  /** The language its voice chats are heard and spoken in; null detects it. */
+  voiceLanguage: z.string().nullable().optional(),
   autoSpeak: z.boolean(),
   modelProvider: z.string().nullable(),
   modelId: z.string().nullable(),
@@ -202,6 +205,8 @@ export const UpdateBotInput = z
     memoryScope: MemoryScopeSchema.nullable().optional(),
     sectionId: Id.nullable().optional(),
     voiceId: z.string().max(120).nullable().optional(),
+    /** Null goes back to detecting the language. */
+    voiceLanguage: VoiceLanguageSchema.nullable().optional(),
     autoSpeak: z.boolean().optional(),
     modelProvider: z.string().trim().min(1).max(80).nullable().optional(),
     modelId: z.string().trim().min(1).max(200).nullable().optional(),

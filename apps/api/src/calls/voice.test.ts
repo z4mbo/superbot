@@ -36,6 +36,8 @@ describe("toVoiceStatus", () => {
       transcribe: true,
       provider: "elevenlabs",
       voiceId: "",
+      dictation: true,
+      live: null,
     });
   });
 
@@ -51,6 +53,8 @@ describe("toVoiceStatus", () => {
       transcribe: false,
       provider: null,
       voiceId: "",
+      dictation: false,
+      live: null,
     });
   });
 });

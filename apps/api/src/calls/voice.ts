@@ -48,6 +48,7 @@ import type { DeploymentVoice } from "../voice/deployment-config.js";
 import { hasDeploymentVoiceConsent } from "../voice/deployment-consent.js";
 import { voiceHttpError } from "../voice/http-errors.js";
 import { withSpeechCost } from "../voice/operator-cost.js";
+import { liveVoiceFor } from "./live-voice-status.js";
 import type { SpeechSummarizer } from "./speech-summary.js";
 
 export interface VoiceDeps {
@@ -106,14 +107,18 @@ export function catalogEntry(provider: string) {
   return voiceCatalogEntry(provider);
 }
 
+/** The default connection's own capabilities; `effectiveVoiceStatus` adds what the account can start. */
 export function toVoiceStatus(cred: { provider: string; voiceId: string } | null): VoiceStatus {
   const entry = cred ? catalogEntry(cred.provider) : undefined;
+  const transcribe = Boolean(entry?.transcribe && cred);
   return {
     configured: Boolean(cred),
     ready: Boolean(cred?.voiceId),
-    transcribe: Boolean(entry?.transcribe && cred),
+    transcribe,
     provider: cred?.provider ?? null,
     voiceId: cred?.voiceId ?? "",
+    dictation: transcribe,
+    live: null,
   };
 }
 
@@ -279,8 +284,24 @@ export async function includedVoice(
   };
 }
 
-/** Status must not decrypt a user's saved connection just to advertise capabilities. */
-export async function effectiveVoiceStatus(deps: VoiceDeps, actor: Actor, scope?: SettingsScope) {
+/**
+ * Status must not decrypt a user's saved connection just to advertise capabilities. `dictation`
+ * and `live` are what the composer offers: speech into the draft, and a full voice mode.
+ */
+export async function effectiveVoiceStatus(
+  deps: VoiceDeps,
+  actor: Actor,
+  scope?: SettingsScope,
+): Promise<VoiceStatus> {
+  const status = await defaultVoiceStatus(deps, actor, scope);
+  return {
+    ...status,
+    dictation: status.transcribe,
+    live: await liveVoiceFor(deps, actor, status, scope),
+  };
+}
+
+async function defaultVoiceStatus(deps: VoiceDeps, actor: Actor, scope?: SettingsScope) {
   const cred = await findDefaultVoiceCredential(deps.prisma, actor, scope);
   if (cred) return toVoiceStatus(cred);
   const included = await includedVoice(deps, actor, scope);

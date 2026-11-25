@@ -22,10 +22,13 @@ type Recording = { locked: boolean; startedAt: number } | null;
  */
 export function useHoldToTalk({
   transcribe,
+  language,
   disabled,
   onText,
 }: {
   transcribe?: boolean;
+  /** The bot's voice language; unset follows the app's language. */
+  language?: string;
   disabled?: boolean;
   onText: (text: string) => void;
 }) {
@@ -87,10 +90,11 @@ export function useHoldToTalk({
       void dictation.listen({
         mode: "hold",
         transcribe,
+        language,
         onFinal: (text) => onTextRef.current(text),
       });
     },
-    [transcribe],
+    [transcribe, language],
   );
 
   const submit = useCallback(() => {

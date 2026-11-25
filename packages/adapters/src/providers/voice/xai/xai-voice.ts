@@ -16,29 +16,29 @@ import {
   readVoiceAudio,
   readVoiceJson,
   speechUploadName,
-  voiceErrorDetail,
   voiceLanguageHint,
-  voiceRequestError,
   voiceUnreachable,
 } from "../../../voice/voice-http.js";
 import type { VoiceProviderDefinition } from "../../../voice/voice-provider-descriptor.js";
+import { XAI_API as API, XAI_PROVIDER_NAME as PROVIDER, xaiRequestError } from "./xai-http.js";
+import { XAI_REALTIME_ORIGIN, XAI_REALTIME_TURN_MODES, XaiRealtimeVoice } from "./xai-realtime.js";
 
 export const XAI_VOICE_PROVIDER_ID = "xai";
 const TRANSCRIPTION_MODEL = "grok-voice-transcribe-2.0";
-const API = "https://api.x.ai/v1";
-const PROVIDER = "xAI";
 
 /**
  * Speech and transcription through xAI. The bearer is either an xAI API key or the access token
  * of a SuperGrok or X Premium sign-in; both reach the same endpoints.
  */
 export class XaiVoiceProvider implements VoiceProvider {
+  readonly realtime = new XaiRealtimeVoice();
+
   describe(): AdapterDescriptor<VoiceCapabilities> {
     return {
       id: XAI_VOICE_PROVIDER_ID,
       contractVersion: "1",
       adapterVersion: "0.1.0",
-      capabilities: { catalog: true, synthesize: true, transcribe: true },
+      capabilities: { catalog: true, synthesize: true, transcribe: true, realtime: true },
     };
   }
 
@@ -150,22 +150,11 @@ export class XaiVoiceProvider implements VoiceProvider {
   }
 }
 
-/** Normalize xAI's account statuses only at its adapter boundary. */
-function xaiRequestError(status: number, what: string, body: unknown): Error {
-  const message = voiceErrorDetail(body);
-  if (status === 400 && /\b(?:incorrect|invalid) api key\b/i.test(message)) status = 401;
-  if (
-    status === 403 &&
-    /\bcredits?\b|billing|paid subscription|account is not active/i.test(message)
-  )
-    status = 402;
-  return voiceRequestError(status, PROVIDER, what, body);
-}
-
 export const xaiVoice: VoiceProviderDefinition = {
   deploymentUsageUnit: (operation) => (operation === "synthesize" ? "characters" : "seconds"),
   synthesisModel: "tts",
   transcriptionModel: TRANSCRIPTION_MODEL,
+  realtime: { turnModes: XAI_REALTIME_TURN_MODES, connectSources: [XAI_REALTIME_ORIGIN] },
   catalog: {
     name: "xAI",
     description: "Expressive Grok voices and transcription, with a key or a Grok sign-in.",

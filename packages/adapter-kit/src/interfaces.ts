@@ -67,6 +67,7 @@ import type {
   PageBrowserResult,
   PortableFile,
   ProcessEvent,
+  RealtimeVoice,
   SandboxCapabilities,
   ScreenRequest,
   ScreenSession,
@@ -700,6 +701,8 @@ export interface VoiceProvider {
     request: VoiceTranscribeRequest,
     context: AdapterContext,
   ): Promise<{ text: string; usage?: VoiceUsage; providerRequestId?: string }>;
+  /** Present when the provider can hold a realtime conversation; see `RealtimeVoice`. */
+  realtime?: RealtimeVoice;
 }
 
 /**
