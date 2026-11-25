@@ -105,6 +105,10 @@ A browser reaches a server only if the device it runs on can. For a server on a 
 
 `apps/web/vercel.json` builds the cloud app from the monorepo and rewrites every path without a file to `index.html`. The project's root directory is `apps/web`. Environment: `VITE_SUPERBOT_CLOUD=1` and `VITE_CLERK_PUBLISHABLE_KEY`.
 
+Deploy from the connected Git repository, not by uploading a checkout with the CLI: the CLI leaves `.pnpmfile.cjs` out of the upload, and the frozen install then fails on the lockfile's checksum for it. The first CLI deployment of a new project also targets production unless told otherwise.
+
+Automated browser tests: the account service's bot check on sign-up does not pass in a headless browser. A normal (headed) browser passes it, and the service's test addresses and code then work as documented.
+
 ### Later
 
 Hosted plans (`kind: "hosted"`, Clerk Billing), the relay, a server-side workspace directory, a content security policy for the hosted origin, and a production Clerk instance with its own Google OAuth credentials.
