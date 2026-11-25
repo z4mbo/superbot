@@ -19,13 +19,14 @@ import {
   prepareManagedConnectorForTransaction,
   providerLockTransaction,
   providerScopeKey,
+  releaseConnectionAppEvents,
   tryLockProviderConnectionScope,
 } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
 import { ClientError } from "@rakazo/core";
 import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { IsolationError, ProviderTransactionBusyError, recordSecurityEvent } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { bestEffort, getLogger } from "@rakazo/logging";
 import { connectionCreatedEvent } from "../auth/security-audit.js";
 import type { RouterDeps } from "../router.js";
 import { recordToolConnected } from "./tool-connect-analytics.js";
@@ -706,6 +707,17 @@ export async function revokeConnection(
     },
   );
 
+  // The row is revoked by now, even when the provider outcome is uncertain: its app events stop.
+  if (snapshot) {
+    await bestEffort(
+      "release a removed connection's app events",
+      releaseConnectionAppEvents(deps, {
+        id: snapshot.id,
+        spaceId: context.actor.spaceId,
+        userId: context.actor.userId,
+      }),
+    );
+  }
   if ("uncertain" in outcome) throw outcome.uncertain;
   return { ok: true as const };
 }

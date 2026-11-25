@@ -59,6 +59,7 @@ import type { MessagingDelivery } from "../../messaging/messaging-delivery.js";
 import type { TeamChat } from "../../messaging/team-chat/team-chat.js";
 import type { ExpoPushProvider } from "../../notifications/expo-push.js";
 import { pollPurchase } from "../../payments/purchase-poll.js";
+import { releaseAppEvent, syncRoutineAppEvents } from "../../routines/routine-app-events.js";
 import { compactHistory } from "../../runtime/context/history-compaction.js";
 import { expireRunSecrets } from "../../secrets/run-secrets-expiry.js";
 import { retrySecretCleanup } from "../../secrets/secret-cleanup.js";
@@ -201,6 +202,22 @@ export function createBackgroundJobHandlers(deps: {
           { prisma: deps.prisma, connectors: deps.connectors, jobs: deps.jobs },
           payload,
         );
+      },
+    ),
+    "routine.app-events": asOwner(routine, async ({ routineId }) => {
+      // Fail rather than finish, so the queue keeps the job for a process that has connectors.
+      if (!deps.connectors) throw new Error("app event sync has no connector registry");
+      await syncRoutineAppEvents(
+        { prisma: deps.prisma, jobs: deps.jobs, connectors: deps.connectors },
+        routineId,
+      );
+    }),
+    // The routine may be gone; the payload names whose subscription it was.
+    "app-event.release": asOwner(
+      async (payload: BackgroundJobPayloads["app-event.release"]) => payload,
+      async (payload) => {
+        if (!deps.connectors) throw new Error("app event release has no connector registry");
+        await releaseAppEvent({ connectors: deps.connectors }, payload);
       },
     ),
     // The machine belongs to no Space: nothing stores it.

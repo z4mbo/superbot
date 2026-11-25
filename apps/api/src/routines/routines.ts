@@ -1,7 +1,14 @@
 import { ORPCError } from "@orpc/server";
 import { routineWakeupJob } from "@rakazo/adapter-kit";
-import { parseRoutineWatch, parseRoutineWatchState, routineRunModelPin } from "@rakazo/adapters";
-import type { Actor, CreateRoutineInput, Routine } from "@rakazo/contracts";
+import type { AppEventConnectors } from "@rakazo/adapters";
+import {
+  parseRoutineWatch,
+  parseRoutineWatchState,
+  resolveRoutineAppEvents,
+  routineAppEventViews,
+  routineRunModelPin,
+} from "@rakazo/adapters";
+import type { Actor, CreateRoutineInput, Routine, RoutineAppEventInput } from "@rakazo/contracts";
 import { canonicalPiProviderId, RoutineEmailSendersSchema } from "@rakazo/contracts";
 import {
   ClientError,
@@ -125,6 +132,7 @@ export function mapRoutine(row: {
     thinkingLevel: (row.thinkingLevel as Routine["thinkingLevel"]) ?? null,
     watch: parseRoutineWatch(row.watch),
     watchState: parseRoutineWatchState(row.watchState),
+    appEvents: [],
     lastRunAt: row.lastRunAt?.toISOString() ?? null,
     nextRunAt: row.nextRunAt?.toISOString() ?? null,
     scheduleDelayed: routineScheduleDelayed({
@@ -137,16 +145,54 @@ export function mapRoutine(row: {
 
 type RoutineRow = Parameters<typeof mapRoutine>[0] & { userId: string };
 
+type ViewDeps = { prisma: PrismaClient; connectors?: AppEventConnectors };
+
+/**
+ * The app events a save asks for, checked against the owner's connections. Deliveries run as the
+ * bot's creator, so only their routines take app events: anyone else's would never start.
+ */
+export async function resolveAppEvents(
+  deps: ViewDeps,
+  actor: Actor,
+  bot: { userId: string },
+  inputs: readonly RoutineAppEventInput[],
+) {
+  if (!inputs.length) return { events: [], watch: null };
+  if (bot.userId !== actor.userId) {
+    throw new ClientError(
+      "BAD_REQUEST",
+      "Only the bot's creator can start its routines from app events.",
+    );
+  }
+  const resolved = await resolveRoutineAppEvents(deps, actor, inputs);
+  if ("error" in resolved) throw new ClientError("BAD_REQUEST", resolved.error);
+  return resolved;
+}
+
+/** A routine checks one thing for changes; an app event its provider doesn't push takes that slot. */
+export const CHECKED_APP_EVENT_CONFLICT =
+  "This app event is checked for changes, like a change trigger; remove the other change trigger or schedule.";
+
 /**
  * The routines as a member of the Space sees them, each with whose accounts it runs with: the
  * owner's display name and whether that is the viewer, never their id or email.
  */
 export async function routineViews(
-  prisma: PrismaClient,
+  deps: ViewDeps,
   actor: Actor,
   rows: RoutineRow[],
+  /** A mention only names the routine, so it leaves its app events out. */
+  options: { appEvents?: boolean } = {},
 ): Promise<Routine[]> {
   if (rows.length === 0) return [];
+  const { prisma } = deps;
+  const appEvents =
+    options.appEvents === false
+      ? new Map<string, never[]>()
+      : await routineAppEventViews(
+          deps,
+          rows.map((row) => row.id),
+        );
   const owners = await prisma.spaceMember.findMany({
     where: { spaceId: actor.spaceId, userId: { in: [...new Set(rows.map((row) => row.userId))] } },
     select: {
@@ -163,8 +209,13 @@ export async function routineViews(
   );
   return rows.map((row) => {
     const name = names.get(row.userId);
+    const events = appEvents.get(row.id) ?? [];
+    // An app event's change check is the event's, not a change trigger of its own.
+    const checked = events.some((event) => event.checked);
     return {
       ...mapRoutine(row),
+      ...(checked ? { watch: null, watchState: null } : {}),
+      appEvents: events,
       editable: row.userId === actor.userId,
       runsAs:
         name === undefined
@@ -175,12 +226,8 @@ export async function routineViews(
 }
 
 /** One routine as `routineViews` shows it, for the one a member just created or changed. */
-export async function routineView(
-  prisma: PrismaClient,
-  actor: Actor,
-  row: RoutineRow,
-): Promise<Routine> {
-  const [view] = await routineViews(prisma, actor, [row]);
+export async function routineView(deps: ViewDeps, actor: Actor, row: RoutineRow): Promise<Routine> {
+  const [view] = await routineViews(deps, actor, [row]);
   if (!view) throw new IsolationError();
   return view;
 }
@@ -190,7 +237,7 @@ export async function listRoutinesDto(deps: RouterDeps, actor: Actor, botId: str
   const rows = await deps.prisma.routine.findMany({
     where: { botId, spaceId: actor.spaceId },
   });
-  return routineViews(deps.prisma, actor, rows);
+  return routineViews(deps, actor, rows);
 }
 
 export function createRoutineAnnouncer(deps: RouterDeps) {

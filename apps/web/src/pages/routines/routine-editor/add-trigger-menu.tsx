@@ -1,4 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import type { AppEventSource } from "@rakazo/contracts";
+import { ROUTINE_APP_EVENTS_MAX } from "@rakazo/contracts";
 import type { CronFreq, CronPreset } from "@rakazo/core";
 import { cronFromPreset, defaultCronPreset } from "@rakazo/core";
 import {
@@ -11,10 +13,11 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@rakazo/ui-web";
-import { Clock, Eye, GitBranch, Globe, Mail, MessageSquare, Plus } from "lucide-react";
+import { Clock, Eye, GitBranch, Globe, Mail, MessageSquare, Plus, Zap } from "lucide-react";
 import { cronFreqLabel } from "../../../lib/routines/cron";
 import type { RoutineDraftState } from "../../../lib/routines/routine-draft";
 import { emptyWatchDraft } from "../../../lib/routines/routine-draft";
+import { newAppEventDraft } from "./app-event-card";
 
 const SCHEDULE_PRESETS: CronFreq[] = [
   "Every hour",
@@ -26,7 +29,7 @@ const SCHEDULE_PRESETS: CronFreq[] = [
   "Advanced",
 ];
 
-/** The menu that adds a schedule, message, change, email, Git, or webhook trigger. */
+/** The menu that adds a schedule, message, change, app, email, Git, or webhook trigger. */
 export function AddTriggerMenu({
   draft,
   onChange,
@@ -35,6 +38,7 @@ export function AddTriggerMenu({
   emailAvailable,
   webhookConfigured,
   onEnsureWebhook,
+  appEventSources,
 }: {
   draft: RoutineDraftState;
   onChange: (next: RoutineDraftState) => void;
@@ -44,10 +48,14 @@ export function AddTriggerMenu({
   emailAvailable: boolean;
   webhookConfigured: boolean;
   onEnsureWebhook: () => Promise<void>;
+  /** The viewer's connected apps that can start routines. */
+  appEventSources: readonly AppEventSource[];
 }) {
   const { t } = useLingui();
   const slackAvailable = messageProviders.includes("slack");
   const slackDisabledReasonId = `${fieldId}-slack-disabled-reason`;
+  const firstAppEvent = appEventSources.map(newAppEventDraft).find(Boolean) ?? null;
+  const appEventReasonId = `${fieldId}-app-event-disabled-reason`;
 
   function addSchedule(freq: CronFreq) {
     const base = defaultCronPreset();
@@ -118,6 +126,25 @@ export function AddTriggerMenu({
           <Eye />
           <Trans>When something changes</Trans>
         </DropdownMenuItem>
+
+        <span className="block" title={firstAppEvent ? undefined : t`Connect an app first`}>
+          <DropdownMenuItem
+            disabled={!firstAppEvent || draft.appEvents.length >= ROUTINE_APP_EVENTS_MAX}
+            aria-describedby={firstAppEvent ? undefined : appEventReasonId}
+            onClick={() =>
+              firstAppEvent &&
+              onChange({ ...draft, appEvents: [...draft.appEvents, firstAppEvent] })
+            }
+          >
+            <Zap />
+            <Trans>App event</Trans>
+          </DropdownMenuItem>
+          {firstAppEvent ? null : (
+            <span id={appEventReasonId} className="sr-only">
+              <Trans>Connect an app first</Trans>
+            </span>
+          )}
+        </span>
 
         {emailAvailable ? (
           <DropdownMenuItem

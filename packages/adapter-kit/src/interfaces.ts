@@ -1,4 +1,5 @@
 import type { ComputerSize } from "@rakazo/contracts";
+import type { ConnectorEventSource } from "./connector-events.js";
 import type { ConnectedCalendarProvider } from "./personal-calendar.js";
 import type {
   AdapterContext,
@@ -322,6 +323,7 @@ export interface ConnectionAuthProvider {
 /** A connector that also owns an end-user app catalog and connection lifecycle. */
 export interface ManagedConnectorProvider
   extends ConnectorProvider,
+    ConnectorEventSource,
     Omit<ConnectionAuthProvider, "describe"> {
   calendarProvider?: ConnectedCalendarProvider;
   catalog(context: AdapterContext, query?: string): Promise<ConnectorCatalogItem[]>;

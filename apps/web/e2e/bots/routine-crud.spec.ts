@@ -569,3 +569,60 @@ test("an HTTPS change trigger saves and reopens", async ({ page }, testInfo) => 
   await expect(fields).toHaveValue("id, modifiedTime");
   await expect(card.getByRole("switch", { name: "Report unchanged checks" })).toBeChecked();
 });
+
+test("an app event trigger picks an event and its repository from a connected app", async ({
+  page,
+}, testInfo) => {
+  await signup(page, `routine-app-event-${Date.now()}@rakazo.test`, "password12", "App events");
+  await completeOnboarding(page);
+  // The test server connects no integration provider, so the connected app is the page's own.
+  const repository = { key: "repository", label: "Repository", placeholder: "owner/name" };
+  await page.route("**/rpc/routines/appEventSources", (route) =>
+    route.fulfill({
+      json: {
+        json: [
+          {
+            app: "github",
+            name: "GitHub",
+            connections: [{ id: "connection-github", name: "GitHub" }],
+            events: [
+              { id: "issue_added", label: "New issue", params: [repository] },
+              { id: "pull_request", label: "Pull request opened or changed", params: [repository] },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+  await openBotPanel(page);
+  await page.getByTestId("routine-create-button").click();
+  await page.locator("label:has-text('Name') input").fill("Review pull requests");
+  await page.locator("label:has-text('Instruction') textarea").fill("Review the pull request.");
+  await page.getByRole("button", { name: "Add trigger" }).click();
+  await page.getByRole("menuitem", { name: "App event" }).click();
+
+  const card = page.getByTestId("routine-app-event-card");
+  await expect(card).toContainText("GitHub: New issue");
+  await chooseOption(
+    card.getByRole("combobox", { name: "Event" }),
+    "Pull request opened or changed",
+  );
+  await card.getByRole("textbox", { name: "Repository" }).fill("octo/hello");
+  await expect(card).toContainText("GitHub: Pull request opened or changed");
+  await captureScreenshot(page, testInfo, "routine-app-event-trigger");
+
+  // The server checks the account itself, and this one is not really connected.
+  const request = page.waitForRequest((sent) => sent.url().includes("/rpc/routines/create"));
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await request).postDataJSON().json).toMatchObject({
+    appEvents: [
+      {
+        app: "github",
+        event: "pull_request",
+        connectionId: "connection-github",
+        params: { repository: "octo/hello" },
+      },
+    ],
+  });
+  await expect(page.getByRole("alert")).toHaveText("Connect the app first, then add its event.");
+});

@@ -1,11 +1,16 @@
 import { ORPCError } from "@orpc/server";
 import { routineJobKey, routineWakeupJob } from "@rakazo/adapter-kit";
 import {
+  hasCheckedAppEvent,
+  listAppEventSources,
   parseRoutineWatch,
   postRoutineNotice,
   RoutineWatchError,
+  releaseRoutineAppEventsIn,
   routineEditChange,
   routineEdited,
+  saveRoutineAppEventsIn,
+  settleRoutineAppEvents,
   stableStringify,
   validateRoutineWatch,
   wakeRun,
@@ -24,10 +29,12 @@ import { assertEmailTrigger } from "../email/bot-email-address.js";
 import { listRoutineRuns } from "../routines/routine-runs.js";
 import {
   assertRoutineSchedule,
+  CHECKED_APP_EVENT_CONFLICT,
   createRoutineTestRun,
   firstWatchCheck,
   listRoutinesDto,
   nextRoutineDate,
+  resolveAppEvents,
   routineNextRunAt,
   routineRowData,
   routineTestRunNonce,
@@ -69,12 +76,15 @@ export function routinesRoutes(ctx: RouterContext) {
         const rows = await deps.prisma.routine.findMany({
           where: { botId: { in: bots.map((bot) => bot.id) }, spaceId: actor.spaceId },
         });
-        const views = await routineViews(deps.prisma, actor, rows);
+        const views = await routineViews(deps, actor, rows, { appEvents: false });
         return bots.map((bot) => ({
           botId: bot.id,
           routines: views.filter((routine) => routine.botId === bot.id),
         }));
       }),
+      appEventSources: authed.routines.appEventSources.handler(({ context }) =>
+        listAppEventSources(deps, context.actor),
+      ),
       history: authed.routines.history.handler(async ({ context, input }) =>
         listRoutineRuns(deps.prisma, context.actor, input.routineId, input.before, input.limit),
       ),
@@ -90,9 +100,19 @@ export function routinesRoutes(ctx: RouterContext) {
           await assertEmailTrigger(deps.prisma, deps.env.inboundEmailDomain, bot.id);
         }
         await assertRoutineModel(deps, context.actor, input, codexCatalog);
-        const row = await deps.prisma.routine.create({
-          data: routineRowData(context.actor, input, routineNextRunAt(input)),
+        const appEvents = await resolveAppEvents(deps, context.actor, bot, input.appEvents);
+        if (appEvents.watch && (input.watch || input.crons.length > 0)) {
+          throw new ClientError("BAD_REQUEST", CHECKED_APP_EVENT_CONFLICT);
+        }
+        const saved = { ...input, watch: input.watch ?? appEvents.watch };
+        const { row, releases } = await deps.prisma.$transaction(async (tx) => {
+          const row = await tx.routine.create({
+            data: routineRowData(context.actor, saved, routineNextRunAt(saved)),
+          });
+          const releases = await saveRoutineAppEventsIn(tx, deps.jobs, row, appEvents.events);
+          return { row, releases };
         });
+        await settleRoutineAppEvents(deps, appEvents.events.length ? row.id : null, releases);
         await announceRoutine(context.actor, bot, row);
         await postRoutineNotice(deps, {
           spaceId: context.actor.spaceId,
@@ -101,7 +121,7 @@ export function routinesRoutes(ctx: RouterContext) {
           change: "created",
           name: row.name,
         });
-        return await routineView(deps.prisma, context.actor, row);
+        return await routineView(deps, context.actor, row);
       }),
       update: authed.routines.update.handler(async ({ context, input }) => {
         // Archived bots keep their routines paused, so resolve an active parent before any write.
@@ -164,20 +184,52 @@ export function routinesRoutes(ctx: RouterContext) {
         if (modelChanged) {
           await assertRoutineModel(deps, context.actor, { modelProvider, modelId }, codexCatalog);
         }
-        const watch = input.watch === undefined ? parseRoutineWatch(existing.watch) : input.watch;
+        const appEvents =
+          input.appEvents === undefined
+            ? undefined
+            : await resolveAppEvents(deps, context.actor, bot, input.appEvents);
+        // An app event its provider doesn't push is the routine's change check; a change trigger
+        // the owner set is theirs. The routine holds one.
+        const checkedBefore = await hasCheckedAppEvent(deps.prisma, existing.id);
+        const ownWatch =
+          input.watch !== undefined
+            ? input.watch
+            : checkedBefore
+              ? null
+              : parseRoutineWatch(existing.watch);
+        const checkedWatch = appEvents
+          ? appEvents.watch
+          : checkedBefore
+            ? parseRoutineWatch(existing.watch)
+            : null;
+        if (ownWatch && checkedWatch) {
+          throw new ClientError("BAD_REQUEST", CHECKED_APP_EVENT_CONFLICT);
+        }
+        const watchInput =
+          input.watch !== undefined || appEvents !== undefined
+            ? (ownWatch ?? checkedWatch)
+            : undefined;
+        const watch = watchInput === undefined ? parseRoutineWatch(existing.watch) : watchInput;
         if (input.watch) await assertRoutineWatch(input.watch, context.actor, bot);
         const watchChanged =
-          input.watch !== undefined &&
-          stableStringify(input.watch) !== stableStringify(parseRoutineWatch(existing.watch));
+          watchInput !== undefined &&
+          stableStringify(watchInput) !== stableStringify(parseRoutineWatch(existing.watch));
+        const appEventCount =
+          appEvents?.events.length ??
+          (await deps.prisma.routineAppEvent.count({ where: { routineId: existing.id } }));
         if (
           crons.length === 0 &&
           !webhookEnabled &&
           !githubEnabled &&
           !messageProvider &&
           !emailSenders &&
-          !watch
+          !watch &&
+          appEventCount === 0
         ) {
           throw new ORPCError("BAD_REQUEST", { message: ROUTINE_TRIGGER_REQUIRED });
+        }
+        if (checkedWatch && crons.length > 0) {
+          throw new ClientError("BAD_REQUEST", CHECKED_APP_EVENT_CONFLICT);
         }
         if (watch && crons.length > 0) {
           throw new ORPCError("BAD_REQUEST", {
@@ -250,67 +302,78 @@ export function routinesRoutes(ctx: RouterContext) {
         // Re-check the parent in the write itself so an archive that lands after the read wins.
         // Model and schedule patches must also match the snapshot they were computed from, so a
         // tick that fired after the read is not rewound onto an occurrence that already ran.
-        const row = await deps.prisma.routine
-          .update({
-            where: {
-              id: existing.id,
-              bot: { archivedAt: null },
-              // Optimistic fence: every write must match the snapshot it was
-              // computed from, so concurrent edits never silently overwrite
-              // each other's prompt/name/notify/any other field.
-              updatedAt: existing.updatedAt,
-              ...(touchesModel
-                ? {
-                    modelProvider: existing.modelProvider,
-                    modelId: existing.modelId,
-                    thinkingLevel: existing.thinkingLevel,
-                  }
-                : {}),
-              ...(writesSchedule ? { nextRunAt: existing.nextRunAt } : {}),
-              ...(writesActive ? { active: existing.active } : {}),
-            },
-            data: {
-              name: input.name,
-              prompt: input.prompt,
-              crons: input.crons,
-              timezone: input.timezone,
-              active: input.active,
-              // An explicit on or off is the member's own choice, so a restore must not undo it.
-              ...(input.active !== undefined ? { resumeOnRestore: false } : {}),
-              notify: input.notify,
-              // What a watch read is not the owner's words, so it never runs as a turn in the chat.
-              inChat: watch ? false : input.inChat,
-              webhookEnabled: input.webhookEnabled,
-              githubEnabled: input.githubEnabled,
-              messageProvider: input.messageProvider,
-              emailSenders: input.emailSenders,
-              ...(touchesModel ? { modelProvider, modelId, thinkingLevel } : {}),
-              // A changed watch starts from a fresh baseline.
-              ...(input.watch === undefined
-                ? {}
-                : { watch: (input.watch as Prisma.InputJsonValue | null) ?? Prisma.DbNull }),
-              ...(watchChanged ? { watchState: Prisma.DbNull } : {}),
-              ...(writesSchedule ? { nextRunAt } : {}),
-            },
-          })
-          .catch(async (error: unknown) => {
-            if (isRecordNotFound(error)) {
-              if (
-                await deps.prisma.routine.findFirst({
-                  where: {
-                    id: existing.id,
-                    spaceId: context.actor.spaceId,
-                    bot: { archivedAt: null },
-                  },
-                  select: { id: true },
-                })
-              ) {
-                throw new ClientError("CONFLICT", "Routine changed; retry.");
+        const { row, releases } = await deps.prisma.$transaction(async (tx) => {
+          const row = await tx.routine
+            .update({
+              where: {
+                id: existing.id,
+                bot: { archivedAt: null },
+                // Optimistic fence: every write must match the snapshot it was
+                // computed from, so concurrent edits never silently overwrite
+                // each other's prompt/name/notify/any other field.
+                updatedAt: existing.updatedAt,
+                ...(touchesModel
+                  ? {
+                      modelProvider: existing.modelProvider,
+                      modelId: existing.modelId,
+                      thinkingLevel: existing.thinkingLevel,
+                    }
+                  : {}),
+                ...(writesSchedule ? { nextRunAt: existing.nextRunAt } : {}),
+                ...(writesActive ? { active: existing.active } : {}),
+              },
+              data: {
+                name: input.name,
+                prompt: input.prompt,
+                crons: input.crons,
+                timezone: input.timezone,
+                active: input.active,
+                // An explicit on or off is the member's own choice, so a restore must not undo it.
+                ...(input.active !== undefined ? { resumeOnRestore: false } : {}),
+                notify: input.notify,
+                // What a watch read is not the owner's words, so it never runs as a turn in the chat.
+                inChat: watch ? false : input.inChat,
+                webhookEnabled: input.webhookEnabled,
+                githubEnabled: input.githubEnabled,
+                messageProvider: input.messageProvider,
+                emailSenders: input.emailSenders,
+                ...(touchesModel ? { modelProvider, modelId, thinkingLevel } : {}),
+                // A changed watch starts from a fresh baseline.
+                ...(watchInput === undefined
+                  ? {}
+                  : { watch: (watchInput as Prisma.InputJsonValue | null) ?? Prisma.DbNull }),
+                ...(watchChanged ? { watchState: Prisma.DbNull } : {}),
+                ...(writesSchedule ? { nextRunAt } : {}),
+              },
+            })
+            .catch(async (error: unknown) => {
+              if (isRecordNotFound(error)) {
+                if (
+                  await deps.prisma.routine.findFirst({
+                    where: {
+                      id: existing.id,
+                      spaceId: context.actor.spaceId,
+                      bot: { archivedAt: null },
+                    },
+                    select: { id: true },
+                  })
+                ) {
+                  throw new ClientError("CONFLICT", "Routine changed; retry.");
+                }
+                throw new ClientError("NOT_FOUND", "Not Found");
               }
-              throw new ClientError("NOT_FOUND", "Not Found");
-            }
-            throw error;
+              throw error;
+            });
+          const releases = await saveRoutineAppEventsIn(tx, deps.jobs, row, appEvents?.events, {
+            syncNeeded: existing.active !== row.active,
           });
+          return { row, releases };
+        });
+        await settleRoutineAppEvents(
+          deps,
+          appEvents !== undefined || existing.active !== row.active ? row.id : null,
+          releases,
+        );
         if (bot.thread) {
           await deps.events.append({
             spaceId: context.actor.spaceId,
@@ -342,15 +405,26 @@ export function routinesRoutes(ctx: RouterContext) {
             name: row.name,
           });
         }
-        return await routineView(deps.prisma, context.actor, row);
+        return await routineView(deps, context.actor, row);
       }),
       remove: authed.routines.remove.handler(async ({ context, input }) => {
         // Any member can delete a routine, as they can turn it off.
         const existing = await deps.prisma.routine.findFirst({
           where: { id: input.routineId, spaceId: context.actor.spaceId },
+          include: { appEvents: { where: { handle: { not: null } }, select: { id: true } } },
         });
         if (!existing) throw new IsolationError();
-        await deps.prisma.routine.delete({ where: { id: existing.id } });
+        // Its subscriptions go with it: their release jobs commit with the delete.
+        if (existing.appEvents?.length) {
+          const releases = await deps.prisma.$transaction(async (tx) => {
+            const releases = await releaseRoutineAppEventsIn(tx, deps.jobs, existing);
+            await tx.routine.delete({ where: { id: existing.id } });
+            return releases;
+          });
+          await settleRoutineAppEvents(deps, null, releases);
+        } else {
+          await deps.prisma.routine.delete({ where: { id: existing.id } });
+        }
         await deps.jobs.cancel(routineJobKey(existing.id));
         await postRoutineNotice(deps, {
           spaceId: context.actor.spaceId,

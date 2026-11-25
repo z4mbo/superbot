@@ -3,6 +3,7 @@ import { hasValidBearerToken } from "@rakazo/core/node/secrets-guard";
 import type { Hono } from "hono";
 import { readBoundedBody } from "../http/http-body.js";
 import { formatWebhookPrompt } from "../messaging/inbound-delivery.prompt.js";
+import { mountAppEventWebhookRoute } from "./app-event-webhook.js";
 import { mountGithubWebhookRoute } from "./github-webhook.js";
 import type { WebhookDeps, WebhookSecretCache } from "./webhook-inbound.js";
 import {
@@ -105,4 +106,5 @@ export function mountWebhookHttpRoutes(app: Hono, deps: WebhookDeps) {
   });
 
   mountGithubWebhookRoute(app, deps, secretCache);
+  mountAppEventWebhookRoute(app, deps);
 }

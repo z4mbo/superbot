@@ -83,6 +83,8 @@ import { createJobReconciler } from "../wakeups/job-reconciler.js";
 export interface RunRuntimeEnv extends PipedreamEnvironmentValues {
   dataDir: string;
   composioApiKey: string | undefined;
+  /** Signs the integration provider's app event deliveries; without it, app events are polled. */
+  composioWebhookSecret?: string;
   cursorApiKey: string | undefined;
   deploymentModelKey: string | undefined;
   deploymentModelConfigured: boolean;
@@ -116,6 +118,7 @@ export function runRuntimeEnvFromProcess(source: NodeJS.ProcessEnv): RunRuntimeE
     dataDir: source.DATA_DIR ?? "./data",
     encryptionKey: resolveEncryptionKey(source),
     composioApiKey: source.COMPOSIO_API_KEY,
+    composioWebhookSecret: source.COMPOSIO_WEBHOOK_SECRET?.trim() || undefined,
     cursorApiKey: source.CURSOR_API_KEY,
     deploymentModelKey: deploymentModel.key,
     deploymentModelConfigured: deploymentModel.configured,
@@ -199,7 +202,10 @@ export function createConnectorRuntime(
     composio:
       composio ??
       (isComposioEnabled(env.composioApiKey)
-        ? new ComposioConnector({ apiKey: env.composioApiKey })
+        ? new ComposioConnector({
+            apiKey: env.composioApiKey,
+            webhookSecret: env.composioWebhookSecret,
+          })
         : undefined),
     pipedream,
   });
@@ -311,6 +317,7 @@ export function createRunRuntime(
       env.deploymentModelKey ?? "",
       localModelsApiKey() ?? "",
       env.composioApiKey ?? "",
+      env.composioWebhookSecret ?? "",
       env.cursorApiKey ?? "",
       process.env.TYPESAFE_API_KEY ?? "",
     ].filter(Boolean),

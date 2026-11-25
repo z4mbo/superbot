@@ -1,6 +1,7 @@
 import * as z from "zod";
 import { TimeZoneSchema } from "../account/preferences.js";
 import { Id, ThinkingLevelSchema } from "../ids.js";
+import { RoutineAppEventSchema, RoutineAppEventsInputSchema } from "./routine-app-event.js";
 import { RoutineWatchSchema, RoutineWatchStateSchema } from "./routine-watch.js";
 
 /**
@@ -37,7 +38,7 @@ export function routineModelIssues(
 export const ROUTINE_MENTION_BATCH_MAX = 100;
 
 export const ROUTINE_TRIGGER_REQUIRED =
-  "Add a schedule, webhook, GitHub, message, email, or change trigger";
+  "Add a schedule, webhook, GitHub, message, email, app event, or change trigger";
 
 /** Whose authenticated mail starts an email routine: the bot owner, or anyone at the owner's domain. */
 export const RoutineEmailSendersSchema = z.enum(["owner", "domain"]);
@@ -71,6 +72,8 @@ export const RoutineSchema = z.object({
   /** Null unless the routine starts when something changes. */
   watch: RoutineWatchSchema.nullable(),
   watchState: RoutineWatchStateSchema.nullable(),
+  /** Events from connected apps that start it. Absent on older servers. */
+  appEvents: z.array(RoutineAppEventSchema).optional(),
   lastRunAt: z.string().nullable(),
   nextRunAt: z.string().nullable(),
   /** Computed by the server; absent on older servers. Not a worker-health diagnosis. */
@@ -115,6 +118,7 @@ export const CreateRoutineInput = z
     modelId: z.string().trim().min(1).max(200).nullable().default(null),
     thinkingLevel: ThinkingLevelSchema.nullable().default(null),
     watch: RoutineWatchSchema.nullable().default(null),
+    appEvents: RoutineAppEventsInputSchema.default([]),
   })
   .superRefine((value, ctx) => {
     routineModelIssues(value, ctx);
@@ -124,7 +128,8 @@ export const CreateRoutineInput = z
       !value.githubEnabled &&
       !value.messageProvider &&
       !value.emailSenders &&
-      !value.watch
+      !value.watch &&
+      value.appEvents.length === 0
     ) {
       ctx.addIssue({
         code: "custom",

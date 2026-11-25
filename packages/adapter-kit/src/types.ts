@@ -1114,6 +1114,13 @@ export interface BackgroundJobPayloads {
     provider: string;
     ref?: string;
   };
+  /**
+   * Backup for making a routine's app event subscriptions match the routine: made while it is on,
+   * removed while it is off, and made again when the provider lets one lapse.
+   */
+  "routine.app-events": { routineId: string };
+  /** Backup for removing one app event subscription at its provider once no routine has it. */
+  "app-event.release": { spaceId: string; userId: string; connectorId: string; handle: string };
   /** Deletes a provider machine once no stored computer points at it and none may still keep it. */
   "computer.machine-cleanup": UnreferencedMachine;
   /** Backup for answering one inbound team-chat message, and the end of its routine routing. */

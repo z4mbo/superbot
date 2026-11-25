@@ -77,6 +77,7 @@ export * from "./models/voice-connection-ui.js";
 export * from "./models/voice-errors.js";
 export * from "./personal-calendar/personal-calendar.js";
 export * from "./routines/routine.js";
+export * from "./routines/routine-app-event.js";
 export * from "./routines/routine-watch.js";
 export * from "./rpc/app-contract.js";
 export * from "./runs/runs.js";

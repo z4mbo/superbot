@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   ConnectedAccountListParams,
   ConnectedAccountListResponse,
@@ -15,6 +16,7 @@ import {
 } from "../../../routines/release-watch.js";
 import type { ToolkitDirectoryEntry } from "./composio-catalog-cache.js";
 import type { ComposioClient, ComposioSession } from "./composio-connector.js";
+import { signComposioDelivery } from "./composio-events.js";
 
 type SessionTools = Awaited<ReturnType<ComposioSession["tools"]>>;
 type ToolkitPage = Awaited<ReturnType<ComposioSession["toolkits"]>>;
@@ -227,6 +229,66 @@ export class FakeComposioClient implements ComposioClient {
       return session;
     },
   };
+
+  /** Trigger instances by id, as the vendor keeps them; deleting one twice is a 404. */
+  readonly triggerInstances = new Map<
+    string,
+    { userId: string; slug: string; connectedAccountId?: string; config: Record<string, unknown> }
+  >();
+  /** When set, creating a trigger fails with this message, as a refused repository does. */
+  failTriggerCreate: string | undefined;
+
+  readonly triggers: NonNullable<ComposioClient["triggers"]> = {
+    create: async (userId, slug, body) => {
+      if (this.failTriggerCreate) throw new Error(this.failTriggerCreate);
+      const accountId = body?.connectedAccountId;
+      if (accountId && !this.accounts.some((a) => a.id === accountId && a.userId === userId)) {
+        throw notFound(`Connected account ${accountId} not found`);
+      }
+      // Trigger ids are unique across the vendor's projects, so across fakes too.
+      const triggerId = `ti_${randomUUID()}`;
+      this.triggerInstances.set(triggerId, {
+        userId,
+        slug,
+        ...(accountId ? { connectedAccountId: accountId } : {}),
+        config: body?.triggerConfig ?? {},
+      });
+      return { triggerId, type: "webhook", fallbackReason: null, pollingInterval: null };
+    },
+    delete: async (triggerId) => {
+      if (!this.triggerInstances.delete(triggerId))
+        throw notFound(`Trigger ${triggerId} not found`);
+      return { triggerId };
+    },
+  };
+
+  /** A trigger delivery in the vendor's current payload version, signed with `secret`. */
+  triggerDelivery(
+    triggerId: string,
+    data: Record<string, unknown>,
+    secret: string,
+    options: { id?: string; timestamp?: number } = {},
+  ): { headers: Headers; body: Uint8Array } {
+    const instance = this.triggerInstances.get(triggerId);
+    const body = JSON.stringify({
+      id: options.id ?? `msg_${triggerId}`,
+      type: "composio.trigger.message",
+      timestamp: new Date(options.timestamp ?? Date.now()).toISOString(),
+      metadata: {
+        trigger_id: triggerId,
+        trigger_slug: instance?.slug ?? "UNKNOWN",
+        user_id: instance?.userId ?? "",
+        connected_account_id: instance?.connectedAccountId ?? "",
+        auth_config_id: "ac_fake",
+        log_id: `log_${triggerId}`,
+      },
+      data,
+    });
+    return {
+      headers: signComposioDelivery(secret, body, options),
+      body: new TextEncoder().encode(body),
+    };
+  }
 
   getClient(): ReturnType<ComposioClient["getClient"]> {
     return {

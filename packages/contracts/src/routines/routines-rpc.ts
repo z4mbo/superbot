@@ -15,6 +15,7 @@ import {
   RoutineEmailSendersSchema,
   RoutineSchema,
 } from "./routine.js";
+import { AppEventSourceSchema, RoutineAppEventsInputSchema } from "./routine-app-event.js";
 import { RoutineWatchSchema } from "./routine-watch.js";
 
 export const routinesRpc = {
@@ -23,6 +24,8 @@ export const routinesRpc = {
       .input(z.object({ botIds: z.array(Id).min(1).max(ROUTINE_MENTION_BATCH_MAX) }))
       .output(z.array(z.object({ botId: Id, routines: z.array(RoutineSchema) }))),
     list: oc.input(botId).output(z.array(RoutineSchema)),
+    /** The viewer's connected apps that can start routines, with their events. */
+    appEventSources: oc.output(z.array(AppEventSourceSchema)),
     history: oc
       .input(
         z.object({
@@ -64,6 +67,8 @@ export const routinesRpc = {
             runAt: IsoDate.optional(),
             /** Null removes the change trigger. */
             watch: RoutineWatchSchema.nullable().optional(),
+            /** Replaces the routine's app events; an empty list removes them. */
+            appEvents: RoutineAppEventsInputSchema.optional(),
           })
           .superRefine((value, ctx) => {
             if (
@@ -73,7 +78,8 @@ export const routinesRpc = {
               value.githubEnabled === false &&
               value.messageProvider === null &&
               value.emailSenders === null &&
-              value.watch === null
+              value.watch === null &&
+              value.appEvents?.length === 0
             ) {
               ctx.addIssue({
                 code: "custom",

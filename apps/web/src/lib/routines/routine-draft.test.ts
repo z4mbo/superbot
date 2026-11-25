@@ -6,6 +6,7 @@ vi.mock("@lingui/core/macro", () => ({
 
 import type { Routine } from "@rakazo/contracts";
 import {
+  appEventsFromDraft,
   draftStateFromRoutine,
   emptyRoutineDraftState,
   emptyWatchDraft,
@@ -110,4 +111,30 @@ it("reads whether a routine runs in the chat", () => {
   expect(emptyRoutineDraftState().inChat).toBe(false);
   expect(draftStateFromRoutine(routine).inChat).toBe(true);
   expect(draftStateFromRoutine({ ...routine, inChat: false }).inChat).toBe(false);
+});
+
+describe("appEventsFromDraft", () => {
+  it("sends what the person chose, without the server's notes or blank settings", () => {
+    expect(
+      appEventsFromDraft([
+        {
+          app: "gmail",
+          event: "new_message",
+          connectionId: "connection-1",
+          params: { query: "  ", label: " Alerts " },
+          label: "Gmail: New email",
+          checked: true,
+          error: null,
+        },
+      ]),
+    ).toEqual([
+      {
+        app: "gmail",
+        event: "new_message",
+        connectionId: "connection-1",
+        params: { label: "Alerts" },
+      },
+    ]);
+    expect(emptyRoutineDraftState().appEvents).toEqual([]);
+  });
 });

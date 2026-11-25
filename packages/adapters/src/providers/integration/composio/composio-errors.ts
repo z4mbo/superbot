@@ -7,6 +7,12 @@ export function isComposioOutage(error: unknown): boolean {
   return typeof status === "number" && (status === 408 || status === 429 || status >= 500);
 }
 
+export function isComposioNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { status?: unknown; statusCode?: unknown };
+  return candidate.status === 404 || candidate.statusCode === 404;
+}
+
 /** The session named a connected account the provider no longer has for this user. */
 export function isStaleConnectedAccountError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
