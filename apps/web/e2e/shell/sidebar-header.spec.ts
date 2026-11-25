@@ -12,7 +12,7 @@ test("the sidebar header offers search and create, and the roster always shows",
   await page.reload();
 
   const aside = page.locator("aside").first();
-  await expect(aside.locator("[data-sidebar-group]").getByText("Chief").first()).toBeVisible();
+  await expect(aside.locator("[data-sidebar-group]").getByText("Superbot", { exact: true }).first()).toBeVisible();
   await aside.getByTestId("create-menu-trigger").hover();
   await expect(aside.getByRole("button", { name: "Search", exact: true })).toBeVisible();
   await expect(aside.getByRole("button", { name: "Create", exact: true })).toBeVisible();
