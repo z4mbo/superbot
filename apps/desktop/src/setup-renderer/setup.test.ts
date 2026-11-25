@@ -700,8 +700,15 @@ describe("setup", () => {
 
 describe("setup window controls", () => {
   const css = readFileSync(path.join(srcDir, "setup.css"), "utf8");
-  const rule = (selector: string) =>
-    css.match(new RegExp(`(?:^|\\n)${selector.replace(/[.*]/g, "\\$&")} \\{([^}]*)\\}`))?.[1] ?? "";
+  /** The declarations of the rule whose selector is exactly `selector`. */
+  const rule = (selector: string) => {
+    const sheet = `\n${css}`;
+    const opening = `\n${selector} {`;
+    const start = sheet.indexOf(opening);
+    if (start < 0) return "";
+    const body = sheet.slice(start + opening.length);
+    return body.slice(0, body.indexOf("}"));
+  };
 
   it("keeps the controls out of the drag region, so leaving a button clears its hover", () => {
     expect(rule(".window-controls")).toContain("-webkit-app-region: no-drag");
