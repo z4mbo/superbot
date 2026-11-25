@@ -138,13 +138,15 @@ async function type(element: HTMLInputElement | HTMLTextAreaElement, value: stri
   });
 }
 
-it("shows the whole draft read from the bot, ready to edit", () => {
+it("shows the whole draft read from the bot, ready to edit", async () => {
   expect(api.communityTemplates.draft.mock.calls[0]?.[0]).toEqual({ botId: "bot-1" });
   expect(field<HTMLInputElement>("Name").value).toBe("Weekly digest");
   expect(field<HTMLTextAreaElement>("Instructions").value).toBe(draft.instructions);
-  for (const shown of ["Weekly report", "Inbox sweep", "Friday digest", "Gmail"]) {
+  for (const shown of ["Weekly report", "Inbox sweep", "Friday digest"]) {
     expect(container.innerHTML).toContain(shown);
   }
+  // Apps show by name once the catalog is read.
+  await vi.waitFor(() => expect(container.textContent).toContain("Gmail"));
   expect(container.textContent).toContain("Keys, memory, chats and settings aren't included.");
 });
 
