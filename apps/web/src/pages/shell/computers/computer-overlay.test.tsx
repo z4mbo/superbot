@@ -61,7 +61,7 @@ function computer(state: ComputerStatus["state"]): ComputerStatus {
 async function render(
   state: ComputerStatus["state"],
   onStart = vi.fn(),
-  options: { hasControl?: boolean; shared?: boolean } = {},
+  options: { hasControl?: boolean; shared?: boolean; composerRunning?: boolean } = {},
 ) {
   await act(async () => {
     root.render(
@@ -72,7 +72,7 @@ async function render(
         recordingSkill={null}
         teachBusy={false}
         hasControl={options.hasControl ?? false}
-        composerRunning={false}
+        composerRunning={options.composerRunning ?? false}
         sending={false}
         booting={false}
         sendError={null}
@@ -135,4 +135,21 @@ it("says sign-ins are shared while someone in a shared space has control", async
   expect(note()).toBeNull();
   await render("running", vi.fn(), { shared: true });
   expect(note()).toBeNull();
+});
+
+it("lets the title give way and wraps the actions rather than cutting one off", async () => {
+  await render("running", vi.fn(), { composerRunning: true });
+  const chrome = container.querySelector<HTMLElement>('[data-testid="computer-chrome"]')!;
+  const actions = container.querySelector<HTMLElement>('[data-testid="computer-overlay-actions"]')!;
+  const title = chrome.firstElementChild as HTMLElement;
+  expect(chrome.classList).toContain("flex-wrap");
+  // The title shrinks and truncates first, down to a small floor before the actions wrap.
+  expect([...title.classList]).toEqual(expect.arrayContaining(["min-w-0", "flex-1", "basis-32"]));
+  // The actions keep to the row's width and wrap inside it, right-aligned on their own line.
+  expect([...actions.classList]).toEqual(
+    expect.arrayContaining(["flex-wrap", "max-w-full", "ms-auto", "justify-end"]),
+  );
+  expect(
+    [...actions.querySelectorAll("button")].map((button) => button.textContent || button.ariaLabel),
+  ).toEqual(["Stop", "Take control", "Close computer"]);
 });
