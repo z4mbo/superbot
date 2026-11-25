@@ -2,6 +2,7 @@ import type { DesktopUpdateState } from "@rakazo/contracts";
 import { t } from "../i18n.js";
 import { reportDesktopError } from "../system/monitoring.js";
 import { SignatureUnreachableError } from "./linux-update-signature.js";
+import { releaseNotesFrom } from "./release-notes.js";
 
 /** Long enough that a cold launch is never competing with the update feed for bandwidth. */
 export const LAUNCH_CHECK_DELAY_MS = 8_000;
@@ -12,6 +13,8 @@ export interface UpdaterEnvironment {
   packaged: boolean;
   version: string;
   disabled?: boolean;
+  /** A system package the app cannot replace: offered updates open their release page instead. */
+  manualInstall?: boolean;
 }
 
 export function updaterSupport(env: UpdaterEnvironment): { supported: boolean; reason: string } {
@@ -33,6 +36,8 @@ export function initialUpdateState(env: UpdaterEnvironment): DesktopUpdateState 
     percent: null,
     message: support.supported ? null : support.reason,
     checkedAt: null,
+    releaseNotes: null,
+    manualInstall: env.manualInstall === true,
   };
 }
 
@@ -120,11 +125,11 @@ function transientHttpStatus(error: unknown): boolean {
 
 export type UpdaterEvent =
   | { type: "check-start" }
-  | { type: "available"; version: string }
+  | { type: "available"; version: string; releaseNotes: string | null }
   | { type: "not-available" }
   | { type: "download-start" }
   | { type: "progress"; percent: number }
-  | { type: "downloaded"; version: string }
+  | { type: "downloaded"; version: string; releaseNotes: string | null }
   | { type: "failed"; error: unknown; userInitiated: boolean; installFailed?: boolean };
 
 export function reduceUpdateState(
@@ -146,6 +151,7 @@ export function reduceUpdateState(
         ...state,
         phase: "available",
         availableVersion: event.version,
+        releaseNotes: event.releaseNotes,
         percent: null,
         message: null,
         checkedAt: now,
@@ -156,6 +162,7 @@ export function reduceUpdateState(
         ...state,
         phase: "idle",
         availableVersion: null,
+        releaseNotes: null,
         percent: null,
         message: null,
         checkedAt: now,
@@ -177,6 +184,7 @@ export function reduceUpdateState(
         ...state,
         phase: "ready",
         availableVersion: event.version,
+        releaseNotes: event.releaseNotes ?? state.releaseNotes,
         percent: 100,
         message: null,
       };
@@ -196,6 +204,7 @@ export function reduceUpdateState(
           ...state,
           phase: "unsupported",
           availableVersion: null,
+          releaseNotes: null,
           percent: null,
           message: failure.message,
           checkedAt: now,
@@ -206,6 +215,7 @@ export function reduceUpdateState(
           ...state,
           phase: "unsupported",
           availableVersion: null,
+          releaseNotes: null,
           percent: null,
           message: failure.message,
           checkedAt: now,
@@ -330,6 +340,8 @@ export class DesktopUpdateController {
     private readonly clock: UpdateClock = systemClock,
     private readonly onInstallFailure?: () => void,
     private readonly verifyDownload?: DownloadVerifier,
+    /** Opens the release page of a version a manual install cannot fetch itself. */
+    private readonly openRelease?: (version: string) => void,
   ) {
     this.current = initialUpdateState(environment);
   }
@@ -395,8 +407,9 @@ export class DesktopUpdateController {
             });
             return;
           }
-          this.push({ type: "available", version });
-          void this.download();
+          this.push({ type: "available", version, releaseNotes: releaseNotesFrom(payload) });
+          // A manual install waits for the user to choose the download.
+          if (this.environment.manualInstall !== true) void this.download();
         });
         updater.on("update-not-available", () => this.push({ type: "not-available" }));
         updater.on("download-progress", (payload) => {
@@ -413,13 +426,14 @@ export class DesktopUpdateController {
             });
             return;
           }
+          const releaseNotes = releaseNotesFrom(payload);
           if (this.verifyDownload === undefined) {
-            this.push({ type: "downloaded", version });
+            this.push({ type: "downloaded", version, releaseNotes });
             return;
           }
           this.verification = this.verified(
             ++this.verificationAttempt,
-            version,
+            { version, releaseNotes },
             downloadedFileFrom(payload),
           );
         });
@@ -439,11 +453,15 @@ export class DesktopUpdateController {
     return loading;
   }
 
-  private async verified(attempt: number, version: string, downloadedFile: string | null) {
+  private async verified(
+    attempt: number,
+    update: { version: string; releaseNotes: string | null },
+    downloadedFile: string | null,
+  ) {
     try {
       if (downloadedFile === null) throw new Error("The downloaded update signature has no file.");
-      await this.verifyDownload?.({ version, downloadedFile });
-      if (attempt === this.verificationAttempt) this.push({ type: "downloaded", version });
+      await this.verifyDownload?.({ version: update.version, downloadedFile });
+      if (attempt === this.verificationAttempt) this.push({ type: "downloaded", ...update });
     } catch (error) {
       if (attempt === this.verificationAttempt)
         this.push({ type: "failed", error, userInitiated: this.checkWasRequested });
@@ -512,6 +530,11 @@ export class DesktopUpdateController {
   }
 
   download() {
+    if (this.environment.manualInstall === true) {
+      const version = this.current.availableVersion;
+      if (this.current.phase === "available" && version !== null) this.openRelease?.(version);
+      return Promise.resolve(this.current);
+    }
     if (this.downloadPromise !== null) return this.downloadPromise;
     const downloading = this.runDownload().finally(() => {
       if (this.downloadPromise === downloading) this.downloadPromise = null;

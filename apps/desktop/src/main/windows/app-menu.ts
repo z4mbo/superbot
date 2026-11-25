@@ -23,6 +23,18 @@ async function runMenuUpdateCheck() {
       ? dialog.showMessageBox(desktop.mainWindow, options)
       : dialog.showMessageBox(options);
   let state = await desktop.desktopUpdater.check(true);
+  if (state.phase === "available" && state.manualInstall === true) {
+    const { response } = await alert({
+      message: t("Superbot {version} is available.", { version: state.availableVersion ?? "" }),
+      buttons: [t("Download"), t("Later")],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    });
+    // Opens the release page: a system package is replaced by the user, not the updater.
+    if (response === 0) await desktop.desktopUpdater.download();
+    return;
+  }
   // A found update starts downloading on its own; wait for it so the answer can be "restart".
   if (state.phase === "available" || state.phase === "downloading") {
     // Say so now: the download can take minutes, and the menu click has no other answer.
@@ -89,8 +101,10 @@ export function followUpdateState(rebuildMenu: () => void) {
     }
   });
 }
-function updateMenuLabel(phase: DesktopUpdateState["phase"] | undefined) {
+function updateMenuLabel(state: DesktopUpdateState | undefined) {
+  const phase = state?.phase;
   if (phase === "checking") return t("Checking for Updates…");
+  if (phase === "available" && state?.manualInstall === true) return t("Check for Updates…");
   if (phase === "available" || phase === "downloading") return t("Downloading Update…");
   if (phase === "ready") return t("Restart to Update…");
   return t("Check for Updates…");
@@ -123,11 +137,17 @@ export function applicationMenuInstaller({
       accelerator: "CmdOrCtrl+,",
       click: () => desktop.mainWindow?.webContents.send("desktop.settings.open"),
     };
-    const updatePhase = desktop.desktopUpdater?.state().phase;
+    const updateState = desktop.desktopUpdater?.state();
+    const updatePhase = updateState?.phase;
+    // A manual install stays `available`; the item shows it again with its download.
+    const manualOffer = updatePhase === "available" && updateState?.manualInstall === true;
     const checkForUpdates: Electron.MenuItemConstructorOptions = {
-      label: updateMenuLabel(updatePhase),
+      label: updateMenuLabel(updateState),
       enabled:
-        updatePhase !== "checking" && updatePhase !== "available" && updatePhase !== "downloading",
+        manualOffer ||
+        (updatePhase !== "checking" &&
+          updatePhase !== "available" &&
+          updatePhase !== "downloading"),
       visible: updaterSupport(updaterEnvironment).supported,
       click: () => void checkForUpdatesFromMenu(),
     };

@@ -39,6 +39,8 @@ export const HI_MESSAGES: Record<string, string> = {
   "Downloading Update…": "अपडेट डाउनलोड हो रहा है…",
   "Restart to Update…": "अपडेट के लिए रीस्टार्ट करें…",
   "Downloading Superbot {version}…": "Superbot {version} डाउनलोड हो रहा है…",
+  "Superbot {version} is available.": "Superbot {version} उपलब्ध है।",
+  Download: "डाउनलोड करें",
   "Superbot {version} is ready to install.": "Superbot {version} इंस्टॉल होने के लिए तैयार है।",
   Restart: "रीस्टार्ट करें",
   Later: "बाद में",

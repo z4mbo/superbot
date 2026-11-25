@@ -43,6 +43,22 @@ it("requires every selected platform and rejects feeds naming absent assets", ()
     expect(validate(["macos"]).status).not.toBe(0);
     writeFileSync(feed, "version: 1.2.3\npath: ../App.zip\n");
     expect(validate(["macos"]).status).not.toBe(0);
+
+    // Linux needs the signed AppImage the feed names and the deb beside it.
+    writeFileSync(feed, "version: 1.2.3\npath: App.zip\n");
+    const linuxFeed = path.join(root, "release-artifacts/latest-linux.yml");
+    writeFileSync(linuxFeed, "version: 1.2.3\nfiles:\n  - url: App.AppImage\npath: App.AppImage\n");
+    for (const name of ["App.AppImage", "App.AppImage.sig"])
+      writeFileSync(path.join(root, "release-artifacts", name), "fixture");
+    expect(validate(["macos", "linux"]).status).not.toBe(0);
+    writeFileSync(path.join(root, "release-artifacts", "App.deb"), "fixture");
+    writeFileSync(
+      linuxFeed,
+      "version: 1.2.3\nfiles:\n  - url: App.AppImage\n  - url: App.deb\npath: App.AppImage\n",
+    );
+    expect(validate(["macos", "linux"]).status).toBe(0);
+    rmSync(path.join(root, "release-artifacts", "App.AppImage.sig"));
+    expect(validate(["macos", "linux"]).status).not.toBe(0);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

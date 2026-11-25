@@ -39,6 +39,8 @@ export const KO_MESSAGES: Record<string, string> = {
   "Downloading Update…": "업데이트 다운로드 중…",
   "Restart to Update…": "재시작하여 업데이트…",
   "Downloading Superbot {version}…": "Superbot {version} 다운로드 중…",
+  "Superbot {version} is available.": "Superbot {version}을(를) 사용할 수 있습니다.",
+  Download: "다운로드",
   "Superbot {version} is ready to install.": "Superbot {version}을(를) 설치할 준비가 되었습니다.",
   Restart: "재시동",
   Later: "나중에",

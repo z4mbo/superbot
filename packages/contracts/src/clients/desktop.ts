@@ -21,11 +21,22 @@ export interface DesktopUpdateState {
   percent: number | null;
   message: string | null;
   checkedAt: string | null;
+  /**
+   * What the release says changed in `availableVersion`, as bounded plain text. It comes from the
+   * release host, so render it as text, never as markup. Absent from desktop releases before 0.14.
+   */
+  releaseNotes?: string | null;
+  /**
+   * True where the app cannot replace itself, such as a system package: `download` opens the
+   * release page instead of fetching the update, and `phase` never reaches `ready`.
+   */
+  manualInstall?: boolean;
 }
 
 export interface RakazoDesktopUpdate {
   state: () => Promise<DesktopUpdateState>;
   check: () => Promise<DesktopUpdateState>;
+  /** Fetches the offered update, or opens its release page when `manualInstall` is set. */
   download: () => Promise<DesktopUpdateState>;
   /** Quits and relaunches into the downloaded release; only useful once `phase` is `ready`. */
   install: () => Promise<DesktopUpdateState>;

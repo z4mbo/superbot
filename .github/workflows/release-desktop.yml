@@ -370,7 +370,7 @@ jobs:
           pnpm exec tsx apps/desktop/scripts/verify-update-publisher.ts $config $env:SIGNING_PUBLISHER
           if ($LASTEXITCODE -ne 0) { throw "Windows update config is not bound to the signing publisher." }
 
-      - name: Package x64 Linux AppImage
+      - name: Package x64 Linux AppImage and deb
         if: runner.os == 'Linux'
         run: >-
           pnpm --filter @rakazo/desktop exec electron-builder
@@ -393,6 +393,10 @@ jobs:
           grep -Fqx "repo: superbot" "$config"
           test -f apps/desktop/out/latest-linux.yml
           grep -Fqx "version: $RELEASE_VERSION" apps/desktop/out/latest-linux.yml
+          # The deb installs from its release page; the AppImage is the format that updates itself.
+          debs=(apps/desktop/out/*.deb)
+          test "${#debs[@]}" -eq 1
+          test -s "${debs[0]}"
       - name: Sign Linux AppImage updates
         if: runner.os == 'Linux'
         shell: bash
@@ -426,6 +430,7 @@ jobs:
           path: |
             apps/desktop/out/*.AppImage
             apps/desktop/out/*.AppImage.sig
+            apps/desktop/out/*.deb
             apps/desktop/out/*.blockmap
             apps/desktop/out/*.dmg
             apps/desktop/out/*.exe
@@ -485,6 +490,7 @@ jobs:
               linux)
                 test -f release-artifacts/latest-linux.yml
                 compgen -G 'release-artifacts/*.AppImage' >/dev/null
+                compgen -G 'release-artifacts/*.deb' >/dev/null
                 for image in release-artifacts/*.AppImage; do
                   if [[ ! -s "$image.sig" ]]; then
                     echo "$image has no update signature." >&2

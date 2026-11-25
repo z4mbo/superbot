@@ -91,32 +91,40 @@ function bridge(phase: DesktopUpdateState["phase"]) {
   };
   return install;
 }
+const updateButton = () =>
+  document.querySelector<HTMLButtonElement>('[aria-label="Update available"]');
+const dialogButton = (label: string) =>
+  [...document.querySelectorAll<HTMLButtonElement>('[data-slot="dialog-content"] button')].find(
+    (button) => button.textContent === label,
+  )!;
 it("hides update controls without a desktop bridge", async () => {
   await render();
-  expect(document.querySelector('[aria-label="Install update"]')).toBeNull();
-  expect(document.body.textContent).not.toContain("New update available");
+  expect(updateButton()).toBeNull();
 });
-it.each(["unsupported", "idle", "available", "downloading", "checking", "error"] as const)(
-  "hides install controls in phase %s",
+it.each(["unsupported", "idle", "checking", "error"] as const)(
+  "hides the update control in phase %s",
   async (phase) => {
     bridge(phase);
     await render();
-    expect(document.querySelector('[aria-label="Install update"]')).toBeNull();
-    expect(document.body.textContent).not.toContain("New update available");
+    expect(updateButton()).toBeNull();
   },
 );
-it("installs the ready update only through the footer button", async () => {
+it.each(["available", "downloading", "ready"] as const)(
+  "shows the update control in phase %s",
+  async (phase) => {
+    bridge(phase);
+    await render();
+    expect(updateButton()?.nextElementSibling?.getAttribute("aria-label")).toBe("Store");
+  },
+);
+it("opens the release from the footer button and restarts from there", async () => {
   const install = bridge("ready");
   await render("Ada Lovelace");
-  const icon = document.querySelector<HTMLButtonElement>('[aria-label="Install update"]')!;
-  expect(icon).not.toBeNull();
-  expect(icon.nextElementSibling?.getAttribute("aria-label")).toBe("Store");
-  expect(document.body.textContent).not.toContain("New update available");
-  await act(async () => icon.click());
+  await act(async () => updateButton()!.click());
+  expect(install).not.toHaveBeenCalled();
+  await vi.waitFor(() => expect(dialogButton("Restart to update")).toBeDefined());
+  await act(async () => dialogButton("Restart to update").click());
   expect(install).toHaveBeenCalledTimes(1);
-  expect(
-    [...document.querySelectorAll("button")].some((button) => button.textContent === "Install"),
-  ).toBe(false);
 });
 it("shows the account image and falls back to the initial after a load error", async () => {
   await render("Ada Lovelace", "https://example.test/avatar.png");
@@ -170,9 +178,9 @@ it.each(["throw", "state"] as const)(
     await vi.waitFor(() => expect(notice()).not.toBeNull());
     await act(async () => later().click());
     await vi.waitFor(() => expect(notice()).toBeNull());
-    await act(async () =>
-      document.querySelector<HTMLButtonElement>('[aria-label="Install update"]')!.click(),
-    );
+    await act(async () => updateButton()!.click());
+    await vi.waitFor(() => expect(dialogButton("Restart to update")).toBeDefined());
+    await act(async () => dialogButton("Restart to update").click());
     await vi.waitFor(() =>
       expect(notice()?.querySelector('[role="status"]')?.textContent).toBe(
         failure === "throw"

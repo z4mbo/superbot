@@ -39,6 +39,8 @@ export const PT_BR_MESSAGES: Record<string, string> = {
   "Downloading Update…": "Baixando Atualização…",
   "Restart to Update…": "Reiniciar para Atualizar…",
   "Downloading Superbot {version}…": "Baixando o Superbot {version}…",
+  "Superbot {version} is available.": "O Superbot {version} está disponível.",
+  Download: "Baixar",
   "Superbot {version} is ready to install.": "O Superbot {version} está pronto para ser instalado.",
   Restart: "Reiniciar",
   Later: "Mais tarde",

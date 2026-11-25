@@ -225,13 +225,12 @@ export function SidebarFooter({
         ) : null}
       </Popover>
       {update.available ? (
-        <IconTooltip label={t`Install update`}>
+        <IconTooltip label={t`Update available`}>
           <Button
             size="icon-lg"
             className="rounded-full"
-            aria-label={t`Install update`}
-            disabled={update.busy}
-            onClick={update.install}
+            aria-label={t`Update available`}
+            onClick={update.open}
           >
             <Download aria-hidden="true" />
           </Button>
