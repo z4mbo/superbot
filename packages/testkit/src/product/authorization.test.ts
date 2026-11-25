@@ -550,6 +550,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["usage/list"],
       ["usage/summary"],
       ["usage/limits"],
+      ["usage/providers"],
       ["usage/breakdown", {}],
       ["export/bot", { botId: "missing-bot" }],
       ["export/accountToken"],
