@@ -18,6 +18,7 @@ import {
 } from "./payments.js";
 import {
   PlanLimitsSchema,
+  ProviderUsageSchema,
   UsageBreakdownInputSchema,
   UsageBreakdownSchema,
   UsageRecordSchema,
@@ -109,6 +110,13 @@ export const billingRpc = {
     breakdown: oc.input(UsageBreakdownInputSchema).output(UsageBreakdownSchema),
     /** Subscription sign-ins whose allowance could be read; others are left out. */
     limits: oc.output(z.array(PlanLimitsSchema)),
+    /**
+     * Every model connection the member has, each with its provider's usage or the reason there
+     * is none. `refresh` asks the providers again instead of reusing a recent reading.
+     */
+    providers: oc
+      .input(z.object({ refresh: z.boolean().optional() }).optional())
+      .output(z.array(ProviderUsageSchema)),
   },
   /** The account's spending limit for payments its bots make. */
   spendingLimit: {

@@ -99,6 +99,8 @@ export const PlanLimitWindowSchema = z.object({
   period: z.enum(["session", "week", "month"]),
   usedPercent: z.number().min(0).max(100),
   resetsAt: z.string().nullable(),
+  /** The model family the allowance covers, as its provider names it; absent when it covers all. */
+  model: z.string().optional(),
 });
 export type PlanLimitWindow = z.infer<typeof PlanLimitWindowSchema>;
 /** A subscription connection's allowances, as its provider last reported them. */
@@ -121,4 +123,80 @@ export function planUsagePercent(plans: readonly PlanLimits[]): number | null {
   return Math.min(
     ...plans.map((plan) => Math.max(...plan.windows.map((window) => window.usedPercent))),
   );
+}
+
+/**
+ * Why a connection's row shows what it shows. Only `ok` carries figures: `no_data` is a provider
+ * that answered with nothing to report, `unavailable` one that publishes no usage for this kind of
+ * connection, `not_signed_in` a sign-in or key the provider no longer accepts, and `error` a read
+ * that failed.
+ */
+export const ProviderUsageStatusSchema = z.enum([
+  "ok",
+  "no_data",
+  "unavailable",
+  "not_signed_in",
+  "error",
+]);
+export type ProviderUsageStatus = z.infer<typeof ProviderUsageStatusSchema>;
+
+/**
+ * Money a provider reports for a connection, in US dollars. Every figure is null unless the
+ * provider reported it: a missing balance is unknown, never zero, and a null limit beside
+ * reported spending is a key with no cap.
+ */
+export const ProviderCreditsSchema = z.object({
+  usedUsd: z.number().nonnegative().nullable(),
+  limitUsd: z.number().nonnegative().nullable(),
+  remainingUsd: z.number().nullable(),
+  /** How often the limit starts over, when it does. */
+  period: z.enum(["day", "week", "month"]).nullable(),
+  resetsAt: z.string().nullable(),
+});
+export type ProviderCredits = z.infer<typeof ProviderCreditsSchema>;
+
+/** One connected model credential and the usage its provider reports for it, if any. */
+export const ProviderUsageSchema = z.object({
+  credentialId: z.string(),
+  /** The provider's id, for its mark. */
+  provider: z.string(),
+  /** The provider or subscription as people know it. */
+  name: z.string(),
+  /** The connection's own name, which tells two connections to one provider apart. */
+  label: z.string(),
+  kind: z.enum(["subscription", "api_key"]),
+  /** The plan's name as the provider reports it; null when it does not. */
+  plan: z.string().nullable(),
+  status: ProviderUsageStatusSchema,
+  /** Rolling allowances, empty unless the provider reported some. */
+  windows: z.array(PlanLimitWindowSchema),
+  credits: ProviderCreditsSchema.nullable(),
+  /** When the provider last answered; null when it never has. */
+  readAt: z.string().nullable(),
+});
+export type ProviderUsage = z.infer<typeof ProviderUsageSchema>;
+
+/** How used a connection's fullest allowance is, or null when it reports none. */
+export function providerUsagePercent(usage: Pick<ProviderUsage, "windows">): number | null {
+  if (!usage.windows.length) return null;
+  return Math.max(...usage.windows.map((window) => window.usedPercent));
+}
+
+/** The soonest reset among a connection's allowances, or null when none is reported. */
+export function providerUsageNextReset(usage: Pick<ProviderUsage, "windows">): string | null {
+  const resets = usage.windows
+    .map((window) => window.resetsAt)
+    .filter((reset): reset is string => reset !== null)
+    .sort();
+  return resets[0] ?? null;
+}
+
+/** Connections with the least room first; ones reporting no allowance keep their order after. */
+export function tightestProviderUsageFirst<T extends Pick<ProviderUsage, "windows">>(
+  rows: readonly T[],
+): T[] {
+  return rows
+    .map((row, index) => ({ row, index, used: providerUsagePercent(row) }))
+    .sort((a, b) => (b.used ?? -1) - (a.used ?? -1) || a.index - b.index)
+    .map(({ row }) => row);
 }
