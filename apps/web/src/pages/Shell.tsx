@@ -107,6 +107,7 @@ import { ArchivedChats } from "./shell/sidebar/archived-chats";
 import { focusSidebarSearch, ShellSidebar } from "./shell/sidebar/shell-sidebar";
 import { BotsSidebarLayout } from "./shell/sidebar/sidebar-layout";
 import { SidebarRoster } from "./shell/sidebar/sidebar-roster";
+import { revealSidebarUsage } from "./shell/sidebar/sidebar-usage";
 import { SnoozedChats } from "./shell/sidebar/snoozed-chats";
 import { countUnreadChats, sidebarGroupsForSpaces } from "./shell/sidebar/space-sidebar";
 import { useChatSnooze } from "./shell/sidebar/use-chat-snooze";
@@ -1205,6 +1206,10 @@ function SpaceShell({ threadId }: { threadId?: string }) {
                   disabled={Boolean(recordingSkill)}
                   {...modelShortcuts.pickerProps}
                   onConnect={() => openSettings("models")}
+                  onUsage={() => {
+                    if (isMobileSidebar) setMobileSidebarOpen(true);
+                    revealSidebarUsage();
+                  }}
                   onSaved={(updated) =>
                     setBots((current) =>
                       current.map((bot) => (bot.id === updated.id ? updated : bot)),

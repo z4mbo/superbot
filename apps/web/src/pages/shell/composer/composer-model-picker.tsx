@@ -1,6 +1,12 @@
 import { useLingui } from "@lingui/react/macro";
 import type { Bot, ThinkingLevel } from "@rakazo/contracts";
-import { botModelPick, botModelState, modelOptionKey } from "@rakazo/core";
+import { providerUsagePercent } from "@rakazo/contracts";
+import {
+  botModelPick,
+  botModelState,
+  connectionForModelChoice,
+  modelOptionKey,
+} from "@rakazo/core";
 import { Command, CommandGroup, CommandItem, CommandList, Kbd, toast } from "@rakazo/ui-web";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
@@ -9,6 +15,7 @@ import { useSave, useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
 import { ChatModelPicker } from "../chat/chat-model-picker";
 import { chordKeys, chordLabel, isApplePlatform } from "../shell-shortcuts";
+import { useProviderUsage } from "../sidebar/sidebar-usage";
 
 /** What the shell's keys can do with the picker while it is shown. */
 export type ComposerModelKeys = {
@@ -26,6 +33,7 @@ export function ComposerModelPicker({
   disabled,
   onSaved,
   onConnect,
+  onUsage,
   open,
   onOpenChange,
   onKeysChange,
@@ -38,6 +46,8 @@ export function ComposerModelPicker({
   onSaved: (bot: Bot) => void;
   /** Opens the model connections, offered when no provider is connected yet. */
   onConnect: () => void;
+  /** Shows every connection's usage, offered when the member has a connection to show. */
+  onUsage?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   /**
@@ -51,6 +61,7 @@ export function ComposerModelPicker({
   const credentials = useQuery(queries.models.credentials.queryOptions()).data;
   const catalog = useQuery(queries.models.list.queryOptions()).data;
   const me = useQuery(queries.me.queryOptions()).data;
+  const usage = useProviderUsage({ enabled: Boolean(onUsage) }).data;
   const onFailed = (error: Error) => toast.error(errorText(error, t`Could not change the model`));
   const saveModel = useSave({
     save: (key: string, client) => client.bots.update({ botId: bot.id, ...botModelPick(key) }),
@@ -88,6 +99,7 @@ export function ComposerModelPicker({
   const pendingModel = saveModel.pending ? saveModel.input : undefined;
   const modelPending = pendingModel !== undefined;
   const {
+    selectedModel,
     selectedModelKey,
     selectedName,
     selectedMark,
@@ -132,6 +144,13 @@ export function ComposerModelPicker({
           return true;
         }
       : null;
+  // How used the connection the model runs on is, when its provider reports a limit.
+  const provider = selectedModel?.provider ?? me.defaultProvider;
+  const modelId = selectedModel?.modelId ?? me.defaultModel;
+  const connection =
+    provider && modelId ? connectionForModelChoice(credentials, { provider, modelId }) : undefined;
+  const connectionUsage = usage?.find((row) => row.credentialId === connection?.id);
+  const used = connectionUsage ? providerUsagePercent(connectionUsage) : null;
   const apple = isApplePlatform();
   const modelKeys = chordKeys({ apple }, "M", true);
   const thinkingKeys = chordKeys({ apple }, "E", true);
@@ -168,6 +187,8 @@ export function ComposerModelPicker({
       // A model with thinking levels keeps the panel open, so its level can be set next.
       // With no provider connected there is nothing to switch to, so the list offers a connection.
       onConnect={nothingConnected ? onConnect : undefined}
+      onUsage={onUsage && usage?.length ? onUsage : undefined}
+      usageHint={used === null ? undefined : t`${Math.round(used)}% used`}
       staysOpen={(key) =>
         botModelState({ credentials, catalog, me, modelKey: key, spaceDefaultLabel: "" })
           .thinkingLevels.length > 0

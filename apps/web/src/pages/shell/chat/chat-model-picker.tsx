@@ -15,7 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@rakazo/ui-web";
-import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, GaugeIcon, PlusIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useId, useMemo, useState } from "react";
 import { ModelMarkIcon } from "../../../components/models/ModelMarkIcon";
@@ -38,6 +38,8 @@ export function ChatModelPicker({
   aside,
   staysOpen,
   onConnect,
+  onUsage,
+  usageHint,
   disabled,
   open: openProp,
   onOpenChange,
@@ -62,6 +64,10 @@ export function ChatModelPicker({
   staysOpen?: (key: string) => boolean;
   /** Offered at the end of the list, to connect a provider's models. */
   onConnect?: () => void;
+  /** Offered at the end of the list, to show how much of each connection's limits is used. */
+  onUsage?: () => void;
+  /** Shown beside Usage, such as how used the selected model's connection is. */
+  usageHint?: string;
   disabled?: boolean;
   /** Controls whether the list is open, for a caller that also opens it from the keyboard. */
   open?: boolean;
@@ -214,18 +220,37 @@ export function ChatModelPicker({
                   ))}
                 </CommandGroup>
               ))}
-              {onConnect ? (
+              {onConnect || onUsage ? (
                 <CommandGroup>
-                  <CommandItem
-                    value="connect-a-model"
-                    onSelect={() => {
-                      openChange(false);
-                      onConnect();
-                    }}
-                  >
-                    <PlusIcon aria-hidden="true" className="size-4" />
-                    {t`Connect a model`}
-                  </CommandItem>
+                  {onConnect ? (
+                    <CommandItem
+                      value="connect-a-model"
+                      onSelect={() => {
+                        openChange(false);
+                        onConnect();
+                      }}
+                    >
+                      <PlusIcon aria-hidden="true" className="size-4" />
+                      {t`Connect a model`}
+                    </CommandItem>
+                  ) : null}
+                  {onUsage ? (
+                    <CommandItem
+                      value="usage"
+                      onSelect={() => {
+                        openChange(false);
+                        onUsage();
+                      }}
+                    >
+                      <GaugeIcon aria-hidden="true" className="size-4" />
+                      <span className="min-w-0 flex-1 truncate">{t`Usage`}</span>
+                      {usageHint ? (
+                        <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
+                          {usageHint}
+                        </span>
+                      ) : null}
+                    </CommandItem>
+                  ) : null}
                 </CommandGroup>
               ) : null}
             </CommandList>
