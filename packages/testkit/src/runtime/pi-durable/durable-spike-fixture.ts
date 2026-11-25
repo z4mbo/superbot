@@ -230,6 +230,19 @@ export interface SpikeChildConfig {
   guardInterrupted?: boolean;
 }
 
+/** What the Postgres child opens and runs: a store in a Space, under that store's lease. */
+export interface PostgresChildConfig extends Omit<SpikeChildConfig, "storagePath"> {
+  storeId: string;
+  spaceId: string;
+  userId: string;
+  /** Long enough that the lease is never renewed during a test, so only the test lapses it. */
+  leaseTtlMs: number;
+}
+
+export type PostgresChildEvent = SpikeEvent | { event: "lease-held" };
+
+export const durableStoreLeaseKey = (storeId: string) => `durable-store:${storeId}`;
+
 export const SPIKE_EVENT_PREFIX = "SPIKE_EVENT ";
 
 /** A transcript line with only what the spike asserts on. */

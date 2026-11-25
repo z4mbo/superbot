@@ -772,6 +772,7 @@ model Space {
   agentSkillSpaces            AgentSkillSpace[]
   mcpServerSpaces             McpServerSpace[]
   capabilityInstallSpaces     CapabilityInstallSpace[]
+  durableStores               DurableStore[]
 
   @@unique([id, organizationId])
   @@index([organizationId, createdAt])
@@ -3316,4 +3317,142 @@ model RegistryAppRecord {
   @@index([installationId, versionId, partId, recordDate, removedAt, createdAt, id], map: "registry_app_records_date_page_idx")
   @@index([versionId])
   @@map("registry_app_records")
+}
+
+/// One durable agent harness's store: the conversations, entries, tasks, submissions and documents
+/// it keeps, in the tables below keyed by the store. Only `PostgresDurableStorage` in
+/// packages/adapters/src/runtime/pi/durable writes them, and every commit checks the writer's
+/// lease in the same transaction, so one process at a time writes a store. Records are the
+/// harness's own JSON, kept as text so they read back exactly as written.
+model DurableStore {
+  id                String                    @id
+  spaceId           String
+  space             Space                     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  /// The record format the store was last opened with; a release that knows only an older one
+  /// refuses to open it.
+  formatVersion     Int
+  /// Above every record id stored, so a reopened store never hands one out twice.
+  nextId            BigInt                    @default(2)
+  nextSeq           BigInt                    @default(1)
+  createdAt         DateTime                  @default(now())
+  recordIds         DurableRecordId[]
+  conversations     DurableConversation[]
+  entries           DurableEntry[]
+  tasks             DurableTask[]
+  submissions       DurableSubmission[]
+  documents         DurableDocument[]
+  documentRevisions DurableDocumentRevision[]
+
+  @@index([spaceId])
+  @@map("durable_stores")
+}
+
+/// Which record type owns each id: the store's one id space across its record types.
+model DurableRecordId {
+  storeId    String
+  store      DurableStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id         BigInt
+  recordType String
+
+  @@id([storeId, id])
+  @@map("durable_record_ids")
+}
+
+model DurableConversation {
+  storeId             String
+  store               DurableStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id                  BigInt
+  ownerConversationId BigInt?
+  ownerTaskId         BigInt?
+  record              String
+
+  @@id([storeId, id])
+  @@index([storeId, ownerConversationId, id])
+  @@index([storeId, ownerTaskId, id])
+  @@map("durable_conversations")
+}
+
+/// The migration also adds `durable_entries_heads_idx`, on the entries with a `head`, which the
+/// schema cannot express.
+model DurableEntry {
+  storeId        String
+  store          DurableStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id             BigInt
+  conversationId BigInt
+  head           BigInt?
+  commitSeq      BigInt
+  record         String
+
+  @@id([storeId, id])
+  @@index([storeId, conversationId, id])
+  @@map("durable_entries")
+}
+
+model DurableTask {
+  storeId        String
+  store          DurableStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id             BigInt
+  conversationId BigInt
+  kind           String
+  status         String
+  abortRequested Boolean
+  background     Boolean
+  record         String
+
+  @@id([storeId, id])
+  @@index([storeId, status, id])
+  @@index([storeId, conversationId, id])
+  @@index([storeId, kind, id])
+  @@map("durable_tasks")
+}
+
+model DurableSubmission {
+  storeId        String
+  store          DurableStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id             BigInt
+  conversationId BigInt
+  requestId      String?
+  status         String
+  record         String
+
+  @@id([storeId, id])
+  @@index([storeId, conversationId, requestId])
+  @@index([storeId, conversationId, id])
+  @@index([storeId, status, id])
+  @@map("durable_submissions")
+}
+
+/// One incarnation of a document at an address (kind, scope, owner, key), alive from `createdSeq`
+/// until `retiredSeq`.
+model DurableDocument {
+  storeId    String
+  store      DurableStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id         BigInt
+  kind       String
+  family     Boolean
+  keyValue   String
+  scopeKind  String
+  ownerId    BigInt
+  createdSeq BigInt
+  retiredSeq BigInt?
+  record     String
+
+  @@id([storeId, id])
+  @@index([storeId, kind, scopeKind, ownerId, family, keyValue, createdSeq])
+  @@index([storeId, scopeKind, ownerId, id])
+  @@map("durable_documents")
+}
+
+/// A document's content: a base, then deltas on it, each at the seq of the commit that wrote it.
+model DurableDocumentRevision {
+  storeId    String
+  store      DurableStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  documentId BigInt
+  seq        BigInt
+  kind       String
+  version    Int
+  content    String
+
+  @@id([storeId, documentId, seq])
+  @@map("durable_document_revisions")
 }
