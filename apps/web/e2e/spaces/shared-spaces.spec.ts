@@ -120,11 +120,14 @@ test("an owner invites someone by link and both see the space's members", async 
   await ownerPage.reload();
   await expect(ownerPage.getByText("Bob Invitee", { exact: true })).toBeVisible();
   // The Space with someone from outside is marked in the sidebar, for screen readers too.
+  // Home opens with its main bot pinned, so the mark sits on the heading above those tiles.
   const homeHeading = ownerPage
     .locator("aside")
     .first()
-    .getByRole("button", { name: "Collapse Home, Shared with guests", exact: true });
+    .locator("[data-pinned-space-heading]")
+    .filter({ hasText: "Home" });
   await expect(homeHeading.locator("svg.lucide-globe")).toBeVisible();
+  await expect(homeHeading).toContainText("Shared with guests");
   await captureScreenshot(ownerPage, testInfo, "shared-thread-owner");
 
   // A group in the shared space: each bot's reply is named and in its own color.

@@ -122,7 +122,7 @@ it("pins the main bot first as a tile for every member, ahead of their own pins"
   // Never pinned by anyone: the main bot is always first among the tiles.
   await render([ada, namesake, chief]);
   expect(tiles().map((tile) => tile.dataset.rosterBotId)).toEqual(["chief", "namesake"]);
-  expect(tiles()[0]?.textContent).toContain(CHIEF_BOT.name);
+  expect(tiles()[0]?.querySelector("[data-roster-bot-name]")?.textContent).toBe(CHIEF_BOT.name);
   // Everyone else keeps their place below.
   const rows = [...host.querySelectorAll<HTMLElement>("[data-roster-bot-id]")];
   expect(rows.map((row) => row.dataset.rosterBotId)).toEqual(["chief", "namesake", "ada"]);
@@ -215,8 +215,14 @@ it("keeps every Space's actions reachable for an invitee who sees several Spaces
     externalConversations: [],
     botSections: [],
   } as Space;
-  const { setSpaceMenu } = await render([ada, chief], [home]);
+  const { setSpaceMenu } = await render([ada, chief], [{ ...home, hasGuests: true }]);
   const spy = setSpaceMenu as ReturnType<typeof vi.fn>;
+  // Someone from outside is marked on the heading, for screen readers too.
+  const homeHeading = [...host.querySelectorAll("[data-pinned-space-heading]")].find((heading) =>
+    heading.textContent?.includes("Home"),
+  );
+  expect(homeHeading?.querySelector(".lucide-globe")).not.toBeNull();
+  expect(homeHeading?.textContent).toContain("Shared with guests");
   expect(await openSpaceActions("Personal", spy)).toBe("space-1");
   expect(await openSpaceActions("Home", spy)).toBe("space-2");
 });

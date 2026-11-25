@@ -692,7 +692,11 @@ function PinnedTiles({
                   />
                 ) : null}
               </span>
-              <span dir="auto" className="max-w-full truncate text-label text-foreground">
+              <span
+                dir="auto"
+                data-roster-bot-name={item.kind === "bot" ? "" : undefined}
+                className="max-w-full truncate text-label text-foreground"
+              >
                 {item.chat.name}
               </span>
             </ContextMenuTrigger>

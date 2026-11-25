@@ -68,7 +68,8 @@ test("a new space opens with its own main bot, is renamed in its settings, and i
   await captureScreenshot(page, testInfo, "space-settings-rename");
   await spaceName.press("Enter");
   await expect(settings.getByRole("heading", { name: "Temporary" })).toBeVisible();
-  await expect(sidebar.getByText("Temporary", { exact: true })).toBeVisible();
+  // Named above its pinned main bot and again on its section.
+  await expect(sidebar.getByText("Temporary", { exact: true }).first()).toBeVisible();
   await expect(sidebar.getByText("Typo space", { exact: true })).toHaveCount(0);
 
   // An occupied space is deleted with its bots after one confirmation naming them.
@@ -92,7 +93,7 @@ test("a new space opens with its own main bot, is renamed in its settings, and i
   await expect(sidebar.getByRole("button", { name: /^Superbot/ })).toHaveCount(1);
 });
 
-test("deleting the last bot in a space stays in the app after first use", {
+test("deleting a bot from a new space stays in the app after first use", {
   tag: "@nightly",
 }, async ({ page }) => {
   const stamp = Date.now();
@@ -112,7 +113,7 @@ test("deleting the last bot in a space stays in the app after first use", {
   await page.waitForURL(/\/app/);
   await expect(sidebar.getByText("Side", { exact: true })).toBeVisible();
 
-  // Give the new space one bot, then delete it: the app must stay put instead of
+  // Give the new space a bot of its own, then delete it: the app must stay put instead of
   // forcing onboarding again.
   const { spaces } = await rpc<{ spaces: Array<{ id: string; name: string }> }>(
     page,
@@ -139,15 +140,14 @@ test("deleting the last bot in a space stays in the app after first use", {
   await expect(page).not.toHaveURL(/\/onboarding/);
   await page.reload();
   await expect(page).not.toHaveURL(/\/onboarding/);
-  await expect(sidebar.getByRole("button", { name: "Open Side" })).toBeVisible();
-  await expect(
-    page.locator("main").getByRole("button", { name: "New bot", exact: true }),
-  ).toBeVisible();
+  // The space keeps the main bot it was given when it opened.
+  const sideTiles = sidebar.locator('[data-sidebar-group$="pinned"]').filter({ hasText: "Side" });
+  await expect(sideTiles.locator("[data-roster-bot-name]")).toHaveText(["Superbot"]);
 
   await sidebar.getByRole("button", { name: "Actions for Side" }).click();
   await page.getByRole("menuitem", { name: "Delete space" }).click();
   await page
-    .getByRole("alertdialog", { name: "Delete Side?" })
+    .getByRole("alertdialog", { name: /^Delete Side/ })
     .getByRole("button", { name: "Delete", exact: true })
     .click();
   await expect(sidebar.getByText("Side", { exact: true })).toHaveCount(0);
