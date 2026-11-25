@@ -41,9 +41,8 @@ your approval before it buys, books, sends a message or does anything it can't u
 **Interrogate**, an adversarial review of a change or plan, is built in: every bot has it without
 adding it.
 
-Ready-made bots are in the Store's **Agents** section. Search them or filter by category, then open
-one to see its instructions, skills and routines before you create it. Choose **New skill** to write one yourself: a name,
-a short description of when to use it, and the steps.
+Choose **New skill** to write one yourself: a name, a short description of when to use it, and the
+steps.
 
 You can add a skill catalog or one skill folder from GitHub: choose **From GitHub**, paste the
 repository or folder URL, then **Preview** and **Add**. Adding a catalog installs all supported
