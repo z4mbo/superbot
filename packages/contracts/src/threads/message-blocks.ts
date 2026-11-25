@@ -133,7 +133,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     dismissed: z.literal(true).optional(),
     /** An approval nobody answered before an unattended run's card expired; it was not done. */
     expired: z.literal(true).optional(),
-    /** A login the user used for this run only instead of saving it. */
+    /** A login or card the user sent from a Secure form for this run only instead of saving it. */
     remembered: z.literal(false).optional(),
     actions: z
       .array(

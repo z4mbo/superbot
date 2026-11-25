@@ -66,18 +66,31 @@ export type PageToolOptions = {
   desktopTools?: boolean;
   downloads?: { folder: string; botPath: (path: string) => string };
 };
-/** `typed` is called once the page may have typed it, never for a fill refused before that. */
+/**
+ * `typed` is called once the page may have typed it, never for a fill refused before that;
+ * `refused` once the page clearly never typed it.
+ */
 export type ResolveSecretFill = (
   step: SecretFillStep,
   /** The step's place in the batch. */
   index: number,
 ) => Promise<
-  { text: string; origin: string; hidden: boolean; typed?: () => Promise<void> } | { error: string }
+  | {
+      text: string;
+      origin: string;
+      hidden: boolean;
+      typed?: () => Promise<void>;
+      refused?: () => Promise<void>;
+    }
+  | { error: string }
 >;
 
 export type ResolveCardFill = (
   step: CardFillStep,
-) => Promise<{ text: string; origin: string; typed?: () => Promise<void> } | { error: string }>;
+) => Promise<
+  | { text: string; origin: string; typed?: () => Promise<void>; refused?: () => Promise<void> }
+  | { error: string }
+>;
 
 /**
  * `claim` takes the code for this one fill, or says why the bot gets no code: another fill took
@@ -192,7 +205,11 @@ export async function browserActFromTool(
   } = {},
 ) {
   // Each saved login or card fill with its action, and whether the page was asked.
-  const fills: Array<{ index: number; typed: () => Promise<void> }> = [];
+  const fills: Array<{
+    index: number;
+    typed: () => Promise<void>;
+    refused?: () => Promise<void>;
+  }> = [];
   let asked = false;
   try {
     const actions: BrowserActStep[] = [];
@@ -275,7 +292,13 @@ export async function browserActFromTool(
       }
       const card = step.kind === "fill_card";
       let resolved:
-        | { text: string; origin: string; hidden?: boolean; typed?: () => Promise<void> }
+        | {
+            text: string;
+            origin: string;
+            hidden?: boolean;
+            typed?: () => Promise<void>;
+            refused?: () => Promise<void>;
+          }
         | { error: string };
       try {
         resolved = card
@@ -304,7 +327,8 @@ export async function browserActFromTool(
       }
       if ("error" in resolved) return { ...refusedInput(resolved.error), completed: 0 };
       const { text, origin } = resolved;
-      if (resolved.typed) fills.push({ index: actions.length, typed: resolved.typed });
+      if (resolved.typed)
+        fills.push({ index: actions.length, typed: resolved.typed, refused: resolved.refused });
       if (step.ref === undefined) {
         actions.push({ kind: "fill", text, origin, field: "card", cardField: step.field });
       } else {
@@ -361,6 +385,7 @@ export async function browserActFromTool(
     // Only fills the page may have typed: one it clearly never reached left nothing.
     for (const fill of fills)
       if (result.uncertain !== false || result.completed > fill.index) await fill.typed();
+      else await fill.refused?.();
     // A purchase the page refused (it changed, or another step failed first) never went through.
     if (
       approvedSteps.length &&

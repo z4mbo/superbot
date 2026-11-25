@@ -19,6 +19,8 @@ export function fakeAuditLog(role: "member" | "guest" = "member", failing = fals
       },
     },
     space: { findUnique: async () => ({ organizationId: "org-1", name: "Home" }) },
+    // A person's own event, such as a form they sent, reads their email for its actor.
+    user: { findUnique: async () => ({ email: "owner@example.test" }) },
     member: {
       findUnique: async () => ({ role }),
       findMany: async () => [{ organizationId: "org-own", role: "owner" }],

@@ -80,6 +80,8 @@ export {
   oneTimeCodeRedactions,
   VaultKeyUnavailableError,
 } from "./vault/vault-redaction.js";
+export type { RunCard } from "./vault/vault-run-card.js";
+export { findRunCard, runCardToolView } from "./vault/vault-run-card.js";
 export {
   generateBotSecret,
   prepareBotSecret,

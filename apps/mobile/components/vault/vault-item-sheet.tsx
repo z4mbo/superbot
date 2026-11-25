@@ -178,7 +178,8 @@ export function VaultItemSheet({
               {uses.map((use, index) => (
                 <SettingsRow
                   key={`${use.at}-${index}`}
-                  title={use.botName}
+                  // A row with an event is the person's own, such as a Secure form that saved it.
+                  title={use.event ? t`Saved from chat` : use.botName}
                   detail={[
                     use.chat && use.chat.title !== use.botName ? use.chat.title : "",
                     use.site ? siteHost(use.site) : "",
@@ -222,7 +223,11 @@ export function VaultItemSheet({
                 <SettingsGroup>
                   <SettingsRow
                     accessibilityRole="button"
-                    title={t`Used ${ph({ when: formatActivityRelativeTime(latest.at) })} by ${ph({ bot: latest.botName })}`}
+                    title={
+                      latest.event
+                        ? t`Saved from chat ${ph({ when: formatActivityRelativeTime(latest.at) })}`
+                        : t`Used ${ph({ when: formatActivityRelativeTime(latest.at) })} by ${ph({ bot: latest.botName })}`
+                    }
                     chevron="right"
                     onPress={() => setUsesOpen(true)}
                   />

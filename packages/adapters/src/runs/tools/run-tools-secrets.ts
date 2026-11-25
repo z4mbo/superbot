@@ -1,6 +1,6 @@
 import { BotSecretName, botSecretSubmissionSchema } from "@rakazo/contracts";
 import { createStreamingRedactor, displayName, redactSecrets } from "@rakazo/core";
-import { runCodeKind, runLoginKind, runSecretKind, spaceIsShared } from "@rakazo/db";
+import { runCardKind, runCodeKind, runLoginKind, runSecretKind, spaceIsShared } from "@rakazo/db";
 import {
   completeExternalEffect,
   replaceCompletedExternalEffectResult,
@@ -15,6 +15,7 @@ import {
   canReplaceLoginSite,
   findBotSecret,
   findCommandVariableConflict,
+  findRunCard,
   findRunLogin,
   findSiteLogin,
   forgetBotSecret,
@@ -28,6 +29,7 @@ import {
   requestedLoginFields,
   requestWithBotSecret,
   resolveRequestSecretDestination,
+  runCardToolView,
   sameSecretDestination,
 } from "../../secrets/bot-secrets.js";
 import {
@@ -62,7 +64,11 @@ export const secretTools: ToolHandlers = {
     if (!parsed.success) return call.finish({ error: "A valid credential name is required." });
     // This run's unsaved login comes before a saved one of the name, as it does for fills.
     const forgotten = await deps.prisma.secret.deleteMany({
-      where: { userId: run.userId, spaceId: run.spaceId, kind: runLoginKind(run.id, parsed.data) },
+      where: {
+        userId: run.userId,
+        spaceId: run.spaceId,
+        kind: { in: [runLoginKind(run.id, parsed.data), runCardKind(run.id, parsed.data)] },
+      },
     });
     if (forgotten.count > 0) return call.finish({ removed: true });
     return call.finish(await forgetBotSecret(deps.prisma, run, parsed.data));
@@ -144,6 +150,11 @@ export const secretTools: ToolHandlers = {
           ? await findRunLogin(deps.prisma, deps.secretStore, run, runId, destination.name)
           : undefined;
       const held = runLogin?.origin === destination.origin ? runLogin : undefined;
+      // A card sent from a Secure form for this run only: the bot gets its brand and last digits.
+      const runCard =
+        destination.auth.type === "card"
+          ? await findRunCard(deps.prisma, deps.secretStore, run, runId, destination.name)
+          : undefined;
       if (existing && !sameSecretDestination(existing, destination)) {
         if (!canReplaceLoginSite(existing, destination)) {
           return call.finish({
@@ -163,19 +174,21 @@ export const secretTools: ToolHandlers = {
           error: `Invalid credential destination — name: ${conflict} is already exported as the same variable. Choose another name.`,
         });
       }
-      const known = held
-        ? {
-            saved: false,
-            ...destination,
-            fields: held.fields.map(({ label, hidden }) => ({ label, hidden })),
-          }
-        : existing && sameSecretDestination(existing, destination)
+      const known = runCard
+        ? runCardToolView(destination.name, runCard.card)
+        : held
           ? {
-              saved: true,
-              ...botSecretToolView(existing),
-              ...(await loginToolHints(deps.prisma, deps.secretStore, run, existing.name)),
+              saved: false,
+              ...destination,
+              fields: held.fields.map(({ label, hidden }) => ({ label, hidden })),
             }
-          : undefined;
+          : existing && sameSecretDestination(existing, destination)
+            ? {
+                saved: true,
+                ...botSecretToolView(existing),
+                ...(await loginToolHints(deps.prisma, deps.secretStore, run, existing.name)),
+              }
+            : undefined;
       const submitted = botSecretSubmissionSchema({
         allowPrivateHttpOrigin: allowPrivateHttpSecretOrigins(),
       }).safeParse(applied?.effect.result).data;

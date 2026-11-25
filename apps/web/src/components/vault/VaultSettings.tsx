@@ -1,8 +1,10 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   BotSecretMetadata,
+  ContactPart,
   SettingsScope,
   VaultCsv,
+  VaultFilter,
   VaultKind,
   VaultRevealed,
 } from "@rakazo/contracts";
@@ -10,8 +12,9 @@ import {
   isIdentityConfirmationRequired,
   parseVaultCsv,
   sendVaultImport,
+  VAULT_FILTERS,
   VAULT_IMPORT_FILE_LIMIT,
-  VAULT_KINDS,
+  vaultItemFilters,
   vaultKind,
 } from "@rakazo/contracts";
 import { vaultBotsChoosable } from "@rakazo/core";
@@ -43,11 +46,33 @@ import { VaultItemEditorPage } from "./VaultItemEditor";
 
 export { REVEAL_MS } from "./VaultItemDetail";
 
+const FILTER_CLASS =
+  "rounded-full text-muted-foreground aria-pressed:bg-accent aria-pressed:text-foreground";
+
 /** Filters and search appear only once a vault holds enough to need them. */
 const SEARCH_FROM = 8;
 const REVEAL_CANCELLED = new Error("Reveal cancelled");
 
-type Editing = { kind: VaultKind; mode: "new" | "edit"; initial?: VaultEditorInitial };
+type Editing = {
+  kind: VaultKind;
+  mode: "new" | "edit";
+  initial?: VaultEditorInitial;
+  /** A new contact that is one part: an address, a phone or an email. */
+  part?: ContactPart;
+};
+
+/** What the New menu adds, in order; a contact is added as the part it holds. */
+const NEW_ITEMS: readonly (Exclude<VaultKind, "contact"> | ContactPart)[] = [
+  "login",
+  "card",
+  "address",
+  "phone",
+  "email",
+  "api_key",
+  "variable",
+];
+/** The filters shown as tabs; the rest are under More. */
+const TAB_FILTERS: readonly VaultFilter[] = ["login", "card"];
 
 /** The items in the account's vault, or in the bound Space's own once it customizes them. */
 export function VaultSettings({
@@ -78,9 +103,9 @@ export function VaultSettings({
     otherSpaces: scope === "account" && !noBots && otherSpaces,
   });
   const items = listQuery.data;
-  const { one, many } = useVaultKindLabels();
+  const { one, part: partLabel, filters: filterLabel } = useVaultKindLabels();
   const subtitle = useVaultSubtitle();
-  const [filter, setFilter] = useState<VaultKind | "all">("all");
+  const [filter, setFilter] = useState<VaultFilter | "all">("all");
   const [search, setSearch] = useState("");
   const [opened, setOpened] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -251,26 +276,32 @@ export function VaultSettings({
   }
 
   // A new item can be limited to chosen bots unless the saved ones show this server can't.
-  const newItem = (kind: VaultKind): Editing => ({
-    kind,
-    mode: "new",
-    ...(vaultBotsChoosable(items) ? { initial: { access: { allBots: true, botIds: [] } } } : {}),
-  });
+  const newItem = (choice: (typeof NEW_ITEMS)[number]): Editing => {
+    const part = choice === "address" || choice === "phone" || choice === "email" ? choice : null;
+    return {
+      kind: part ? "contact" : (choice as VaultKind),
+      mode: "new",
+      ...(part ? { part } : {}),
+      ...(vaultBotsChoosable(items) ? { initial: { access: { allBots: true, botIds: [] } } } : {}),
+    };
+  };
 
   const contacts = (items ?? []).flatMap((item) =>
     item.auth?.type === "contact" ? [{ name: item.name, title: item.title }] : [],
   );
-  const counts = new Map<VaultKind, number>();
+  const counts = new Map<VaultFilter, number>();
   for (const item of items ?? [])
-    if (item.auth)
-      counts.set(vaultKind(item.auth.type), (counts.get(vaultKind(item.auth.type)) ?? 0) + 1);
-  const kindsShown = VAULT_KINDS.filter((kind) => counts.has(kind));
+    for (const shownUnder of vaultItemFilters(item))
+      counts.set(shownUnder, (counts.get(shownUnder) ?? 0) + 1);
+  const filtersShown = VAULT_FILTERS.filter((kind) => counts.has(kind));
+  const tabsShown = filtersShown.filter((kind) => TAB_FILTERS.includes(kind));
+  const moreShown = filtersShown.filter((kind) => !TAB_FILTERS.includes(kind));
   const activeFilter = filter !== "all" && counts.has(filter) ? filter : "all";
   const searching = (items?.length ?? 0) >= SEARCH_FROM;
   const needle = searching ? search.trim().toLowerCase() : "";
   const shown = (items ?? []).filter(
     (item) =>
-      (activeFilter === "all" || (item.auth && vaultKind(item.auth.type) === activeFilter)) &&
+      (activeFilter === "all" || vaultItemFilters(item).includes(activeFilter)) &&
       (!needle ||
         [item.title, subtitle(item), item.origin, item.name].some((text) =>
           text.toLowerCase().includes(needle),
@@ -289,9 +320,10 @@ export function VaultSettings({
     return (
       <section data-testid="vault">
         <VaultItemEditorPage
-          key={`${editing.mode}-${editing.kind}-${editing.initial?.name ?? ""}`}
+          key={`${editing.mode}-${editing.part ?? editing.kind}-${editing.initial?.name ?? ""}`}
           onBack={() => setEditing(null)}
           kind={editing.kind}
+          contactPart={editing.part}
           mode={editing.mode}
           heading={
             editing.mode === "edit"
@@ -300,9 +332,12 @@ export function VaultSettings({
                   login: t`New login`,
                   card: t`New card`,
                   contact: t`New contact`,
+                  address: t`New address`,
+                  phone: t`New phone`,
+                  email: t`New email`,
                   api_key: t`New API key`,
                   variable: t`New variable`,
-                }[editing.kind]
+                }[editing.part ?? editing.kind]
           }
           initial={editingInitial}
           contacts={contacts}
@@ -357,9 +392,9 @@ export function VaultSettings({
   return (
     <section data-testid="vault" className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {kindsShown.length > 1 ? (
+        {filtersShown.length > 1 ? (
           <fieldset className="m-0 flex min-w-0 flex-wrap gap-1 border-0 p-0" aria-label={t`Show`}>
-            {(["all", ...kindsShown] as const).map((kind) => (
+            {(["all", ...tabsShown] as const).map((kind) => (
               <Button
                 key={kind}
                 type="button"
@@ -367,15 +402,51 @@ export function VaultSettings({
                 size="sm"
                 aria-pressed={activeFilter === kind}
                 data-testid={`vault-filter-${kind}`}
-                className="rounded-full text-muted-foreground aria-pressed:bg-accent aria-pressed:text-foreground"
+                className={FILTER_CLASS}
                 onClick={() => setFilter(kind)}
               >
-                {kind === "all" ? t`All` : many[kind]}
+                {kind === "all" ? t`All` : filterLabel[kind]}
                 <span className="text-faint-foreground tabular-nums">
                   {kind === "all" ? items?.length : counts.get(kind)}
                 </span>
               </Button>
             ))}
+            {moreShown.length ? (
+              <DropdownMenu>
+                {/* Pressed while one of its filters is on, and then named by it. */}
+                <DropdownMenuTrigger
+                  data-testid="vault-filter-more"
+                  aria-pressed={moreShown.includes(activeFilter as VaultFilter)}
+                  render={
+                    <Button type="button" variant="ghost" size="sm" className={FILTER_CLASS} />
+                  }
+                >
+                  {activeFilter !== "all" && moreShown.includes(activeFilter) ? (
+                    <>
+                      {filterLabel[activeFilter]}
+                      <span className="text-faint-foreground tabular-nums">
+                        {counts.get(activeFilter)}
+                      </span>
+                    </>
+                  ) : (
+                    <Trans>More</Trans>
+                  )}
+                  <ChevronDown />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-40">
+                  {moreShown.map((kind) => (
+                    <DropdownMenuItem
+                      key={kind}
+                      data-testid={`vault-filter-${kind}`}
+                      onClick={() => setFilter(kind)}
+                    >
+                      <span className="flex-1">{filterLabel[kind]}</span>
+                      <span className="text-faint-foreground tabular-nums">{counts.get(kind)}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </fieldset>
         ) : null}
         <span className="flex-1" />
@@ -400,18 +471,27 @@ export function VaultSettings({
             <ChevronDown />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
-            {VAULT_KINDS.map((kind) => (
-              <Fragment key={kind}>
-                {kind === "api_key" ? <DropdownMenuSeparator /> : null}
-                <DropdownMenuItem
-                  data-testid={`vault-new-${kind}`}
-                  onClick={() => setEditing(newItem(kind))}
-                >
-                  <VaultTile kind={kind} title="" className="size-5 rounded-none bg-transparent" />
-                  {one[kind]}
-                </DropdownMenuItem>
-              </Fragment>
-            ))}
+            {NEW_ITEMS.map((choice) => {
+              const part = choice === "address" || choice === "phone" || choice === "email";
+              return (
+                <Fragment key={choice}>
+                  {choice === "api_key" ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuItem
+                    // An address is the contact it always was.
+                    data-testid={`vault-new-${choice === "address" ? "contact" : choice}`}
+                    onClick={() => setEditing(newItem(choice))}
+                  >
+                    <VaultTile
+                      kind={part ? "contact" : choice}
+                      part={part ? choice : undefined}
+                      title=""
+                      className="size-5 rounded-none bg-transparent"
+                    />
+                    {part ? partLabel[choice] : one[choice]}
+                  </DropdownMenuItem>
+                </Fragment>
+              );
+            })}
             <DropdownMenuSeparator />
             {/* A review plans against the Vault as read, so it waits for a good read. */}
             <DropdownMenuItem
@@ -464,7 +544,12 @@ export function VaultSettings({
                     setOpened(item.name);
                   }}
                 >
-                  <VaultTile kind={kind} title={item.title} origin={item.origin} />
+                  <VaultTile
+                    kind={kind}
+                    title={item.title}
+                    origin={item.origin}
+                    contact={item.preview?.contact}
+                  />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-body font-medium text-foreground">
                       {item.title}

@@ -134,7 +134,7 @@ export interface AnswerRunInput {
   fields?: LoginFieldInput[];
   /** A login card's answer from apps that predate `fields`; `answer` carries its password. */
   username?: string;
-  /** Only for a login card: false uses the login for this run only instead of saving it. */
+  /** Only for a login or card form: false uses it for this run only instead of saving it. */
   remember?: false;
   /** Turns down a pending secret request; only the run's user can, and nothing is stored. */
   dismiss?: boolean;
@@ -164,7 +164,7 @@ export interface RunSecretWriter {
     credential?: BotSecretDestination;
     /** The site a code card was shown for. */
     oneTimeCode?: OneTimeCodeTarget;
-    /** False for a login card answered with "Save to Vault" off. */
+    /** False for a login or card form answered with "Save to Vault" off. */
     remember: boolean;
     runId: string;
     userId: string;
@@ -290,7 +290,10 @@ async function commitAnswerRunInput(
   const login = loginAsk ? loginAnswerValue(pendingAsk.loginFields, input) : undefined;
   // Login fields belong only to a login card, which cannot be saved without them.
   if (loginAsk ? !login : input.username !== undefined || input.fields !== undefined) return null;
-  if (input.remember !== undefined && !loginAsk) return null;
+  // Only a login or a card can be sent for this run only, from a Secure form.
+  const runOnlyAsk =
+    loginAsk || (secretAsk && !dismissed && pendingAsk.credential?.auth.type === "card");
+  if (input.remember !== undefined && !runOnlyAsk) return null;
   if (secretAsk && input.answer.length > BOT_SECRET_VALUE_MAX_LENGTH)
     throw new AnswerTooLongError();
   let approvalEffect: {

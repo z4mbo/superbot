@@ -131,7 +131,20 @@ export function AskBlock({
       if (session === sheetSession.current) setSheetOpen(false);
     };
     return (
-      <View style={[askRowStyles.card, { backgroundColor: tokens.card }]}>
+      <View
+        accessibilityLabel={t`Secure form`}
+        style={[askRowStyles.card, { backgroundColor: tokens.card }]}
+      >
+        <Text
+          testID="secure-form-label"
+          style={{
+            color: tokens.mutedForeground,
+            ...typeScale.caption,
+            fontWeight: fontWeight.medium,
+          }}
+        >
+          {t`Secure form`}
+        </Text>
         <View style={askRowStyles.row}>
           <VaultTile
             origin={itemType === "login" ? ask.credential.origin : undefined}
@@ -226,6 +239,7 @@ export function AskBlock({
             }}
           />
         ) : null}
+        {/* A card form here saves to the Vault; sending one for this run only is on the web. */}
         {sheetOpen && (itemType === "card" || itemType === "contact") && !answered ? (
           <VaultItemEditor
             kind={itemType}

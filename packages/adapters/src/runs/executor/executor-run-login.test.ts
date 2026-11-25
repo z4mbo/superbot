@@ -136,7 +136,9 @@ async function runTool(
     Object.entries(where).every(([key, value]) =>
       value && typeof value === "object" && "startsWith" in value
         ? String(row[key]).startsWith(String(value.startsWith))
-        : row[key] === value,
+        : value && typeof value === "object" && "in" in value
+          ? (value.in as unknown[]).includes(row[key])
+          : row[key] === value,
     );
   const vault = options.vault ?? (options.saved ? [options.saved] : []);
   const inVault = (row: Record<string, unknown>, where: Record<string, unknown>): boolean =>

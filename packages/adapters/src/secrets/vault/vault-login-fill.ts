@@ -32,6 +32,7 @@ import {
   oneTimeCodeRedactions,
   passwordRedactionForms,
 } from "./vault-redaction.js";
+import { findRunCard, loadRunCardRedactions } from "./vault-run-card.js";
 import { openVaultValue } from "./vault-values.js";
 
 /**
@@ -75,8 +76,9 @@ export async function findRunLogin(
 }
 
 /**
- * Redaction forms of this run's logins that weren't saved, from the start of the run: hidden
- * fields as every run hides a saved login's, and every field as the run that fills one does.
+ * Redaction forms of this run's logins and cards that weren't saved, from the start of the run:
+ * hidden fields as every run hides a saved login's, every field as the run that fills one does,
+ * and a card's number in every printed form.
  */
 export async function loadRunLoginRedactions(
   prisma: PrismaClient,
@@ -101,6 +103,8 @@ export async function loadRunLoginRedactions(
       for (const form of passwordRedactionForms(field.value)) forms.add(form);
     }
   }
+  for (const form of await loadRunCardRedactions(prisma, secretStore, scope, runId))
+    forms.add(form);
   return [...forms];
 }
 
@@ -253,16 +257,44 @@ export async function resolveVaultCardFill(input: {
   prisma: PrismaClient;
   secretStore: Pick<SecretStore, "load">;
   scope: BotSecretScope;
+  /** The run filling; a card a Secure form sent for it only comes before a saved one. */
+  runId?: string;
   name: string;
   field: PurchaseCardField;
   site: string;
   /** When the approved card was last saved; a card replaced since then is not typed. */
   savedAt: string;
 }): Promise<
-  { text: string; origin: string; redactions: string[]; used: VaultItemUse } | { error: string }
+  { text: string; origin: string; redactions: string[]; used?: VaultItemUse } | { error: string }
 > {
   const target = OneTimeCodeTarget.safeParse({ origin: input.site });
   if (!target.success) return { error: "site must be the checkout page's HTTPS origin." };
+  const runCard = input.runId
+    ? await findRunCard(input.prisma, input.secretStore, input.scope, input.runId, input.name)
+    : undefined;
+  if (runCard) {
+    if (runCard.savedAt !== input.savedAt)
+      return {
+        error:
+          "This card changed after the user approved it, so nothing was typed. Call browser_act again to ask them.",
+      };
+    // Never a vault item: no use is recorded for it, and it has no billing contact to read.
+    const { card } = runCard;
+    const fill = {
+      origin: new URL(target.data.origin).origin,
+      redactions: cardRedactionForms(card.number),
+    };
+    if (input.field === "number") return { text: card.number, ...fill };
+    if (input.field === "expiry") return { text: cardExpiry(card), ...fill };
+    if (input.field === "cvc")
+      return card.cvc
+        ? { text: card.cvc, ...fill }
+        : { error: "This card has no security code saved." };
+    return {
+      error:
+        "This card has no billing postal code saved. Type the postal code of the user's billing address yourself.",
+    };
+  }
   const usable = await usableVaultFields(input.prisma, input.scope);
   const row = await input.prisma.vaultCredential.findFirst({
     where: { ...usable, name: input.name },

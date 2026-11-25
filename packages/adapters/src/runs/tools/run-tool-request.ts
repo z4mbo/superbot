@@ -36,7 +36,7 @@ import {
   purchaseCardSummary,
 } from "../../payments/purchase-gate.js";
 import { canonicalToolEvents } from "../../routines/routine-triggers.js";
-import { listVaultItems } from "../../secrets/bot-secrets.js";
+import { findRunCard, listVaultItems } from "../../secrets/bot-secrets.js";
 import type { VaultCardUse, VaultLoginUse } from "../../secrets/vault/vault-card-use.js";
 import {
   cardUseSummary,
@@ -586,6 +586,12 @@ export async function prepareToolRequest(
           "This types a saved card the user has not approved, so nothing was typed. Call the tool again with only that card; that asks the user.",
         );
       let cardUse = approvedCard;
+      // A card a Secure form sent for this run only comes first, as its fill reads it, and asks
+      // like a saved one: sending it named no checkout.
+      const runCard = cardUse
+        ? undefined
+        : await findRunCard(deps.prisma, deps.secretStore, run, run.id, wantedCard.card);
+      if (runCard) cardUse = { ...wantedCard, title: runCard.title, savedAt: runCard.savedAt };
       if (!cardUse) {
         const [item] = await listVaultItems(deps.prisma, deps.secretStore, run, wantedCard.card);
         if (BotSecretAuth.safeParse(item?.auth).data?.type !== "card")

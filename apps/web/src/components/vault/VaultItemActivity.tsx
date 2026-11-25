@@ -42,6 +42,8 @@ export function VaultItemActivity({
   if (!latest) return null;
   const when = formatRelativeTime(latest.at);
   const bot = latest.botName;
+  // A row with an event is the person's own, such as a Secure form in chat that saved the item.
+  const saved = latest.event === "form_saved";
   return (
     <Button
       type="button"
@@ -51,9 +53,13 @@ export function VaultItemActivity({
       className="self-start px-0 text-body-sm text-muted-foreground hover:bg-transparent"
       onClick={onOpen}
     >
-      <Trans>
-        Used {when} by {bot}
-      </Trans>
+      {saved ? (
+        <Trans>Saved from chat {when}</Trans>
+      ) : (
+        <Trans>
+          Used {when} by {bot}
+        </Trans>
+      )}
       <ChevronRight className="rtl:rotate-180" />
     </Button>
   );
@@ -72,6 +78,7 @@ export function VaultItemUses({
 }) {
   const { t } = useLingui();
   const uses = useVaultItemUses(scope, name);
+  const saved = t`Saved from chat`;
   return (
     <div data-testid="vault-item-uses" className="flex flex-col gap-4">
       <SettingsPageHeader title={title} subtitle={t`Activity`} onBack={onBack} />
@@ -86,7 +93,7 @@ export function VaultItemUses({
               className="flex items-center gap-3 border-t border-border px-3.5 py-2 text-body-sm first:border-t-0"
             >
               <span className="min-w-0 flex-1 truncate">
-                {use.botName}
+                {use.event ? saved : use.botName}
                 {use.chat && use.chat.title !== use.botName ? (
                   <span className="text-muted-foreground"> · {use.chat.title}</span>
                 ) : null}

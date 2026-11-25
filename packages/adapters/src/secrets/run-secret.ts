@@ -9,14 +9,27 @@ import {
 } from "@rakazo/contracts";
 import { BACKGROUND_HELPER_TRIGGER, isSecretAskBlock } from "@rakazo/core";
 import type { PrismaClient, RunSecretWriter } from "@rakazo/db";
-import { runCodeKind, runLoginKind, runSecretKind, withTransactionRetry } from "@rakazo/db";
+import {
+  runCardKind,
+  runCodeKind,
+  runLoginKind,
+  runSecretKind,
+  withTransactionRetry,
+} from "@rakazo/db";
 import type { ApprovalPausedToolResult } from "../approvals/approval-effect.js";
 import {
   internalTerminatingResult,
   resolveDuplicateEffectGate,
 } from "../approvals/approval-effect.js";
-import { encodeRunCode, encodeRunLogin, prepareBotSecret } from "./bot-secrets.js";
+import {
+  canonicalSecretValue,
+  encodeRunCode,
+  encodeRunLogin,
+  prepareBotSecret,
+} from "./bot-secrets.js";
 import { persistPreparedSecret } from "./secret-persistence.js";
+import type { SecureFormOutcome } from "./vault/secure-form.js";
+import { recordSecureFormOutcome } from "./vault/secure-form.js";
 
 export function normalizeSecretAskPurpose(purpose: string | undefined): SecretAskPurpose {
   return SecretAskPurpose.safeParse(purpose).data ?? "otp";
@@ -121,7 +134,10 @@ export async function reconcileManagedConnection(
 export function createRunSecretWriter(secretStore: SecretStore): RunSecretWriter {
   return {
     async withPrepared(prisma, input, commit) {
-      return withTransactionRetry(async () => {
+      // What became of a Secure form, recorded once the answer is committed.
+      let form: SecureFormOutcome | undefined;
+      const committed = await withTransactionRetry(async () => {
+        form = undefined;
         const run = await prisma.run.findFirst({
           where: {
             id: input.runId,
@@ -177,13 +193,25 @@ export function createRunSecretWriter(secretStore: SecretStore): RunSecretWriter
           });
         const plaintext = login ? encodeLoginSecret(login) : (code ?? input.answer);
         const scope = { userId: run.userId, spaceId: input.spaceId, botId: run.botId };
-        // With "Save to Vault" off, the login stays with this run, bound to the card's site.
+        // With "Save to Vault" off, a login stays with this run, bound to the card's site, and a
+        // card stays with this run, typed only where the person approves it.
         const runLogin =
           ask.credential?.auth.type === "login" && input.remember === false
             ? ask.credential
             : undefined;
+        const runCard =
+          ask.credential?.auth.type === "card" && input.remember === false
+            ? ask.credential
+            : undefined;
+        if (input.remember === false && !runLogin && !runCard)
+          return commit({
+            store: async () => {
+              throw new Error("Secret request changed; retry");
+            },
+          });
+        const runOnly = runLogin ?? runCard;
         const prepared =
-          ask.credential && !runLogin
+          ask.credential && !runOnly
             ? await prepareBotSecret({
                 prisma,
                 secretStore,
@@ -197,7 +225,9 @@ export function createRunSecretWriter(secretStore: SecretStore): RunSecretWriter
                   ? encodeRunCode(ask.oneTimeCode.origin, plaintext)
                   : runLogin
                     ? encodeRunLogin(runLogin.origin, plaintext)
-                    : plaintext,
+                    : runCard
+                      ? canonicalSecretValue(runCard, plaintext)
+                      : plaintext,
                 {
                   operationId: input.runId,
                   traceId: input.runId,
@@ -206,6 +236,17 @@ export function createRunSecretWriter(secretStore: SecretStore): RunSecretWriter
                 },
                 { ephemeral: true },
               );
+        const credential = ask.credential;
+        if (credential)
+          form = {
+            scope,
+            runId: input.runId,
+            threadId: input.threadId,
+            answeredByUserId: input.answeredByUserId,
+            name: credential.name,
+            kind: credential.auth.type,
+            saved: !runOnly,
+          };
         return persistPreparedSecret(prisma, secretStore, prepared, () =>
           commit({
             async store(value) {
@@ -213,7 +254,7 @@ export function createRunSecretWriter(secretStore: SecretStore): RunSecretWriter
                 value.userId !== run.userId ||
                 value.botId !== run.botId ||
                 value.plaintext !== plaintext ||
-                value.remember !== !runLogin ||
+                value.remember !== !runOnly ||
                 JSON.stringify(value.credential) !== JSON.stringify(ask.credential) ||
                 JSON.stringify(value.oneTimeCode) !== JSON.stringify(ask.oneTimeCode)
               )
@@ -225,6 +266,15 @@ export function createRunSecretWriter(secretStore: SecretStore): RunSecretWriter
                     userId: run.userId,
                     spaceId: input.spaceId,
                     kind: runLoginKind(input.runId, ask.credential.name),
+                  },
+                });
+              }
+              if (runCard) {
+                await value.tx.secret.deleteMany({
+                  where: {
+                    userId: run.userId,
+                    spaceId: input.spaceId,
+                    kind: runCardKind(input.runId, runCard.name),
                   },
                 });
               }
@@ -249,7 +299,9 @@ export function createRunSecretWriter(secretStore: SecretStore): RunSecretWriter
                       ? runCodeKind(input.runId)
                       : runLogin
                         ? runLoginKind(input.runId, runLogin.name)
-                        : runSecretKind(input.runId),
+                        : runCard
+                          ? runCardKind(input.runId, runCard.name)
+                          : runSecretKind(input.runId),
                     ciphertext: prepared.ciphertext,
                   },
                 });
@@ -257,6 +309,8 @@ export function createRunSecretWriter(secretStore: SecretStore): RunSecretWriter
           }),
         );
       });
+      if (committed && form) await recordSecureFormOutcome(prisma, form);
+      return committed;
     },
     async store() {
       throw new Error("Prepare secret material before opening a transaction");
