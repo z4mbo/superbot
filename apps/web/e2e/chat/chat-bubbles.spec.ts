@@ -82,7 +82,7 @@ test("bubbles draw a shadow hairline, grouped corners and chat type", async ({
     ((await box(bubble(page, above))).y + (await box(bubble(page, above))).height);
   expect(await gap("m9", "m10")).toBeCloseTo(4, 0);
   expect(await gap("m6", "m7")).toBeCloseTo(4, 0);
-  expect(await gap("m8", "m9")).toBeCloseTo(16, 0);
+  expect(await gap("m11", "m12")).toBeCloseTo(16, 0);
 });
 
 test("a held run parks the working line at the bottom while you read back", async ({
