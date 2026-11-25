@@ -14,7 +14,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSpaceQueries } from "../../lib/query/query";
-import { statusLabel, statusTone } from "../space/ActivityList";
+import { statusLabel, statusTone } from "./run-status";
 
 export function RoutineRunHistory({ routineId }: { routineId: string }) {
   const { t } = useLingui();
