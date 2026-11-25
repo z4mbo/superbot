@@ -6,11 +6,13 @@ const prisma = {} as PrismaClient;
 
 describe("bot capabilities reconciler", () => {
   it("pages through bots from where it stopped and reports the Spaces it changed", async () => {
-    const pages = [
+    const pages: Array<{ next: string | null; changedSpaceIds: string[] }> = [
       { next: "bot_50", changedSpaceIds: ["space_a"] },
       { next: null, changedSpaceIds: [] },
     ];
-    const repair = vi.fn(async () => pages.shift()!);
+    const repair = vi.fn(
+      async (_prisma: PrismaClient, _options: { after?: string }) => pages.shift()!,
+    );
     const onChanged = vi.fn();
     await createBotCapabilitiesReconciler({ prisma, repair, onChanged })();
     expect(repair.mock.calls.map(([, options]) => options.after)).toEqual([undefined, "bot_50"]);
