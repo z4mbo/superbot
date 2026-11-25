@@ -23,7 +23,7 @@ export function LibrarySkillDetail({
   const { t } = useLingui();
   const queries = useSpaceQueries();
   const add = useSave({
-    save: (_: void, rpc) => rpc.agentSkills.create({ content: skill.content }),
+    save: (_, rpc) => rpc.agentSkills.create({ content: skill.content }),
     stale: [queries.agentSkills.key()],
   });
   const parsed = parseSkillMd(skill.content);
