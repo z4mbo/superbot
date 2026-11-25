@@ -47,6 +47,38 @@ for (const [platform, nativeWindowFrame, controls] of [
         { x: 68, y: 26 },
         { x: 30, y: 26 },
       ]);
+      // Not a drag region: there the pointer never tells the page it left a button, and the
+      // button kept its hover fill as if it were plated at rest.
+      const block = page.getByTestId("window-controls");
+      expect(
+        await block.evaluate((node) =>
+          getComputedStyle(node).getPropertyValue("-webkit-app-region"),
+        ),
+      ).toBe("no-drag");
+      const fill = (name: string) =>
+        page
+          .getByRole("button", { name })
+          .evaluate((node) => [
+            getComputedStyle(node).backgroundColor,
+            getComputedStyle(node).color,
+          ]);
+      const clear = "rgba(0, 0, 0, 0)";
+      for (const name of ["Minimize", "Maximize", "Close"])
+        expect((await fill(name))[0]).toBe(clear);
+      // A subtle neutral fill under minimize and maximize, red with a white glyph under close.
+      for (const name of ["Minimize", "Maximize"]) {
+        await page.getByRole("button", { name }).hover();
+        await expect
+          .poll(async () => (await fill(name))[0])
+          .toMatch(/oklab\(0\.97[0-9]* .*\/ 0\.08\)/);
+      }
+      await page.getByRole("button", { name: "Close" }).hover();
+      await expect
+        .poll(async () => (await fill("Close")).join(" "))
+        .toBe("rgb(207, 43, 53) rgb(255, 255, 255)");
+      await page.mouse.move(600, 400);
+      for (const name of ["Minimize", "Maximize", "Close"])
+        await expect.poll(async () => (await fill(name))[0]).toBe(clear);
     }
     await captureScreenshot(page, testInfo, `window-chrome-${platform}-${nativeWindowFrame}`);
   });

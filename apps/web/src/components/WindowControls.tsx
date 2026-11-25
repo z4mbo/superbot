@@ -50,9 +50,12 @@ function PageWindowControls({ desktop }: { desktop: RakazoDesktop }) {
   const maximizeLabel = maximized ? t`Restore` : t`Maximize`;
   const closeLabel = t`Close`;
   return (
+    // The whole block is not a drag region. Over a drag region the window manager takes the
+    // pointer, so a pointer leaving a button there never tells the page, and the button kept its
+    // hover fill as if it were plated at rest. Leaving a button now always lands on the page.
     <div
       data-testid="window-controls"
-      className="app-drag fixed top-0 right-0 z-[5000] flex items-center pe-3"
+      className="app-no-drag fixed top-0 right-0 z-[5000] flex items-center ps-1 pe-3"
       style={{ height: WINDOW_CONTROLS_BLOCK_PX }}
     >
       <div className="flex items-center gap-0.5">
