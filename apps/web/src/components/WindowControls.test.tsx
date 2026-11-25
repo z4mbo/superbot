@@ -119,3 +119,23 @@ it("keeps toolbars clear of the Windows overlay without drawing its own buttons"
     delete (navigator as { windowControlsOverlay?: unknown }).windowControlsOverlay;
   }
 });
+
+it("keeps the controls out of the drag region and paints no fill at rest", async () => {
+  bridge("linux");
+  await act(async () => root.render(<WindowControls />));
+  const controls = document.querySelector<HTMLElement>('[data-testid="window-controls"]')!;
+  // Over a drag region the pointer never tells the page it left a button, so its hover stuck.
+  expect(controls.classList).toContain("app-no-drag");
+  expect(controls.classList).not.toContain("app-drag");
+  for (const item of controls.querySelectorAll("button")) {
+    const fills = [...item.classList].filter((name) => /(^|:)bg-/.test(name));
+    // Every fill waits for hover or press: none applies at rest.
+    expect(fills.every((name) => /^(hover|active):/.test(name))).toBe(true);
+  }
+  const fills = (name: string) =>
+    [...button(name)!.classList].filter((item) => item.startsWith("hover:")).join(" ");
+  expect(fills("Minimize")).toContain("hover:bg-foreground/8");
+  expect(fills("Maximize")).toContain("hover:bg-foreground/8");
+  expect(fills("Close")).toContain("hover:bg-destructive-fill");
+  expect(fills("Close")).toContain("hover:text-destructive-foreground");
+});

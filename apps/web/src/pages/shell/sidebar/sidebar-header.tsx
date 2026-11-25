@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import type { Bot } from "@rakazo/contracts";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@rakazo/ui-web";
-import { Bell, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { IconTooltip } from "../../../components/IconTooltip";
 import { WindowChrome } from "../../../components/WindowChrome";
 import { BotCreatePicker } from "../bots/bot-picker";
@@ -14,8 +14,6 @@ const STROKE = 1.75;
 export function SidebarHeader({
   createMenuOpen,
   setCreateMenuOpen,
-  activityMode,
-  toggleActivityMode,
   searchOpen = false,
   onSearch,
   bots,
@@ -27,8 +25,6 @@ export function SidebarHeader({
 }: {
   createMenuOpen: boolean;
   setCreateMenuOpen: (open: boolean) => void;
-  activityMode: boolean;
-  toggleActivityMode: () => void;
   searchOpen?: boolean;
   onSearch?: () => void;
   bots: Bot[];
@@ -59,26 +55,6 @@ export function SidebarHeader({
             </Button>
           </IconTooltip>
         ) : null}
-        {/* Activity stays out of sight until the header is hovered or focused, or while it is on. */}
-        <IconTooltip label={t`Activity`}>
-          <Button
-            variant="floating"
-            size="icon"
-            aria-label={t`Activity`}
-            aria-pressed={activityMode}
-            data-activity-mode={activityMode ? "on" : "off"}
-            onClick={toggleActivityMode}
-            className={`app-no-drag ${activityMode ? "" : "absolute end-full me-2 opacity-0 transition-opacity group-hover/sidebar-header:opacity-100 focus-visible:opacity-100"}`}
-          >
-            {/* A filled bell marks Activity on, so on and hovered never look alike. */}
-            <Bell
-              className={ICON}
-              strokeWidth={STROKE}
-              fill={activityMode ? "currentColor" : "none"}
-              aria-hidden="true"
-            />
-          </Button>
-        </IconTooltip>
         <Popover open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
           <IconTooltip label={t`Create`}>
             <PopoverTrigger

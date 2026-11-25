@@ -1,15 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type { Bot, Group, NavLink } from "@rakazo/contracts";
+import type { Bot, NavLink } from "@rakazo/contracts";
 import { accountDisplay } from "@rakazo/core";
-import {
-  Button,
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-  Sidebar,
-} from "@rakazo/ui-web";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Button, InputGroup, InputGroupAddon, InputGroupInput, Sidebar } from "@rakazo/ui-web";
+import { Search } from "lucide-react";
 import type { ReactNode, UIEvent } from "react";
 import { useState } from "react";
 import { PasskeyOffer } from "../../../components/account/PasskeyOffer";
@@ -22,7 +15,6 @@ import { formatBillingDate } from "../../../lib/billing/billing";
 import type { BotsSidebarDensity } from "../../../lib/preferences/bots-sidebar-density-pref";
 import { useQueryUserId } from "../../../lib/query/query";
 import { switchOrganization, useOrganizations } from "../../../lib/spaces/organizations";
-import { ActivityList } from "../../space/ActivityList";
 import { SpaceSearchResults } from "../../space/SpaceSearch";
 import type { ChatMenuState } from "../chat/chat-context-menu";
 import type { Panel } from "../right-panel-state";
@@ -65,9 +57,6 @@ export function ShellSidebar({
   setCreateMenuOpen,
   search,
   bots,
-  groups,
-  collapsedSidebarSections,
-  toggleSidebarSection,
   setPanel,
   navigate,
   setNewSpaceOpen,
@@ -90,9 +79,6 @@ export function ShellSidebar({
   setCreateMenuOpen: (open: boolean) => void;
   search: SidebarSearch;
   bots: Bot[];
-  groups: Group[];
-  collapsedSidebarSections: ReadonlySet<string>;
-  toggleSidebarSection: (key: string) => void;
   setPanel: (panel: Panel) => void;
   navigate: (path: string) => void;
   setNewSpaceOpen: (open: boolean) => void;
@@ -119,14 +105,6 @@ export function ShellSidebar({
     retrySearch,
     showSpaceSearch,
     jumpToSearchHit,
-    activityMode,
-    toggleActivityMode,
-    activityFilters,
-    setActivityFilters,
-    activityFiltersExpanded,
-    setActivityFiltersExpanded,
-    activityFiltersId,
-    activityFilterCount,
   } = search;
   return (
     <>
@@ -158,13 +136,10 @@ export function ShellSidebar({
         <SidebarHeader
           createMenuOpen={createMenuOpen}
           setCreateMenuOpen={setCreateMenuOpen}
-          activityMode={activityMode}
-          toggleActivityMode={toggleActivityMode}
           searchOpen={searchOpen}
           onSearch={() => {
             if (searchOpen) {
-              if (activityMode) setActivityFilters({ ...activityFilters, query: "" });
-              else setQuery("");
+              setQuery("");
               setSearchOpen(false);
               return;
             }
@@ -178,11 +153,7 @@ export function ShellSidebar({
           setNewSpaceOpen={setNewSpaceOpen}
           setCreateBotOpen={setCreateBotOpen}
         />
-        {!(
-          searchOpen ||
-          query ||
-          (activityMode && (activityFilterCount > 0 || activityFiltersExpanded))
-        ) ? null : (
+        {!(searchOpen || query) ? null : (
           <InputGroup
             data-testid="sidebar-search"
             className="mx-2.5 mb-3 w-auto rounded-xl bg-card dark:bg-input border border-border text-muted-foreground focus-within:border-ring"
@@ -191,11 +162,8 @@ export function ShellSidebar({
               <Search size={16} strokeWidth={1.8} aria-hidden="true" />
             </InputGroupAddon>
             <InputGroupInput
-              value={activityMode ? activityFilters.query : query}
-              onChange={(e) => {
-                if (activityMode) setActivityFilters({ ...activityFilters, query: e.target.value });
-                else setQuery(e.target.value);
-              }}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(event) => {
                 if (
                   event.key !== "Escape" ||
@@ -203,36 +171,14 @@ export function ShellSidebar({
                   event.keyCode === 229
                 )
                   return;
-                if (activityMode) setActivityFilters({ ...activityFilters, query: "" });
-                else setQuery("");
+                setQuery("");
                 setSearchOpen(false);
               }}
-              placeholder={activityMode ? t`Search runs` : t`Search`}
-              aria-label={activityMode ? t`Search runs` : t`Search`}
+              placeholder={t`Search`}
+              aria-label={t`Search`}
               autoComplete="off"
               name="sidebar-search"
             />
-            {activityMode ? (
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  size="icon-sm"
-                  aria-label={t`Filters`}
-                  aria-expanded={activityFiltersExpanded}
-                  aria-controls={activityFiltersId}
-                  onClick={() => setActivityFiltersExpanded((expanded) => !expanded)}
-                  className="relative rounded-lg"
-                >
-                  <SlidersHorizontal size={16} aria-hidden="true" />
-                  {activityFilterCount > 0 ? (
-                    <span
-                      data-testid="activity-filter-indicator"
-                      aria-hidden="true"
-                      className="absolute end-1 top-1 size-1.5 rounded-full bg-primary"
-                    />
-                  ) : null}
-                </InputGroupButton>
-              </InputGroupAddon>
-            ) : null}
           </InputGroup>
         )}
         <div
@@ -248,42 +194,12 @@ export function ShellSidebar({
               onSelect={(hit) => jumpToSearchHit(hit)}
               chatMenu={chatMenu}
             />
-          ) : activityMode ? (
-            <ActivityList
-              bots={bots}
-              groups={groups}
-              toggledSections={collapsedSidebarSections}
-              onToggleSection={toggleSidebarSection}
-              onOpenBot={(bot) => {
-                setMobileOpen(false);
-                navigate(`/app/${bot.id}`);
-              }}
-              onOpenGroup={(group) => {
-                setMobileOpen(false);
-                navigate(`/app/g/${group.id}`);
-              }}
-              filters={activityFilters}
-              onFiltersChange={setActivityFilters}
-              filtersExpanded={activityFiltersExpanded}
-              filtersId={activityFiltersId}
-              onOpenRun={(run) => {
-                setMobileOpen(false);
-                if (run.groupId) navigate(`/app/g/${run.groupId}`);
-                else navigate(`/app/${run.botId}`);
-              }}
-            />
           ) : (
             roster
           )}
         </div>
         {/* One height limit for every shelf, so open shelves never squeeze out the chat list. */}
-        <div
-          className={
-            activityMode
-              ? "hidden"
-              : "rk-scroll flex max-h-[40vh] shrink-0 flex-col overflow-y-auto px-2.5 pb-1"
-          }
-        >
+        <div className="rk-scroll flex max-h-[40vh] shrink-0 flex-col overflow-y-auto px-2.5 pb-1">
           {archived}
         </div>
         <PasskeyOffer />

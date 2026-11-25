@@ -9,10 +9,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
-  SectionHeading,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "@rakazo/ui-web";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, Plus, X } from "lucide-react";
+import { ChevronLeft, MoreHorizontal, Settings, X } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { Suspense, useEffect, useId, useRef, useState } from "react";
 import { BotEmailAddressField } from "../../../components/BotEmailAddressField";
@@ -23,13 +26,14 @@ import { botProfilePatch } from "../../../lib/bots/bot-profile-patch";
 import { lazyComponent } from "../../../lib/platform/preload-recovery";
 import { useSpaceQueries } from "../../../lib/query/query";
 import { errorText } from "../../../lib/query/user-error";
-import { ROUTINE_PREVIEW_COUNT, RoutineList } from "../../routines/RoutineList";
+import { RoutineList } from "../../routines/RoutineList";
 import { sidePanelHeaderStyle } from "../resizable-side-panel";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
+import { BotPanelActivity } from "./bot-panel-activity";
+import { BotPanelLibrary } from "./bot-panel-library";
 import {
   DescriptionGroup,
   ModelRow,
-  PanelSection,
   SettingsCard,
   SwitchRow,
   ToolsGroup,
@@ -56,12 +60,17 @@ function advancedValues(bot: Bot) {
   ] as const;
 }
 
-/** The panel itself, or one of its whole lists. */
-export type BotPanelView = "settings" | "routines" | "pages";
+/**
+ * The panel itself (`settings`, the name a saved panel keeps), its settings behind the gear
+ * (`manage`), or one of its whole lists.
+ */
+export type BotPanelView = "settings" | "manage" | "routines" | "pages";
+
+type BotPanelTab = "activity" | "library";
 
 /**
- * A bot's panel: its profile, then its computer, routines and pages, then its settings, with the
- * rarely changed ones folded away.
+ * A bot's panel: its avatar and name over two tabs, Activity (routines coming up, its computer)
+ * and Library (its pages and files). The gear opens its settings.
  */
 export function BotSettings({
   bot,
@@ -108,15 +117,15 @@ export function BotSettings({
   const { t } = useLingui();
   const ids = useId();
   const modelRef = useRef<HTMLDivElement>(null);
-  // A model deep link opens Settings, then focuses the model once Settings is shown: a control
-  // inside a hidden section cannot take focus.
+  // A model deep link opens the settings, then focuses the model once they show: a control
+  // inside a hidden view cannot take focus.
   const modelFocusPending = useRef(false);
   useEffect(() => {
-    if (focusModel && view === "settings") {
-      modelFocusPending.current = true;
-      setSettingsOpen(true);
-    }
-  }, [view, focusModel]);
+    if (!focusModel) return;
+    modelFocusPending.current = true;
+    if (view !== "manage") onViewChange?.("manage");
+  }, [focusModel]);
+  const [tab, setTab] = useState<BotPanelTab>("activity");
   const [name, setName] = useState(bot.name);
   const savedNameRef = useRef(bot.name);
   const [label, setLabel] = useState(bot.label ?? "");
@@ -174,13 +183,13 @@ export function BotSettings({
     Object.entries(changed).some(([key, on]) => on !== changedBefore[key as keyof typeof changed])
   )
     setChangedBefore(changed);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsOpen = view === "manage";
   useEffect(() => {
     if (!settingsOpen || !modelFocusPending.current) return;
     modelFocusPending.current = false;
     modelRef.current?.scrollIntoView?.({ block: "nearest" });
     modelRef.current?.querySelector<HTMLElement>('[id$="-model"]')?.focus();
-  }, [settingsOpen, view, focusModel]);
+  }, [settingsOpen, focusModel]);
   const [claimingEmail, setClaimingEmail] = useState(false);
   const [voiceId, setVoiceId] = useState(bot.voiceId ?? "");
   const [modelKey, setModelKey] = useState(
@@ -479,10 +488,9 @@ export function BotSettings({
   }, [advancedSnapshot]);
 
   const email = useQuery(queries.bots.emailAddress.queryOptions({ input: { botId: bot.id } })).data;
-  const routineCount = routines?.routines.length ?? 0;
-  const headerButtons = (
+  const closeButton = (
     <Button
-      variant="ghost"
+      variant="floating"
       size="icon"
       className="text-muted-foreground"
       aria-label={t`Close panel`}
@@ -491,68 +499,51 @@ export function BotSettings({
       <X className="size-4.5" strokeWidth={1.75} />
     </Button>
   );
+  const backButton = (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="text-muted-foreground"
+      aria-label={t`Back`}
+      onClick={() => onViewChange?.("settings")}
+    >
+      <ChevronLeft className="size-4.5 rtl:rotate-180" strokeWidth={1.75} />
+    </Button>
+  );
+  const tabClass =
+    "h-auto flex-none rounded-full px-2.5 py-1 text-body-sm font-normal text-muted-foreground hover:text-foreground data-active:bg-accent data-active:text-foreground data-active:shadow-none group-data-[variant=default]/tabs-list:data-active:shadow-none dark:text-muted-foreground dark:data-active:border-transparent dark:data-active:bg-accent";
 
   return (
     <div data-testid="bot-settings">
-      {view !== "settings" ? (
+      {view === "routines" || view === "pages" ? (
         <div className="mb-4 flex items-center justify-between" style={sidePanelHeaderStyle}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground"
-            aria-label={t`Back`}
-            onClick={() => onViewChange?.("settings")}
-          >
-            <ChevronLeft className="size-4.5 rtl:rotate-180" strokeWidth={1.75} />
-          </Button>
+          {backButton}
           <div className="text-body-lg font-medium text-foreground">
             {view === "routines" ? <Trans>Routines</Trans> : <Trans>Pages</Trans>}
           </div>
-          {headerButtons}
+          {closeButton}
         </div>
       ) : null}
       {view === "routines" && routines ? <RoutineList {...routines} /> : null}
       {view === "pages" ? <PagesList botId={bot.id} /> : null}
-      {/* Stays mounted so drafts and the open sections survive a visit to a whole list. */}
+      {/* Both stay mounted so drafts and the open tab survive a visit to a whole list. */}
       <div hidden={view !== "settings"}>
-        <div className="mb-4 flex items-center justify-end gap-1" style={sidePanelHeaderStyle}>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground"
-                  aria-label={t`More actions`}
-                />
-              }
-            >
-              <MoreHorizontal className="size-4.5" strokeWidth={1.75} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              {email && !email.address && !claimingEmail ? (
-                <DropdownMenuItem onClick={() => setClaimingEmail(true)}>
-                  <Trans>Get an email address</Trans>
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem
-                onClick={() => {
-                  setError(null);
-                  onExport().catch((err: unknown) => setError(errorText(err)));
-                }}
-              >
-                <Trans>Export</Trans>
-              </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onClick={onClear}>
-                <Trans>Clear conversation</Trans>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {headerButtons}
+        <div className="mb-2 flex items-center justify-between" style={sidePanelHeaderStyle}>
+          <Button
+            variant="floating"
+            size="icon"
+            className="text-muted-foreground"
+            aria-label={t`Bot settings`}
+            data-testid="bot-settings-open"
+            onClick={() => onViewChange?.("manage")}
+          >
+            <Settings className="size-4.5" strokeWidth={1.75} />
+          </Button>
+          {closeButton}
         </div>
         <div
           data-testid="bot-profile-header"
-          className="flex flex-col items-center gap-4 pb-5 text-center"
+          className="flex flex-col items-center gap-3 pb-5 text-center"
         >
           <AvatarStudioPopover
             value={color}
@@ -568,32 +559,113 @@ export function BotSettings({
               void enqueueSave({ color: newColor });
             }}
           />
-          <div className="flex w-full flex-col items-center gap-1">
-            <InlineProfileField
-              label={t`Name`}
-              editLabel={t`Edit name`}
-              value={name}
-              maxLength={BOT_NAME_MAX_LENGTH}
-              className="text-heading3 font-medium"
-              onCommit={(value) => {
-                if (!value.trim()) return;
-                setName(value.trim());
-                void enqueueSave({ name: value });
-              }}
-            />
-            <InlineProfileField
-              label={t`Label`}
-              editLabel={t`Edit label`}
-              placeholder={t`Add label`}
-              value={label}
-              maxLength={BOT_LABEL_MAX_LENGTH}
-              className="text-body-sm text-muted-foreground"
-              onCommit={(value) => {
-                setLabel(value.trim());
-                void enqueueSave({ label: value.trim() });
-              }}
-            />
+          <div
+            className="min-w-0 max-w-full break-words px-2 text-heading3 font-medium text-foreground"
+            dir="auto"
+          >
+            {name}
           </div>
+        </div>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as BotPanelTab)} className="gap-0">
+          <TabsList className="mx-auto mb-5 gap-1 bg-transparent p-0 group-data-horizontal/tabs:h-auto">
+            <TabsTrigger value="activity" className={tabClass}>
+              <Trans>Activity</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="library" className={tabClass}>
+              <Trans>Library</Trans>
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="activity">
+            <BotPanelActivity
+              routines={routines}
+              onOpenRoutines={() => onViewChange?.("routines")}
+              computer={computer}
+            >
+              <ErrorBoundary fallback={<SectionLoadFailed />}>
+                <Suspense fallback={null}>
+                  <ScratchpadSection botId={bot.id} />
+                </Suspense>
+              </ErrorBoundary>
+            </BotPanelActivity>
+          </TabsContent>
+          <TabsContent value="library">
+            <BotPanelLibrary
+              bot={{ id: bot.id, name }}
+              onOpenPages={() => onViewChange?.("pages")}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+      <div hidden={view !== "manage"} data-testid="bot-settings-advanced">
+        <div className="mb-4 flex items-center justify-between" style={sidePanelHeaderStyle}>
+          {backButton}
+          <div className="text-body-lg font-medium text-foreground">
+            <Trans>Settings</Trans>
+          </div>
+          <div className="flex items-center gap-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground"
+                    aria-label={t`More actions`}
+                  />
+                }
+              >
+                <MoreHorizontal className="size-4.5" strokeWidth={1.75} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {email && !email.address && !claimingEmail ? (
+                  <DropdownMenuItem onClick={() => setClaimingEmail(true)}>
+                    <Trans>Get an email address</Trans>
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setError(null);
+                    onExport().catch((err: unknown) => setError(errorText(err)));
+                  }}
+                >
+                  <Trans>Export</Trans>
+                </DropdownMenuItem>
+                <DropdownMenuItem variant="destructive" onClick={onClear}>
+                  <Trans>Clear conversation</Trans>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {closeButton}
+          </div>
+        </div>
+        <div
+          data-testid="bot-manage-profile"
+          className="flex flex-col items-center gap-1 pb-5 text-center"
+        >
+          <InlineProfileField
+            label={t`Name`}
+            editLabel={t`Edit name`}
+            value={name}
+            maxLength={BOT_NAME_MAX_LENGTH}
+            className="text-heading3 font-medium"
+            onCommit={(value) => {
+              if (!value.trim()) return;
+              setName(value.trim());
+              void enqueueSave({ name: value });
+            }}
+          />
+          <InlineProfileField
+            label={t`Label`}
+            editLabel={t`Edit label`}
+            placeholder={t`Add label`}
+            value={label}
+            maxLength={BOT_LABEL_MAX_LENGTH}
+            className="text-body-sm text-muted-foreground"
+            onCommit={(value) => {
+              setLabel(value.trim());
+              void enqueueSave({ label: value.trim() });
+            }}
+          />
           {email && (email.address || claimingEmail) ? (
             <div data-testid="bot-email" className="mt-2 w-full max-w-sm text-left">
               <BotEmailAddressField
@@ -604,182 +676,118 @@ export function BotSettings({
             </div>
           ) : null}
         </div>
+        {/* Stays mounted so an instructions or description draft survives leaving it. */}
         <div className="space-y-6">
-          {computer ? (
-            <PanelSection label={<Trans>Computer</Trans>}>{computer}</PanelSection>
-          ) : null}
-          {routines ? (
-            <PanelSection
-              label={
-                routineCount > ROUTINE_PREVIEW_COUNT ? (
-                  <button
-                    type="button"
-                    onClick={() => onViewChange?.("routines")}
-                    className="flex items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <Trans>Routines</Trans>
-                    <ChevronRight aria-hidden="true" className="size-3.5 rtl:rotate-180" />
-                  </button>
-                ) : (
-                  <Trans>Routines</Trans>
-                )
-              }
-              action={
-                routineCount > 0 ? (
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    data-testid="routine-create-button"
-                    aria-label={t`Create routine`}
-                    onClick={routines.onCreate}
-                  >
-                    <Plus className="size-4" />
-                  </Button>
-                ) : null
-              }
-            >
-              <RoutineList {...routines} preview />
-            </PanelSection>
-          ) : null}
-          <PagesList botId={bot.id} preview={{ onOpenAll: () => onViewChange?.("pages") }} />
-        </div>
-        <ErrorBoundary fallback={<SectionLoadFailed />}>
-          <Suspense fallback={null}>
-            <ScratchpadSection botId={bot.id} />
-          </Suspense>
-        </ErrorBoundary>
-        <div className="mt-6" data-testid="bot-settings-advanced">
-          <SectionHeading variant="label" className="flex min-h-6 items-center">
-            <button
-              type="button"
-              aria-expanded={settingsOpen}
-              aria-controls={`${ids}-settings`}
-              onClick={() => setSettingsOpen((open) => !open)}
-              className="-my-2 flex min-h-10 w-full items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Trans>Settings</Trans>
-              <ChevronDown
-                aria-hidden="true"
-                className={`size-3.5 transition-transform ${settingsOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-          </SectionHeading>
-          {/* Stays mounted so an instructions or description draft survives folding it away. */}
-          <div id={`${ids}-settings`} hidden={!settingsOpen} className="space-y-6 pt-2">
-            <SettingsCard>
-              <ModelRow
-                ids={ids}
-                containerRef={modelRef}
-                choices={modelChoices}
-                value={selectedModelKey}
-                onModelChange={(key) => {
-                  setModelKey(key);
-                  setThinkingLevel("");
-                }}
-                thinkingOptions={thinkingOptions}
-                thinkingLevel={thinkingLevel}
-                defaultThinkingLevel={defaultThinkingLevel}
-                onThinkingLevelChange={setThinkingLevel}
-              />
-              <SwitchRow
-                id={`${ids}-notify-finish`}
-                label={<Trans>Notifications</Trans>}
-                checked={notifyOnFinish}
-                onChange={(checked) => {
-                  setNotifyOnFinish(checked);
-                  void enqueueSave({ notifyOnFinish: checked });
-                }}
-              />
-              <SwitchRow
-                id={`${ids}-own-computer`}
-                label={<Trans>Own computer</Trans>}
-                checked={computerMode === "dedicated"}
-                disabled={saving}
-                onChange={(checked) => setComputerMode(checked ? "dedicated" : "team")}
-              />
-              {/* Read only once the settings are open: listing versions reads object storage. */}
-              {settingsOpen ? <ComputerHomeVersions botId={bot.id} /> : null}
-              {changed.readAloud ? (
-                <SwitchRow
-                  id={`${ids}-auto-speak`}
-                  label={<Trans>Read replies aloud</Trans>}
-                  checked={autoSpeak}
-                  onChange={setAutoSpeak}
-                />
-              ) : null}
-              {changed.readAloud && voices?.length ? (
-                <VoiceRow
-                  ids={ids}
-                  voices={voices}
-                  voiceId={voiceId}
-                  onVoiceIdChange={setVoiceId}
-                />
-              ) : null}
-              {changed.dailyCheckIns ? (
-                <SwitchRow
-                  id={`${ids}-daily-check-ins`}
-                  label={<Trans>Daily check-ins on unfinished work</Trans>}
-                  checked={dailyCheckIns}
-                  disabled={saving}
-                  onChange={(checked) => {
-                    setDailyCheckIns(checked);
-                    void enqueueSave({ dailyCheckIns: checked });
-                  }}
-                />
-              ) : null}
-              {changed.crossSpaceCommunication ? (
-                <SwitchRow
-                  id={`${ids}-cross-space`}
-                  label={<Trans>Allow cross-space bot communication</Trans>}
-                  checked={crossSpaceCommunication}
-                  disabled={saving}
-                  onChange={(checked) => {
-                    setCrossSpaceCommunication(checked);
-                    void enqueueSave({ crossSpaceCommunication: checked });
-                  }}
-                />
-              ) : null}
-              {changed.fleetManagement ? (
-                <SwitchRow
-                  id={`${ids}-fleet-management`}
-                  label={<Trans>Manage other bots</Trans>}
-                  checked={fleetManagement}
-                  disabled={saving}
-                  onChange={(checked) => {
-                    setFleetManagement(checked);
-                    void enqueueSave({ fleetManagement: checked });
-                  }}
-                />
-              ) : null}
-            </SettingsCard>
-            <InstructionSettings key={bot.id} bot={bot} />
-            <ErrorBoundary fallback={<SectionLoadFailed />}>
-              <Suspense fallback={null}>
-                <KnowledgeSection botId={bot.id} />
-              </Suspense>
-            </ErrorBoundary>
-            <DescriptionGroup
+          <SettingsCard>
+            <ModelRow
               ids={ids}
-              description={description}
-              onDescriptionChange={setDescription}
-              onCommit={() => void enqueueSave()}
+              containerRef={modelRef}
+              choices={modelChoices}
+              value={selectedModelKey}
+              onModelChange={(key) => {
+                setModelKey(key);
+                setThinkingLevel("");
+              }}
+              thinkingOptions={thinkingOptions}
+              thinkingLevel={thinkingLevel}
+              defaultThinkingLevel={defaultThinkingLevel}
+              onThinkingLevelChange={setThinkingLevel}
             />
-            {changed.tools ? (
-              <ToolsGroup
-                ids={ids}
-                disabledBuiltinTools={disabledBuiltinTools}
-                onDisable={disableBuiltinTool}
-                onEnable={(toolName) => {
-                  const next = disabledBuiltinTools.filter((entry) => entry !== toolName);
-                  setDisabledBuiltinTools(next);
-                  void enqueueSave({ disabledBuiltinTools: next });
+            <SwitchRow
+              id={`${ids}-notify-finish`}
+              label={<Trans>Notifications</Trans>}
+              checked={notifyOnFinish}
+              onChange={(checked) => {
+                setNotifyOnFinish(checked);
+                void enqueueSave({ notifyOnFinish: checked });
+              }}
+            />
+            <SwitchRow
+              id={`${ids}-own-computer`}
+              label={<Trans>Own computer</Trans>}
+              checked={computerMode === "dedicated"}
+              disabled={saving}
+              onChange={(checked) => setComputerMode(checked ? "dedicated" : "team")}
+            />
+            {/* Read only once the settings show: listing versions reads object storage. */}
+            {settingsOpen ? <ComputerHomeVersions botId={bot.id} /> : null}
+            {changed.readAloud ? (
+              <SwitchRow
+                id={`${ids}-auto-speak`}
+                label={<Trans>Read replies aloud</Trans>}
+                checked={autoSpeak}
+                onChange={setAutoSpeak}
+              />
+            ) : null}
+            {changed.readAloud && voices?.length ? (
+              <VoiceRow ids={ids} voices={voices} voiceId={voiceId} onVoiceIdChange={setVoiceId} />
+            ) : null}
+            {changed.dailyCheckIns ? (
+              <SwitchRow
+                id={`${ids}-daily-check-ins`}
+                label={<Trans>Daily check-ins on unfinished work</Trans>}
+                checked={dailyCheckIns}
+                disabled={saving}
+                onChange={(checked) => {
+                  setDailyCheckIns(checked);
+                  void enqueueSave({ dailyCheckIns: checked });
                 }}
               />
             ) : null}
-          </div>
+            {changed.crossSpaceCommunication ? (
+              <SwitchRow
+                id={`${ids}-cross-space`}
+                label={<Trans>Allow cross-space bot communication</Trans>}
+                checked={crossSpaceCommunication}
+                disabled={saving}
+                onChange={(checked) => {
+                  setCrossSpaceCommunication(checked);
+                  void enqueueSave({ crossSpaceCommunication: checked });
+                }}
+              />
+            ) : null}
+            {changed.fleetManagement ? (
+              <SwitchRow
+                id={`${ids}-fleet-management`}
+                label={<Trans>Manage other bots</Trans>}
+                checked={fleetManagement}
+                disabled={saving}
+                onChange={(checked) => {
+                  setFleetManagement(checked);
+                  void enqueueSave({ fleetManagement: checked });
+                }}
+              />
+            ) : null}
+          </SettingsCard>
+          <InstructionSettings key={bot.id} bot={bot} />
+          <ErrorBoundary fallback={<SectionLoadFailed />}>
+            <Suspense fallback={null}>
+              <KnowledgeSection botId={bot.id} />
+            </Suspense>
+          </ErrorBoundary>
+          <DescriptionGroup
+            ids={ids}
+            description={description}
+            onDescriptionChange={setDescription}
+            onCommit={() => void enqueueSave()}
+          />
+          {changed.tools ? (
+            <ToolsGroup
+              ids={ids}
+              disabledBuiltinTools={disabledBuiltinTools}
+              onDisable={disableBuiltinTool}
+              onEnable={(toolName) => {
+                const next = disabledBuiltinTools.filter((entry) => entry !== toolName);
+                setDisabledBuiltinTools(next);
+                void enqueueSave({ disabledBuiltinTools: next });
+              }}
+            />
+          ) : null}
         </div>
-        {error ? <p className="mt-2 text-body-sm text-destructive">{error}</p> : null}
       </div>
+      {error && (view === "settings" || view === "manage") ? (
+        <p className="mt-2 text-body-sm text-destructive">{error}</p>
+      ) : null}
     </div>
   );
 }

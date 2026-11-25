@@ -85,14 +85,18 @@ export function ComputerOverlay({
       >
         <div
           data-testid="computer-chrome"
-          className="app-no-drag flex items-center justify-between gap-4 border-b border-sidebar-border px-[18px] py-3.5"
-          style={
-            windowControlsKind(desktopBridge()) === "traffic-lights"
+          // The title gives way first; when the actions still do not fit beside it they move to
+          // their own line, and wrap there, so no button is ever cut off.
+          className="app-no-drag flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-sidebar-border px-[18px] py-3.5"
+          style={{
+            // Clear of the window's own controls on either side, so they never cover an action.
+            paddingInlineEnd: "calc(18px + var(--window-controls-inset, 0px))",
+            ...(windowControlsKind(desktopBridge()) === "traffic-lights"
               ? { paddingLeft: DARWIN_WINDOW_CONTROLS_WIDTH_PX + 18 }
-              : undefined
-          }
+              : {}),
+          }}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex min-w-0 flex-1 basis-32 items-center gap-3">
             <BotAvatar
               avatarSet={bot.avatarSet}
               color={bot.color}
@@ -122,7 +126,10 @@ export function ComputerOverlay({
               </span>
             ) : null}
           </div>
-          <div className="flex items-center gap-3">
+          <div
+            data-testid="computer-overlay-actions"
+            className="ms-auto flex max-w-full flex-wrap items-center justify-end gap-2"
+          >
             {composerRunning ? (
               <Button
                 type="button"

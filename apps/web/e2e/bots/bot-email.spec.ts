@@ -3,7 +3,7 @@ import {
   activeBotId,
   captureScreenshot,
   completeOnboarding,
-  openBotPanel,
+  openBotSettings,
   openUserSettings,
   rpc,
   signup,
@@ -16,8 +16,8 @@ test("a bot gets its email address from its settings and lists it in the Vault",
   await signup(page, `bot-email-${stamp}@rakazo.test`, "password12", "Bot Email");
   await completeOnboarding(page);
   const botId = activeBotId(page);
-  await openBotPanel(page);
-  const header = page.getByTestId("bot-profile-header");
+  await openBotSettings(page);
+  const header = page.getByTestId("bot-manage-profile");
 
   await page.getByTestId("bot-settings").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Get an email address" }).click();
@@ -63,8 +63,8 @@ test("a bot email claim stays in its shell's Space when another tab switches Spa
   await page.evaluate((id) => localStorage.setItem("rakazo:space-id", id), home.id);
   await page.goto(`/app/${scout.id}`);
   await expect(page.getByPlaceholder("Message Scout")).toBeVisible();
-  await openBotPanel(page);
-  const header = page.getByTestId("bot-profile-header");
+  await openBotSettings(page);
+  const header = page.getByTestId("bot-manage-profile");
   await page.getByTestId("bot-settings").getByRole("button", { name: "More actions" }).click();
   const getAddress = page.getByRole("menuitem", { name: "Get an email address" });
   await expect(getAddress).toBeVisible();

@@ -3,6 +3,7 @@ import {
   captureScreenshot,
   completeOnboarding,
   openBotPanel,
+  openBotSettings,
   openNewBot,
   signup,
 } from "../helpers/helpers";
@@ -25,16 +26,21 @@ test("a new bot keeps its edited name, label, look, and adjusted photo", async (
   await create.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByPlaceholder("Message Sample Helper")).toBeVisible();
 
-  await openBotPanel(page);
-  const profile = page.getByTestId("bot-settings").getByTestId("bot-profile-header");
-  await profile.getByRole("button", { name: "Edit name" }).click();
-  await profile.getByRole("textbox", { name: "Name" }).fill("Sample Desk");
-  await profile.getByRole("textbox", { name: "Name" }).press("Enter");
-  await profile.getByRole("button", { name: "Edit label" }).click();
-  await profile.getByRole("textbox", { name: "Label" }).fill("Weekly digest");
-  await profile.getByRole("textbox", { name: "Label" }).press("Enter");
-  await expect(profile.getByRole("button", { name: "Edit label" })).toHaveText("Weekly digest");
+  // The name and label are edited in the bot's settings, behind the gear.
+  await openBotSettings(page);
+  const panel = page.getByTestId("bot-settings");
+  const manage = panel.getByTestId("bot-manage-profile");
+  await manage.getByRole("button", { name: "Edit name" }).click();
+  await manage.getByRole("textbox", { name: "Name" }).fill("Sample Desk");
+  await manage.getByRole("textbox", { name: "Name" }).press("Enter");
+  await manage.getByRole("button", { name: "Edit label" }).click();
+  await manage.getByRole("textbox", { name: "Label" }).fill("Weekly digest");
+  await manage.getByRole("textbox", { name: "Label" }).press("Enter");
+  await expect(manage.getByRole("button", { name: "Edit label" })).toHaveText("Weekly digest");
 
+  await panel.getByRole("button", { name: "Back", exact: true }).click();
+  const profile = panel.getByTestId("bot-profile-header");
+  await expect(profile).toContainText("Sample Desk");
   await profile.getByTestId("avatar-studio-trigger").click();
   const studio = page.getByTestId("avatar-studio");
   await studio.getByRole("button", { name: "Blue character color", exact: true }).click();
@@ -67,8 +73,15 @@ test("a new bot keeps its edited name, label, look, and adjusted photo", async (
   await page.reload();
   await openBotPanel(page);
   const reopened = page.getByTestId("bot-settings").getByTestId("bot-profile-header");
-  await expect(reopened.getByRole("button", { name: "Edit name" })).toHaveText("Sample Desk");
-  await expect(reopened.getByRole("button", { name: "Edit label" })).toHaveText("Weekly digest");
+  await expect(reopened).toContainText("Sample Desk");
   await expect(reopened.locator('img[src^="data:image/webp"]')).toBeVisible();
   await captureScreenshot(page, testInfo, "bot-profile-persisted");
+  await openBotSettings(page);
+  const reopenedSettings = page.getByTestId("bot-manage-profile");
+  await expect(reopenedSettings.getByRole("button", { name: "Edit name" })).toHaveText(
+    "Sample Desk",
+  );
+  await expect(reopenedSettings.getByRole("button", { name: "Edit label" })).toHaveText(
+    "Weekly digest",
+  );
 });
