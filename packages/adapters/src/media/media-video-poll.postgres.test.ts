@@ -7,6 +7,7 @@ import type {
   BackgroundJob,
   JobPublisher,
   MediaVideoJob,
+  SecretStore,
 } from "@rakazo/adapter-kit";
 import { MediaGenerationError } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
@@ -15,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createArtifactStore } from "../storage/artifact-store-factory.js";
 import { FakeMediaGenerationProvider } from "./media-generation-provider.js";
 import { generateMediaFromTool } from "./media-generation-tools.js";
+import { SERVER_MEDIA_ROUTE } from "./media-router.js";
 import {
   MEDIA_POLL_DEADLINE_MS,
   mediaDelivery,
@@ -137,6 +139,8 @@ describePostgres("background video delivery (PostgreSQL)", () => {
         events: { notify: vi.fn(async () => undefined) },
         artifacts: createArtifactStore(dataDir, prisma, {}),
         mediaGeneration: media,
+        // Jobs here go to the server's own provider, which needs no saved key.
+        secretStore: {} as SecretStore,
         ...limits,
       };
     };
@@ -155,7 +159,14 @@ describePostgres("background video delivery (PostgreSQL)", () => {
           name: "generate_video",
           args: { prompt: "a lighthouse at dusk" },
           executionId: randomUUID(),
-          provider: media,
+          route: {
+            prepare: async () => ({
+              provider: media,
+              route: SERVER_MEDIA_ROUTE,
+              input: { prompt: "a lighthouse at dusk" },
+            }),
+            reopen: async () => media,
+          },
           prisma,
           context: {
             operationId: randomUUID(),
@@ -167,7 +178,7 @@ describePostgres("background video delivery (PostgreSQL)", () => {
           },
           run,
           threadGeneration: 0,
-          ...mediaDelivery(deps, run, { providerId: media.id, operationId: "submit" }),
+          ...mediaDelivery(deps, run, { operationId: "submit" }),
         }),
       );
       if (!result || !("jobId" in result) || !result.jobId) throw new Error("Submission failed");

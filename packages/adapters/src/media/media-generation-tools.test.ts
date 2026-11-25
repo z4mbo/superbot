@@ -5,7 +5,9 @@ import type { PrismaClient } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
 import { selectBuiltinToolsForRun } from "../runs/tools/run-tool-selection.js";
 import { FakeMediaGenerationProvider } from "./media-generation-provider.js";
+import type { MediaToolRoute } from "./media-generation-tools.js";
 import { generateMediaFromTool } from "./media-generation-tools.js";
+import { SERVER_MEDIA_ROUTE } from "./media-router.js";
 
 const run = { id: "run", threadId: "thread", botId: "bot", spaceId: "space", userId: "owner" };
 const context: AdapterContext = {
@@ -38,7 +40,14 @@ function setup() {
     name: "generate_image" as const,
     args: { prompt: "draw" } as Record<string, unknown>,
     executionId: "execution",
-    provider,
+    route: {
+      prepare: vi.fn(async () => ({
+        provider,
+        route: SERVER_MEDIA_ROUTE,
+        input: { prompt: "draw" },
+      })),
+      reopen: vi.fn(async () => provider),
+    } as MediaToolRoute,
     prisma: {
       externalEffect,
       artifact: { findFirst: vi.fn().mockResolvedValue(null) },
@@ -237,6 +246,7 @@ describe("bot media tools", () => {
         expect.objectContaining({ artifactId: artifact.id }),
         row.id,
         artifact.id,
+        "fake",
       );
     },
   );

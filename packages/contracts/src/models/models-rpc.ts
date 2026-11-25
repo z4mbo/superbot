@@ -4,6 +4,13 @@ import { AnalyticsSurface } from "../account/analytics.js";
 import { Id, ThinkingLevelSchema } from "../ids.js";
 import { SettingsScopeSchema, settingsScopeInput } from "../settings-scope.js";
 import {
+  MediaCatalogSchema,
+  MediaConnectInputSchema,
+  MediaPreferenceSchema,
+  MediaProviderEntrySchema,
+  MediaSetPreferenceInputSchema,
+} from "./media.js";
+import {
   ModelApiProtocolSchema,
   ModelCatalogEntrySchema,
   ModelConnectInputSchema,
@@ -134,6 +141,15 @@ export const modelsRpc = {
     disconnect: oc
       .input(z.object({ provider: z.string().trim().min(1), credentialId: Id.optional() }))
       .output(z.object({ ok: z.literal(true) })),
+  },
+  /** Image and video providers, connected per account. */
+  media: {
+    catalog: oc.output(MediaCatalogSchema),
+    connect: oc.input(MediaConnectInputSchema).output(MediaProviderEntrySchema),
+    disconnect: oc
+      .input(z.object({ provider: z.string().trim().min(1).max(80) }))
+      .output(z.object({ ok: z.literal(true) })),
+    setPreference: oc.input(MediaSetPreferenceInputSchema).output(MediaPreferenceSchema),
   },
   voice: {
     catalog: oc.output(z.array(VoiceCatalogEntrySchema)),

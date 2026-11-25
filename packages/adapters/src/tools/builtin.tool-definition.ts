@@ -1,6 +1,7 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { FLEET_TOOL_NAMES } from "@rakazo/contracts";
 import { findAppsTool, openAppTool } from "../apps/app-tools.tool-definition.js";
+import { mediaTools } from "../media/media-generation.tool-definition.js";
 import { meetingTranscriptTool } from "../meetings/meeting-chat.tool-definition.js";
 import { personalCalendarTools } from "../personal-calendar/personal-calendar.tool-definition.js";
 import { signInTool } from "../sign-in-sources/sign-in.tool-definition.js";
@@ -22,6 +23,7 @@ export const DELEGATION_TOOL_NAMES = new Set<string>([
 ]);
 
 export const builtinAgentTools: ConnectorTool[] = [
+  ...mediaTools,
   ...computerTools,
   ...conversationTools,
   ...appTools,

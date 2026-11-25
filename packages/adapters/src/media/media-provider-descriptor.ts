@@ -80,6 +80,8 @@ export interface MediaProviderDefinition {
   };
   /** Model connections it can borrow, most preferred first. */
   modelConnections?: readonly MediaModelConnectionSource[];
+  /** Whether this server offers it at all; absent means always. Off, it is never listed. */
+  available?(): boolean;
   /** The models offered by name. A capability no listed model has is one it does not have. */
   models: readonly MediaModelDescriptor[];
   /** Takes a model id beyond the listed ones, for the kinds its listed models cover. */

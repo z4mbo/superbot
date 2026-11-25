@@ -1,6 +1,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 import { Id } from "../ids.js";
+import { GeneratedMediaSchema } from "./message-blocks.js";
 import { threadTarget } from "./thread-send.js";
 
 const state = z.enum(["unread", "read", "done"]);
@@ -31,6 +32,8 @@ const libraryItem = z.object({
   authorBotId: Id.nullable(),
   mimeType: z.string().nullable(),
   createdAt: z.iso.datetime(),
+  /** Set on an image or video a media tool made. */
+  generated: GeneratedMediaSchema.optional(),
 });
 
 export const conversationContentRpc = {

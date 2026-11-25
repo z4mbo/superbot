@@ -94,6 +94,8 @@ model User {
   invitations                 Invitation[]
   modelCredentials            UserModelCredential[]
   voiceCredentials            UserVoiceCredential[]
+  mediaCredentials            UserMediaCredential[]
+  mediaPreferences            UserMediaPreference[]
   paymentWallet               PaymentWallet?
   signInSource                SignInSource?
   signInRequests              SignInRequest[]
@@ -1092,6 +1094,37 @@ model UserVoiceCredential {
   @@unique([id, userId])
   @@index([userId, provider, updatedAt])
   @@map("user_voice_credentials")
+}
+
+/// A media provider key a user pasted. The values are one sealed JSON object in `secrets`.
+model UserMediaCredential {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider  String
+  secretId  String
+  /// The connection's values that are not secret (such as a key id), shown back in Settings.
+  hints     Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider])
+  @@map("user_media_credentials")
+}
+
+/// The provider and model a user's media generation uses first, per kind (image or video).
+model UserMediaPreference {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  provider  String
+  /// Null uses the provider's default model.
+  model     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, kind])
+  @@map("user_media_preferences")
 }
 
 model SpaceModelPreference {

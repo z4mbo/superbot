@@ -77,7 +77,7 @@ import { auditToolCall } from "./run-tool-audit.js";
 import type { ToolRequest } from "./run-tool-request.js";
 import { reviewToolCall } from "./run-tool-review.js";
 import { BUILTIN_AGENT_TOOL_NAMES, READ_ONLY_AGENT_TOOLS } from "./run-tool-selection.js";
-import { callMediaTool } from "./run-tools-files.js";
+import { callMediaTool, isMediaToolName } from "./run-tools-files.js";
 import { callPaidService } from "./run-tools-integrations.js";
 import { USER_COMPUTER_TOOLS, userComputerGate } from "./run-tools-user-computer.js";
 
@@ -738,7 +738,7 @@ async function settleToolUncertainty(
   effectId: string,
   toolName: string,
 ) {
-  if (call.name === "generate_image" || call.name === "generate_video") {
+  if (isMediaToolName(call.name)) {
     const recovered = await callMediaTool(ctx, call, true);
     if (
       recovered !== undefined &&

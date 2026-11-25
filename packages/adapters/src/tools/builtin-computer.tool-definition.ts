@@ -5,32 +5,8 @@ import { BROWSER_ACT_KINDS } from "../browser/browser-tools.js";
 export const READ_FILE_MAX_BYTES = 250_000;
 export const READ_FILE_MAX_KB = READ_FILE_MAX_BYTES / 1000;
 
-/** Media, computer, browser, file and desktop app tools. */
+/** Computer, browser, file and desktop app tools. */
 export const computerTools: ConnectorTool[] = [
-  {
-    name: "generate_image",
-    description:
-      "Generate one image from a prompt and attach it to chat. Uses the deployment media model and may incur charges. Do not retry failed submissions automatically.",
-    inputSchema: {
-      type: "object",
-      properties: { prompt: { type: "string", minLength: 1, maxLength: 4000 } },
-      required: ["prompt"],
-    },
-    readOnly: false,
-  },
-  {
-    name: "generate_video",
-    description:
-      "Submit a short video from a prompt (may incur charges). It is attached to the chat when ready, without polling; pass jobId only to check progress. Do not resubmit failed or uncertain jobs automatically.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        prompt: { type: "string", minLength: 1, maxLength: 4000 },
-        jobId: { type: "string", minLength: 1, maxLength: 200 },
-      },
-    },
-    readOnly: false,
-  },
   {
     name: "computer_observe",
     description:

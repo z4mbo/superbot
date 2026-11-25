@@ -27,6 +27,7 @@ import type {
 } from "../../cloud-agents/cloud-agent-factory.js";
 import type { UserDeviceGateway } from "../../computers/host/user-device-protocol.js";
 import type { RemoteTransportDependencies } from "../../mcp/remote-mcp.js";
+import type { MediaProviderRegistry } from "../../media/media-providers.js";
 import type { MemoryProviderResolver } from "../../memory/memory-provider-factory.js";
 import type { MessagingDelivery } from "../../messaging/messaging-delivery.js";
 import type { CodexLiveCatalog } from "../../runtime/pi/models/pi-codex-catalog.js";
@@ -84,6 +85,8 @@ export interface ExecutorDeps {
   /** Builtin web_search / web_fetch. Defaults to keyless HTTP when omitted. */
   web?: WebProvider;
   mediaGeneration?: MediaGenerationProvider;
+  /** Media providers a person can connect; tests pass their own, production the registry. */
+  mediaProviders?: MediaProviderRegistry;
   paidServices?: PaidServiceProvider;
   /** Page browser (DOM refs) on the bot computer. Defaults to the sandbox live browser when supported. */
   browser?: BrowserProvider;
