@@ -11,6 +11,7 @@ mod stream;
 #[cfg(test)]
 mod test_fixture;
 mod threads;
+mod tui;
 mod workspaces;
 
 use std::{
@@ -96,6 +97,8 @@ enum Command {
         #[command(subcommand)]
         command: Option<approvals::ApprovalCommand>,
     },
+    /// Open the full-screen chat
+    Tui,
     /// Create, join, and manage workspaces
     #[command(subcommand)]
     Workspaces(workspaces::WorkspaceCommand),
@@ -231,6 +234,9 @@ async fn run(args: Args) -> Result<()> {
                     threads::show(&space, agent, thread_id.as_deref(), args.json).await
                 }
             };
+        }
+        Some(Command::Tui) => {
+            return tui::run(connect(&client).await?, args.space.as_deref()).await;
         }
         Some(Command::Approvals { command }) => {
             let client = connect(&client).await?;

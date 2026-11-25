@@ -63,6 +63,18 @@ In chat, press Enter to send a line. Replies print as the agent writes them,
 followed by any agent run errors. `/back` returns to the picker, or exits a directly opened chat. `/quit`
 exits from either mode.
 
+### Full-screen chat
+
+`superbot tui` opens your agents, their conversations and the open chat side by
+side, with the reply streaming in as it is written. It opens the first agent in
+the selected space; `--space` picks another. Approvals appear in their own
+panel while any are waiting.
+
+Tab moves between panels and the bottom line lists the keys for the current
+one. In the composer, Enter sends and Esc returns to the agents. In a list, the
+arrow keys select, Enter opens, `n` starts a conversation, `a` allows and `d`
+denies an approval, and `q` quits. Ctrl+C quits from anywhere.
+
 ### Scripts
 
 Sign in without a terminal by piping the password. `superbot whoami` shows the
