@@ -13,8 +13,9 @@ import {
   botMarkRestFrame,
   botMarkSeed,
 } from "@rakazo/core";
+import type { BotMarkGazeHold } from "@rakazo/core/bot-mark-animation";
 import type { CSSProperties, ReactNode } from "react";
-import { memo, useEffect, useId, useLayoutEffect, useRef } from "react";
+import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { cn } from "./lib/utils.js";
 
 /**
@@ -30,11 +31,19 @@ import { cn } from "./lib/utils.js";
 
 export type BotMarkInstance = {
   element: SVGSVGElement;
+  /** The bot the avatar shows, which decides the boxes it answers the pointer in. */
+  identity: string;
   visible: boolean;
-  /** The row or control around the avatar; the pointer over it turns the face. */
-  region: Element;
+  /** Where the pointer is while it is inside the avatar's box, in client pixels. */
+  pointer: [number, number] | null;
+  /** Whether the avatar's box is the open bot, which faces straight ahead. */
+  selected: boolean;
+  /** Whether the pointer is over the line the avatar sits in, which surprises its face. */
+  emphasized: boolean;
   /** The avatar's size in pixels: small avatars grow while their bot is morphed. */
   size: number;
+  /** Stops the engine listening to the avatar's boxes. */
+  detach: (() => void) | null;
 };
 
 type Parts = {
@@ -58,7 +67,7 @@ export type BotMarkSource = {
   seed: number;
   instances: Set<BotMarkInstance>;
   pokes: { kind: BotMarkPoke["kind"]; at: number; turns?: number }[];
-  gaze: { x: number; y: number; hold: number };
+  gaze: BotMarkGazeHold;
   frame: BotMarkFrame | null;
   drawnAt: number;
   /** Everything last written to the drawing, so an unchanged frame writes nothing. */
@@ -80,6 +89,8 @@ export type BotMarkEngine = {
   schedule: () => void;
   /** Plays the next of a spin, a bounce and a nod. */
   poke: (source: BotMarkSource) => void;
+  /** Listens to the boxes around an avatar; returns what stops listening. */
+  attach: (instance: BotMarkInstance) => () => void;
 };
 
 const sources = new Map<string, BotMarkSource>();
@@ -96,6 +107,7 @@ function loadEngine() {
   void import("./bot-mark-engine.js").then(
     ({ createBotMarkEngine }) => {
       engine = createBotMarkEngine({ sources, paint });
+      for (const instance of instances) instance.detach ??= engine.attach(instance);
     },
     () => {
       engineLoading = false;
@@ -153,7 +165,7 @@ function sourceFor(
     seed: botMarkSeed(identity),
     instances: new Set(),
     pokes: [],
-    gaze: { x: 0, y: 0, hold: 0 },
+    gaze: { x: 0, y: 0, hold: 0, to: [0, 0], held: false },
     frame: null,
     drawnAt: now,
     drawn: "",
@@ -261,14 +273,6 @@ if (typeof document !== "undefined") {
   });
 }
 
-/** The row or control an avatar sits in: the pointer over it turns the avatar's face. */
-function hoverRegion(element: Element): Element {
-  return (
-    element.closest("[data-bot-mark-host], a, button, [role='button'], [role='option'], li") ??
-    element
-  );
-}
-
 /** Live states share one drawing per bot; the sleeping look draws on its own. */
 function sourceKey(identity: string, shape: BotMarkShape, state: BotMarkState, showcase: boolean) {
   const look = state === "asleep" || state === "waking" ? "sleep" : "live";
@@ -308,17 +312,25 @@ export const BotMark = memo(function BotMark({
   const who = identity || fallbackId;
   const key = sourceKey(who, shape, state, showcase);
   const sourceRef = useRef<BotMarkSource | null>(null);
+  // A new state moves the same drawing on (below); only a new drawing starts from it.
+  const stateRef = useRef(state);
+  stateRef.current = state;
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const source = sourceFor(key, shape, state, who, showcase);
+    const source = sourceFor(key, shape, stateRef.current, who, showcase);
     sourceRef.current = source;
     const instance: BotMarkInstance = {
       element,
+      identity: who,
       visible: true,
-      region: hoverRegion(element),
+      pointer: null,
+      selected: false,
+      emphasized: false,
       size,
+      detach: null,
     };
+    instance.detach = engine?.attach(instance) ?? null;
     source.instances.add(instance);
     instances.add(instance);
     markPaused(instance);
@@ -335,11 +347,12 @@ export const BotMark = memo(function BotMark({
     schedule();
     return () => {
       observer?.disconnect();
+      instance.detach?.();
       instances.delete(instance);
       release(key, source, instance);
       sourceRef.current = null;
     };
-  }, [key, shape, state, who, showcase, size]);
+  }, [key, shape, who, showcase, size]);
   useEffect(() => {
     if (sourceRef.current) setState(sourceRef.current, state);
   }, [state]);
@@ -369,6 +382,46 @@ export const BotMark = memo(function BotMark({
     </svg>
   );
 });
+
+/**
+ * A mark resting and still, for pictures that never move such as pickers: the same body, eyes and
+ * stem the live mark first paints, cut and filled the same way.
+ */
+export function BotMarkStill({
+  shape,
+  ink,
+  size,
+  className,
+}: {
+  shape: BotMarkShape;
+  ink: BotMarkInk;
+  /** Pixels across; leave it out to size the mark with `className`. */
+  size?: number;
+  className?: string;
+}) {
+  const holes = `${useId().replace(/[^a-zA-Z0-9_-]/g, "")}-holes`;
+  const drawing = useMemo(() => botMarkRestDrawing(shape), [shape]);
+  const [low, span] = [-BOT_MARK_BOX / 2, BOT_MARK_BOX * 2];
+  return (
+    <svg
+      viewBox={BOT_MARK_VIEWBOX}
+      aria-hidden="true"
+      data-bot-mark={shape}
+      data-bot-mark-ink={ink}
+      className={cn("shrink-0 overflow-visible select-none", className)}
+      style={{ width: size, height: size, color: `var(--bot-ink-${ink})` }}
+    >
+      <mask id={holes} maskUnits="userSpaceOnUse" x={low} y={low} width={span} height={span}>
+        <rect x={low} y={low} width={span} height={span} fill="white" />
+        <path d={drawing.eyes} fill="black" />
+      </mask>
+      <path d={drawing.body} fill="currentColor" mask={`url(#${holes})`} />
+      {drawing.stem.map(({ d, tone }, index) => (
+        <path key={index} d={d} fill={STEM_FILL[tone]} />
+      ))}
+    </svg>
+  );
+}
 
 /**
  * A sleeping bot's mark, breathing slowly with z's drifting up from its corner. The mark inside

@@ -1,7 +1,8 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, BotSection, Group, Me, Space, ThreadSnapshot } from "@rakazo/contracts";
-import { botInks } from "@rakazo/ui-tokens";
+import type { AvatarCutoutHole } from "@rakazo/ui-web";
 import {
+  avatarCutoutStyle,
   BotAvatar,
   Button,
   Collapsible,
@@ -348,6 +349,7 @@ export function SidebarRoster({
                     render={<button type="button" />}
                     draggable={item.kind === "bot"}
                     data-roster-bot-id={item.kind === "bot" ? item.chat.id : undefined}
+                    data-bot-mark-host={item.kind === "bot" ? item.chat.id : undefined}
                     data-roster-unread={item.chat.unread ? "true" : undefined}
                     data-roster-error={rowError && compact ? "true" : undefined}
                     aria-current={selected ? "page" : undefined}
@@ -525,6 +527,12 @@ type RosterGroup = ReturnType<
 >[number];
 
 /** Pinned chats sit above the sections as tiles; the first bot the account made wears a star. */
+/** A pinned tile's avatar, and the corner marks cut out of it with a gap, as the reference does. */
+const PINNED_AVATAR = 60;
+const PINNED_GAP = 2.7;
+const PINNED_BADGE: AvatarCutoutHole = { x: 44, y: 44, width: 16, height: 16 };
+const PINNED_UNREAD: AvatarCutoutHole = { x: 50, y: 0, width: 10, height: 10 };
+
 function PinnedTiles({
   group,
   inGroup,
@@ -568,6 +576,7 @@ function PinnedTiles({
             <ContextMenuTrigger
               render={<button type="button" />}
               data-roster-bot-id={item.kind === "bot" ? item.chat.id : undefined}
+              data-bot-mark-host={item.kind === "bot" ? item.chat.id : undefined}
               data-roster-unread={item.chat.unread ? "true" : undefined}
               aria-current={selected ? "page" : undefined}
               aria-label={item.chat.unread ? t`${item.chat.name} (unread)` : undefined}
@@ -582,23 +591,32 @@ function PinnedTiles({
                 selected ? "bg-sidebar-accent" : "hover:bg-sidebar-row-hover"
               }`}
             >
-              <span className="relative">
-                {item.kind === "bot" ? (
-                  <BotAvatar
-                    avatarSet={item.chat.avatarSet}
-                    color={item.chat.color}
-                    identity={item.chat.id}
-                    size={60}
-                    status={item.chat.status}
-                  />
-                ) : (
-                  <GroupAvatar members={members} size={60} />
-                )}
+              <span className="relative flex">
+                <span
+                  className="flex"
+                  style={avatarCutoutStyle(
+                    PINNED_AVATAR,
+                    [...(main ? [PINNED_BADGE] : []), ...(item.chat.unread ? [PINNED_UNREAD] : [])],
+                    PINNED_GAP,
+                  )}
+                >
+                  {item.kind === "bot" ? (
+                    <BotAvatar
+                      avatarSet={item.chat.avatarSet}
+                      color={item.chat.color}
+                      identity={item.chat.id}
+                      size={PINNED_AVATAR}
+                      status={item.chat.status}
+                    />
+                  ) : (
+                    <GroupAvatar members={members} size={PINNED_AVATAR} />
+                  )}
+                </span>
                 {main ? (
                   <span
                     aria-hidden="true"
-                    style={{ background: botInks.yellow }}
-                    className="absolute -end-0.5 -bottom-0.5 flex size-[18px] items-center justify-center rounded-full text-white ring-2 ring-sidebar"
+                    style={{ background: "var(--bot-ink-yellow)" }}
+                    className="absolute end-0 bottom-0 flex size-4 items-center justify-center rounded-full text-white"
                   >
                     <Star className="size-2.5" fill="currentColor" strokeWidth={0} />
                   </span>
@@ -607,7 +625,7 @@ function PinnedTiles({
                   <span
                     aria-hidden="true"
                     data-roster-unread-dot
-                    className="absolute end-0 top-0 size-2.5 rounded-full bg-unread ring-2 ring-sidebar"
+                    className="absolute end-0 top-0 size-2.5 rounded-full bg-unread"
                   />
                 ) : null}
               </span>

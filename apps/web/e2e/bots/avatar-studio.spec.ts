@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { captureScreenshot, completeOnboarding, openBotPanel, signup } from "../helpers/helpers";
 
-test("bot settings open Avatar Studio on the Bot tab", async ({ page }, testInfo) => {
+test("bot settings open the agent edit menu on the Bot tab", async ({ page }, testInfo) => {
   const stamp = Date.now();
   await signup(page, `avatar-studio-${stamp}@rakazo.test`, "password12", "Avatar Studio");
   await completeOnboarding(page);
@@ -12,37 +12,45 @@ test("bot settings open Avatar Studio on the Bot tab", async ({ page }, testInfo
   const settings = page.getByTestId("bot-settings");
   await expect(settings).toBeVisible();
 
-  await settings.getByTestId("avatar-studio-trigger").click();
-  const studio = page.getByTestId("avatar-studio");
+  await settings.getByRole("button", { name: "Edit Bot avatar" }).click();
+  const studio = page.getByRole("dialog", { name: "Avatar editor" });
   await expect(studio).toBeVisible();
-  await expect(studio.getByText("Avatar Studio", { exact: true })).toBeVisible();
-  await expect(studio.getByRole("tab", { name: "Bot", exact: true })).toBeVisible();
+  await expect(studio.getByRole("tab", { name: "Bot", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(studio.getByRole("tab", { name: "Upload", exact: true })).toBeVisible();
-  await expect(studio.getByTestId("avatar-studio-bot-tab")).toBeVisible();
 
-  // Every mark shape and ink; a pick is the bot's look and survives a reload.
-  await expect(studio.getByTestId("avatar-studio-shapes").getByRole("button")).toHaveCount(26);
-  await expect(studio.getByTestId("avatar-studio-inks").getByRole("button")).toHaveCount(10);
-  const cloud = studio.getByRole("button", { name: "cloud", exact: true });
-  const green = studio.getByRole("button", { name: "green", exact: true });
+  // The reference's thirteen bodies (plus the bot's own when it is not one of them) and eleven
+  // colours; a pick is the bot's look at once and survives a reload.
+  const shapes = studio.getByRole("group", { name: "Character shape" }).getByRole("button");
+  expect(await shapes.count()).toBeGreaterThanOrEqual(13);
+  await expect(
+    studio.getByRole("group", { name: "Character color" }).getByRole("button"),
+  ).toHaveCount(11);
+  const cloud = studio.getByRole("button", { name: "cloud character shape", exact: true });
+  const green = studio.getByRole("button", { name: "Green character color", exact: true });
   await cloud.click();
   await green.click();
   await expect(cloud).toHaveAttribute("aria-pressed", "true");
   await expect(green).toHaveAttribute("aria-pressed", "true");
   await expect(
-    studio.locator('svg[data-bot-mark="cloud"][data-bot-mark-ink="green"]').first(),
+    settings.locator('svg[data-bot-mark="cloud"][data-bot-mark-ink="green"]').first(),
   ).toBeVisible();
   await captureScreenshot(page, testInfo, "avatar-studio-bot-tab");
-  await studio.getByRole("button", { name: "Done", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(studio).toBeHidden();
 
   await page.reload();
   await openBotPanel(page);
-  await page.getByTestId("bot-settings").getByTestId("avatar-studio-trigger").click();
+  await page.getByTestId("bot-settings").getByRole("button", { name: "Edit Bot avatar" }).click();
   await expect(cloud).toHaveAttribute("aria-pressed", "true");
   await expect(green).toHaveAttribute("aria-pressed", "true");
-  // Reset returns to the shape and ink the bot's identity and colour choose.
-  await studio.getByRole("button", { name: "Reset", exact: true }).click();
-  await expect(studio.locator('svg[data-bot-mark="cloud"][data-bot-mark-ink="green"]')).toHaveCount(
-    0,
-  );
+  // Reset returns to the body and ink the bot's identity and colour choose.
+  await studio.getByRole("button", { name: "Reset character to default", exact: true }).click();
+  await expect(
+    page
+      .getByTestId("bot-settings")
+      .locator('svg[data-bot-mark="cloud"][data-bot-mark-ink="green"]'),
+  ).toHaveCount(0);
 });

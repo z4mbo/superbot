@@ -54,6 +54,13 @@ const EASE = [0.42, 0, 0.58, 1] as const;
 const BRIDGE_EASE = [0.4, 0, 0.2, 1] as const;
 /** Seconds a body takes to move from one clip's end into the next clip's start. */
 export const BRIDGE_SECONDS = 0.35;
+/**
+ * A clip that ends holds its last pose for one 60th of a second before the move into the next
+ * begins, as the reference's player notices the end a frame late.
+ */
+export const SWITCH_SECONDS = 1 / 60;
+/** The whole pause between two clips: the held frame, then the move. */
+const BETWEEN = SWITCH_SECONDS + BRIDGE_SECONDS;
 const BLINK_SECONDS = 0.26;
 
 /** A track's values at `time`, eased from each key to the next by that key's own curve. */
@@ -89,9 +96,12 @@ export function clipPose(name: BotMarkClipName, time: number): BotMarkPose {
   const pos = sample(clip.pos, time);
   const squash = sample(clip.squash, time);
   const zoom = sample(clip.zoom, time);
-  let lids = sample(clip.lids, time)?.[0] ?? 0;
+  // The reference's player starts each clip on a frame and steps it 60 times a second, so its
+  // blinks always land on the same points of the lid's curve; ours are read on that grid too.
+  const lidTime = Math.floor(time * 60 + 1e-6) / 60;
+  let lids = sample(clip.lids, lidTime)?.[0] ?? 0;
   for (const at of clip.blinks ?? []) {
-    const t = time - at;
+    const t = lidTime - at;
     if (t < 0 || t > BLINK_SECONDS) continue;
     const peak = BLINK_SECONDS * 0.45;
     const u = t < peak ? t / peak : 1 - (t - peak) / (BLINK_SECONDS - peak);
@@ -111,10 +121,11 @@ export function clipPose(name: BotMarkClipName, time: number): BotMarkPose {
 export function clipFace(
   name: BotMarkClipName,
   time: number,
+  before: BotMarkFace = clipRestFace(name),
 ): { from: BotMarkFace; to: BotMarkFace; since: number } {
   const clip: BotMarkClip = BOT_MARK_CLIPS[name];
-  let from: BotMarkFace = "neutral";
-  let to: BotMarkFace = "neutral";
+  let from: BotMarkFace = before;
+  let to: BotMarkFace = before;
   let since = Infinity;
   for (const [at, face] of clip.faces ?? []) {
     if (at > time) break;
@@ -123,6 +134,24 @@ export function clipFace(
     since = time - at;
   }
   return { from, to, since };
+}
+
+/**
+ * The face a clip is moved into with, which it keeps until its first change: its first face, or
+ * neutral for a clip that changes none.
+ */
+export function clipRestFace(name: BotMarkClipName): BotMarkFace {
+  const clip: BotMarkClip = BOT_MARK_CLIPS[name];
+  const first = clip.faces?.[0];
+  return first ? botMarkFaceNamed(first[1]) : "neutral";
+}
+
+/** The face a clip ends on, which it keeps when it plays again without a move. */
+export function clipEndFace(name: BotMarkClipName): BotMarkFace {
+  const clip: BotMarkClip = BOT_MARK_CLIPS[name];
+  const faces = clip.faces ?? [];
+  const last = faces[faces.length - 1];
+  return last ? botMarkFaceNamed(last[1]) : "neutral";
 }
 
 export function clipDuration(name: BotMarkClipName): number {
@@ -191,20 +220,28 @@ export type BotMarkPlay = {
   time: number;
   /** The previous clip's last pose while the body is still moving out of it. */
   bridge: { from: BotMarkPose; progress: number } | null;
+  /** The clip being moved out of and the seconds since the move began, while it lasts. */
+  enter?: { from: BotMarkClipName; since: number };
+  /** The clip plays again straight after itself, keeping the face it ended on. */
+  loop?: boolean;
 };
 
 /**
  * Where a playlist is `time` seconds after it began: clips play in seeded rounds, each round a
  * shuffle that never repeats the clip that just ended, with a short move between clips whose
- * poses do not meet. A bot joins its first round partway through, so bots do not move in step.
+ * poses do not meet. A bot first painted playing joins its first round partway through
+ * (`partway`), so bots do not move in step; one that starts playing on screen begins at the start.
  */
 export function playlistAt(
   clips: readonly BotMarkClipName[],
   time: number,
   seed: number,
+  partway = true,
 ): BotMarkPlay {
-  const round = clips.reduce((sum, name) => sum + clipDuration(name) + BRIDGE_SECONDS, 0);
-  const shifted = Math.max(0, time) + ((seed % 997) / 997) * clipDuration(clips[0]!);
+  if (clips.length === 1) return loopAt(clips[0]!, time, seed, partway);
+  const round = clips.reduce((sum, name) => sum + clipDuration(name) + BETWEEN, 0);
+  const phase = partway ? ((seed % 997) / 997) * clipDuration(clips[0]!) : BETWEEN;
+  const shifted = Math.max(0, time) + phase;
   const cycle = Math.floor(shifted / round);
   const previous = cycleOrder(clips, seed, cycle - 1);
   let order = cycleOrder(clips, seed, cycle);
@@ -214,16 +251,18 @@ export function playlistAt(
   let at = shifted - cycle * round;
   let last: BotMarkClipName = previous[previous.length - 1]!;
   for (const name of order) {
-    if (at < BRIDGE_SECONDS) {
+    if (at < SWITCH_SECONDS) return { clip: last, time: clipDuration(last), bridge: null };
+    if (at < BETWEEN) {
       const from = clipPose(last, clipDuration(last));
-      const progress = at / BRIDGE_SECONDS;
+      const progress = (at - SWITCH_SECONDS) / BRIDGE_SECONDS;
       return {
         clip: name,
         time: 0,
         bridge: posesDiffer(from, clipPose(name, 0)) ? { from, progress } : null,
+        enter: { from: last, since: at - SWITCH_SECONDS },
       };
     }
-    at -= BRIDGE_SECONDS;
+    at -= BETWEEN;
     const duration = clipDuration(name);
     if (at < duration) return { clip: name, time: at, bridge: null };
     at -= duration;
@@ -234,8 +273,29 @@ export function playlistAt(
 }
 
 /**
- * Where a once-through playlist is `time` seconds in: its clips in order with the same short
- * moves between them, or null once the last clip has ended, with when that was.
+ * A playlist of one clip: it plays again as soon as it ends, moving back to its start first only
+ * when its last pose does not meet its first, as the reference's player loops a clip.
+ */
+function loopAt(name: BotMarkClipName, time: number, seed: number, partway: boolean): BotMarkPlay {
+  const duration = clipDuration(name);
+  const end = clipPose(name, duration);
+  const gap = posesDiffer(end, clipPose(name, 0)) ? BRIDGE_SECONDS : 0;
+  const shifted = Math.max(0, time) + (partway ? ((seed % 997) / 997) * duration : 0);
+  const round = Math.floor(shifted / (duration + gap));
+  const at = shifted - round * (duration + gap);
+  if (at < duration) return { clip: name, time: at, bridge: null, loop: round > 0 && gap === 0 };
+  return {
+    clip: name,
+    time: 0,
+    bridge: { from: end, progress: (at - duration) / gap },
+    enter: { from: name, since: at - duration },
+  };
+}
+
+/**
+ * Where a once-through playlist is `time` seconds in: its clips in order, each but the first
+ * reached by the same short move (a hold where the poses already meet), or null once the last
+ * clip has ended, with when that was.
  */
 export function sequenceAt(
   clips: readonly BotMarkClipName[],
@@ -245,19 +305,19 @@ export function sequenceAt(
   let elapsed = 0;
   let last: BotMarkClipName | null = null;
   for (const name of clips) {
-    if (last) {
+    if (last && last !== name) {
       const from = clipPose(last, clipDuration(last));
-      const moves = posesDiffer(from, clipPose(name, 0));
-      if (moves && at < BRIDGE_SECONDS) {
-        return {
-          play: { clip: name, time: 0, bridge: { from, progress: at / BRIDGE_SECONDS } },
-          ended: 0,
-        };
+      if (at < SWITCH_SECONDS) {
+        return { play: { clip: last, time: clipDuration(last), bridge: null }, ended: 0 };
       }
-      if (moves) {
-        at -= BRIDGE_SECONDS;
-        elapsed += BRIDGE_SECONDS;
+      if (at < BETWEEN) {
+        const bridge = posesDiffer(from, clipPose(name, 0))
+          ? { from, progress: (at - SWITCH_SECONDS) / BRIDGE_SECONDS }
+          : null;
+        return { play: { clip: name, time: 0, bridge }, ended: 0 };
       }
+      at -= BETWEEN;
+      elapsed += BETWEEN;
     }
     const duration = clipDuration(name);
     if (at < duration) return { play: { clip: name, time: at, bridge: null }, ended: 0 };

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { botMarkRestDrawing } from "@rakazo/core";
+import { botMarkDrawing, botMarkFrame } from "@rakazo/core/bot-mark-animation";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
@@ -68,4 +69,141 @@ it("paints each mark resting before the engine loads, and the engine keeps an id
   // The working mark starts playing its clips once the engine draws it.
   await vi.waitFor(() => expect(shown("working").body).not.toBe(egg.body), { timeout: 3000 });
   expect(shown("idle")).toEqual({ body: cloud.body, eyes: cloud.eyes });
+});
+
+/** The drawing of an idle mark whose face a settled gaze holds, as the engine paints it. */
+function held(shape: "cloud" | "egg", x: number, y: number) {
+  const frame = botMarkFrame({
+    state: "idle",
+    time: 0,
+    seed: 0,
+    shape,
+    gaze: { x, y, hold: 1 },
+  });
+  const drawing = botMarkDrawing(shape, frame);
+  return { body: drawing.body, eyes: drawing.eyes };
+}
+
+function pointer(type: "pointermove" | "pointerleave", target: Element, x = 0, y = 0) {
+  act(() => {
+    target.dispatchEvent(
+      new MouseEvent(type, { clientX: x, clientY: y, bubbles: type === "pointermove" }),
+    );
+  });
+}
+
+it("follows the pointer only inside the avatar's own box, and rests again when it leaves", async () => {
+  engineLoad.resolve();
+  act(() =>
+    root.render(
+      <>
+        <button type="button" data-bot-mark-host="ada" data-testid="row">
+          <span data-testid="ada">
+            <BotMark identity="ada" shape="cloud" ink="blue" size={36} />
+          </span>
+        </button>
+        <button type="button" data-bot-mark-host="bo" data-testid="other-row">
+          <span data-testid="bo">
+            <BotMark identity="bo" shape="egg" ink="green" size={36} />
+          </span>
+        </button>
+        <button type="button" data-testid="header">
+          <span data-testid="header-dee">
+            <BotMark identity="dee" shape="cloud" ink="blue" size={24} />
+          </span>
+        </button>
+      </>,
+    ),
+  );
+  const rest = { cloud: botMarkRestDrawing("cloud"), egg: botMarkRestDrawing("egg") };
+  const resting = (drawing: ReturnType<typeof botMarkRestDrawing>) => ({
+    body: drawing.body,
+    eyes: drawing.eyes,
+  });
+  await vi.waitFor(() => expect(shown("ada")).toEqual(resting(rest.cloud)));
+
+  // A mark with no box of its own ignores the pointer over its button and over the page.
+  pointer("pointermove", container.querySelector('[data-testid="header"]')!, 400, 10);
+  pointer("pointermove", document.body, 400, 10);
+
+  // Inside the row, its own mark turns toward the pointer and settles there; the other bots rest.
+  // A test document lays nothing out, so the mark's box is a point at the origin.
+  const row = container.querySelector('[data-testid="row"]')!;
+  pointer("pointermove", row, 30, -10);
+  await vi.waitFor(() => expect(shown("ada")).toEqual(held("cloud", 1, 1)), { timeout: 3000 });
+  expect(shown("bo")).toEqual(resting(rest.egg));
+  expect(shown("header-dee")).toEqual(resting(rest.cloud));
+
+  pointer("pointerleave", row);
+  await vi.waitFor(() => expect(shown("ada")).toEqual(resting(rest.cloud)), { timeout: 3000 });
+});
+
+it("faces the open bot straight ahead, and turns it back to rest when another bot opens", async () => {
+  engineLoad.resolve();
+  act(() =>
+    root.render(
+      <button type="button" data-bot-mark-host="cy" data-testid="row">
+        <span data-testid="cy">
+          <BotMark identity="cy" shape="egg" ink="orange" size={36} />
+        </span>
+      </button>,
+    ),
+  );
+  const row = container.querySelector('[data-testid="row"]')!;
+  const rest = botMarkRestDrawing("egg");
+  await vi.waitFor(() => expect(shown("cy")).toEqual({ body: rest.body, eyes: rest.eyes }));
+  act(() => row.setAttribute("aria-current", "page"));
+  await vi.waitFor(() => expect(shown("cy")).toEqual(held("egg", 0, 0)), { timeout: 3000 });
+  act(() => row.removeAttribute("aria-current"));
+  await vi.waitFor(() => expect(shown("cy")).toEqual({ body: rest.body, eyes: rest.eyes }), {
+    timeout: 3000,
+  });
+});
+
+it("surprises a mark while the pointer is over the line it sits in", async () => {
+  engineLoad.resolve();
+  act(() =>
+    root.render(
+      <div data-bot-mark-emphasis="" data-testid="line">
+        <span data-testid="em">
+          <BotMark identity="em" shape="egg" ink="green" size={28} />
+        </span>
+        Working on it
+      </div>,
+    ),
+  );
+  const rest = botMarkRestDrawing("egg");
+  await vi.waitFor(() => expect(shown("em")).toEqual({ body: rest.body, eyes: rest.eyes }));
+  const line = container.querySelector('[data-testid="line"]')!;
+  const surprised = botMarkDrawing(
+    "egg",
+    botMarkFrame({ state: "idle", time: 0, seed: 0, emphasis: { on: true, seconds: 1 } }),
+  );
+  act(() => {
+    line.dispatchEvent(new MouseEvent("pointerenter"));
+  });
+  await vi.waitFor(() => expect(shown("em").eyes).toBe(surprised.eyes), { timeout: 3000 });
+  act(() => {
+    line.dispatchEvent(new MouseEvent("pointerleave"));
+  });
+  await vi.waitFor(() => expect(shown("em").eyes).toBe(rest.eyes), { timeout: 3000 });
+});
+
+it("keeps a bot that stops working moving for a moment, then rests it", async () => {
+  engineLoad.resolve();
+  const mark = (state: "working" | "idle") => (
+    <span data-testid="settle">
+      <BotMark identity="settle" shape="cloud" ink="blue" state={state} size={36} />
+    </span>
+  );
+  act(() => root.render(mark("working")));
+  const rest = botMarkRestDrawing("cloud");
+  await vi.waitFor(() => expect(shown("settle").body).not.toBe(rest.body), { timeout: 3000 });
+  const stopped = performance.now();
+  act(() => root.render(mark("idle")));
+  await vi.waitFor(() => expect(shown("settle")).toEqual({ body: rest.body, eyes: rest.eyes }), {
+    timeout: 5000,
+  });
+  // It plays on for 1.4s before its 0.35s move to rest.
+  expect(performance.now() - stopped).toBeGreaterThan(1700);
 });

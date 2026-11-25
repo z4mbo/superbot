@@ -137,9 +137,12 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await page.getByTestId("avatar-studio-trigger").click();
   const studio = page.getByTestId("avatar-studio");
   await expect(studio).toBeVisible();
-  await expect(studio.getByTestId("avatar-studio-bot-tab")).toBeVisible();
-  await studio.getByRole("button", { name: "yellow", exact: true }).click();
-  await studio.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(studio.getByRole("tab", { name: "Bot", exact: true })).toBeVisible();
+  // A pick is the bot's look at once; there is nothing to confirm.
+  const yellow = studio.getByRole("button", { name: "Yellow character color", exact: true });
+  await yellow.click();
+  await expect(yellow).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
   await expect(studio).toBeHidden();
   await expect(botList.getByRole("button", { name: /^Researcher/ })).toBeVisible();
   await expect(page.getByPlaceholder("Message Researcher")).toBeVisible();
@@ -155,11 +158,9 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   const settings = page.getByTestId("bot-settings");
   await settings.getByTestId("avatar-studio-trigger").click();
   await expect(studio).toBeVisible();
-  await expect(studio.getByRole("button", { name: "yellow", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await studio.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(yellow).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+  await expect(studio).toBeHidden();
   const modelRow = settings.getByRole("button", { name: /^Model/ });
   const openWork = settings.getByTestId("bot-scratchpad");
   const notifications = settings.getByRole("switch", { name: "Notifications", exact: true });

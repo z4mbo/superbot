@@ -27,11 +27,11 @@ const SOFT: Ease = [0.45, 0, 0.55, 1];
 const DART: Ease = [0.35, 0.1, 0.25, 1];
 /** A return home that settles with the slightest overshoot. */
 const HOME: Ease = [0.4, 0, 0.3, 1.06];
-const key = (time: number, value: readonly number[], ease: Ease = SOFT): AvatarKey => [
-  time,
-  value,
-  ease,
-];
+// Marked free of side effects so a bundle that plays no clips can drop the whole table.
+/* @__NO_SIDE_EFFECTS__ */
+function key(time: number, value: readonly number[], ease: Ease = SOFT): AvatarKey {
+  return [time, value, ease];
+}
 
 /**
  * The clips, by name. Working clips look somewhere new about every second, with short,

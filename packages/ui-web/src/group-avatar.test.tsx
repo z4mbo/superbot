@@ -54,7 +54,7 @@ describe("GroupAvatar", () => {
     expect(count).toBe(3);
   });
 
-  it("renders 2 mini avatars + overflow count for 4+ members", () => {
+  it("shows the first four members and no count, with no shadow behind them", () => {
     const html = renderToString(
       <GroupAvatar
         members={[
@@ -62,10 +62,26 @@ describe("GroupAvatar", () => {
           { name: "Elon", color: "#06B6D4" },
           { name: "Penny", color: "#EC4899" },
           { name: "Harry", color: "#10B981" },
+          { name: "Ada", color: "#3B82F6" },
         ]}
       />,
     );
-    expect(html).toContain("+2");
-    expect(html).toMatch(/<div\b[^>]*\baria-hidden="true"[^>]*>\+2<\/div>/);
+    expect((html.match(/data-bot-mark-state=/g) || []).length).toBe(4);
+    expect(html).not.toMatch(/>\+\d/);
+    expect(html).not.toContain("drop-shadow");
+  });
+
+  it("cuts a gap in a member where the next one overlaps it", () => {
+    const html = renderToString(
+      <GroupAvatar
+        size={36}
+        members={[
+          { name: "Sherlock", color: "#8B5CF6" },
+          { name: "Elon", color: "#06B6D4" },
+        ]}
+      />,
+    );
+    // The first member carries the mask; the one on top is whole.
+    expect((html.match(/[;"]mask-image:url/g) || []).length).toBe(1);
   });
 });

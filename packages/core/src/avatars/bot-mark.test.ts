@@ -1,5 +1,9 @@
+import { BOT_COLOR_LIST } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
+import type { BotMarkInk, BotMarkShape } from "./bot-mark.js";
 import {
+  BOT_MARK_PICKER_INKS,
+  BOT_MARK_PICKER_SHAPES,
   BOT_MARK_SHAPES,
   BOT_MARK_STATES,
   botMarkInkFor,
@@ -7,6 +11,7 @@ import {
   botMarkRestFrame,
   botMarkRestPath,
   botMarkShapeFor,
+  botMarkShapeInk,
   botMarkStateFor,
 } from "./bot-mark.js";
 import {
@@ -172,14 +177,15 @@ describe("bot mark", () => {
     expect(botMarkZoom(thinking, 200)).toBe(1);
   });
 
-  it("plays a finished or failed bot's clips once, then rests", () => {
+  it("shows a run that finishes on screen once, then rests; one finished earlier just rests", () => {
     for (const state of ["done", "error"] as const) {
-      const late = botMarkFrame({ state, time: 20_000, seed: 0 });
+      const late = botMarkFrame({ state, time: 20_000, seed: 0, entered: true });
       for (const [k, angle] of late.rotation.entries()) {
         expect(angle).toBeCloseTo(REST_ROTATION[k]!, 6);
       }
+      expect(botMarkFrame({ state, time: 500, seed: 0 }).rotation).toEqual([...REST_ROTATION]);
     }
-    const playing = botMarkFrame({ state: "done", time: 500, seed: 0 });
+    const playing = botMarkFrame({ state: "done", time: 900, seed: 0, entered: true });
     expect(playing.rotation).not.toEqual([...REST_ROTATION]);
   });
 
@@ -231,9 +237,43 @@ describe("bot mark", () => {
     expect(botMarkInkFor(null, "#111111")).toBe("neutral");
   });
 
+  it("draws every palette colour in its own ink, and a bot with none in its identity's", () => {
+    for (const color of BOT_COLOR_LIST) {
+      const ink = botMarkInkFor(null, color.hex);
+      expect(ink).toBe(
+        color.id === "white" ? "neutral" : color.id === "violet" ? "purple" : color.id,
+      );
+      if (color.previousHex) expect(botMarkInkFor(null, color.previousHex)).toBe(ink);
+    }
+    // Ids the reference gives these inks and bodies when nobody picked any.
+    const reference: [string, BotMarkInk, BotMarkShape][] = [
+      ["bot-1", "purple", "squircle"],
+      ["bot-2", "magenta", "tablet"],
+      ["agent-7", "orange", "teardrop"],
+      ["cm3x9", "cyan", "wedge"],
+      ["superbot", "red", "hex"],
+      ["c", "red", "cloud"],
+    ];
+    for (const [id, ink, shape] of reference) {
+      expect(botMarkInkFor(null, "", id)).toBe(ink);
+      expect(botMarkShapeFor(id)).toBe(shape);
+    }
+  });
+
+  it("offers the editor's colours and bodies in its order, the pumpkin bringing orange", () => {
+    expect(BOT_MARK_PICKER_INKS[0]).toBe("neutral");
+    expect(BOT_MARK_PICKER_INKS.at(-1)).toBe("gray");
+    expect(BOT_MARK_PICKER_SHAPES).toHaveLength(13);
+    expect(BOT_MARK_PICKER_SHAPES[0]).toBe("blob");
+    expect(BOT_MARK_PICKER_SHAPES.every((shape) => BOT_MARK_SHAPES.includes(shape))).toBe(true);
+    expect(BOT_MARK_PICKER_SHAPES).not.toContain("pumpkin");
+    expect(botMarkShapeInk("pumpkin")).toBe("orange");
+    expect(botMarkShapeInk("blob")).toBeNull();
+  });
+
   it("maps statuses to looks, with sleeping and unreachable bots asleep", () => {
     expect(botMarkStateFor("running")).toBe("working");
-    expect(botMarkStateFor("waiting_input")).toBe("waiting");
+    expect(botMarkStateFor("waiting_input")).toBe("blocked");
     expect(botMarkStateFor("failed")).toBe("error");
     expect(botMarkStateFor("hibernated")).toBe("asleep");
     expect(botMarkStateFor("offline")).toBe("asleep");

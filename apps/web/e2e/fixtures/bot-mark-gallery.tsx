@@ -1,11 +1,12 @@
 import "../../src/styles.css";
 import type { BotMarkInk } from "@rakazo/core";
-import { BOT_MARK_SHAPES, BOT_MARK_STATES } from "@rakazo/core";
-import { BotMark, BotMarkSleep } from "@rakazo/ui-web";
+import { BOT_MARK_PICKER_INKS, BOT_MARK_SHAPES, BOT_MARK_STATES } from "@rakazo/core";
+import { BotMark, BotMarkSleep, BotMarkStill, GroupAvatar } from "@rakazo/ui-web";
 import { createRoot } from "react-dom/client";
 
-// Every body resting and asleep, then every state on every body, and each state in the sizes the
-// app uses (24 capsule, 28 working line, 36 roster row, 60 pinned tile and details).
+// Every body resting, still and asleep, every ink, groups of two to four, then every state on every
+// body, and each state in the sizes the app uses (24 capsule, 28 working line, 36 roster row, 60
+// pinned tile, 64 details).
 const params = new URLSearchParams(window.location.search);
 document.documentElement.dataset.theme = params.get("theme") === "dark" ? "dark" : "light";
 const inks: BotMarkInk[] = [
@@ -36,6 +37,32 @@ createRoot(document.getElementById("root")!).render(
         </div>
       ))}
     </div>
+    <div className="row" data-testid="stills">
+      {BOT_MARK_SHAPES.map((shape, index) => (
+        <BotMarkStill key={shape} shape={shape} ink={inks[index % inks.length]!} size={36} />
+      ))}
+    </div>
+    <div className="row" data-testid="inks">
+      {BOT_MARK_PICKER_INKS.map((ink) => (
+        <BotMark key={ink} identity={`ink-${ink}`} shape="blob" ink={ink} size={36} />
+      ))}
+    </div>
+    <div className="row" data-testid="groups">
+      {[2, 3, 4].map((count) =>
+        [36, 60].map((size) => (
+          <GroupAvatar
+            key={`${count}-${size}`}
+            size={size}
+            members={["#A97EFE", "#1CC3B0", "#FF5EB1", "#FFAF38"]
+              .slice(0, count)
+              .map((color, index) => ({
+                botId: `group-${count}-${index}`,
+                color,
+              }))}
+          />
+        )),
+      )}
+    </div>
     <div className="row" data-testid="asleep">
       {BOT_MARK_SHAPES.map((shape) => (
         <div key={shape} className="cell">
@@ -64,7 +91,7 @@ createRoot(document.getElementById("root")!).render(
             size={36}
           />
         ))}
-        {[24, 28, 36, 60].map((size) => (
+        {[24, 28, 36, 60, 64].map((size) => (
           <BotMark
             key={size}
             identity={`${state}-size`}

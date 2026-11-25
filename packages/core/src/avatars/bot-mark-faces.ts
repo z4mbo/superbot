@@ -180,6 +180,11 @@ const NO_BLINK = new Set<BotMarkFace>(["sad", "happy", "confused", "squinted", "
 export const FACE_MORPH_SECONDS = 0.28;
 const FACE_EASE = [0.4, 0.06, 0.18, 1] as const;
 
+/** How far a face morph has eased `seconds` after it began. */
+export function faceMorphEase(seconds: number): number {
+  return cubicEase(FACE_EASE, Math.min(1, Math.max(0, seconds / FACE_MORPH_SECONDS)));
+}
+
 /** Each eye's centre in eye space: shaped bodies spread the centres apart separately from the eyes' size. */
 export function faceOffsets(face: BotMarkFace): readonly [Point, Point] {
   const [left, right] = BOT_MARK_FACE_EYES[face];

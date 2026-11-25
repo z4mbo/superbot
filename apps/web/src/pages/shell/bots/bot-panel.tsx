@@ -1,17 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import type {
-  Bot,
-  BotAvatarSet,
-  ComputerMode,
-  ModelCatalogEntry,
-  ThinkingLevel,
-} from "@rakazo/contracts";
-import {
-  BOT_LABEL_MAX_LENGTH,
-  BOT_NAME_MAX_LENGTH,
-  isBuiltinToolName,
-  resolveBotAvatarSet,
-} from "@rakazo/contracts";
+import type { Bot, ComputerMode, ModelCatalogEntry, ThinkingLevel } from "@rakazo/contracts";
+import { BOT_LABEL_MAX_LENGTH, BOT_NAME_MAX_LENGTH, isBuiltinToolName } from "@rakazo/contracts";
 import { botModelState, modelOptionKey } from "@rakazo/core";
 import {
   Button,
@@ -99,7 +88,6 @@ export function BotSettings({
     description?: string;
     instructions?: string;
     color?: string;
-    avatarSet?: BotAvatarSet;
     lookShape?: string | null;
     lookColor?: string | null;
     notifyOnFinish?: boolean;
@@ -140,7 +128,6 @@ export function BotSettings({
   // voice change treats that stale text as an edit and overwrites instructions.
   const savedDescriptionRef = useRef(bot.description ?? "");
   const [color, setColor] = useState(bot.color);
-  const [avatarSet, setAvatarSet] = useState(() => resolveBotAvatarSet(bot.avatarSet));
   const [look, setLook] = useState(() => ({
     lookShape: bot.lookShape ?? null,
     lookColor: bot.lookColor ?? null,
@@ -148,10 +135,9 @@ export function BotSettings({
   const [notifyOnFinish, setNotifyOnFinish] = useState(bot.notifyOnFinish ?? true);
   const acceptedAutomatic = useRef({
     color: bot.color,
-    avatarSet: resolveBotAvatarSet(bot.avatarSet),
     notifyOnFinish: bot.notifyOnFinish ?? true,
   });
-  const automaticRevision = useRef({ color: 0, avatarSet: 0, notifyOnFinish: 0 });
+  const automaticRevision = useRef({ color: 0, notifyOnFinish: 0 });
   const [computerMode, setComputerMode] = useState(bot.computerMode);
   const [autoSpeak, setAutoSpeak] = useState(bot.autoSpeak);
   const [crossSpaceCommunication, setCrossSpaceCommunication] = useState(
@@ -249,7 +235,6 @@ export function BotSettings({
         label?: string;
         description?: string;
         color?: string;
-        avatarSet?: BotAvatarSet;
         notifyOnFinish?: boolean;
         fleetManagement?: boolean;
         crossSpaceCommunication?: boolean;
@@ -257,7 +242,7 @@ export function BotSettings({
         disabledBuiltinTools?: string[];
         baseDisabledBuiltinTools?: string[];
       },
-      revisions?: { color: number; avatarSet: number; notifyOnFinish: number },
+      revisions?: { color: number; notifyOnFinish: number },
     ) => Promise<void>
   >(async () => undefined);
   // The panel can open on a cached bot. When a newer copy arrives, every field not edited since
@@ -276,12 +261,9 @@ export function BotSettings({
     const accepted = acceptedAutomatic.current;
     const nextNotify = bot.notifyOnFinish ?? true;
     if (color === accepted.color) setColor(bot.color);
-    const nextAvatarSet = resolveBotAvatarSet(bot.avatarSet);
-    if (avatarSet === accepted.avatarSet) setAvatarSet(nextAvatarSet);
     if (notifyOnFinish === accepted.notifyOnFinish) setNotifyOnFinish(nextNotify);
     acceptedAutomatic.current = {
       color: bot.color,
-      avatarSet: nextAvatarSet,
       notifyOnFinish: nextNotify,
     };
     const saved = JSON.parse(savedAdvanced) as unknown[];
@@ -308,7 +290,6 @@ export function BotSettings({
       label?: string;
       description?: string;
       color?: string;
-      avatarSet?: BotAvatarSet;
       notifyOnFinish?: boolean;
       fleetManagement?: boolean;
       crossSpaceCommunication?: boolean;
@@ -316,7 +297,7 @@ export function BotSettings({
       disabledBuiltinTools?: string[];
       baseDisabledBuiltinTools?: string[];
     },
-    revisions?: { color: number; avatarSet: number; notifyOnFinish: number },
+    revisions?: { color: number; notifyOnFinish: number },
   ) {
     try {
       setSaving(true);
@@ -344,7 +325,6 @@ export function BotSettings({
         patchOverrides?.description !== undefined ? patchOverrides.description : description
       ).trim();
       const nextColor = patchOverrides?.color !== undefined ? patchOverrides.color : color;
-      const nextAvatarSet = patchOverrides?.avatarSet ?? avatarSet;
       const nextNotify =
         patchOverrides?.notifyOnFinish !== undefined
           ? patchOverrides.notifyOnFinish
@@ -358,10 +338,6 @@ export function BotSettings({
         ...botProfilePatch(savedDescriptionRef.current, nextDescription),
         // Unchanged color stays off the wire so a legacy named value cannot fail a name save.
         ...(nextColor !== acceptedAutomatic.current.color ? { color: nextColor } : {}),
-        ...(patchOverrides?.avatarSet !== undefined ||
-        nextAvatarSet !== acceptedAutomatic.current.avatarSet
-          ? { avatarSet: nextAvatarSet }
-          : {}),
         notifyOnFinish: nextNotify,
         computerMode,
         autoSpeak,
@@ -413,7 +389,6 @@ export function BotSettings({
       }
       acceptedAutomatic.current = {
         color: nextColor,
-        avatarSet: nextAvatarSet,
         notifyOnFinish: nextNotify,
       };
       if (nextName) savedNameRef.current = nextName;
@@ -425,11 +400,6 @@ export function BotSettings({
         revisions?.color === automaticRevision.current.color
       )
         setColor(acceptedAutomatic.current.color);
-      if (
-        patchOverrides?.avatarSet !== undefined &&
-        revisions?.avatarSet === automaticRevision.current.avatarSet
-      )
-        setAvatarSet(acceptedAutomatic.current.avatarSet);
       if (
         patchOverrides?.notifyOnFinish !== undefined &&
         revisions?.notifyOnFinish === automaticRevision.current.notifyOnFinish
@@ -477,7 +447,6 @@ export function BotSettings({
     label?: string;
     description?: string;
     color?: string;
-    avatarSet?: BotAvatarSet;
     notifyOnFinish?: boolean;
     fleetManagement?: boolean;
     crossSpaceCommunication?: boolean;
@@ -489,7 +458,6 @@ export function BotSettings({
     // queued work reads the latest field values, not a stale render closure.
     pendingSavesRef.current += 1;
     if (patchOverrides?.color !== undefined) automaticRevision.current.color += 1;
-    if (patchOverrides?.avatarSet !== undefined) automaticRevision.current.avatarSet += 1;
     if (patchOverrides?.notifyOnFinish !== undefined) automaticRevision.current.notifyOnFinish += 1;
     const revisions = { ...automaticRevision.current };
     const queuedPatch =
@@ -584,54 +552,48 @@ export function BotSettings({
         </div>
         <div
           data-testid="bot-profile-header"
-          className="flex flex-col items-center pb-5 text-center"
+          className="flex flex-col items-center gap-4 pb-5 text-center"
         >
-          <div className="flex justify-center pb-4">
-            <AvatarStudioPopover
-              value={color}
-              identity={bot.id}
-              status={bot.status}
-              size={76}
-              avatarSet={avatarSet}
-              look={look}
-              onLookChange={(next) => {
-                setLook(next);
-                void onSave(next);
+          <AvatarStudioPopover
+            value={color}
+            identity={bot.id}
+            status={bot.status}
+            look={look}
+            onLookChange={(next) => {
+              setLook(next);
+              void onSave(next);
+            }}
+            onChange={(newColor) => {
+              setColor(newColor);
+              void enqueueSave({ color: newColor });
+            }}
+          />
+          <div className="flex w-full flex-col items-center gap-1">
+            <InlineProfileField
+              label={t`Name`}
+              editLabel={t`Edit name`}
+              value={name}
+              maxLength={BOT_NAME_MAX_LENGTH}
+              className="text-heading3 font-medium"
+              onCommit={(value) => {
+                if (!value.trim()) return;
+                setName(value.trim());
+                void enqueueSave({ name: value });
               }}
-              onChange={(newColor, nextAvatarSet) => {
-                setColor(newColor);
-                if (nextAvatarSet !== undefined) setAvatarSet(nextAvatarSet);
-                void enqueueSave({
-                  color: newColor,
-                  ...(nextAvatarSet !== undefined ? { avatarSet: nextAvatarSet } : {}),
-                });
+            />
+            <InlineProfileField
+              label={t`Label`}
+              editLabel={t`Edit label`}
+              placeholder={t`Add label`}
+              value={label}
+              maxLength={BOT_LABEL_MAX_LENGTH}
+              className="text-body-sm text-muted-foreground"
+              onCommit={(value) => {
+                setLabel(value.trim());
+                void enqueueSave({ label: value.trim() });
               }}
             />
           </div>
-          <InlineProfileField
-            label={t`Name`}
-            editLabel={t`Edit name`}
-            value={name}
-            maxLength={BOT_NAME_MAX_LENGTH}
-            className="text-heading2 font-semibold"
-            onCommit={(value) => {
-              if (!value.trim()) return;
-              setName(value.trim());
-              void enqueueSave({ name: value });
-            }}
-          />
-          <InlineProfileField
-            label={t`Label`}
-            editLabel={t`Edit label`}
-            placeholder={t`Add label`}
-            value={label}
-            maxLength={BOT_LABEL_MAX_LENGTH}
-            className="text-body-sm text-muted-foreground"
-            onCommit={(value) => {
-              setLabel(value.trim());
-              void enqueueSave({ label: value.trim() });
-            }}
-          />
           {email && (email.address || claimingEmail) ? (
             <div data-testid="bot-email" className="mt-2 w-full max-w-sm text-left">
               <BotEmailAddressField

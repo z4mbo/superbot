@@ -2,9 +2,7 @@ import type { BotAvatarSet, BotColorDef } from "@rakazo/contracts";
 import { BOT_COLOR_LIST, BOT_COLORS } from "@rakazo/contracts";
 import type { BotMarkState, LogoAvatarActivity } from "@rakazo/core";
 import {
-  BOT_MARK_VIEWBOX,
   botMarkInkFor,
-  botMarkRestPath,
   botMarkShapeFor,
   botMarkStateFor,
   DEFAULT_BOT_AVATAR_COLOR,
@@ -16,7 +14,7 @@ import {
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, memo, useContext, useMemo } from "react";
 import { useBotAvatarActivity } from "./bot-avatar-activity.js";
-import { BotMark, BotMarkSleep } from "./bot-mark.js";
+import { BotMark, BotMarkSleep, BotMarkStill } from "./bot-mark.js";
 import { cn } from "./lib/utils.js";
 import "./styles.css";
 
@@ -74,6 +72,11 @@ export function BotLookProvider({
 }) {
   const looks = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
   return <BotLooks value={looks}>{children}</BotLooks>;
+}
+
+/** The shapes and inks people picked, by bot id. */
+export function usePickedBotLooks(): ReadonlyMap<string, BotLook> {
+  return useContext(BotLooks);
 }
 
 export interface BotAvatarProps {
@@ -162,7 +165,7 @@ export const BotAvatar = memo(function BotAvatar({
   const statusState = botMarkStateFor(status);
   const fixed =
     state ?? (statusState === "asleep" || statusState === "waking" ? statusState : undefined);
-  const ink = fixed === "asleep" ? "gray" : botMarkInkFor(inkName, colorDef.hex);
+  const ink = fixed === "asleep" ? "gray" : botMarkInkFor(inkName, colorDef.hex, effectiveId);
   if (fixed === "asleep") {
     return (
       <BotMarkSleep className={className}>
@@ -171,7 +174,8 @@ export const BotAvatar = memo(function BotAvatar({
     );
   }
   if (activity !== undefined || fixed !== undefined) {
-    const shown = fixed ?? botMarkStateForActivity(activity ?? logoAvatarStatusActivity(status));
+    const shown =
+      fixed ?? botMarkStateForActivity(activity ?? logoAvatarStatusActivity(status), status);
     return (
       <BotMark
         identity={effectiveId}
@@ -204,11 +208,18 @@ function LiveBotMark({
   ...props
 }: Omit<ComponentProps<typeof BotMark>, "state" | "activity"> & { status?: string }) {
   const activity = useBotAvatarActivity(props.identity, status);
-  return <BotMark {...props} state={botMarkStateForActivity(activity)} activity={activity} />;
+  return (
+    <BotMark {...props} state={botMarkStateForActivity(activity, status)} activity={activity} />
+  );
 }
 
-/** The mark state that shows a live activity: reading, writing and using a computer are work. */
-function botMarkStateForActivity(activity: LogoAvatarActivity): BotMarkState {
+/**
+ * The mark state that shows a live activity: reading, writing and using a computer are work, a
+ * bot waiting on someone is blocked, and a run that just completed is shown done (the mark plays
+ * that only when it happens on screen).
+ */
+function botMarkStateForActivity(activity: LogoAvatarActivity, status?: string): BotMarkState {
+  if (activity === "idle" && status === "completed") return "done";
   switch (activity) {
     case "reading":
     case "writing":
@@ -218,7 +229,7 @@ function botMarkStateForActivity(activity: LogoAvatarActivity): BotMarkState {
     case "thinking":
       return "thinking";
     case "waiting":
-      return "waiting";
+      return "blocked";
     case "error":
       return "error";
     default:
@@ -243,7 +254,7 @@ export function BotShapePreview({
   onClick?: () => void;
 }) {
   const key = shapeIndex === undefined ? undefined : botMarkShapeFor("", null, shapeIndex);
-  const colorDef = resolvePersonaColorDef("preview", color);
+  const ink = botMarkInkFor(null, resolvePersonaColorDef("preview", color).hex);
 
   return (
     <button
@@ -258,16 +269,10 @@ export function BotShapePreview({
           : "hover:bg-white/5",
       )}
     >
-      {shapeIndex === undefined ? (
+      {key === undefined ? (
         <BotAvatar color={color} identity={identity} size={32} />
       ) : (
-        <svg viewBox={BOT_MARK_VIEWBOX} className="size-8 overflow-visible" aria-hidden="true">
-          <path
-            d={botMarkRestPath(botMarkShapeFor("", null, shapeIndex))}
-            fill={colorDef.hex}
-            fillRule="evenodd"
-          />
-        </svg>
+        <BotMarkStill shape={key} ink={ink} size={32} />
       )}
     </button>
   );
