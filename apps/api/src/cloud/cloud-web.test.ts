@@ -1,7 +1,11 @@
 import type { AddressInfo } from "node:net";
 import { serve } from "@hono/node-server";
 import type { DelegatedSessionInput } from "@rakazo/auth";
-import { CLOUD_API_VERSION, CLOUD_HEALTH_PATH, CLOUD_SESSION_PATH } from "@rakazo/contracts";
+import {
+  CLOUD_API_VERSION,
+  CLOUD_HEALTH_PATH,
+  CLOUD_SESSION_PATH,
+} from "@rakazo/contracts/cloud-web";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { afterEach, describe, expect, it } from "vitest";

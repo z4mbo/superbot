@@ -1,6 +1,6 @@
 import type { KeyObject } from "node:crypto";
 import { createPublicKey, verify } from "node:crypto";
-import type { CloudRefusal } from "@rakazo/contracts";
+import type { CloudRefusal } from "@rakazo/contracts/cloud-web";
 import { deadlineSignal } from "@rakazo/core";
 
 /** Clocks on two machines disagree a little; a token is honoured this long past either edge. */

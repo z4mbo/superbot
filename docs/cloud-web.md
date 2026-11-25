@@ -65,13 +65,13 @@ This differs from the brief in one place: the brief named `SUPERBOT_CLOUD_CLERK_
 
 All off by default. Setting some but not all of the first three is a startup error, so a half-configured server never accepts tokens.
 
-| Variable | Meaning |
-| --- | --- |
-| `SUPERBOT_CLOUD_WEB_ORIGINS` | Comma-separated origins of the hosted site allowed to call this server, e.g. `https://superbot-web.vercel.app`. One `*` may stand for part of the first host label after a fixed prefix, e.g. `https://superbot-web-*.vercel.app`, for preview deployments. Use exact origins in production: anyone can register an unclaimed name under a shared suffix. |
-| `SUPERBOT_CLOUD_ISSUER` | The account issuer, e.g. `https://fresh-midge-6799.clerk.accounts.dev`. |
-| `SUPERBOT_CLOUD_ALLOWED_EMAILS` | Comma-separated accounts that may sign in, each `email` or `email=local-email`. |
-| `SUPERBOT_CLOUD_JWKS_URL` | Optional. Defaults to `<issuer>/.well-known/jwks.json`. |
-| `SUPERBOT_CLOUD_SERVER_NAME` | Optional. The name the health answer reports. Defaults to `Superbot`. |
+| Variable                        | Meaning                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPERBOT_CLOUD_WEB_ORIGINS`    | Comma-separated origins of the hosted site allowed to call this server, e.g. `https://superbot-web.vercel.app`. One `*` may stand for part of the first host label after a fixed prefix, e.g. `https://superbot-web-*.vercel.app`, for preview deployments. Use exact origins in production: anyone can register an unclaimed name under a shared suffix. |
+| `SUPERBOT_CLOUD_ISSUER`         | The account issuer, e.g. `https://fresh-midge-6799.clerk.accounts.dev`.                                                                                                                                                                                                                                                                                   |
+| `SUPERBOT_CLOUD_ALLOWED_EMAILS` | Comma-separated accounts that may sign in, each `email` or `email=local-email`.                                                                                                                                                                                                                                                                           |
+| `SUPERBOT_CLOUD_JWKS_URL`       | Optional. Defaults to `<issuer>/.well-known/jwks.json`.                                                                                                                                                                                                                                                                                                   |
+| `SUPERBOT_CLOUD_SERVER_NAME`    | Optional. The name the health answer reports. Defaults to `Superbot`.                                                                                                                                                                                                                                                                                     |
 
 With these set, the API:
 
@@ -83,13 +83,13 @@ With these set, the API:
 
 The page probes each workspace every 15 seconds, when the window regains focus and on demand, with a 5 second timeout:
 
-| What happens | Shown as |
-| --- | --- |
-| `/api/health` answers, `cloudApi` matches, `/api/cloud/session` accepts the token | online |
-| `/api/health` answers with another `cloudApi` | incompatible |
-| `/api/health` answers, `/api/cloud/session` refuses | unauthorized, with the reason and the setting to change |
-| `/api/health` fails, but an opaque `no-cors` request to the same URL succeeds | reachable, not enabled for this site, with the settings to add |
-| nothing answers | offline |
+| What happens                                                                      | Shown as                                                       |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `/api/health` answers, `cloudApi` matches, `/api/cloud/session` accepts the token | online                                                         |
+| `/api/health` answers with another `cloudApi`                                     | incompatible                                                   |
+| `/api/health` answers, `/api/cloud/session` refuses                               | unauthorized, with the reason and the setting to change        |
+| `/api/health` fails, but an opaque `no-cors` request to the same URL succeeds     | reachable, not enabled for this site, with the settings to add |
+| nothing answers                                                                   | offline                                                        |
 
 The `no-cors` probe matters because a server that has not listed the site sends no CORS headers, which a normal `fetch` cannot tell apart from a dead server. When the active workspace is not online the page shows that state with a retry and a way to switch, instead of a broken app.
 

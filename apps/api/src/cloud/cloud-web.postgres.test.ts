@@ -1,7 +1,7 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CLOUD_HEALTH_PATH, CLOUD_SESSION_PATH } from "@rakazo/contracts";
+import { CLOUD_HEALTH_PATH, CLOUD_SESSION_PATH } from "@rakazo/contracts/cloud-web";
 import { asSystem } from "@rakazo/db";
 import { expect, it } from "vitest";
 import { createApp } from "../app.js";

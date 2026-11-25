@@ -1,6 +1,10 @@
 import type { DelegatedSession, DelegatedSessionInput } from "@rakazo/auth";
-import type { CloudHealth, CloudRefusal, CloudSession } from "@rakazo/contracts";
-import { CLOUD_API_VERSION, CLOUD_HEALTH_PATH, CLOUD_SESSION_PATH } from "@rakazo/contracts";
+import type { CloudHealth, CloudRefusal, CloudSession } from "@rakazo/contracts/cloud-web";
+import {
+  CLOUD_API_VERSION,
+  CLOUD_HEALTH_PATH,
+  CLOUD_SESSION_PATH,
+} from "@rakazo/contracts/cloud-web";
 import type { PrismaClient } from "@rakazo/db";
 import { runAsSystem } from "@rakazo/db";
 import type { Context, Hono, MiddlewareHandler } from "hono";

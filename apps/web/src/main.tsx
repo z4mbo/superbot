@@ -8,11 +8,7 @@ import { StrictMode, useEffect, useLayoutEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useLocation } from "react-router-dom";
 import { App } from "./App";
-import type { CloudAccounts } from "./cloud/accounts/cloud-accounts";
-import { loadCloudAccounts } from "./cloud/accounts/cloud-accounts";
-import { CloudAccountsContext } from "./cloud/accounts/cloud-accounts-context";
 import { CLOUD_WEB } from "./cloud/cloud-mode";
-import { CloudGate } from "./cloud/ui/CloudGate";
 import { DesktopUpdatesProvider } from "./components/DesktopUpdates";
 import { I18nBootstrap } from "./components/I18nBootstrap";
 import { captureReferral } from "./lib/billing/referral";
@@ -108,39 +104,13 @@ const root = createRoot(document.getElementById("root")!, {
   onCaughtError: reportCaughtReactError,
 });
 
-/**
- * The hosted site: its account service, then the gate that mounts the app only once a workspace
- * can be used. A build without the service's key stops here with the reason instead of a blank page.
- */
-async function renderCloud() {
-  let accounts: CloudAccounts;
-  try {
-    accounts = await loadCloudAccounts();
-  } catch (error) {
-    console.error(error);
-    root.render(
-      <p style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-        {error instanceof Error ? error.message : String(error)}
-      </p>,
-    );
-    return;
-  }
-  root.render(
-    <Root>
-      <accounts.Provider>
-        <CloudAccountsContext.Provider value={accounts}>
-          <CloudGate>
-            <App />
-          </CloudGate>
-        </CloudAccountsContext.Provider>
-      </accounts.Provider>
-    </Root>,
-  );
-}
-
 // The same flag as `CLOUD_WEB`, read here because the bundler drops a branch only on a condition it
-// can see is constant in this module: the self-hosted build then holds no account service at all.
-if (import.meta.env.VITE_SUPERBOT_CLOUD === "1") void renderCloud();
+// can see is constant in this module. The hosted entry is a dynamic import, so the self-hosted build
+// neither loads nor preloads the account service, the gate or the workspace screens.
+if (import.meta.env.VITE_SUPERBOT_CLOUD === "1")
+  void import("./cloud/cloud-entry").then(({ renderCloud }) =>
+    renderCloud(root, (children) => <Root>{children}</Root>, <App />),
+  );
 else
   root.render(
     <Root>

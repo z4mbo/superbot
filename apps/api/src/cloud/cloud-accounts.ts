@@ -1,4 +1,4 @@
-import type { CloudRefusal } from "@rakazo/contracts";
+import type { CloudRefusal } from "@rakazo/contracts/cloud-web";
 import { MESSAGING_EMAIL_SUFFIX } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 
