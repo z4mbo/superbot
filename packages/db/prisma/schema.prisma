@@ -29,6 +29,8 @@ model User {
   aiDataConsents AiDataConsent[]
   pages          Page[]
   appReleases    AppRelease[]
+  communityTemplates CommunityTemplate[] @relation("CommunityTemplateAuthor")
+  reviewedCommunityTemplates CommunityTemplateVersion[] @relation("CommunityTemplateReviewer")
   id                          String                       @id
   name                        String
   email                       String
@@ -655,6 +657,44 @@ model AppRelease {
   @@unique([appId, version])
   @@index([authorUserId])
   @@map("app_releases")
+}
+
+/// A template someone shared from their bot, by slug. The first author to submit a slug keeps it;
+/// when their account is deleted the slug stays reserved and an approved version stays listed
+/// without a name, as the plugin registry keeps its slugs.
+model CommunityTemplate {
+  slug      String                     @id
+  authorId  String?
+  author    User?                      @relation("CommunityTemplateAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt DateTime                   @default(now())
+  versions  CommunityTemplateVersion[]
+
+  @@index([authorId])
+  @@map("community_templates")
+}
+
+/// One submitted version of a community template. Approving one replaces the listed version;
+/// at most one per slug is approved (community_template_versions_one_approved, created in SQL).
+model CommunityTemplateVersion {
+  id         String            @id @default(cuid())
+  slug       String
+  template   CommunityTemplate @relation(fields: [slug], references: [slug], onDelete: Cascade)
+  version    Int
+  /// CommunityTemplateRecipeSchema; read with readJsonColumn.
+  recipe     Json
+  /// pending | approved | rejected | withdrawn | unlisted | replaced
+  status     String            @default("pending")
+  reason     String?
+  reviewerId String?
+  reviewer   User?             @relation("CommunityTemplateReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewedAt DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@unique([slug, version])
+  @@index([status, createdAt])
+  @@index([reviewerId])
+  @@map("community_template_versions")
 }
 
 model ActionApprovalRule {

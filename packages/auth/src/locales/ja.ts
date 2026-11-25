@@ -98,4 +98,10 @@ export const JA_MESSAGES: Record<string, string> = {
   "It works for any other assistant too: send it one prompt and paste its reply.":
     "ほかのアシスタントでも使えます。プロンプトを 1 つ送り、その返信を貼り付けるだけです。",
   "Import an agent": "エージェントをインポート",
+  "Your shared agent: {name}": "共有したエージェント: {name}",
+  "{name} is now listed in the Superbot Store.": "{name} が Superbot Store に掲載されました。",
+  "We couldn't list {name} in the Superbot Store.":
+    "{name} を Superbot Store に掲載できませんでした。",
+  "{name} is no longer listed in the Superbot Store.":
+    "{name} は Superbot Store に掲載されなくなりました。",
 };

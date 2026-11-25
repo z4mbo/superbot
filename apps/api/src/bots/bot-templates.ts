@@ -18,6 +18,7 @@ import {
   BOT_TEMPLATES,
   botTemplateApps,
   buildSkillMd,
+  ClientError,
   findBotTemplate,
   renameRoutineSkillMentions,
   renameSkillMd,
@@ -25,6 +26,7 @@ import {
 import { availableInSpace, Prisma } from "@rakazo/db";
 import type { AgentImportServices, Built } from "./agent-import.js";
 import { requestDigest, savedTimeZone, writeImportedBot } from "./agent-import.js";
+import { communityImportKey, listedCommunityTemplate } from "./community-templates.js";
 
 /** One bot per template: creating it again returns the bot it made, until that bot is archived or deleted. */
 function importKey(templateId: string): string {
@@ -138,14 +140,17 @@ export async function createBotFromTemplate<PreparedKey>(
   input: { templateId: string; version: number; name?: string },
   signal?: AbortSignal,
 ) {
-  const template = findBotTemplate(input.templateId);
-  if (!template) throw new ORPCError("NOT_FOUND", { message: "No template has that id." });
+  // First-party ids win; a community slug can never take one.
+  const firstParty = findBotTemplate(input.templateId);
+  const template = firstParty ?? (await listedCommunityTemplate(services.prisma, input.templateId));
+  if (!template) throw new ClientError("NOT_FOUND", "No template has that id.");
+  const key = firstParty ? importKey(template.id) : communityImportKey(template.id);
   // Skills the plan reuses instead of adding, checked again when the bot is written.
   let reusedRows: { id: string; name: string; content: string }[] = [];
   const request: Parameters<typeof writeImportedBot>[2] = {
-    importKey: importKey(template.id),
+    importKey: key,
     // The same for every version, so an existing bot is returned whatever changed since.
-    digest: requestDigest({ templateId: template.id }),
+    digest: requestDigest({ templateId: firstParty ? template.id : key }),
     name: input.name ?? template.name,
     description: template.description,
     selection: {
@@ -230,7 +235,7 @@ export async function createBotFromTemplate<PreparedKey>(
         where: {
           spaceId: actor.spaceId,
           userId: actor.userId,
-          importKey: importKey(template.id),
+          importKey: key,
           bot: { archivedAt: { not: null } },
         },
       });
