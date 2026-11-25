@@ -27,7 +27,8 @@ test("pinned bots and sidebar sections persist", async ({ page }, testInfo) => {
 
   await bot.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Unpin", exact: true }).click();
-  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).toHaveCount(0);
+  // The main bot stays pinned; only the person's own pin comes off.
+  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).not.toContainText("Scout");
 
   await bot.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Move to", exact: true }).hover();
