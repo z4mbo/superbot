@@ -10,7 +10,12 @@ import type {
   ThreadMessage,
 } from "@rakazo/contracts";
 import type { ChildBotBlock, PeerExchange } from "@rakazo/core";
-import { isPeerReceiptBlocks, isToolActivityBlock, otherAuthor } from "@rakazo/core";
+import {
+  isPaymentAskBlock,
+  isPeerReceiptBlocks,
+  isToolActivityBlock,
+  otherAuthor,
+} from "@rakazo/core";
 import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@rakazo/ui-web";
 import { UserRound } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
@@ -21,6 +26,7 @@ import { AskCard } from "../../../components/messages/AskCard";
 import { CloudAgentCard } from "../../../components/messages/CloudAgentCard";
 import { McpAppCard } from "../../../components/messages/McpAppCard";
 import { OutgoingDraftCard } from "../../../components/messages/OutgoingDraftCard";
+import { PurchaseCard } from "../../../components/messages/PurchaseCard";
 import { SubagentCard } from "../../../components/messages/SubagentCard";
 import {
   LIVE_TOOL_STEP_WINDOW,
@@ -703,7 +709,13 @@ export const MessageView = memo(function MessageView({
           if (block.kind === "ask") {
             return (
               <div key={i} className="relative w-full min-w-0">
-                {block.outgoingDraft ? (
+                {isPaymentAskBlock(block) ? (
+                  <PurchaseCard
+                    block={block}
+                    canAnswer={canAnswer}
+                    onAnswer={(answer) => onAnswer(message, answer)}
+                  />
+                ) : block.outgoingDraft ? (
                   <OutgoingDraftCard
                     block={block}
                     message={message}
@@ -728,6 +740,7 @@ export const MessageView = memo(function MessageView({
             );
           }
           if (block.kind === "cloud_agent") return <CloudAgentCard key={i} block={block} />;
+          if (block.kind === "purchase") return <PurchaseCard key={i} block={block} />;
           if (block.kind === "skill_draft") {
             return (
               <div key={i} className="flex justify-start">

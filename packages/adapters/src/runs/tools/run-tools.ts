@@ -1,5 +1,6 @@
 import type { AgentToolExecutionObserver, ConnectorTool } from "@rakazo/adapter-kit";
 import { BACKGROUND_HELPER_TRIGGER, toolResultTaintsRun } from "@rakazo/core";
+import { bestEffort } from "@rakazo/logging";
 import {
   isInternalTermination,
   isTerminatingReplyResult,
@@ -20,12 +21,15 @@ import {
 } from "../../meetings/meeting-chat.tool-definition.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "../../models/model-vision.js";
 import { MODEL_CANNOT_SEE_MESSAGE } from "../../models/model-vision.prompt.js";
+import { settlePagePurchaseCard } from "../../payments/purchase-card.js";
+import { purchaseApprovalOf } from "../../payments/purchase-gate.js";
 import { personalCalendarTools } from "../../personal-calendar/personal-calendar.tool-definition.js";
 import { calendarTool } from "../../personal-calendar/run-calendar-tool.js";
 import { nightlyMemoryReviewToolRefusal } from "../../routines/nightly-memory-review.js";
 import { strategicInitiativeToolAllowed } from "../../routines/strategic-initiative.js";
 import type { RunContext } from "../assembly/run-context.js";
 import { markReadOutsideContent } from "../assembly/run-context.js";
+import { runLeaseFor } from "../assembly/run-messages.js";
 import { noteComputerTaskStep } from "../lifecycle/run-progress.js";
 import { logToolRefusal } from "../turn/tool-completion-audit.js";
 import { refusal } from "../turn/tool-refusal.js";
@@ -362,6 +366,23 @@ async function dispatchTool(
     if (!isToolError(result)) outcome = "success";
     return result;
   } finally {
+    // A press the user approved on an order card: the card now says whether it went through.
+    if (purchaseApprovalOf(gate.call.args.purchaseApproval) && !gate.call.bypassApproval)
+      await bestEffort(
+        "purchase card outcome",
+        settlePagePurchaseCard(
+          ctx.deps,
+          {
+            id: ctx.runId,
+            threadId: ctx.thread.id,
+            spaceId: ctx.run.spaceId,
+            lease: runLeaseFor(ctx.deps, ctx.runId),
+          },
+          ctx.bot,
+          gate.call.applied.effect.id,
+          outcome === "success" ? "paid" : "failed",
+        ),
+      );
     const route = gate.call.connectorCall.route;
     await auditToolCall(ctx, gate.call.name, outcome, {
       effectId: gate.call.applied.effect.id,

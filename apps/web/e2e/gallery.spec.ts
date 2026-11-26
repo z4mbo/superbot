@@ -30,6 +30,21 @@ test("gallery shows a tool's question as plain text with its form", async ({ pag
   await captureScreenshot(page, testInfo, "tool-question-card");
 });
 
+test("gallery shows purchases as order cards with Pay and Cancel", async ({ page }, testInfo) => {
+  await page.goto("/e2e/fixtures/gallery.html?scenario=approvals&theme=light");
+  const [order, paid, wallet, walletPaid] = await page.getByTestId("purchase-card").all();
+  await expect(order!.getByText("freshcart.test", { exact: true })).toBeVisible();
+  await expect(order!.getByText("Visa ·· 4242", { exact: true })).toBeVisible();
+  // A purchase asks every time: Pay and Cancel, and nothing that would skip the next one.
+  await expect(order!.getByRole("button")).toHaveText(["Pay", "Cancel"]);
+  await expect(paid!.getByTestId("purchase-state")).toHaveText("Paid");
+  await expect(paid!.getByRole("button")).toHaveCount(0);
+  await expect(wallet!.getByRole("button")).toHaveText(["Approve in Fixture Wallet", "Cancel"]);
+  await expect(walletPaid!.getByTestId("purchase-state")).toHaveText("Paid");
+  await order!.scrollIntoViewIfNeeded();
+  await captureScreenshot(page, testInfo, "purchase-cards");
+});
+
 test("gallery shows routine changes as small rows", async ({ page }, testInfo) => {
   await page.goto("/e2e/fixtures/gallery.html?scenario=routines&theme=light");
   const rows = page.getByTestId("routine-event-row");

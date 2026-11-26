@@ -336,5 +336,18 @@ describe("messageHasInlineControls", () => {
         { kind: "app_connect", provider: "github" } as unknown as MessageBlock,
       ]),
     ).toBe(true);
+    // A wallet purchase's card has its own Cancel and approval buttons.
+    expect(
+      messageHasInlineControls([
+        {
+          kind: "purchase",
+          purchaseId: "purchase-1",
+          merchant: "Fixture Shop",
+          amount: "$23.40",
+          state: "pending",
+          wallet: "Fixture Wallet",
+        },
+      ]),
+    ).toBe(true);
   });
 });

@@ -4833,9 +4833,11 @@ describe("a click that completes a purchase on a website", () => {
         text: "Pay on shop.example.test?",
         detail:
           'Button: "Pay $113"\nTotal on the page: $113\nThe button label and total are read from the page. The bot has not checked them.',
+        // An order card: Pay and Cancel, and never an Always allow that would skip the next one.
+        payment: { merchant: "shop.example.test" },
         actions: [
-          { id: "allow", label: "Allow once" },
-          { id: "deny", label: "Deny" },
+          { id: "allow", label: "Pay" },
+          { id: "deny", label: "Cancel" },
         ],
       });
       expect(f.effects[0]).toMatchObject({

@@ -2,9 +2,11 @@ import { ORPCError } from "@orpc/server";
 import { PaymentWalletRequestRejected } from "@rakazo/adapter-kit";
 import type { PaymentWalletDeps } from "@rakazo/adapters";
 import {
+  cancelWalletPurchase,
   connectPaymentWallet,
   disconnectPaymentWallet,
   paymentWalletStatus,
+  settlePurchase,
 } from "@rakazo/adapters";
 import { recordSecurityEvent } from "@rakazo/db";
 import { paymentWalletConnectedEvent } from "../auth/security-audit.js";
@@ -38,6 +40,16 @@ export function paymentWalletRoutes(ctx: RouterContext) {
       disconnect: authed.paymentWallet.disconnect.handler(({ context }) =>
         disconnectPaymentWallet(wallet, context.actor),
       ),
+      cancelPurchase: authed.paymentWallet.cancelPurchase.handler(async ({ context, input }) => {
+        const purchases = { ...wallet, jobs: deps.jobs, events: deps.events };
+        const state = await cancelWalletPurchase(
+          purchases,
+          (purchase) => settlePurchase(purchases, purchase, { status: "canceled" }),
+          context.actor,
+          input.id,
+        );
+        return { state };
+      }),
     },
   };
 }

@@ -21,6 +21,7 @@ const RESPONSE_BLOCK_KINDS = new Set<string>([
   "mcp_approval",
   "child_bot",
   "cloud_agent",
+  "purchase",
 ] satisfies MessageBlock["kind"][]);
 
 /** Only actual reply output counts; working/activity placeholders do not. */

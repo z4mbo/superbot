@@ -22,7 +22,7 @@ import {
 } from "@rakazo/core";
 import { normalizedHttpUrl, urlSite } from "@rakazo/core/egress";
 import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
-import { runSecretKind } from "@rakazo/db";
+import { recordPurchaseEvent, runSecretKind } from "@rakazo/db";
 import type { ApprovalCardOptions } from "../../approvals/approval-ask.js";
 import {
   approvalActionName,
@@ -825,6 +825,18 @@ async function showApprovalCard(ctx: RunContext, call: ToolCall, card: ApprovalC
     throw new Error("Could not pause this run for approval; try sending again.");
   }
   await enqueueSteeringContinuation(deps, paused.continuationRunId);
+  if (card.summary?.payment)
+    await recordPurchaseEvent({
+      action: "purchase.approval_shown",
+      actor: { type: "bot", id: bot.id, label: bot.name },
+      spaceId: run.spaceId,
+      runId,
+      threadId: thread.id,
+      source: "page",
+      target: { type: "external_effect", id: applied!.effect.id },
+      merchant: card.summary.payment.merchant,
+      amount: card.summary.receipt?.amount,
+    });
   await reportBotMessageWait(deps, run, bot, `approve ${name}`, ctx.attempt.id);
   await notifyRun(deps, run, {
     kind: "help",

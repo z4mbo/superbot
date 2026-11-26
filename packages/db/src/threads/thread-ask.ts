@@ -28,6 +28,7 @@ import {
 import { urlSite } from "@rakazo/core/egress";
 import { approvalEffectKey } from "@rakazo/core/node/approval-effect-key";
 import { recordSecurityEvent } from "../account/security-events.js";
+import { recordPurchaseEvent } from "../billing/purchase-audit.js";
 import { saveApprovalRule, storedBatchActions } from "../bots/approval-settings.js";
 import { expireComputerExecutionLeases } from "../computers/computers.js";
 import type { Prisma, PrismaClient } from "../database/client.js";
@@ -218,7 +219,13 @@ async function commitAnswerRunInput(
 ): Promise<{
   threadId: string;
   seq: number;
-  approval?: { decision: string; effectKind: string; effectId: string };
+  approval?: {
+    decision: string;
+    effectKind: string;
+    effectId: string;
+    /** On a payment card: what the audit log records about the purchase. */
+    payment?: { merchant: string; amount?: string; expired: boolean };
+  };
 } | null> {
   // Thread row first, then run rows — the same order as clearThread and finalizeRun, so a
   // concurrent clear cannot deadlock against this transaction.
@@ -559,6 +566,15 @@ async function commitAnswerRunInput(
             decision: approvalAnswer,
             effectKind: approvalEffect.kind,
             effectId: approvalEffect.id,
+            ...(pendingAsk.payment
+              ? {
+                  payment: {
+                    merchant: pendingAsk.payment.merchant,
+                    amount: pendingAsk.receipt?.amount,
+                    expired,
+                  },
+                }
+              : {}),
           },
         }
       : {}),
@@ -597,6 +613,25 @@ export async function answerRunInput(
         runId: input.runId,
       },
     });
+    const { payment } = committed.approval;
+    if (payment)
+      await recordPurchaseEvent({
+        action: payment.expired
+          ? "purchase.expired"
+          : committed.approval.decision === "allow"
+            ? "purchase.approved"
+            : "purchase.canceled",
+        actor: payment.expired
+          ? { type: "system", label: "approval expiry" }
+          : { type: "user", id: input.answeredByUserId },
+        spaceId: input.spaceId,
+        runId: input.runId,
+        threadId: committed.threadId,
+        source: "page",
+        target: { type: "external_effect", id: committed.approval.effectId },
+        merchant: payment.merchant,
+        amount: payment.amount,
+      });
   }
   await notifyRealtime(realtime, committed.threadId, committed.seq);
   await publishSpaceChange(realtime, input.spaceId, "runs");

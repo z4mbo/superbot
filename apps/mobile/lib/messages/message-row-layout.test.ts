@@ -12,6 +12,21 @@ describe("messageRowLayout", () => {
     expect(row.menuFullWidth).toBe(true);
   });
 
+  it("gives a purchase card the width of a card with buttons", () => {
+    expect(
+      layout([
+        {
+          kind: "purchase",
+          purchaseId: "purchase-1",
+          merchant: "Fixture Shop",
+          amount: "$23.40",
+          state: "pending",
+          wallet: "Fixture Wallet",
+        },
+      ]).width,
+    ).toBe("90%");
+  });
+
   it("keeps an ordinary text bubble to its content", () => {
     expect(layout([{ kind: "text", text: "Hi" }]).menuFullWidth).toBe(false);
   });

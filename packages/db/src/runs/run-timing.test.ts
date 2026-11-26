@@ -50,6 +50,9 @@ describe("run response timing", () => {
       isRunResponse("thread.message.created", { role: "bot", blocks: [{ kind: "ask" }] }),
     ).toBe(true);
     expect(
+      isRunResponse("thread.message.created", { role: "bot", blocks: [{ kind: "purchase" }] }),
+    ).toBe(true);
+    expect(
       isRunResponse("thread.message.created", {
         role: "bot",
         blocks: [{ kind: "text", text: "reply" }],

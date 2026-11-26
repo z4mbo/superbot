@@ -329,6 +329,7 @@ export function createBackgroundJobHandlers(deps: {
           secretStore: deps.secretStore,
           jobs: deps.jobs,
           paymentWallet: deps.paymentWallet,
+          events: deps.events,
         },
         payload,
       );
