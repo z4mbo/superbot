@@ -96,14 +96,12 @@ function BotFiles({ botId }: { botId: string }) {
                 <span className="grid size-5 shrink-0 place-items-center rounded-sm bg-muted text-muted-foreground">
                   <Icon aria-hidden className="size-3.5" strokeWidth={1.75} />
                 </span>
+                {/* A generated file's own name is made up; what was asked for names it better. */}
                 <span className="min-w-0 flex-1 truncate text-body text-foreground" dir="auto">
-                  {file.name}
+                  {generated?.prompt || file.name}
                 </span>
                 {generated ? (
-                  <span
-                    className="max-w-[45%] shrink-0 truncate text-body-sm text-muted-foreground"
-                    title={generated.prompt}
-                  >
+                  <span className="max-w-[40%] shrink-0 truncate text-body-sm text-muted-foreground">
                     <span className="sr-only">
                       <Trans>Generated with</Trans>{" "}
                     </span>

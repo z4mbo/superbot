@@ -92,6 +92,7 @@ test("connects an offline media provider and shows what it makes", async ({ page
   // The agent's Library marks the image as generated.
   await openBotLibrary(page);
   const files = page.getByTestId("bot-panel-files");
+  await expect(files.getByRole("button").first()).toContainText("A lighthouse at dusk");
   await expect(files.getByRole("button").first()).toContainText("Scripted");
   await captureScreenshot(page, testInfo, "media-library-generated");
 
