@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { isRetiredImportSetup, isToolActivityBlock, isUndrawnMediaCard } from "@rakazo/core";
+import { isRetiredImportSetup, isToolActivityBlock } from "@rakazo/core";
 
 /** Number of tool calls behind a steps block: the sum of each row's count. */
 export function toolStepCount(steps: readonly { count: number }[]): number {
@@ -22,8 +22,13 @@ export function renderableMessageBlocks(
   return blocks.filter((block) => isShown(block, showToolActivity));
 }
 
+/** A video's progress card once the video is done: the video shows as its own message. */
+function isFinishedMediaCard(block: MessageBlock): boolean {
+  return block.kind === "media_generation" && block.status === "completed";
+}
+
 function isShown(block: MessageBlock, showToolActivity: boolean): boolean {
-  if (isRetiredImportSetup(block) || isUndrawnMediaCard(block)) return false;
+  if (isRetiredImportSetup(block) || isFinishedMediaCard(block)) return false;
   return !isToolActivityBlock(block) || shouldRenderToolCard(block, showToolActivity);
 }
 

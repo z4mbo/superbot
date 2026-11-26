@@ -35,6 +35,8 @@ import { CompatibleModelFields } from "./compatible-model-fields";
 import { CompatibleKeyInput, ConnectionControls } from "./connection-controls";
 import type { ModelRoleConnectIntent } from "./ModelRoleSettings";
 import { ModelRoleSettings, useModelRole } from "./ModelRoleSettings";
+import { MediaIncluded } from "./media/media-included";
+import { MediaSettings } from "./media/media-settings";
 import { ModelSettingsPanel } from "./model-settings-panel";
 import { ProviderPage } from "./provider-page";
 import { ConnectionNameField, ProvidersSection } from "./providers-section";
@@ -443,15 +445,19 @@ export function ModelSettingsOverlay({
             />
           ) : null}
           {scope === "space" || firstConnection ? null : (
-            <ProvidersSection
-              credentials={credentials}
-              providers={allProviders}
-              name={connectionName}
-              disabled={busy}
-              onAdd={(next) => openConnection(next, null, null, "providers:add")}
-              onOpen={(entry) => openProvider(entry.id)}
-              panel={connectionAt === "providers:add" ? panelFor(true) : null}
-            />
+            <>
+              <ProvidersSection
+                credentials={credentials}
+                providers={allProviders}
+                name={connectionName}
+                disabled={busy}
+                onAdd={(next) => openConnection(next, null, null, "providers:add")}
+                onOpen={(entry) => openProvider(entry.id)}
+                detail={(entry) => <MediaIncluded provider={entry.provider} />}
+                panel={connectionAt === "providers:add" ? panelFor(true) : null}
+              />
+              <MediaSettings modelProviderName={providerLabel} />
+            </>
           )}
         </>
       ) : loading ? (

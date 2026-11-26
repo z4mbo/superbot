@@ -518,10 +518,13 @@ export function ArtifactImage({
   target,
   artifactId,
   name,
+  inCard = false,
 }: {
   target: ArtifactTarget;
   artifactId: string;
   name: string;
+  /** Fills the width of the card it sits in, which rounds its corners. */
+  inCard?: boolean;
 }) {
   const { t } = useLingui();
   const [open, setOpen] = useState(false);
@@ -554,12 +557,24 @@ export function ArtifactImage({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="max-w-[240px] overflow-hidden rounded-2xl"
+          className={inCard ? "block w-full" : "max-w-[240px] overflow-hidden rounded-2xl"}
         >
-          <img src={src} alt={name} className="max-h-48 w-full object-cover" />
+          <img
+            src={src}
+            alt={name}
+            className={inCard ? "max-h-80 w-full object-cover" : "max-h-48 w-full object-cover"}
+          />
         </button>
       ) : (
-        <div className="rounded-2xl bg-muted px-4 py-3 text-body text-muted-foreground">{name}</div>
+        <div
+          className={
+            inCard
+              ? "bg-muted px-4 py-3 text-body text-muted-foreground"
+              : "rounded-2xl bg-muted px-4 py-3 text-body text-muted-foreground"
+          }
+        >
+          {name}
+        </div>
       )}
       {src ? (
         <Dialog open={open} onOpenChange={setOpen}>

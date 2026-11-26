@@ -88,16 +88,27 @@ describe("a retired import checklist", () => {
 });
 
 describe("a video's progress card", () => {
-  it("gives its message no row until the thread draws it", () => {
-    const card: MessageBlock = {
-      kind: "media_generation",
-      jobId: "job-1",
-      status: "pending",
-      media: { kind: "video", prompt: "a lighthouse", provider: "p", providerName: "Provider" },
-    };
+  const card = (status: "pending" | "completed" | "failed"): MessageBlock => ({
+    kind: "media_generation",
+    jobId: "job-1",
+    status,
+    media: { kind: "video", prompt: "a lighthouse", provider: "p", providerName: "Provider" },
+  });
+
+  it("shows while the video is being made and once it failed", () => {
     for (const showToolActivity of [true, false]) {
-      expect(messageHasVisibleBlocks([card], showToolActivity)).toBe(false);
-      expect(renderableMessageBlocks([card, textBlock], showToolActivity)).toEqual([textBlock]);
+      for (const status of ["pending", "failed"] as const) {
+        expect(messageHasVisibleBlocks([card(status)], showToolActivity)).toBe(true);
+      }
+    }
+  });
+
+  it("leaves the thread once the video arrives as its own message", () => {
+    for (const showToolActivity of [true, false]) {
+      expect(messageHasVisibleBlocks([card("completed")], showToolActivity)).toBe(false);
+      expect(renderableMessageBlocks([card("completed"), textBlock], showToolActivity)).toEqual([
+        textBlock,
+      ]);
     }
   });
 });

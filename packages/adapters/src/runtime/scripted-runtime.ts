@@ -154,13 +154,15 @@ function jsonObject(text: string): Record<string, unknown> | undefined {
   }
 }
 
-// Pages and the apps built on them take the same scripted call.
+// Pages, the apps built on them, and media generation take the same scripted call.
 const SCRIPTED_PAGE_TOOLS = [
   "save_page",
   "read_app_state",
   "run_app_action",
   "find_apps",
   "open_app",
+  "generate_image",
+  "generate_video",
 ] as const;
 const THEN_SAY = "\nthen say ";
 

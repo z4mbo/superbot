@@ -32,6 +32,7 @@ export function ProvidersSection({
   disabled,
   onAdd,
   onOpen,
+  detail,
   panel,
 }: {
   credentials: ModelCredential[];
@@ -43,6 +44,8 @@ export function ProvidersSection({
   onAdd: (provider: ConnectableProvider) => void;
   /** Opens a connection's page. */
   onOpen: (credential: ModelCredential) => void;
+  /** A short note at the end of a connection's row. */
+  detail?: (credential: ModelCredential) => ReactNode;
   /** The form for a new connection, shown after the list. */
   panel?: ReactNode;
 }) {
@@ -67,7 +70,9 @@ export function ProvidersSection({
                   <span className="shrink-0 text-body-sm text-warning">
                     <Trans>Sign in again</Trans>
                   </span>
-                ) : null}
+                ) : (
+                  detail?.(credential)
+                )}
               </SettingsListRow>
             </li>
           ))}
@@ -154,7 +159,8 @@ export function ConnectionNameField({
   );
 }
 
-function AddProvider({
+/** The list's last row: picks a provider to connect. */
+export function AddProvider({
   providers,
   disabled,
   onPick,
@@ -245,6 +251,7 @@ export function SettingsListRow({
   labelTestId,
   disabled,
   onClick,
+  expanded,
   className,
   children,
 }: {
@@ -252,6 +259,8 @@ export function SettingsListRow({
   labelTestId?: string;
   disabled?: boolean;
   onClick: () => void;
+  /** Set when the row opens its content under it instead of a page. */
+  expanded?: boolean;
   className?: string;
   children?: ReactNode;
 }) {
@@ -260,6 +269,7 @@ export function SettingsListRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
+      aria-expanded={expanded}
       className={cn(
         "flex min-h-[52px] w-full items-center gap-2.5 py-2 ps-3 pe-3 text-start outline-none first:rounded-t-xl hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring",
         className,
@@ -272,7 +282,13 @@ export function SettingsListRow({
         {label}
       </span>
       {children}
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground rtl:rotate-180" aria-hidden />
+      <ChevronRight
+        className={cn(
+          "size-4 shrink-0 text-muted-foreground",
+          expanded ? "rotate-90" : "rtl:rotate-180",
+        )}
+        aria-hidden
+      />
     </button>
   );
 }

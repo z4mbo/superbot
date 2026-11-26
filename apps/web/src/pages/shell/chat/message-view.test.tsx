@@ -13,9 +13,13 @@ const skills = vi.hoisted(() => ({
   save: vi.fn(async () => ({})),
   testRun: vi.fn(async () => ({ runId: "run" })),
 }));
-vi.mock("../../../lib/query/rpc", () => ({ rpc: { skills, artifacts: { get: vi.fn() } } }));
+// An artifact never loads, so an image shows by its name.
+vi.mock("../../../lib/query/rpc", () => ({
+  rpc: { skills, artifacts: { get: vi.fn(() => new Promise(() => {})) } },
+}));
 
 vi.mock("@lingui/core/macro", () => ({
+  t: (strings: TemplateStringsArray, ...values: unknown[]) => String.raw(strings, ...values),
   plural: (count: number, forms: { one: string; other: string }) =>
     (count === 1 ? forms.one : forms.other).replace("#", String(count)),
 }));
@@ -499,4 +503,67 @@ it("draws each bubble with the shared chrome and cuts the corners by its place i
     "mine middle": ["rounded-ee-[6px]", "rounded-se-[6px]"],
     "mine last": ["rounded-se-[6px]"],
   });
+});
+
+const generated = {
+  prompt: "A lighthouse at dusk",
+  provider: "provider-id",
+  providerName: "Provider Name",
+  model: "model-1",
+};
+
+it("draws a generated image in a card with what made it", () => {
+  renderView("bot", [
+    {
+      kind: "image",
+      artifactId: "artifact-1",
+      mimeType: "image/png",
+      name: "lighthouse.png",
+      generated: { kind: "image", ...generated },
+    },
+  ]);
+  const card = container.querySelector('[data-testid="generated-image-card"]');
+  expect(card?.textContent).toContain("A lighthouse at dusk");
+  expect(card?.textContent).toContain("Provider Name");
+  expect(card?.textContent).toContain("model-1");
+});
+
+it("keeps an image a person sent as a plain image", () => {
+  renderView("user", [
+    { kind: "image", artifactId: "artifact-1", mimeType: "image/png", name: "photo.png" },
+  ]);
+  expect(container.querySelector('[data-testid="generated-image-card"]')).toBeNull();
+  expect(container.querySelector('[data-testid="generated-media-details"]')).toBeNull();
+});
+
+it("puts what made a finished video under its file card, named as a video", () => {
+  renderView("bot", [
+    {
+      kind: "file",
+      artifactId: "artifact-2",
+      mimeType: "video/mp4",
+      name: "waves.mp4",
+      size: 2048,
+      generated: { kind: "video", ...generated, prompt: "Waves on the shore" },
+    },
+  ]);
+  const details = container.querySelector('[data-testid="generated-media-details"]');
+  expect(details?.textContent).toContain("Waves on the shore");
+  // Its made-up file name stays out of sight; the download keeps it.
+  expect(container.textContent).toContain("Video");
+  expect(container.textContent).not.toContain("waves.mp4");
+});
+
+it("draws a video's progress card while it is being made", () => {
+  renderView("bot", [
+    {
+      kind: "media_generation",
+      jobId: "job-1",
+      status: "pending",
+      media: { kind: "video", ...generated, prompt: "Waves on the shore" },
+    },
+  ]);
+  expect(container.querySelector('[data-testid="media-generation-card"]')?.textContent).toContain(
+    "Waves on the shore",
+  );
 });

@@ -7,6 +7,7 @@ import { fileSizeParts } from "@rakazo/core";
 import {
   Button,
   CopyTextFallback,
+  cn,
   Dialog,
   DialogClose,
   DialogContent,
@@ -14,7 +15,7 @@ import {
   Spinner,
 } from "@rakazo/ui-web";
 import { Check, Code2, Copy, Download, FileText, Play, X } from "lucide-react";
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useCopyText } from "../../lib/copy-text";
 import type { ArtifactTarget } from "../../lib/pages/artifact-open";
@@ -36,6 +37,10 @@ type ArtifactFileCardProps = {
   name: string;
   mimeType: string;
   size: number;
+  /** The name to show when the file's own is made up; downloads keep the file's name. */
+  label?: string;
+  /** Shown under the file, inside its card. */
+  details?: ReactNode;
 };
 
 function isTextPreview(mimeType: string) {
@@ -103,38 +108,49 @@ export function ArtifactFileCard(props: ArtifactFileCardProps) {
   return (
     <>
       <div>
-        <BuiCard className="flex min-w-[280px] overflow-hidden text-left text-foreground">
-          <button
-            ref={previewButton}
-            type="button"
-            aria-label={t`Preview ${props.name}`}
-            onClick={() => setPreviewOpen(true)}
-            className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-accent"
-          >
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-muted text-foreground">
-              {props.mimeType === "text/html" ? (
-                <Code2 size={21} strokeWidth={1.8} />
-              ) : (
-                <FileText size={21} strokeWidth={1.8} />
-              )}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-body font-medium">{props.name}</span>
-              <span className="mt-0.5 block text-body-sm text-muted-foreground">
-                {formatSize(props.size)}
-              </span>
-            </span>
-          </button>
-          <IconTooltip label={t`Download ${props.name}`}>
+        <BuiCard
+          className={cn(
+            "min-w-[280px] overflow-hidden text-left text-foreground",
+            // As wide as an image card with the same details.
+            props.details && "w-[320px] max-w-full",
+          )}
+        >
+          <div className="flex">
             <button
+              ref={previewButton}
               type="button"
-              aria-label={t`Download ${props.name}`}
-              onClick={() => void startDownload()}
-              className="grid w-14 shrink-0 place-items-center border-l border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label={t`Preview ${props.label ?? props.name}`}
+              onClick={() => setPreviewOpen(true)}
+              className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-accent"
             >
-              <Download size={19} strokeWidth={1.8} />
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-muted text-foreground">
+                {props.mimeType === "text/html" ? (
+                  <Code2 size={21} strokeWidth={1.8} />
+                ) : (
+                  <FileText size={21} strokeWidth={1.8} />
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-body font-medium">
+                  {props.label ?? props.name}
+                </span>
+                <span className="mt-0.5 block text-body-sm text-muted-foreground">
+                  {formatSize(props.size)}
+                </span>
+              </span>
             </button>
-          </IconTooltip>
+            <IconTooltip label={t`Download ${props.label ?? props.name}`}>
+              <button
+                type="button"
+                aria-label={t`Download ${props.label ?? props.name}`}
+                onClick={() => void startDownload()}
+                className="grid w-14 shrink-0 place-items-center border-l border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <Download size={19} strokeWidth={1.8} />
+              </button>
+            </IconTooltip>
+          </div>
+          {props.details ? <div className="border-t border-border">{props.details}</div> : null}
         </BuiCard>
         {downloadError ? <DownloadError message={downloadError} /> : null}
       </div>
@@ -162,6 +178,7 @@ function FilePreview({
   target,
   artifactId,
   name,
+  label,
   mimeType,
   closeButtonRef,
 }: ArtifactFileCardProps & { closeButtonRef: RefObject<HTMLButtonElement | null> }) {
@@ -211,7 +228,7 @@ function FilePreview({
     <>
       <header className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-5">
         <DialogTitle className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
-          {name}
+          {label ?? name}
         </DialogTitle>
         {state.status === "ready" &&
         state.text !== undefined &&
@@ -234,12 +251,12 @@ function FilePreview({
           text={copyFailedText}
           label={t`Copy ${name}`}
         />
-        <IconTooltip label={t`Download ${name}`}>
+        <IconTooltip label={t`Download ${label ?? name}`}>
           <Button
             variant="ghost"
             size="icon-lg"
             className="rounded-full text-muted-foreground"
-            aria-label={t`Download ${name}`}
+            aria-label={t`Download ${label ?? name}`}
             onClick={() =>
               void (async () => {
                 setDownloadError(null);
@@ -282,7 +299,7 @@ function FilePreview({
         ) : kind === "html" && state.text !== undefined ? (
           <SandboxedHtmlViewer html={state.text} title={name} />
         ) : kind === "video" ? (
-          <VideoPreview bytes={state.bytes} name={name} />
+          <VideoPreview bytes={state.bytes} name={label ?? name} />
         ) : kind === "pdf" ? (
           <PdfViewer bytes={state.bytes} title={name} />
         ) : state.text !== undefined && kind === "text" ? (

@@ -10,8 +10,8 @@ export function isToolActivityBlock(block: MessageBlock): boolean {
 }
 
 /**
- * A video's progress card. No client draws it yet, so it stays out of the thread instead of
- * leaving an empty bubble; the video itself arrives as its own message.
+ * A video's progress card, for a client that does not draw it (mobile): it stays out of the
+ * thread instead of leaving an empty bubble, and the video itself still arrives as its own message.
  */
 export function isUndrawnMediaCard(block: MessageBlock): boolean {
   return block.kind === "media_generation";

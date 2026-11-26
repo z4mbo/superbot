@@ -6,7 +6,19 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const files = vi.hoisted(() => ({
-  pages: [] as { items: { id: string; name: string; mimeType: string }[] }[],
+  pages: [] as {
+    items: {
+      id: string;
+      name: string;
+      mimeType: string;
+      generated?: {
+        kind: "image" | "video";
+        prompt: string;
+        provider: string;
+        providerName: string;
+      };
+    }[];
+  }[],
   hasNextPage: false,
   fetchNextPage: vi.fn(),
   isPending: false,
@@ -154,4 +166,29 @@ it("says a failed read instead of showing an empty list", async () => {
   files.isError = true;
   await render();
   expect(container.querySelector('[role="alert"]')?.textContent).toBe("Couldn't load files.");
+});
+
+it("names a generated file by what was asked for and the provider that made it", async () => {
+  files.pages = [
+    {
+      items: [
+        {
+          ...file(1, "image/png"),
+          name: "generated-abc123.png",
+          generated: {
+            kind: "image" as const,
+            prompt: "A lighthouse at dusk",
+            provider: "provider-id",
+            providerName: "Provider Name",
+          },
+        },
+        file(2),
+      ],
+    },
+  ];
+  await render();
+  const [generated, plain] = fileRows();
+  expect(generated?.textContent).toBe("A lighthouse at duskGenerated with Provider Name");
+  expect(generated?.textContent).not.toContain("generated-abc123");
+  expect(plain?.textContent).toBe("Report 2");
 });

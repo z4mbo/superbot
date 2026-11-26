@@ -20,10 +20,15 @@ import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@rakazo/ui-web";
 import { UserRound } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
 import { CollaborationMarker } from "../../../components/ai/CollaborationMarker";
+import { BuiCard } from "../../../components/ai/primitives";
 import { ComputerCard } from "../../../components/computers/ComputerCard";
 import { ArtifactFileCard } from "../../../components/messages/ArtifactFileCard";
 import { AskCard } from "../../../components/messages/AskCard";
 import { CloudAgentCard } from "../../../components/messages/CloudAgentCard";
+import {
+  GeneratedMediaDetails,
+  MediaGenerationCard,
+} from "../../../components/messages/GeneratedMediaCard";
 import { McpAppCard } from "../../../components/messages/McpAppCard";
 import { OutgoingDraftCard } from "../../../components/messages/OutgoingDraftCard";
 import { PurchaseCard } from "../../../components/messages/PurchaseCard";
@@ -608,11 +613,26 @@ export const MessageView = memo(function MessageView({
           if (block.kind === "image") {
             return (
               <div key={i} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                <ArtifactImage
-                  target={artifactTarget}
-                  artifactId={block.artifactId}
-                  name={block.name}
-                />
+                {block.generated ? (
+                  <BuiCard
+                    className="w-[320px] max-w-full overflow-hidden"
+                    data-testid="generated-image-card"
+                  >
+                    <ArtifactImage
+                      target={artifactTarget}
+                      artifactId={block.artifactId}
+                      name={block.name}
+                      inCard
+                    />
+                    <GeneratedMediaDetails media={block.generated} />
+                  </BuiCard>
+                ) : (
+                  <ArtifactImage
+                    target={artifactTarget}
+                    artifactId={block.artifactId}
+                    name={block.name}
+                  />
+                )}
               </div>
             );
           }
@@ -625,7 +645,19 @@ export const MessageView = memo(function MessageView({
                   name={block.name}
                   mimeType={block.mimeType}
                   size={block.size}
+                  // A generated file's own name is made up; its prompt shows under it.
+                  label={block.generated ? t`Video` : undefined}
+                  details={
+                    block.generated ? <GeneratedMediaDetails media={block.generated} /> : undefined
+                  }
                 />
+              </div>
+            );
+          }
+          if (block.kind === "media_generation") {
+            return (
+              <div key={i} className="flex justify-start">
+                <MediaGenerationCard block={block} startedAt={Date.parse(message.createdAt)} />
               </div>
             );
           }
