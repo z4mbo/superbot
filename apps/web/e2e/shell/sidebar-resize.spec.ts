@@ -3,6 +3,7 @@ import {
   captureScreenshot,
   completeOnboarding,
   openBotPanel,
+  openUserSettings,
   rpc,
   signup,
 } from "../helpers/helpers";
@@ -59,16 +60,27 @@ test("sidebar resizes by dragging, remembers its width and cannot be hidden", as
 });
 
 test("sidebar resize follows RTL and reduced motion", async ({ page }) => {
+  await page.setViewportSize({ width: 1300, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await signup(page, `sidebar-rtl-${Date.now()}@rakazo.test`, "password12", "Sidebar Sample");
   await completeOnboarding(page);
-  await page.evaluate(() => {
-    document.documentElement.dir = "rtl";
-  });
-  // A viewport change renders the logical sidebar side after changing document direction.
-  await page.setViewportSize({ width: 1300, height: 900 });
+  // Switch to a right-to-left language the way people do: the app sets the direction and
+  // re-renders, so the sidebar moves to the right edge. (Flipping `dir` by script left the
+  // sidebar wherever its last render had put it.) Names are Hebrew from here, so use test ids.
+  const settings = await openUserSettings(page);
+  await settings.getByTestId("ui-locale-select").click();
+  await page.getByRole("option", { name: "עברית", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
   const sidebar = page.getByTestId("bots-sidebar");
-  const handle = page.getByRole("separator", { name: "Resize bots sidebar" });
+  const handle = page.getByTestId("bots-sidebar-edge");
+  await expect
+    .poll(async () => {
+      const box = await sidebar.boundingBox();
+      return box && Math.round(box.x + box.width);
+    })
+    .toBe(1300);
   await expect(sidebar).toHaveCSS("transition-property", "none");
   await handle.focus();
   await handle.press("ArrowLeft");
