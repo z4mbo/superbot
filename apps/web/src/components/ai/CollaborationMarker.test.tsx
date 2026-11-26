@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ActiveBotGlyph, CollaborationMarker } from "./CollaborationMarker";
@@ -30,11 +31,31 @@ describe("collaboration transcript markers", () => {
       <ActiveBotGlyph
         bots={[{ botId: "research", color: "#14B8A6", status: "running" }]}
         label="Searching the web: injury news"
+        announcement="Searching the web: injury news"
       />,
     );
 
     expect(html).toContain('role="status"');
     expect(html).toContain('data-working="true"');
     expect(html).toContain('data-bot-mark-state="working"');
+  });
+
+  it("keeps the shimmering label out of the live region", () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(
+      <ActiveBotGlyph
+        bots={[{ botId: "research", color: "#14B8A6", status: "running" }]}
+        label="Thinking it through"
+        announcement="Working…"
+      />,
+    );
+
+    const status = container.querySelector('[role="status"]')!;
+    expect(status.textContent).toBe("Working…");
+    expect(status.className).toBe("sr-only");
+    const label = container.querySelector(".text-shimmer")!;
+    expect(label.textContent).toBe("Thinking it through");
+    expect(label.getAttribute("aria-hidden")).toBe("true");
+    expect(label.closest('[role="status"]')).toBeNull();
   });
 });

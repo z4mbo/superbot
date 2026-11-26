@@ -5,7 +5,7 @@ import {
   captureScreenshot,
   completeOnboarding,
   createNamedBot,
-  openBotPanel,
+  openBotLibrary,
   rpc,
   signup,
 } from "../helpers/helpers";
@@ -487,7 +487,7 @@ test("a bot's page shows in its reply, opens full screen, is shared by link and 
   await expect(pageFrame(page, "Signups dashboard").getByText("1.9%")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await openBotPanel(page);
+  await openBotLibrary(page);
   await page
     .getByTestId("bot-pages")
     .getByRole("button", { name: /^Signups dashboard/ })
@@ -531,8 +531,8 @@ test("a bot's page shows in its reply, opens full screen, is shared by link and 
   const confirm = page.getByRole("alertdialog", { name: "Delete Signups dashboard?" });
   await captureScreenshot(page, testInfo, "page-delete-confirm");
   await confirm.getByRole("button", { name: "Delete" }).click();
-  // A bot with no pages shows no Pages section at all.
-  await expect(library).toHaveCount(0);
+  // A bot with no pages says so in its Library.
+  await expect(library).toHaveText("No pages yet");
   await captureScreenshot(page, testInfo, "page-library-empty");
 });
 
@@ -811,8 +811,8 @@ test("a page's failures, a deleted page's card, and the Library's Share, search 
   await closePage(page);
 
   // The Library's Share opens the popover, every time.
-  await openBotPanel(page);
-  // The panel shows the latest pages; the whole list is a separate view once there are more.
+  await openBotLibrary(page);
+  // The Library shows the latest pages; the whole list is a separate view once there are more.
   const library = page.getByTestId("bot-pages").filter({ visible: true });
   for (let round = 0; round < 2; round++) {
     await library.getByRole("button", { name: "Actions for Alpha" }).click();
@@ -854,9 +854,9 @@ test("a page's failures, a deleted page's card, and the Library's Share, search 
 
   // A longer list gets a field to find a page by title.
   for (const title of ["One", "Two", "Three", "Four", "Five", "Six", "Seven"]) await save(title);
-  await openBotPanel(page);
-  await expect(library.getByRole("listitem")).toHaveCount(3);
-  await library.getByRole("button", { name: "Pages", exact: true }).click();
+  await openBotLibrary(page);
+  await expect(library.getByRole("listitem")).toHaveCount(5);
+  await library.getByRole("button", { name: "Show more", exact: true }).click();
   await expect(library.getByRole("listitem")).toHaveCount(8);
   await expect(library.getByRole("button", { name: "Show more" })).toBeHidden();
   await library.getByRole("searchbox", { name: "Find a page" }).fill("sev");

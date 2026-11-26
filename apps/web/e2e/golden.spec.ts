@@ -8,6 +8,7 @@ import {
   chooseOption,
   completeOnboarding,
   openBotPanel,
+  openBotSettings,
   openEmailSignIn,
   realSandboxTimeout,
   rpc,
@@ -347,7 +348,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await page.getByRole("button", { name: "Close store" }).click();
 
   await page.getByText("Chief").first().click();
-  await openBotPanel(page);
+  await openBotSettings(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export" }).click();

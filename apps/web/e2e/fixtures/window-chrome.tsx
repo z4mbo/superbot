@@ -10,7 +10,9 @@ const i18n = setupI18n({
   locale: "en",
   messages: { en: messages } as NonNullable<Parameters<typeof setupI18n>[0]>["messages"],
 });
-document.documentElement.dataset.theme = "dark";
+// Dark unless the page asks for light, as the screenshots of each theme do.
+document.documentElement.dataset.theme =
+  new URLSearchParams(location.search).get("theme") === "light" ? "light" : "dark";
 createRoot(document.getElementById("root")!).render(
   <I18nProvider i18n={i18n}>
     <div className="flex h-screen">

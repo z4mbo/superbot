@@ -41,6 +41,14 @@ export const AgentSkillCatalogEntrySchema = AgentSkillSchema.pick({
 });
 export type AgentSkillCatalogEntry = z.infer<typeof AgentSkillCatalogEntrySchema>;
 
+/** A first-party skill offered in the Skills library; adding it saves the content as a skill. */
+export const AgentSkillLibraryEntrySchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  content: z.string(),
+});
+export type AgentSkillLibraryEntry = z.infer<typeof AgentSkillLibraryEntrySchema>;
+
 export const CreateAgentSkillInput = z
   .object({
     content: z.string().min(1).max(100_000).optional(),

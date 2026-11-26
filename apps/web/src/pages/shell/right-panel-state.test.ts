@@ -22,7 +22,7 @@ describe("right panel preferences", () => {
     writeRightPanelState("user-a:space-a:bot-a", null, "routine-a");
     expect(readRightPanelState("user-a:space-a:bot-a")).toEqual({ panel: null });
   });
-  it.each(["computer", "routines", "pages"])(
+  it.each(["computer", "routines", "pages", "manage"])(
     "reopens a stored %s view on the bot's panel",
     (panel) => {
       // An older version stored the computer tab, which no longer exists.

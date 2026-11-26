@@ -6,6 +6,34 @@ import {
   BotSchema,
 } from "./bot.js";
 
+/**
+ * What a template is for, as a closed list so every catalog (first-party or shared) groups the
+ * same way. Labels live in the apps, in the app's language.
+ */
+export const BOT_TEMPLATE_CATEGORIES = [
+  "assistant",
+  "email",
+  "meetings",
+  "research",
+  "engineering",
+  "qa",
+  "product",
+  "design",
+  "sales",
+  "marketing",
+  "recruiting",
+  "operations",
+  "finance",
+  "career",
+  "travel",
+  "shopping",
+  "health",
+  "home",
+  "privacy",
+] as const;
+export const BotTemplateCategorySchema = z.enum(BOT_TEMPLATE_CATEGORIES);
+export type BotTemplateCategory = z.infer<typeof BotTemplateCategorySchema>;
+
 const slug = z
   .string()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
@@ -21,6 +49,7 @@ export const BotTemplateSchema = z.strictObject({
   /** Bumped on any content change, so a create from an older preview is refused. */
   version: z.number().int().positive(),
   name: z.string().min(1).max(BOT_NAME_MAX_LENGTH),
+  category: BotTemplateCategorySchema,
   /** One line. */
   summary: z.string().min(1).max(120),
   /** Markdown: an example of what the bot sends, shown before anything is created. */

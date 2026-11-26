@@ -2,6 +2,7 @@ export type Panel =
   | "routines"
   | "pages"
   | "settings"
+  | "manage"
   | "routine"
   | "create-group"
   | "group-settings"
@@ -14,6 +15,7 @@ const durablePanels: readonly (string | null)[] = [
   "routines",
   "pages",
   "settings",
+  "manage",
   "routine",
   "group-settings",
   null,
@@ -53,11 +55,11 @@ export function readRightPanelState(key: string): RightPanelState {
 }
 
 /**
- * A bot's panel reopens on the panel itself: a whole list is somewhere it led to, and the
- * computer tab an older version stored is gone.
+ * A bot's panel reopens on the panel itself: its settings and whole lists are somewhere it led
+ * to, and the computer tab an older version stored is gone.
  */
 function restoredPanel(panel: string | null): Panel {
-  return panel === "computer" || panel === "routines" || panel === "pages"
+  return panel === "computer" || panel === "routines" || panel === "pages" || panel === "manage"
     ? "settings"
     : (panel as Panel);
 }

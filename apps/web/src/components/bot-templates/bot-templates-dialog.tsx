@@ -1,23 +1,55 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/web";
-import type { Bot, BotTemplateListing, ConnectionCatalogItem } from "@rakazo/contracts";
-import { isBotTemplateChanged } from "@rakazo/contracts";
-import { botTemplateApps, formatCron } from "@rakazo/core";
-import { Button, SectionHeading, Spinner } from "@rakazo/ui-web";
+import type {
+  Bot,
+  BotTemplateCategory,
+  BotTemplateListing,
+  ConnectionCatalogItem,
+} from "@rakazo/contracts";
+import { BOT_TEMPLATE_CATEGORIES, isBotTemplateChanged } from "@rakazo/contracts";
+import { botTemplateApps, formatCron, matchesBotTemplateQuery } from "@rakazo/core";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  SectionHeading,
+  Spinner,
+} from "@rakazo/ui-web";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
+  BadgeCheck,
   Bot as BotIcon,
+  Briefcase,
+  Building2,
   Check,
   ChevronDown,
   ChevronLeft,
   Clock,
+  Code,
   GitPullRequest,
+  Handshake,
+  House,
   Inbox,
-  LayoutTemplate,
+  ListTodo,
+  Mail,
+  Megaphone,
+  Milestone,
+  Palette,
+  Plane,
+  Salad,
   ScrollText,
+  Search,
+  Shield,
+  ShoppingBag,
   Sun,
   Telescope,
+  UserPlus,
+  Users,
+  Wallet,
 } from "lucide-react";
 import { useId, useState } from "react";
 import { useSave, useSpaceQueries } from "../../lib/query/query";
@@ -25,7 +57,11 @@ import { errorDetails } from "../../lib/query/user-error";
 import { cronLabels } from "../../lib/routines/cron";
 import { ErrorNotice } from "../ErrorNotice";
 import { PluginLogo, ROW_HOVER } from "../integrations/plugin-marketplace";
-import { useBotTemplateCopy } from "./bot-template-copy";
+import { useBotTemplateCategoryLabel, useBotTemplateCopy } from "./bot-template-copy";
+
+const NO_TEMPLATES: BotTemplateListing[] = [];
+const PAGE_SIZE = 24;
+const CHIP_COUNT = 6;
 
 const ICONS: Record<string, LucideIcon> = {
   "morning-briefing": Sun,
@@ -34,8 +70,36 @@ const ICONS: Record<string, LucideIcon> = {
   "topic-watch": Telescope,
 };
 
-function TemplateIcon({ id, large = false }: { id: string; large?: boolean }) {
-  const Icon = ICONS[id] ?? LayoutTemplate;
+const CATEGORY_ICONS: Record<BotTemplateCategory, LucideIcon> = {
+  assistant: ListTodo,
+  email: Mail,
+  meetings: Users,
+  research: Search,
+  engineering: Code,
+  qa: BadgeCheck,
+  product: Milestone,
+  design: Palette,
+  sales: Handshake,
+  marketing: Megaphone,
+  recruiting: UserPlus,
+  operations: Building2,
+  finance: Wallet,
+  career: Briefcase,
+  travel: Plane,
+  shopping: ShoppingBag,
+  health: Salad,
+  home: House,
+  privacy: Shield,
+};
+
+function TemplateIcon({
+  template,
+  large = false,
+}: {
+  template: Pick<BotTemplateListing, "id" | "category">;
+  large?: boolean;
+}) {
+  const Icon = ICONS[template.id] ?? CATEGORY_ICONS[template.category];
   return (
     <span
       aria-hidden
@@ -56,16 +120,35 @@ function Sample({ text }: { text: string }) {
   );
 }
 
-/** Ready-made bots. Creating one opens it; its routines stay paused until the user turns them on. */
+/**
+ * Ready-made bots, searchable and filtered by category. Creating one opens it; its routines stay
+ * paused until the user turns them on.
+ */
 export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void }) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
   const copy = useBotTemplateCopy();
-  const cardId = useId();
+  const categoryLabel = useBotTemplateCategoryLabel();
   // Read afresh each time it opens: a template's bot may have been made or deleted since.
   const templates = useQuery({ ...queries.bots.templates.queryOptions(), staleTime: 0 });
   const [openId, setOpenId] = useState<string | null>(null);
-  const open = templates.data?.find((template) => template.id === openId);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<BotTemplateCategory | null>(null);
+  const all = templates.data ?? NO_TEMPLATES;
+  const open = all.find((template) => template.id === openId);
+  const categories = BOT_TEMPLATE_CATEGORIES.filter((name) =>
+    all.some((template) => template.category === name),
+  );
+  const matches = (list: readonly BotTemplateListing[]) =>
+    list.filter((template) => {
+      if (category && template.category !== category) return false;
+      const shown = copy(template);
+      return matchesBotTemplateQuery(template, query, [
+        shown.name,
+        shown.summary,
+        categoryLabel(template.category),
+      ]);
+    });
 
   function content() {
     if (templates.error)
@@ -91,9 +174,122 @@ export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void
           onChanged={() => void templates.refetch()}
         />
       );
+    const firstParty = matches(templates.data);
     return (
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label={t`Search agents`}
+            placeholder={t`Search agents`}
+            maxLength={200}
+            size="xl"
+          />
+          {categories.length >= 2 ? (
+            <CategoryFilter
+              categories={categories}
+              chosen={category}
+              label={categoryLabel}
+              onChoose={setCategory}
+            />
+          ) : null}
+        </div>
+        {firstParty.length ? (
+          <TemplateGroup
+            key={`${category ?? "all"}:${query}`}
+            title={t`From Superbot`}
+            templates={firstParty}
+            onOpen={(template) => setOpenId(template.id)}
+          />
+        ) : (
+          <p className="px-2.5 text-body text-muted-foreground">
+            <Trans>No agents match</Trans>
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return <div data-testid="bot-templates">{content()}</div>;
+}
+
+/** "All", the first few categories as chips, and the rest in a menu. */
+function CategoryFilter({
+  categories,
+  chosen,
+  label,
+  onChoose,
+}: {
+  categories: readonly BotTemplateCategory[];
+  chosen: BotTemplateCategory | null;
+  label: (category: BotTemplateCategory) => string;
+  onChoose: (category: BotTemplateCategory | null) => void;
+}) {
+  const chips = categories.slice(0, CHIP_COUNT);
+  const rest = categories.slice(CHIP_COUNT);
+  const restChosen = chosen !== null && rest.includes(chosen);
+  return (
+    <div className="flex flex-wrap gap-2" data-testid="bot-template-categories">
+      {[null, ...chips].map((name) => (
+        <Button
+          key={name ?? "all"}
+          type="button"
+          variant={chosen === name ? "default" : "secondary"}
+          aria-pressed={chosen === name}
+          className="rounded-full px-3.5 text-body-sm"
+          onClick={() => onChoose(name)}
+        >
+          {name ? label(name) : <Trans>All</Trans>}
+        </Button>
+      ))}
+      {rest.length ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant={restChosen ? "default" : "secondary"}
+                className="rounded-full px-3.5 text-body-sm"
+              />
+            }
+          >
+            {restChosen ? label(chosen) : <Trans>More</Trans>}
+            <ChevronDown />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-auto">
+            {rest.map((name) => (
+              <DropdownMenuItem key={name} onClick={() => onChoose(name)}>
+                {label(name)}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+    </div>
+  );
+}
+
+/** One titled group of template cards, a page at a time. */
+export function TemplateGroup({
+  title,
+  templates,
+  onOpen,
+}: {
+  title: string;
+  templates: readonly BotTemplateListing[];
+  onOpen: (template: BotTemplateListing) => void;
+}) {
+  const copy = useBotTemplateCopy();
+  const cardId = useId();
+  const [count, setCount] = useState(PAGE_SIZE);
+  return (
+    <section data-testid="bot-template-group" className="space-y-2">
+      <SectionHeading as="h2" className="px-1">
+        {title}
+      </SectionHeading>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {templates.data.map((template, index) => {
+        {templates.slice(0, count).map((template, index) => {
           const { name, summary, sample } = copy(template);
           const titleId = `${cardId}-${index}-title`;
           const summaryId = `${cardId}-${index}-summary`;
@@ -104,11 +300,11 @@ export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void
               data-testid="bot-template-card"
               aria-labelledby={titleId}
               aria-describedby={summaryId}
-              onClick={() => setOpenId(template.id)}
+              onClick={() => onOpen(template)}
               className={`flex min-w-0 flex-col gap-3 rounded-2xl border border-border/70 p-4 text-start focus-visible:outline-none ${ROW_HOVER}`}
             >
               <span className="flex min-w-0 items-center gap-3">
-                <TemplateIcon id={template.id} />
+                <TemplateIcon template={template} />
                 <span className="min-w-0 flex-1">
                   <span
                     id={titleId}
@@ -132,10 +328,19 @@ export function BotTemplatesPanel({ onOpenBot }: { onOpenBot: (bot: Bot) => void
           );
         })}
       </div>
-    );
-  }
-
-  return <div data-testid="bot-templates">{content()}</div>;
+      {count < templates.length ? (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setCount((shown) => shown + PAGE_SIZE)}
+          >
+            <Trans>Show more</Trans>
+          </Button>
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 function TemplateDetail({
@@ -227,7 +432,7 @@ function TemplateDetail({
         >
           <ChevronLeft />
         </Button>
-        <TemplateIcon id={template.id} large />
+        <TemplateIcon template={template} large />
         <div className="min-w-0 flex-1 pt-1">
           <h2 className="truncate text-heading2 font-semibold text-foreground">{name}</h2>
           <p className="truncate text-body text-muted-foreground">{summary}</p>

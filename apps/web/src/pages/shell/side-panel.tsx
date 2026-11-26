@@ -71,7 +71,10 @@ export function ShellSidePanel({
 }) {
   const { t } = useLingui();
   const open = sidePanelShown(panel, active, activeGroup);
-  const botView = panel === "routines" || panel === "pages" || panel === "settings" ? panel : null;
+  const botView =
+    panel === "routines" || panel === "pages" || panel === "settings" || panel === "manage"
+      ? panel
+      : null;
 
   async function createGroup(input: { name: string; botIds: string[] }) {
     const group = await rpc.groups.create(input);

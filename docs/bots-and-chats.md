@@ -17,10 +17,10 @@ sign-in or an app to connect.
 
 ### Start from a template
 
-**Bot templates** are ready-made bots for common jobs: a morning briefing, inbox triage, pull
-request reviews, and a weekly digest of topics you follow. Open them with **Templates** in
-**Connect apps** or **Skills**. Each template shows an example of what the bot sends and everything it adds before you
-choose **Create bot**.
+**Bot templates** are ready-made bots for common jobs, from a morning briefing and inbox triage to
+pull request reviews, sales prospecting and trip planning. Open the **Store** from the sidebar and
+choose **Agents**, then search or filter by category. Each template shows an example of what the
+bot sends and everything it adds before you choose **Create bot**.
 
 A template adds the bot's instructions, a skill to your library, and a routine that stays paused
 until you turn it on. Nothing is connected for you: the new chat asks for the apps the bot works

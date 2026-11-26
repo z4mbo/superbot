@@ -102,28 +102,35 @@ async function renderPreview(onOpenAll = vi.fn()) {
   return { host, root, onOpenAll };
 }
 
-it("previews nothing at all while the bot has no pages", async () => {
+it("previews a row saying so while the bot has no pages", async () => {
   pageItems.current = [];
   const { host, root } = await renderPreview();
-  expect(host.childElementCount).toBe(0);
+  expect(host.textContent).toBe("No pages yet");
+  expect(host.querySelectorAll("li")).toHaveLength(0);
   await act(async () => root.unmount());
 });
 
-it("previews the latest three pages and links the heading to the whole list", async () => {
-  pageItems.current = [1, 2, 3, 4].map(page);
+it("previews the latest five pages, one line each, and opens the rest from Show more", async () => {
+  pageItems.current = [1, 2, 3, 4, 5, 6].map(page);
   const { host, root, onOpenAll } = await renderPreview();
-  expect(host.querySelectorAll("li")).toHaveLength(3);
+  expect(
+    [...host.querySelectorAll("li")].map((row) => row.querySelector("button")?.textContent),
+  ).toEqual([1, 2, 3, 4, 5].map((index) => `Plan ${index}`));
   await act(async () => {
-    [...host.querySelectorAll("button")].find((button) => button.textContent === "Pages")!.click();
+    [...host.querySelectorAll("button")]
+      .find((button) => button.textContent === "Show more")!
+      .click();
   });
   expect(onOpenAll).toHaveBeenCalledOnce();
   await act(async () => root.unmount());
 });
 
-it("keeps a plain heading when the preview shows every page", async () => {
-  pageItems.current = [1, 2].map(page);
+it("offers no Show more when the preview shows every page", async () => {
+  pageItems.current = [1, 2, 3, 4, 5].map(page);
   const { host, root } = await renderPreview();
-  expect(host.querySelectorAll("li")).toHaveLength(2);
-  expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Pages")).toBe(false);
+  expect(host.querySelectorAll("li")).toHaveLength(5);
+  expect([...host.querySelectorAll("button")].some((b) => b.textContent === "Show more")).toBe(
+    false,
+  );
   await act(async () => root.unmount());
 });

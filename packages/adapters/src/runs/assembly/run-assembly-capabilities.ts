@@ -11,7 +11,7 @@ import {
   messagingDmSurfaceNote,
   nonOwnerChatPrivacyBlock,
 } from "@rakazo/core";
-import { availableInSpace, parseComputerMode } from "@rakazo/db";
+import { availableInSpace, parseComputerMode, repairedBotComputer } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { createApprovedEffectReplayQueue } from "../../approvals/approval-effect.js";
 import { appendOutsideText, taskPromptIsOutside } from "../../approvals/review-target-sources.js";
@@ -250,8 +250,9 @@ export async function prepareRunComputer(
   const { context, runAbortController } = parts.connected;
   const { currentTurnMessage, history, historyMessages, turnBlocks } = parts.turnContext;
   const { resolved, runModelId, runModelProvider } = parts.model;
-  if (!bot.computer) throw new Error("Bot has no computer");
-  const storedComputer = bot.computer;
+  // A bot made on an older version may have no computer yet; it gets one before its first run.
+  const storedComputer = bot.computer ?? (await repairedBotComputer(deps.prisma, bot.id));
+  if (!storedComputer) throw new Error("Bot has no computer");
   const computerMode = parseComputerMode(storedComputer.scope);
   const artifacts = deps.artifacts;
   const recentFilesInput = {

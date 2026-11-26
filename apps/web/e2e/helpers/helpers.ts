@@ -127,8 +127,8 @@ export async function openIntegrationsAdd(page: Page, item: string) {
 }
 
 /**
- * Opens the bot panel from the header pill on the panel itself (profile, computer, routines,
- * pages), leaving an open routine editor or one of the panel's whole lists.
+ * Opens the bot panel from the header pill on the panel itself (avatar, name, Activity and
+ * Library), leaving an open routine editor, its settings or one of the panel's whole lists.
  */
 export async function openBotPanel(page: Page) {
   const pill = page.getByTestId("bot-settings-trigger");
@@ -148,12 +148,17 @@ export async function openBotPanel(page: Page) {
   }).toPass({ timeout: 20_000 });
 }
 
-/** Opens the bot panel and unfolds its Settings (model, switches, instructions, memory). */
+/** Opens the bot panel, then its settings behind the gear (model, switches, instructions, memory). */
 export async function openBotSettings(page: Page) {
   await openBotPanel(page);
-  const toggle = page.getByTestId("bot-settings-advanced").locator("button[aria-expanded]").first();
-  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await page.getByTestId("bot-settings-open").click();
+  await expect(page.getByTestId("bot-settings-advanced")).toBeVisible();
+}
+
+/** Opens the bot panel on its Library tab (pages and files). */
+export async function openBotLibrary(page: Page) {
+  await openBotPanel(page);
+  await page.getByTestId("bot-settings").getByRole("tab", { name: "Library", exact: true }).click();
 }
 
 /** Waits for fold-outs to settle before clicking or dragging their contents. */

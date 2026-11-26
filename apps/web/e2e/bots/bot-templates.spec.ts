@@ -14,8 +14,12 @@ test("a bot template previews what it adds, then creates a bot with a paused rou
   const dialog = page.getByRole("dialog", { name: "Store", exact: true });
   await dialog.getByTestId("store-agents").click();
   const cards = dialog.getByTestId("bot-template-card");
-  // The Store lists the server's whole template catalog.
-  await expect(cards).toHaveCount(BOT_TEMPLATES.length);
+  // The Store lists the server's catalog a page at a time, and search reaches all of it.
+  await expect(cards.first()).toBeVisible();
+  const last = BOT_TEMPLATES.at(-1)!;
+  await dialog.getByRole("textbox", { name: "Search agents" }).fill(last.name);
+  await expect(dialog.getByRole("button", { name: last.name, exact: true })).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Search agents" }).fill("");
   const briefing = dialog.getByRole("button", { name: "Morning briefing", exact: true });
   await expect(briefing).toHaveAccessibleDescription("Your day at a glance, every weekday morning");
   await expect(briefing.getByText("Needs you", { exact: true })).toBeVisible();

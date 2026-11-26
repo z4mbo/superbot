@@ -44,15 +44,25 @@ export function CollaborationMarker({
 /**
  * The working bot with what it is doing right now, such as its current tool call. The pointer
  * over the line surprises the bot's face, and a click on a lone bot's mark spins, bounces or nods
- * it.
+ * it. Several bots working at once share one stacked mark. The shimmering label is visual only:
+ * `announcement` is the polite status a screen reader hears, so a turning phrase is not read out
+ * every few seconds.
  */
-export function ActiveBotGlyph({ bots, label }: { bots: GroupAvatarMember[]; label: string }) {
+export function ActiveBotGlyph({
+  bots,
+  label,
+  announcement,
+}: {
+  bots: GroupAvatarMember[];
+  label: string;
+  announcement: string;
+}) {
   const lone = bots.length === 1 ? bots[0] : undefined;
   return (
     <div
-      role="status"
+      data-testid="working-indicator"
       data-bot-mark-emphasis=""
-      className="flex min-h-10 min-w-0 items-center gap-2 px-2"
+      className="flex min-h-9 min-w-0 items-center gap-2 px-2"
     >
       {lone ? (
         <BotAvatar
@@ -67,10 +77,14 @@ export function ActiveBotGlyph({ bots, label }: { bots: GroupAvatarMember[]; lab
         <GroupAvatar members={bots} size={28} />
       )}
       <span
+        aria-hidden="true"
         dir="auto"
         className="min-w-0 truncate text-body leading-5.5 text-faint-foreground text-shimmer"
       >
         {label}
+      </span>
+      <span role="status" className="sr-only">
+        {announcement}
       </span>
     </div>
   );

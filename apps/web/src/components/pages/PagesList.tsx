@@ -13,7 +13,7 @@ import {
   Spinner,
 } from "@rakazo/ui-web";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Globe, MoreHorizontal, Search } from "lucide-react";
+import { Globe, MoreHorizontal, Search } from "lucide-react";
 import { useDeferredValue, useState } from "react";
 import { formatRelativeTime } from "../../lib/locale/relative-time";
 import { pageMutationOptions } from "../../lib/pages/page-actions";
@@ -38,8 +38,9 @@ export function PagesList({
   botId?: string;
   groupId?: string;
   /**
-   * The latest few pages under a heading, and nothing at all while there are none. `onOpenAll`
-   * opens the whole list, offered once there are more pages than the preview shows.
+   * The latest few pages as rows of a card, with a row saying so while there are none.
+   * `onOpenAll` opens the whole list, offered as Show more once there are more pages than the
+   * preview shows.
    */
   preview?: { onOpenAll: () => void };
 }) {
@@ -47,7 +48,7 @@ export function PagesList({
 }
 
 /** How many pages a preview shows before it leaves the rest to the whole list. */
-const PREVIEW_COUNT = 3;
+export const PAGES_PREVIEW_COUNT = 5;
 
 function OwnerPages({
   botId,
@@ -84,8 +85,6 @@ function OwnerPages({
   const rename = useMutation(actions.rename);
   const [deleting, setDeleting] = useState<PageSummary | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; draft: string } | null>(null);
-  if (preview && !pages.isError && !pages.data?.pages.some((read) => read.items.length > 0))
-    return null;
   if (pages.isPending) {
     return (
       <div className="grid place-items-center py-6 text-muted-foreground">
@@ -108,6 +107,13 @@ function OwnerPages({
     );
   }
   const searchable = query !== "" || items.length >= SEARCH_FROM || pages.hasNextPage;
+  if (preview && items.length === 0) {
+    return (
+      <p data-testid="bot-pages" className="px-3 py-2.5 text-body text-muted-foreground">
+        <Trans>No pages yet</Trans>
+      </p>
+    );
+  }
   if (items.length === 0 && !searchable) {
     return (
       <p className="px-1 py-2 text-body-sm text-muted-foreground">
@@ -138,7 +144,10 @@ function OwnerPages({
   const pinned = items.filter((page) => page.pinned);
   const rest = items.filter((page) => !page.pinned);
   const row = (page: PageSummary) => (
-    <li key={page.id} className="flex items-center rounded-md hover:bg-accent">
+    <li
+      key={page.id}
+      className={`group/page flex items-center hover:bg-accent ${preview ? "" : "rounded-md"}`}
+    >
       {renaming?.id === page.id ? (
         <div className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">
           <span className="grid size-8 shrink-0 place-items-center rounded-sm bg-muted">
@@ -171,32 +180,40 @@ function OwnerPages({
         <button
           type="button"
           onClick={() => openPage(page.id)}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={`flex min-w-0 flex-1 items-center gap-3 rounded-md text-start outline-none focus-visible:ring-2 focus-visible:ring-ring ${preview ? "py-2 ps-3" : "px-2 py-2"}`}
         >
-          <span className="grid size-8 shrink-0 place-items-center rounded-sm bg-muted text-foreground">
-            <PageIcon className="h-5 w-4" />
+          <span
+            className={`grid shrink-0 place-items-center rounded-sm bg-muted text-foreground ${preview ? "size-5" : "size-8"}`}
+          >
+            <PageIcon className={preview ? "h-3.5 w-3" : "h-5 w-4"} />
           </span>
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-body text-foreground" dir="auto">
+          {preview ? (
+            <span className="min-w-0 flex-1 truncate text-body text-foreground" dir="auto">
               {page.title}
             </span>
-            <span className="flex items-center gap-1 text-label text-muted-foreground">
-              {page.visibility === "link" ? (
-                <>
-                  <Globe aria-hidden="true" className="size-3" strokeWidth={1.8} />
-                  <Trans>Shared</Trans>
-                  <span aria-hidden="true">·</span>
-                </>
-              ) : null}
-              <span>{formatRelativeTime(page.updatedAt)}</span>
+          ) : (
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-body text-foreground" dir="auto">
+                {page.title}
+              </span>
+              <span className="flex items-center gap-1 text-label text-muted-foreground">
+                {page.visibility === "link" ? (
+                  <>
+                    <Globe aria-hidden="true" className="size-3" strokeWidth={1.8} />
+                    <Trans>Shared</Trans>
+                    <span aria-hidden="true">·</span>
+                  </>
+                ) : null}
+                <span>{formatRelativeTime(page.updatedAt)}</span>
+              </span>
             </span>
-          </span>
+          )}
         </button>
       )}
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label={t`Actions for ${page.title}`}
-          className="me-1 grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+          className={`me-1 grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent ${preview ? "opacity-0 group-hover/page:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100 [@media(hover:none)]:opacity-100" : ""}`}
         >
           <MoreHorizontal className="size-4" />
         </DropdownMenuTrigger>
@@ -266,28 +283,25 @@ function OwnerPages({
     </div>
   ) : null;
   if (preview) {
-    const more = items.length > PREVIEW_COUNT || pages.hasNextPage;
+    const more = items.length > PAGES_PREVIEW_COUNT || pages.hasNextPage;
     return (
-      <section data-testid="bot-pages">
-        <SectionHeading variant="label" className="mb-2 flex min-h-6 items-center">
-          {more ? (
-            <button
-              type="button"
-              onClick={preview.onOpenAll}
-              className="flex items-center gap-1 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Trans>Pages</Trans>
-              <ChevronRight aria-hidden="true" className="size-3.5 rtl:rotate-180" />
-            </button>
-          ) : (
-            <Trans>Pages</Trans>
-          )}
-        </SectionHeading>
+      <div data-testid="bot-pages">
         {actionError}
-        <ul className="flex flex-col">{[...pinned, ...rest].slice(0, PREVIEW_COUNT).map(row)}</ul>
+        <ul className="flex flex-col">
+          {[...pinned, ...rest].slice(0, PAGES_PREVIEW_COUNT).map(row)}
+        </ul>
         {laterReadError}
+        {more ? (
+          <button
+            type="button"
+            onClick={preview.onOpenAll}
+            className="w-full py-2.5 text-center text-body text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          >
+            <Trans>Show more</Trans>
+          </button>
+        ) : null}
         {deleteDialog}
-      </section>
+      </div>
     );
   }
   return (

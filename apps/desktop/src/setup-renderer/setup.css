@@ -392,7 +392,8 @@ html[data-platform="win32"] .titlebar {
   padding-right: 12px;
   align-items: center;
   gap: 2px;
-  -webkit-app-region: drag;
+  /* Not a drag region, so a pointer leaving a button lands on the page and its hover clears. */
+  -webkit-app-region: no-drag;
 }
 
 html[data-platform="linux"] .window-controls {

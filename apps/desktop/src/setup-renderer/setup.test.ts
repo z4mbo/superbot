@@ -697,3 +697,32 @@ describe("setup", () => {
     expect(element("stack-detail").textContent).toBe("Pobrano 3 MB");
   });
 });
+
+describe("setup window controls", () => {
+  const css = readFileSync(path.join(srcDir, "setup.css"), "utf8");
+  /** The declarations of the rule whose selector is exactly `selector`. */
+  const rule = (selector: string) => {
+    const sheet = `\n${css}`;
+    const opening = `\n${selector} {`;
+    const start = sheet.indexOf(opening);
+    if (start < 0) return "";
+    const body = sheet.slice(start + opening.length);
+    return body.slice(0, body.indexOf("}"));
+  };
+
+  it("keeps the controls out of the drag region, so leaving a button clears its hover", () => {
+    expect(rule(".window-controls")).toContain("-webkit-app-region: no-drag");
+    expect(rule(".window-controls button")).toContain("-webkit-app-region: no-drag");
+  });
+
+  it("paints no fill at rest, a neutral one on hover and red behind close", () => {
+    expect(rule(".window-controls button")).toContain("background: transparent");
+    expect(rule(".window-controls button:hover")).toContain("var(--foreground) 8%");
+    expect(rule(".window-controls .window-close:hover")).toContain(
+      "background: var(--destructive-fill)",
+    );
+    expect(rule(".window-controls .window-close:hover")).toContain(
+      "color: var(--destructive-foreground)",
+    );
+  });
+});

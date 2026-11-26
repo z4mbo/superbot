@@ -7,7 +7,7 @@ import { flush } from "@rakazo/core/test-async";
 import type * as UiWeb from "@rakazo/ui-web";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps, ReactNode } from "react";
-import { act } from "react";
+import { act, useState } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,7 +45,8 @@ vi.mock("@lingui/react/macro", () => {
   return { useLingui: () => ({ t }), Trans: ({ children }: { children: ReactNode }) => children };
 });
 vi.mock("@rakazo/ui-web", async (importOriginal) => {
-  const { OptionSelect } = await importOriginal<typeof UiWeb>();
+  const { OptionSelect, Tabs, TabsContent, TabsList, TabsTrigger, cn } =
+    await importOriginal<typeof UiWeb>();
   const { createContext, useContext } = await import("react");
   const PopoverOpen = createContext<(open: boolean) => void>(() => undefined);
   return {
@@ -64,6 +65,11 @@ vi.mock("@rakazo/ui-web", async (importOriginal) => {
     Input: (props: ComponentProps<"input">) => <input {...props} />,
     Textarea: (props: ComponentProps<"textarea">) => <textarea {...props} />,
     OptionSelect,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+    cn,
     Switch: ({
       onCheckedChange,
       checked,
@@ -116,6 +122,9 @@ vi.mock("@rakazo/ui-web", async (importOriginal) => {
   };
 });
 vi.mock("../../../components/pages/PagesList", () => ({ PagesList: () => null }));
+vi.mock("./bot-panel-library", () => ({
+  BotPanelLibrary: () => <div data-testid="bot-panel-library" />,
+}));
 vi.mock("./avatar-studio-popover", () => ({
   AvatarStudioPopover: ({
     value,
@@ -139,6 +148,7 @@ vi.mock("../../space/KnowledgeSection", () => ({
 
 import { spaceQueries } from "../../../lib/query/query";
 import { rpc } from "../../../lib/query/rpc";
+import type { BotPanelView } from "./bot-panel";
 import { BotSettings } from "./bot-panel";
 import { InstructionSettings } from "./instruction-settings";
 
@@ -191,16 +201,39 @@ const onSave = vi.fn(
 );
 const onExport = vi.fn(async () => undefined);
 
-async function render(description = "Billing", overrides: Partial<Bot> = {}, focusModel = 0) {
+const onViewChange = vi.fn((_view: BotPanelView) => undefined);
+
+/** Holds the panel's view, as the shell does. */
+function Harness(props: Omit<ComponentProps<typeof BotSettings>, "view" | "onViewChange">) {
+  const [view, setView] = useState<BotPanelView>("settings");
+  return (
+    <BotSettings
+      {...props}
+      view={view}
+      onViewChange={(next) => {
+        onViewChange(next);
+        setView(next);
+      }}
+    />
+  );
+}
+
+async function render(
+  description = "Billing",
+  overrides: Partial<Bot> = {},
+  focusModel = 0,
+  extra: Partial<ComponentProps<typeof BotSettings>> = {},
+) {
   await act(async () => {
     root.render(
       <QueryClientProvider client={queryClient}>
-        <BotSettings
+        <Harness
           focusModel={focusModel}
           bot={bot(description, overrides)}
           onSave={onSave}
           onExport={onExport}
           onClear={() => undefined}
+          {...extra}
         />
       </QueryClientProvider>,
     );
@@ -238,10 +271,17 @@ async function openSettings() {
   await act(async () => settingsButton().click());
 }
 
+/** The gear at the top of the panel, which opens the bot's settings. */
 function settingsButton() {
-  return container.querySelector<HTMLButtonElement>(
-    '[data-testid="bot-settings-advanced"] button',
-  )!;
+  return container.querySelector<HTMLButtonElement>('[data-testid="bot-settings-open"]')!;
+}
+
+function settingsView() {
+  return container.querySelector<HTMLElement>('[data-testid="bot-settings-advanced"]')!;
+}
+
+function tabs() {
+  return [...container.querySelectorAll<HTMLElement>('[role="tab"]')];
 }
 
 async function openModelPicker() {
@@ -267,6 +307,7 @@ async function selectThinking(label: string) {
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  onViewChange.mockClear();
   onSave.mockReset().mockResolvedValue(undefined);
   onExport.mockReset().mockResolvedValue(undefined);
   vi.mocked(rpc.bots.update).mockReset();
@@ -284,30 +325,72 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it("shows the profile and folds the settings away", async () => {
+it("shows the avatar and name over the Activity and Library tabs, Activity first", async () => {
+  await render("Billing", {}, 0, {
+    computer: <div data-testid="computer-card" />,
+    routines: {
+      routines: [],
+      loaded: true,
+      onCreate: () => undefined,
+      onEdit: () => undefined,
+      onStop: () => undefined,
+      onToggle: () => undefined,
+    },
+  });
+  const header = container.querySelector('[data-testid="bot-profile-header"]')!;
+  expect(header.textContent).toBe("Ada");
+  // The label and its editor live with the settings, not on the panel itself.
+  expect(header.querySelector('button[aria-label="Edit name"]')).toBeNull();
+  expect(header.textContent).not.toContain("Add label");
+  expect(tabs().map((tab) => [tab.textContent, tab.getAttribute("aria-selected")])).toEqual([
+    ["Activity", "true"],
+    ["Library", "false"],
+  ]);
+  const activity = container.querySelector('[data-testid="bot-panel-activity"]')!;
+  expect(activity.querySelector('[data-testid="computer-card"]')).not.toBeNull();
+  expect(activity.querySelector('[data-testid="routine-create-button"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="bot-panel-library"]')).toBeNull();
+
+  await act(async () => tabs()[1]!.click());
+  expect(tabs()[1]!.getAttribute("aria-selected")).toBe("true");
+  expect(container.querySelector('[data-testid="bot-panel-library"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="bot-panel-activity"]')).toBeNull();
+
+  await act(async () => tabs()[0]!.click());
+  expect(container.querySelector('[data-testid="bot-panel-activity"]')).not.toBeNull();
+});
+
+it("keeps every setting behind the gear and comes back from it", async () => {
   await render("Billing");
-  expect(container.querySelector('[data-testid="bot-profile-header"]')?.textContent).toContain(
-    "Ada",
-  );
-  expect(container.querySelector('input[aria-label="Name"]')).toBeNull();
-  expect(container.querySelector('[role="tab"]')).toBeNull();
-  expect(
-    [...container.querySelectorAll("button")].some((button) => button.textContent === "Save"),
-  ).toBe(false);
-  const settings = document.getElementById(settingsButton().getAttribute("aria-controls")!)!;
-  expect(settingsButton().getAttribute("aria-expanded")).toBe("false");
-  expect(settings.hidden).toBe(true);
+  expect(settingsButton().getAttribute("aria-label")).toBe("Bot settings");
+  expect(settingsView().hidden).toBe(true);
   await openSettings();
-  expect(settingsButton().getAttribute("aria-expanded")).toBe("true");
-  expect(settings.hidden).toBe(false);
+  expect(onViewChange).toHaveBeenLastCalledWith("manage");
+  expect(settingsView().hidden).toBe(false);
+  expect(
+    container.querySelector<HTMLElement>('[data-testid="bot-profile-header"]')!.closest("[hidden]"),
+  ).not.toBeNull();
+  const settings = settingsView();
+  expect(settings.querySelector('button[aria-label="Edit name"]')?.textContent).toBe("Ada");
+  expect(settings.querySelector('button[aria-label="Edit label"]')?.textContent).toBe("Add label");
   expect(settings.querySelector('textarea[id$="-instructions"]')).not.toBeNull();
+  expect(settings.querySelector('textarea[id$="-description"]')).not.toBeNull();
   expect(settings.querySelector('[data-testid="bot-settings-tools"]')).toBeNull();
-  const card = settings.firstElementChild!;
+  expect([...settings.querySelectorAll("button")].map((button) => button.textContent)).toEqual(
+    expect.arrayContaining(["Export", "Clear conversation"]),
+  );
+  const card = settings.querySelector('button[id$="-model"]')!.closest("div.rounded-xl")!;
   expect(
     [...card.querySelectorAll('label, button[id$="-model"]')].map(
       (node) => node.firstChild?.textContent,
     ),
   ).toEqual(["Model", "Notifications", "Own computer"]);
+
+  await act(async () =>
+    settings.querySelector<HTMLButtonElement>('button[aria-label="Back"]')!.click(),
+  );
+  expect(onViewChange).toHaveBeenLastCalledWith("settings");
+  expect(settingsView().hidden).toBe(true);
 });
 
 describe("BotSettings model choices", () => {
@@ -718,9 +801,10 @@ it("cancels an inline name edit", async () => {
   expect(onSave).not.toHaveBeenCalled();
 });
 
-it("focuses the model control for a model deep link", async () => {
+it("opens the settings and focuses the model control for a model deep link", async () => {
   await render("", {}, 1);
-  expect(settingsButton().getAttribute("aria-expanded")).toBe("true");
+  expect(onViewChange).toHaveBeenCalledExactlyOnceWith("manage");
+  expect(settingsView().hidden).toBe(false);
   expect(document.activeElement?.id.endsWith("-model")).toBe(true);
 });
 

@@ -293,19 +293,23 @@ export const Transcript = memo(function Transcript({
   const shownItems = showTail ? items.slice(-FIRST_FRAME_ROWS) : items;
   const continuedSenderIds = continuedSenderMessageIds(shownItems, separatorIds, unreadDividerId);
   // With nothing more specific to show, the line turns over a few short phrases while the bot works.
-  const workingPhrases = [
-    t`Getting it done`,
-    t`Making progress`,
-    t`Chipping away`,
-    t`Working on it`,
-  ];
+  const workingPhrases = [t`On it`, t`Thinking it through`, t`Putting it together`, t`Still on it`];
   const phraseClock = useNow(running ? WORKING_PHRASE_MS : null);
+  const activityLine = liveActivityLine(messages);
+  // Screen readers hear what the bot is doing, never the turning phrases.
+  const workingStatus =
+    activityLine ?? (workingRoutine ? t`Running ${workingRoutine}…` : t`Working…`);
   const workingLabel =
-    liveActivityLine(messages) ??
-    (workingRoutine
-      ? t`Running ${workingRoutine}…`
-      : (workingPhrases[Math.floor(phraseClock / WORKING_PHRASE_MS) % workingPhrases.length] ??
-        t`Working…`));
+    activityLine === undefined && !workingRoutine
+      ? (workingPhrases[Math.floor(phraseClock / WORKING_PHRASE_MS) % workingPhrases.length] ??
+        workingStatus)
+      : workingStatus;
+  // A reply streaming into the transcript is its own sign of work, so the line steps aside for it.
+  const working =
+    running &&
+    !messages.some(
+      (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
+    );
   const [quoteDraft, setQuoteDraft] = useState<{
     message: ThreadMessage;
     text: string;
@@ -642,7 +646,7 @@ export const Transcript = memo(function Transcript({
             following.current = false;
           }
         }}
-        className={`rk-scroll isolate flex min-h-0 flex-1 flex-col gap-4 mask-t-from-[calc(100%-60px)] overflow-x-hidden overflow-y-auto scroll-pt-16 scroll-pb-7 pt-20 pb-8.5 md:pt-[84px] md:pb-9.5 ${TRANSCRIPT_CONTENT_PADDING}`}
+        className={`rk-scroll isolate flex min-h-0 flex-1 flex-col gap-4 mask-t-from-[calc(100%-60px)] overflow-x-hidden overflow-y-auto scroll-pt-16 scroll-pb-7 pt-20 pb-7 md:pt-[84px] ${TRANSCRIPT_CONTENT_PADDING}`}
         style={
           userBubble
             ? ({
@@ -817,16 +821,28 @@ export const Transcript = memo(function Transcript({
           );
         })}
         {/* The working line has a slot of its own below the last message, so the transcript
-            does not move when a run starts or ends. */}
-        {running &&
-        !messages.some(
-          (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
-        ) ? (
-          <div className="-mt-3">
-            <ActiveBotGlyph bots={workingBots} label={workingLabel} />
-          </div>
+            does not move when a run starts or ends. Sticky insets count from inside the scroller's
+            padding (pb-7, the strip the composer overlaps), so bottom-0 ends the slot at the
+            composer's top edge: scrolled back, the line stays parked there over a fade instead of
+            leaving with the last message. In a short chat the spacer before it takes the free
+            room, so the line still sits on the composer; once the chat fills the view the spacer's
+            margins cancel both gaps but 4px under the last message. */}
+        {working ? (
+          <>
+            <div aria-hidden="true" className="-my-3.5 flex-1" />
+            <div
+              data-testid="working-slot"
+              className="sticky bottom-0 z-10 bg-linear-to-t from-background from-70% to-transparent pb-2.5 md:pb-3.5"
+            >
+              <ActiveBotGlyph
+                bots={workingBots}
+                label={workingLabel}
+                announcement={workingStatus}
+              />
+            </div>
+          </>
         ) : shownItems.length > 0 ? (
-          <div aria-hidden="true" className="-mt-3 min-h-10" />
+          <div aria-hidden="true" className="-mt-3 h-11.5 md:h-12.5" />
         ) : null}
       </div>
       <span role="status" data-testid="reply-announcement" className="sr-only">
@@ -841,7 +857,7 @@ export const Transcript = memo(function Transcript({
         aria-hidden={atEnd}
         tabIndex={atEnd ? -1 : 0}
         onClick={jumpToLatest}
-        className={`absolute bottom-11 left-1/2 z-20 -translate-x-1/2 shadow-md transition-[opacity,transform,background-color] duration-200 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none ${
+        className={`absolute ${working ? "bottom-20" : "bottom-11"} left-1/2 z-20 -translate-x-1/2 shadow-md transition-[opacity,transform,background-color] duration-200 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none ${
           atEnd ? "pointer-events-none translate-y-2 opacity-0" : "translate-y-0 opacity-100"
         }`}
       >

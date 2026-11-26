@@ -288,7 +288,11 @@ function SpaceShell({ threadId }: { threadId?: string }) {
   const inGroup = Boolean(groupId);
   const chatPanelOpen = inGroup
     ? panel === "group-settings"
-    : panel === "routines" || panel === "pages" || panel === "settings" || panel === "routine";
+    : panel === "routines" ||
+      panel === "pages" ||
+      panel === "settings" ||
+      panel === "manage" ||
+      panel === "routine";
   // Until the route names the chat reopened from cache, that chat stands in for it.
   const routeChat = botId || groupId ? undefined : startChat;
   const linkedBot = threadId === undefined ? undefined : bots.find((bot) => bot.id === botId);
@@ -1072,9 +1076,6 @@ function SpaceShell({ threadId }: { threadId?: string }) {
         setCreateMenuOpen={setCreateMenuOpen}
         search={search}
         bots={bots}
-        groups={groups}
-        collapsedSidebarSections={collapsedSidebarSections}
-        toggleSidebarSection={toggleSidebarSection}
         setPanel={setPanel}
         navigate={navigate}
         setNewSpaceOpen={dialogs.setNewSpaceOpen}

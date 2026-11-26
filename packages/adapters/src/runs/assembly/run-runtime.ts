@@ -26,6 +26,7 @@ import {
   createSecurityEventPruner,
   securityEventRetentionDays,
 } from "@rakazo/db";
+import { createBotCapabilitiesReconciler } from "../../bots/bot-capabilities-reconciler.js";
 import { cliModelRuntime } from "../../cli-models/runtime.js";
 import { reconcileCloudAgents } from "../../cloud-agents/cloud-agent-service.js";
 import { createIdleComputerSweeper } from "../../computers/computer-idle.js";
@@ -450,5 +451,9 @@ export function createRunReconciler(
       { intervalMs: 60_000 },
     ),
     reconcileIdleComputers: createIdleComputerSweeper({ prisma, jobs }),
+    reconcileBotCapabilities: createBotCapabilitiesReconciler({
+      prisma,
+      onChanged: (spaceIds) => void deps.events?.publishRosterChange?.({ spaceIds }),
+    }),
   });
 }
