@@ -62,6 +62,14 @@ describe("inferScript background helpers", () => {
   });
 });
 
+describe("inferScript media tools", () => {
+  it("calls a media tool by name with its JSON arguments", () => {
+    expect(inferScript('call generate_video with {"prompt":"a lighthouse"}')[0]?.toolCalls).toEqual(
+      [{ name: "generate_video", args: { prompt: "a lighthouse" } }],
+    );
+  });
+});
+
 describe("inferScript save_page", () => {
   it("calls save_page only with a JSON object and treats anything else as plain words", () => {
     expect(inferScript('call save_page with {"help":true}')[0]?.toolCalls).toEqual([
