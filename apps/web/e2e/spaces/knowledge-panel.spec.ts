@@ -148,6 +148,8 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
   });
   await openBotSettings(page);
   const settings = page.getByTestId("bot-settings");
+  // Memory sits on the profile's Knowledge tab.
+  await settings.getByRole("tab", { name: "Knowledge", exact: true }).click();
   await expect(settings.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
   const botMemory = settings.getByTestId("bot-knowledge-memory");
   const botMemoryRow = botMemory.getByRole("button", { name: /MEMORY\.md/ });
@@ -310,6 +312,7 @@ test("a new bot hides its untouched memory index", async ({ page }, testInfo) =>
   );
   const settings = page.getByTestId("bot-settings");
   await expect(settings.getByRole("button", { name: "Edit name" })).toHaveText("Researcher");
+  await settings.getByRole("tab", { name: "Knowledge", exact: true }).click();
   await expect(settings.getByTestId("bot-knowledge-memory")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "bot-settings-empty-memory");
 });

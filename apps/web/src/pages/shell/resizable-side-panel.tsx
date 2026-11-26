@@ -54,9 +54,12 @@ export function ResizableSidePanel({
   panel,
   children,
   onCoversChat,
+  fullPage = false,
 }: {
   open: boolean;
   panel: string;
+  /** Takes the chat's whole column, as the bot's profile does, instead of sitting beside it. */
+  fullPage?: boolean;
   /** Tells the shell when the open panel covers nearly all of the chat, so it can make the chat inert. */
   onCoversChat?: (covers: boolean) => void;
   children: ReactNode;
@@ -68,7 +71,7 @@ export function ResizableSidePanel({
   const reservedLeadingPx = belowMd ? 0 : sidebarWidth;
   const chatWidth = viewportWidth - reservedLeadingPx;
   const maxWidth = maximumWidth(reservedLeadingPx, viewportWidth);
-  const overlay = belowMd || chatWidth < MIN_CHAT_WIDTH + MIN_WIDTH;
+  const overlay = fullPage || belowMd || chatWidth < MIN_CHAT_WIDTH + MIN_WIDTH;
   const [dragging, setDragging] = useState(false);
   // The page draws the window controls at the panel's top right (Linux), so the panel's header shares
   // their row, as in the reference. Where the operating system draws them over the page instead
@@ -76,7 +79,7 @@ export function ResizableSidePanel({
   const sharesControlsRow = windowControlsKind(desktopBridge()) === "page";
   const panelRef = useRef<HTMLElement>(null);
   const drag = useRef<{ x: number; width: number; direction: number } | null>(null);
-  const width = Math.max(MIN_WIDTH, Math.min(maxWidth, preferredWidth));
+  const width = fullPage ? chatWidth : Math.max(MIN_WIDTH, Math.min(maxWidth, preferredWidth));
 
   useEffect(() => {
     try {
@@ -90,7 +93,11 @@ export function ResizableSidePanel({
     setViewportWidth(window.innerWidth);
   }, []);
 
-  const panelWidth = belowMd ? Math.min(viewportWidth, MOBILE_PANEL_MAX_WIDTH) : width;
+  const panelWidth = fullPage
+    ? chatWidth
+    : belowMd
+      ? Math.min(viewportWidth, MOBILE_PANEL_MAX_WIDTH)
+      : width;
   const covering = open && overlay && chatWidth - panelWidth < MAX_VISIBLE_CHAT_WIDTH;
   useEffect(() => {
     if (!covering) return;
@@ -131,10 +138,11 @@ export function ResizableSidePanel({
       data-testid="side-panel"
       data-panel={panel}
       data-overlay={overlay || undefined}
+      data-full-page={fullPage || undefined}
       style={panelStyle}
-      className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-background focus:outline-none ${overlay ? "md:absolute" : "md:relative"} ${dragging ? "" : "transition-[width] duration-150 ease-out motion-reduce:transition-none"} ${open ? "w-full max-w-[384px] border-s border-hairline md:w-(--panel-width) md:max-w-none" : "pointer-events-none w-0"}`}
+      className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-background focus:outline-none ${overlay ? "md:absolute" : "md:relative"} ${dragging ? "" : "transition-[width] duration-150 ease-out motion-reduce:transition-none"} ${open ? (fullPage ? "w-full md:w-(--panel-width)" : "w-full max-w-[384px] border-s border-hairline md:w-(--panel-width) md:max-w-none") : "pointer-events-none w-0"}`}
     >
-      {open ? (
+      {open && !fullPage ? (
         <hr
           tabIndex={0}
           aria-label={t`Resize panel`}

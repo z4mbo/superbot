@@ -25,6 +25,7 @@ export function ChatHeader({
   onOpenNavigation,
   onTogglePanel,
   modelPicker,
+  access,
 }: {
   inGroup: boolean;
   active: Bot | undefined;
@@ -39,6 +40,8 @@ export function ChatHeader({
   onTogglePanel: () => void;
   /** The bot's model, shown inside the capsule beside its name. */
   modelPicker?: ReactNode;
+  /** Who can use the bot: its Private or Shared pill. */
+  access?: ReactNode;
 }) {
   const { t } = useLingui();
   const referral = useBilling().status?.referral;
@@ -135,6 +138,7 @@ export function ChatHeader({
             </Button>
           </IconTooltip>
         ) : null}
+        {access}
       </div>
       {referral ? (
         <InviteDialog referral={referral} open={inviteOpen} onOpenChange={setInviteOpen} />
