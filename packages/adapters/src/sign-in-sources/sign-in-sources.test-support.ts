@@ -44,27 +44,29 @@ function matches(row: Row, where: Row = {}): boolean {
 
 function table(rows: Row[], prefix: string) {
   let next = 1;
+  // Copies, as the database returns: a caller holding a row never sees later writes.
+  const copy = (row: Row | undefined) => (row ? { ...row } : null);
   const newest = (a: Row, b: Row) =>
     Number(b.createdAt ?? b.resolvedAt ?? 0) - Number(a.createdAt ?? a.resolvedAt ?? 0);
   return {
     rows,
-    findUnique: async ({ where }: { where: Row }) => rows.find((row) => matches(row, where)) ?? null,
+    findUnique: async ({ where }: { where: Row }) => copy(rows.find((row) => matches(row, where))),
     findUniqueOrThrow: async ({ where }: { where: Row }) => {
       const row = rows.find((entry) => matches(entry, where));
       if (!row) throw new Error(`No ${prefix} row`);
-      return row;
+      return { ...row };
     },
     findFirst: async ({ where }: { where: Row }) =>
-      rows.filter((row) => matches(row, where)).sort(newest)[0] ?? null,
+      copy(rows.filter((row) => matches(row, where)).sort(newest)[0]),
     create: async ({ data }: { data: Row }) => {
       const row = { id: `${prefix}-${next++}`, createdAt: new Date(), ...data };
       rows.push(row);
-      return row;
+      return { ...row };
     },
     update: async ({ where, data }: { where: Row; data: Row }) => {
       const row = rows.find((entry) => matches(entry, where));
       if (!row) throw new Error(`No ${prefix} row`);
-      return Object.assign(row, data);
+      return { ...Object.assign(row, data) };
     },
     updateMany: async ({ where, data }: { where: Row; data: Row }) => {
       const found = rows.filter((row) => matches(row, where));
@@ -73,10 +75,10 @@ function table(rows: Row[], prefix: string) {
     },
     upsert: async ({ where, create, update }: { where: Row; create: Row; update: Row }) => {
       const row = rows.find((entry) => matches(entry, where));
-      if (row) return Object.assign(row, update);
+      if (row) return { ...Object.assign(row, update) };
       const created = { id: `${prefix}-${next++}`, createdAt: new Date(), ...create };
       rows.push(created);
-      return created;
+      return { ...created };
     },
     delete: async ({ where }: { where: Row }) => {
       const index = rows.findIndex((row) => matches(row, where));
