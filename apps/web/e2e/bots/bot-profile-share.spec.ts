@@ -102,7 +102,9 @@ test("the bot's profile takes the chat's place and closes back to it", async ({
   // Add opens the screen that manages them.
   await profile.getByTestId("bot-profile-skills").getByRole("button", { name: "Add" }).click();
   await expect(page).toHaveURL(/[?&]skills/);
-  await page.keyboard.press("Escape");
+  const store = page.getByRole("dialog", { name: "Store", exact: true });
+  await store.getByRole("button", { name: "Close store", exact: true }).click();
+  await expect(store).toBeHidden();
   await expect(profile).toBeVisible();
 
   await profile.getByRole("button", { name: "Close profile", exact: true }).click();
