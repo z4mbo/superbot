@@ -70,8 +70,14 @@ test("sidebar buttons, palette, account menu and tooltips follow the reference",
     .toEqual([640, 120]);
   await expect(palette).toHaveCSS("border-radius", "18px");
   await expect(page.getByTestId("command-palette-search")).toHaveCSS("font-size", "20px");
+  // The search is the palette's first line, with no field drawn around it.
+  const searchField = palette.locator('[data-slot="input-group"]');
+  await expect(searchField).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
+  await expect(searchField).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   const firstBot = page.getByTestId("command-palette-list").locator("[cmdk-item]").first();
   await expect(firstBot.locator(":scope > *").first()).toHaveCSS("width", "28px");
+  // 8px above and below a two-line row makes the reference's 56px.
+  await expect(firstBot).toHaveCSS("padding-top", "8px");
   await captureScreenshot(page, testInfo, "reference-palette");
   await page.keyboard.press("Escape");
   await expect(palette).toBeHidden();
