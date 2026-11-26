@@ -82,11 +82,14 @@ function setQuery(key: string, state: QueryState) {
   for (const listener of query.listeners) listener();
 }
 
-/** Starts listening and asks the host for the current state, which may be newer than the boot's. */
+/**
+ * Starts listening and asks the host for the current state, which may be newer than the boot's.
+ * Ready goes out before anything else the view sends: the host treats it as a new document and
+ * forgets the queries it was following, so a query sent ahead of it would never be answered.
+ */
 function listen() {
   if (listening || typeof window === "undefined") return;
   listening = true;
-  queueMicrotask(() => post({ type: READY_MESSAGE }));
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent) return;
     const data = event.data as Record<string, unknown> | null;
@@ -123,6 +126,7 @@ function listen() {
         });
     }
   });
+  post({ type: READY_MESSAGE });
 }
 
 export function subscribe(listener: () => void) {
