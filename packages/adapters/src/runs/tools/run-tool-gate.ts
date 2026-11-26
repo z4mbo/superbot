@@ -84,6 +84,17 @@ import { callMediaTool, isMediaToolName } from "./run-tools-files.js";
 import { callPaidService } from "./run-tools-integrations.js";
 import { USER_COMPUTER_TOOLS, userComputerGate } from "./run-tools-user-computer.js";
 
+/**
+ * Site-sending tools that reach a site only when given a url: paid_request with only a purchase id
+ * sends the request its approval already named, and the understanding tools may read a workspace
+ * file or an attachment instead.
+ */
+const URL_OPTIONAL_SITE_TOOLS: ReadonlySet<string> = new Set([
+  "paid_request",
+  "vision_analyze",
+  "video_analyze",
+]);
+
 export type AppliedEffect = Awaited<ReturnType<typeof recordEffect>>;
 
 /** A tool call that passed its approval gate, as tool handlers receive it. */
@@ -165,10 +176,10 @@ export async function gateToolCall(
   const connectorKind = connectorKindFromToolName(approvalName, connectorProviders);
   const watch = name === "schedule_create" ? watchFromTool(args.watch) : undefined;
   const httpWatch = watch?.kind === "http";
-  // paid_request with only a purchase id sends the request its approval already named.
   const sendsToSite =
     httpWatch ||
-    (SITE_SENDING_TOOLS.has(name) && (name !== "paid_request" || args.url !== undefined));
+    (SITE_SENDING_TOOLS.has(name) &&
+      (!URL_OPTIONAL_SITE_TOOLS.has(name) || args.url !== undefined));
   const fetchUrl = sendsToSite
     ? normalizedHttpUrl(String(httpWatch ? watch.url : (args.url ?? "")))
     : undefined;

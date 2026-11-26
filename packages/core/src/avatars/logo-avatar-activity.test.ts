@@ -62,19 +62,24 @@ describe("logo avatar activity from public events", () => {
     expect(logoAvatarActivity(state)).toBe("idle");
   });
 
-  it.each(["read_file", "web_fetch", "firecrawl_scrape", "read_history", "skill_read"])(
-    "recognises the exact read operation %s",
-    (name) => {
-      expect(
-        logoAvatarActivity(
-          reduceLogoAvatarSignals(
-            started(),
-            event(2, "agent.tool.called", { name, executionId: "tool-1" }),
-          ),
+  it.each([
+    "read_file",
+    "web_fetch",
+    "firecrawl_scrape",
+    "vision_analyze",
+    "video_analyze",
+    "read_history",
+    "skill_read",
+  ])("recognises the exact read operation %s", (name) => {
+    expect(
+      logoAvatarActivity(
+        reduceLogoAvatarSignals(
+          started(),
+          event(2, "agent.tool.called", { name, executionId: "tool-1" }),
         ),
-      ).toBe("reading");
-    },
-  );
+      ),
+    ).toBe("reading");
+  });
 
   it("recognises a file write without calling it streamed reply text", () => {
     const state = reduceLogoAvatarSignals(

@@ -473,3 +473,65 @@ describe("gateToolCall: task threads", () => {
     expect(JSON.stringify(offer.outcome)).toContain("needs the person's answer");
   });
 });
+
+describe("gateToolCall: media understanding", () => {
+  const gateFor = async (name: string, args: Record<string, unknown>) => {
+    plans.length = 0;
+    const executionId = JSON.stringify(["pi-tool", "main", "call-1"]);
+    const request = {
+      name,
+      args,
+      executionId,
+      connectorCall: { tool: name, args, executionId, route: undefined },
+      effectRequest: args,
+      replayEffectToolName: name,
+      heldForApproval: false,
+      settingsChange: false,
+      ignoresAllowRules: false,
+    } as unknown as ToolRequest;
+    const ctx = {
+      deps: { prisma: {} },
+      run: { id: "run-1", userId: "user-1", spaceId: "space-1", trigger: "user" },
+      runId: "run-1",
+      bot: { id: "bot-1", name: "Helper" },
+      thread: { id: "thread-1" },
+      context: { signal: new AbortController().signal },
+      source: { ownerStartedRun: true },
+      tools: { connector: new Map(), connectedPlugins: [] },
+      state: {
+        tainted: false,
+        effects: { consumedIds: new Set(), counts: new Map(), occurrences: [] },
+      },
+      trust: {
+        searchResultUrls: new Set<string>(),
+        loadTrustedSites: async () => new Set<string>(),
+        loadApprovalRules: async () => [],
+        loadAutoReviewPreference: async () => ({ enabled: false, skipApprovals: false }),
+      },
+    };
+    const outcome = await gateToolCall(ctx as never, request, undefined).catch(
+      (error: Error) => error.message,
+    );
+    return { plans: [...plans], outcome: JSON.stringify(outcome) ?? "" };
+  };
+
+  it("reads a workspace file or an attachment without a url, as read_file does", async () => {
+    const read = await gateFor("read_file", { path: "photo.png" });
+    for (const name of ["vision_analyze", "video_analyze"]) {
+      for (const args of [{ path: "photo.png" }, { attachment: "attachments/abc.png" }]) {
+        const analyzed = await gateFor(name, args);
+        expect(analyzed.outcome).not.toContain("url must be");
+        expect(analyzed.plans).toEqual(read.plans);
+      }
+    }
+  });
+
+  it("gates a url on a site the run was not given, as web_fetch does", async () => {
+    const url = "https://images.example.test/cat.png";
+    const fetched = await gateFor("web_fetch", { url });
+    for (const name of ["vision_analyze", "video_analyze"]) {
+      expect((await gateFor(name, { url })).plans).toEqual(fetched.plans);
+      expect((await gateFor(name, { url: "not a url" })).outcome).toContain("url must be");
+    }
+  });
+});

@@ -89,10 +89,14 @@ Built-in tools come from the catalog in `packages/contracts/src/bots/builtin-too
 
 ### Media
 
+The `generate_` tools make new media with a media provider; the `_analyze` tools only read existing media with a connected chat model.
+
 | Tool | What it does |
 | --- | --- |
 | `generate_image` | Generates an image and attaches it to the chat. Asks first. |
 | `generate_video` | Generates a short video and attaches it when ready. Asks first. |
+| `vision_analyze` | Describes one image from the workspace, a chat attachment or a public https URL and answers a question about it, as text. Uses the bot's own model when it reads images, otherwise the person's computer-use model. Offered only when one of them reads images. A URL on a site the run was not given is gated as `web_fetch` is. |
+| `video_analyze` | Does the same for one video. Offered only when a connected model reads video; no supported model is marked as reading video yet, so it is not offered today. |
 
 ### Memory
 

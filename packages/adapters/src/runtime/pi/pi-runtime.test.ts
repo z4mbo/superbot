@@ -169,6 +169,20 @@ describe("describeToolActivity", () => {
     expect(line).not.toContain("user:");
   });
 
+  it("names the image or video an understanding tool reads, never a signed URL's query", () => {
+    expect(describeToolActivity("vision_analyze", { path: "shots/receipt.png" })).toBe(
+      "Looking at image: shots/receipt.png",
+    );
+    expect(describeToolActivity("vision_analyze", { attachment: "attachments/abc.jpg" })).toBe(
+      "Looking at image: attachments/abc.jpg",
+    );
+    const line = describeToolActivity("video_analyze", {
+      url: "https://cdn.example.test/clip.mp4?X-Amz-Signature=abc123",
+    });
+    expect(line).toBe("Watching video: https://cdn.example.test/clip.mp4");
+    expect(describeToolActivity("video_analyze", {})).toBe("Watching video");
+  });
+
   it("falls back to the tool name", () => {
     expect(describeToolActivity("destination_write", undefined)).toBe("Using destination_write");
   });

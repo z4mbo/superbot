@@ -908,10 +908,12 @@ export async function pauseRunForInput(
   return { continuationRunId: committed.continuationRunId };
 }
 
-/** Page readers whose "Always" without a readable site allows nothing, never the whole tool. */
+/** Readers of a url whose "Always" without a readable site allows nothing, never the whole tool. */
 const SITE_READING_TOOLS: ReadonlySet<string> = new Set([
   "web_fetch",
   ...KEYED_PAGE_READ_TOOL_NAMES,
+  "vision_analyze",
+  "video_analyze",
 ]);
 
 function alwaysAllowedSite(effect: {

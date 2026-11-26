@@ -92,6 +92,7 @@ const AREAS: Array<[area: string, matches: (name: string) => boolean]> = [
     "media",
     (name) =>
       name.startsWith("generate_") ||
+      name.endsWith("_analyze") ||
       ["render_plot", "save_page", "read_app_state", "run_app_action"].includes(name),
   ],
   ["cloud agents", (name) => name.startsWith("cloud_agent_")],

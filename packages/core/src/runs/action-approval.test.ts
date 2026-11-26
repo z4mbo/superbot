@@ -1166,6 +1166,19 @@ describe("clicksBeforeTyping", () => {
   });
 });
 
+describe("media understanding approval", () => {
+  it("treats image and video analysis as reads of the person's own content", () => {
+    for (const name of ["vision_analyze", "video_analyze"]) {
+      expect(toolRequiresApproval(name, false)).toBe(false);
+      expect(outsideRunToolRequiresApproval("webhook", name)).toBe(false);
+      // A URL source reaches the site it names, so a new site is gated like web_fetch.
+      expect(SITE_SENDING_TOOLS.has(name)).toBe(true);
+      // What the model reports from outside media is outside content.
+      expect(toolResultTaintsRun(name)).toBe(true);
+    }
+  });
+});
+
 describe("toolResultTaintsRun", () => {
   it("treats outside content as taint, including connector tools and new tools", () => {
     for (const tool of [

@@ -94,6 +94,7 @@ import {
   PRIVATE_WORKSPACE_INSTRUCTION,
   persistentComputerInstruction,
 } from "./run-instructions.prompt.js";
+import type { MediaUnderstanding } from "./run-media-analysis.js";
 import { runReplyMode } from "./run-replies.prompt.js";
 import { createRunTrustLoaders } from "./run-trust.js";
 
@@ -637,6 +638,7 @@ export async function selectRunTools(
     turnContext: TurnContext;
     capabilities: RunCapabilities;
     meetingTranscriptsAvailable?: boolean;
+    mediaUnderstanding?: MediaUnderstanding;
   },
 ) {
   const { contextStrategy, mediaGeneration, paidServices } = services;
@@ -721,6 +723,7 @@ export async function selectRunTools(
       semanticMemoryForgets: Boolean(semanticMemory?.forget),
       semanticMemoryReflects: Boolean(semanticMemory?.reflect),
       ...(await runMediaToolOptions(deps, run, mediaGeneration)),
+      ...parts.mediaUnderstanding,
       paidServicesEnabled: Boolean(paidServices),
       researchTools,
       cloudAgentEnabled: Boolean(cloudAgent),
