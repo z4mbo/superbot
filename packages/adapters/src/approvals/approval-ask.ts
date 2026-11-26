@@ -17,6 +17,7 @@ import {
   USER_COMPUTER_SCREEN_TOOLS,
   userComputerAppName,
 } from "../computers/host/user-computer-tools.js";
+import { checkInTiming, OFFER_CHECK_IN_TOOL } from "../tasks/check-in-offer.js";
 
 export const MAX_APPROVAL_SUMMARY_LENGTH = 500;
 export const MAX_APPROVAL_DETAIL_LENGTH = 4_000;
@@ -158,6 +159,36 @@ export function buildApprovalAskBlock(
       actions: [
         { id: "allow", label: "Allow once" },
         { id: "deny", label: "Deny" },
+      ],
+    };
+  }
+  // An offer, not a permission: the person sets the check-in up or turns it down.
+  if (toolName === OFFER_CHECK_IN_TOOL) {
+    const subject = String(args.subject ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(
+        new RegExp(CARD_TITLE_ESCAPED_CHARACTERS, "g"),
+        "\\  // Only an instruction change held for approval carries the text it replaces.",
+      );
+    const prompt = String(args.prompt ?? "").trim();
+    return {
+      kind: "ask",
+      approvalEffectId: effectId,
+      text: truncate(
+        redactSecrets(`Check in on ${subject} ${checkInTiming(args)}?`, secrets),
+        MAX_APPROVAL_SUMMARY_LENGTH,
+      ),
+      ...(prompt
+        ? {
+            detail: truncate(redactSecrets(prompt, secrets), MAX_APPROVAL_DETAIL_LENGTH),
+            detailFormat: "text" as const,
+          }
+        : {}),
+      status: "pending",
+      actions: [
+        { id: "allow", label: "Set it up", outcome: "scheduled" },
+        { id: "deny", label: "No thanks", outcome: "dismissed" },
       ],
     };
   }

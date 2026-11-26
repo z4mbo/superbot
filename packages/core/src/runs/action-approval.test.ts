@@ -103,6 +103,23 @@ describe("toolRequiresApproval", () => {
     }
   });
 
+  it("treats task threads like subagents: the bot's own work, started and stopped without a card", () => {
+    for (const name of ["delegate", "follow_up", "stop_task", "link_to_thread"]) {
+      expect(toolRequiresApproval(name, false)).toBe(false);
+      expect(toolRequiresExplicitApproval(name)).toBe(false);
+    }
+    // Only listing them is free in a run outside text started; the rest are gated there.
+    expect(outsideRunToolRequiresApproval("webhook", "link_to_thread")).toBe(false);
+    for (const name of ["delegate", "follow_up", "stop_task"]) {
+      expect(outsideRunToolRequiresApproval("webhook", name)).toBe(true);
+    }
+  });
+
+  it("always asks the person to accept a check-in offer, never a rule or reviewer", () => {
+    expect(toolRequiresApproval("offer_check_in", false)).toBe(true);
+    expect(toolRequiresExplicitApproval("offer_check_in")).toBe(true);
+  });
+
   it("always asks a person before rewriting another bot's instructions", () => {
     expect(toolRequiresApproval("set_child_instructions", false)).toBe(true);
     expect(toolRequiresExplicitApproval("set_child_instructions")).toBe(true);

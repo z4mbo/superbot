@@ -29,6 +29,11 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "request_secret",
   "generate_secret",
   "run_subagent",
+  // The bot's own work, started in this conversation and stopped with Stop in its thread too.
+  "delegate",
+  "follow_up",
+  "stop_task",
+  "link_to_thread",
   "spawn_bot",
   "schedule_create",
   "schedule_list",
@@ -67,6 +72,7 @@ const OUTSIDE_RUN_SAFE_BUILTIN_TOOLS = new Set([
   "reflect_memory",
   "request_takeover",
   "run_subagent",
+  "link_to_thread",
   "schedule_list",
   "scratchpad_list",
   "search_files",
@@ -108,6 +114,8 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
 const EXPLICIT_APPROVAL_BUILTIN_TOOLS = new Set([
   // Permanent: the owner sees the exact address before it is theirs for good.
   "claim_email_address",
+  // An offer: its card is the person's own accept or turn-down, never a rule's or a reviewer's.
+  "offer_check_in",
   "respond_agent_connection",
   "set_child_instructions",
 ]);

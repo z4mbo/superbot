@@ -4,7 +4,13 @@ import {
   FLEET_TOOL_NAMES,
   FLEET_WRITE_TOOL_NAMES,
 } from "@rakazo/contracts";
-import { BACKGROUND_HELPER_TRIGGER, isBackgroundRunTrigger, isOwnerStartedRun } from "@rakazo/core";
+import {
+  BACKGROUND_HELPER_TRIGGER,
+  HELPER_RESULT_TRIGGER,
+  isBackgroundRunTrigger,
+  isConversationalRun,
+  isOwnerStartedRun,
+} from "@rakazo/core";
 import { selectCloudAgentTools } from "../../cloud-agents/cloud-agent-tools-select.js";
 import { withMediaChoices } from "../../media/media-generation.tool-definition.js";
 import { READ_MEETING_TRANSCRIPT } from "../../meetings/meeting-chat.tool-definition.js";
@@ -41,6 +47,7 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
   "search_history",
   "request_takeover",
   "run_subagent",
+  "link_to_thread",
   "task_catalog",
   "recall_memory",
   "reflect_memory",
@@ -94,6 +101,11 @@ const BACKGROUND_DROPPED_TOOL_NAMES: ReadonlySet<string> = new Set([
 /** Delegation stays one level deep; account settings and direct replies remain the parent's. */
 export const SUBAGENT_HIDDEN_TOOLS: ReadonlySet<string> = new Set([
   "run_subagent",
+  "delegate",
+  "follow_up",
+  "stop_task",
+  "link_to_thread",
+  "offer_check_in",
   "spawn_bot",
   "message_user",
   "call_user",
@@ -103,6 +115,21 @@ export const SUBAGENT_HIDDEN_TOOLS: ReadonlySet<string> = new Set([
   "update_preferences",
   "feedback",
 ]);
+
+/**
+ * Tools that start or act on task threads: conversations of the bot's own in the app, linked to
+ * the conversation that started them. Offered where a background helper may start, in the bot's
+ * own app chat only: a group or a chat app's conversation cannot open one.
+ */
+export const TASK_THREAD_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "delegate",
+  "follow_up",
+  "stop_task",
+  "link_to_thread",
+]);
+
+/** Offers a check-in the person accepts or turns down; offered where follow-ups are. */
+const CHECK_IN_OFFER_TOOL = "offer_check_in";
 
 /** Cross-owner agent connections only exist for chat-linked bots, in turns that can talk. */
 export function offersAgentConnectionTools(options: {
@@ -169,6 +196,8 @@ export function selectBuiltinToolsForRun(options: {
   emailClaimable?: boolean;
   /** The inbox may be read and this server can send email. */
   emailSend?: boolean;
+  /** The chat is a chat app's conversation, reached from outside the app. */
+  externalConversation?: boolean;
 }) {
   const disabled = disabledBuiltinToolSet(options.disabledBuiltinTools);
   const ownerStartedRun = isOwnerStartedRun(
@@ -184,7 +213,14 @@ export function selectBuiltinToolsForRun(options: {
     !options.groupId &&
     !options.messagingChannelRun;
   const emailMailbox = Boolean(options.emailInbox) || emailClaimOffered;
-  return selectCloudAgentTools(
+  // Where a background helper may start (see backgroundHelpersAllowed).
+  const taskThreadsOffered =
+    options.trigger !== HELPER_RESULT_TRIGGER &&
+    isConversationalRun(options.trigger) &&
+    !options.groupId &&
+    !options.externalConversation &&
+    !options.messagingChannelRun;
+  const selected = selectCloudAgentTools(
     selectMemoryTools(
       filterBuiltinToolsForRun(
         filterBuiltinToolsForThread(
@@ -207,6 +243,7 @@ export function selectBuiltinToolsForRun(options: {
       !builtinToolDisabled(disabled, tool.name) &&
       (options.trigger !== "created" || CREATED_RUN_TOOL_NAMES.has(tool.name)) &&
       (options.trigger !== BACKGROUND_HELPER_TRIGGER || !SUBAGENT_HIDDEN_TOOLS.has(tool.name)) &&
+      (taskThreadsOffered || !TASK_THREAD_TOOL_NAMES.has(tool.name)) &&
       (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
         (Boolean(options.fleetManagement) && ownerStartedRun)) &&
       (options.fleetManagement || tool.name !== "spawn_bot") &&
@@ -263,6 +300,12 @@ export function selectBuiltinToolsForRun(options: {
           !tool.name.startsWith("ticket_"))),
   )
     .map((tool) => withMediaChoices(tool, options.mediaChoices?.[tool.name] ?? ""));
+  // A check-in offer sets up a follow-up, so it goes only where the run may set its own.
+  return selected.filter(
+    (tool) =>
+      tool.name !== CHECK_IN_OFFER_TOOL ||
+      followUpsOffered(selected, ownerStartedRun, options.trigger),
+  );
 }
 
 /**

@@ -169,3 +169,55 @@ describe("workspace tool selection", () => {
     expect(offered).not.toContain("process_manage");
   });
 });
+
+describe("task thread selection", () => {
+  const TASK_TOOLS = ["delegate", "follow_up", "stop_task", "link_to_thread"];
+  const names = (options: Partial<Parameters<typeof selectBuiltinToolsForRun>[0]> = {}) =>
+    selectBuiltinToolsForRun({
+      graphicalToolsAllowed: false,
+      groupId: null,
+      trigger: "user",
+      semanticMemoryEnabled: false,
+      messagingChannelRun: false,
+      ...options,
+    }).map((tool) => tool.name);
+
+  it("offers the task thread tools and the check-in offer in the owner's own app chat", () => {
+    const offered = names();
+    expect(offered).toEqual(expect.arrayContaining([...TASK_TOOLS, "offer_check_in"]));
+    expect(offered).toContain("run_subagent");
+    expect(offered).toContain("schedule_create");
+  });
+
+  it.each([
+    ["a helper's own run", { trigger: "helper" }],
+    ["a helper's result", { trigger: "helper_result" }],
+    ["a routine", { trigger: "routine" }],
+    ["a webhook", { trigger: "webhook" }],
+    ["a group", { groupId: "group" }],
+    ["a chat app's conversation", { externalConversation: true }],
+    ["another person's chat-app message", { trigger: "messaging", messagingChannelRun: true }],
+  ])("hides the task thread tools in %s", (_where, options) => {
+    const offered = names(options);
+    for (const name of TASK_TOOLS) expect(offered).not.toContain(name);
+  });
+
+  it("hides delegation where run_subagent is hidden", () => {
+    const helper = names({ trigger: "helper" });
+    expect(helper).not.toContain("run_subagent");
+    expect(helper).not.toContain("delegate");
+  });
+
+  it("offers a check-in only where the run may set its own follow-ups", () => {
+    expect(names({ groupId: "group" })).toContain("offer_check_in");
+    for (const options of [
+      { trigger: "routine" },
+      { trigger: "helper" },
+      { trigger: "bot_message" },
+      { trigger: "messaging", messagingChannelRun: true },
+      { disabledBuiltinTools: ["schedule_create"] },
+    ]) {
+      expect(names(options)).not.toContain("offer_check_in");
+    }
+  });
+});

@@ -83,6 +83,8 @@ function formatApprovalAnswer(
   const outcome = selectedAction?.outcome;
   if (approval && outcome === "created") return t`Created`;
   if (approval && outcome === "cancelled") return t`Cancelled`;
+  if (approval && outcome === "scheduled") return t`Set up`;
+  if (approval && outcome === "dismissed") return t`Dismissed`;
   if (approval && answer === "allow")
     return allowsSpace(actions) ? t`Allowed in this space` : t`Allowed once`;
   if (approval && answer === "always") return t`Always allowed`;

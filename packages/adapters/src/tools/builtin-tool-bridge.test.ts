@@ -32,6 +32,7 @@ describe("built-in tool bridge", () => {
       "ask_user",
       "attach_file",
       "connect_app",
+      "delegate",
       "edit_file",
       "find_tool",
       "glob",
@@ -97,6 +98,16 @@ describe("built-in tool bridge", () => {
     expect(description).toContain("secrets:\n");
     expect(description).not.toContain("inputSchema");
     expect(listed.some((tool) => tool.name === USE_TOOL)).toBe(true);
+  });
+
+  it("keeps delegate listed and the other task thread tools in their own area", () => {
+    const { listed, deferred } = partitionTools(ownerChat);
+    expect(listed.map((tool) => tool.name)).toContain("delegate");
+    const description = listed.find((tool) => tool.name === FIND_TOOL)!.description;
+    expect(description).toContain("task threads:");
+    for (const name of ["follow_up", "stop_task", "link_to_thread", "offer_check_in"]) {
+      expect(deferred.map((tool) => tool.name)).toContain(name);
+    }
   });
 
   it("finds exact names and ranks a query over names, descriptions and parameters", () => {

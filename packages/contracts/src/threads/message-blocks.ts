@@ -179,7 +179,8 @@ export const MessageBlock = z.discriminatedUnion("kind", [
         z.object({
           id: z.string(),
           label: z.string(),
-          outcome: z.enum(["created", "cancelled"]).optional(),
+          /** Labels the action by what it does: creates a space, or sets up a check-in. */
+          outcome: z.enum(["created", "cancelled", "scheduled", "dismissed"]).optional(),
         }),
       )
       .optional(),

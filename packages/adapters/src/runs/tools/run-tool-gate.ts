@@ -52,6 +52,8 @@ import { isNightlyMemoryReviewRun } from "../../routines/nightly-memory-review.j
 import { asksRoutineEvents } from "../../routines/routine-triggers.js";
 import { resolveCompletedSecretLeftover } from "../../secrets/run-secret.js";
 import { scheduleRunSecretsExpiry } from "../../secrets/run-secrets-expiry.js";
+import { OFFER_CHECK_IN_TOOL } from "../../tasks/check-in-offer.js";
+import { CHECK_IN_NEEDS_AN_ANSWER } from "../../tasks/task-threads.prompt.js";
 import { CATALOG_LOAD, CATALOG_SEARCH } from "../../tools/lazy-tool-catalog.js";
 import { watchFromTool } from "../../tools/schedule-tools.js";
 import type { RunContext } from "../assembly/run-context.js";
@@ -390,6 +392,8 @@ export async function gateToolCall(
         mandatory: mandatoryInAnyRun,
         steerable:
           marketplaceWrite ||
+          // An offer is the person's to answer; Never ask would accept it for them.
+          name === OFFER_CHECK_IN_TOOL ||
           (guardedInNeverAsk &&
             mode === "never" &&
             (!ctx.source.ownerStartedRun || (await isRunTainted(ctx)))),
@@ -408,9 +412,11 @@ export async function gateToolCall(
         "approval_denied",
         approvalResolved.decision === "deny"
           ? `${name} is blocked in this space${blockingRuleSuffix(approvalResolved)}. Don't try it another way; tell the user it's blocked.`
-          : marketplaceWrite
-            ? `Marketplace ${marketplaceApp ? "app writes" : "MCP calls"} require approval. This space is set to Never ask.`
-            : `${name} needs the owner's approval because it could have been asked for by someone else, and this space never asks. Don't retry; tell the user.`,
+          : name === OFFER_CHECK_IN_TOOL
+            ? CHECK_IN_NEEDS_AN_ANSWER
+            : marketplaceWrite
+              ? `Marketplace ${marketplaceApp ? "app writes" : "MCP calls"} require approval. This space is set to Never ask.`
+              : `${name} needs the owner's approval because it could have been asked for by someone else, and this space never asks. Don't retry; tell the user.`,
       ),
     };
   }

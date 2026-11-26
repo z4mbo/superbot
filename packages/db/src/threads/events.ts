@@ -342,12 +342,14 @@ export async function clearThread(
     const runIds = (await cancelRunsInTransaction(tx, activeRuns, now)).map((run) => run.id);
     // Expire as tombstones so a still-open provider screen claim cannot reset fencing to 1.
     await expireComputerExecutionLeases(tx, { runId: { in: runIds } });
-    // Capture hidden histories before deleting their source cards; other chats keep theirs.
+    // Capture hidden histories before deleting their source cards; other chats keep theirs. A
+    // task thread is a conversation the person opens, so it keeps its own history.
     const helperThreads = await tx.thread.findMany({
       where: {
         spaceId: input.spaceId,
         OR: [
           {
+            conversationBotId: null,
             runs: {
               some: {
                 trigger: BACKGROUND_HELPER_TRIGGER,
