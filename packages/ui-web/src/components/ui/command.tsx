@@ -74,7 +74,7 @@ function CommandInput({
     >
       <InputGroup
         size={size}
-        className="rounded-lg! border-input/30! bg-input/30 shadow-none! ring-0! *:data-[slot=input-group-addon]:pl-2! in-data-[slot=dialog-content]:border-transparent! in-data-[slot=dialog-content]:bg-transparent *:data-[slot=input-group-addon]:in-data-[slot=dialog-content]:pl-3.5!"
+        className="rounded-lg! border-input/30! bg-input/30 shadow-none! ring-0! *:data-[slot=input-group-addon]:pl-2! in-data-[slot=dialog-content]:border-transparent! in-data-[slot=dialog-content]:bg-transparent! *:data-[slot=input-group-addon]:in-data-[slot=dialog-content]:pl-3.5!"
       >
         <CommandPrimitive.Input
           data-slot="input-group-control"

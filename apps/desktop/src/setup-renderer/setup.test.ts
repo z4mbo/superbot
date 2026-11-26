@@ -726,3 +726,20 @@ describe("setup window controls", () => {
     );
   });
 });
+
+describe("setup buttons", () => {
+  const css = `\n${readFileSync(path.join(srcDir, "setup.css"), "utf8")}`;
+  const rule = (selector: string) => {
+    const start = css.indexOf(`\n${selector} {`);
+    if (start < 0) return "";
+    const body = css.slice(start + selector.length + 3);
+    return body.slice(0, body.indexOf("}"));
+  };
+
+  it("draws pills with a 2px ring a pixel outside them, as the reference welcome does", () => {
+    expect(rule(".button")).toContain("border-radius: 9999px");
+    expect(rule(".button:focus-visible")).toContain("outline: 2px solid var(--ring)");
+    expect(rule(".button:focus-visible")).toContain("outline-offset: 1px");
+    expect(rule(".button-primary:hover:not(:disabled)")).toContain("var(--primary-hover)");
+  });
+});
