@@ -9,6 +9,7 @@ export interface Io {
   err(text: string): void;
   readonly stdinIsTerminal: boolean;
   readonly stdoutIsTerminal: boolean;
+  readonly stderrIsTerminal: boolean;
   /** Prints `label` and reads one line without its line break; null at the end of input. */
   prompt(label: string): Promise<string | null>;
   /** Prints `label` and reads one line without echoing it. */

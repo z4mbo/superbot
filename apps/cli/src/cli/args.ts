@@ -34,6 +34,7 @@ export type Command =
   | { kind: "tui" }
   | { kind: "workspaces"; command: WorkspaceCommand }
   | { kind: "importBots"; file: string; dryRun: boolean }
+  | { kind: "update" }
   /** A chat: `superbot`, `superbot AGENT` or `superbot chat AGENT`. */
   | {
       kind: "chat";
@@ -44,8 +45,10 @@ export type Command =
 
 export type Parsed =
   | { kind: "run"; global: GlobalOptions; command: Command }
-  /** Help or the version, printed to standard output. */
+  /** Help, printed to standard output. */
   | { kind: "print"; text: string }
+  /** `--version`: the version on standard output, then any update notice. */
+  | { kind: "version"; text: string }
   /** A usage error, printed to standard error with exit status 2. */
   | { kind: "usage"; text: string };
 
@@ -133,7 +136,7 @@ function match(argv: string[], env: Record<string, string | undefined>): Matched
       const long = token.slice(2, equals === -1 ? undefined : equals);
       if (long === "help") return { kind: "print", text: helpText(path) };
       if (long === "version" && path.length === 1) {
-        return { kind: "print", text: `${VERSION_NAME} ${packageJson.version}\n` };
+        return { kind: "version", text: `${VERSION_NAME} ${packageJson.version}\n` };
       }
       const spec = [...command.options, ...GLOBAL_OPTIONS].find((option) => option.long === long);
       if (!spec) throw new UsageError(`unexpected argument '${token}' found`, path);
@@ -172,7 +175,7 @@ function match(argv: string[], env: Record<string, string | undefined>): Matched
       for (const short of token.slice(1)) {
         if (short === "h") return { kind: "print", text: helpText(path) };
         if (short === "V" && path.length === 1) {
-          return { kind: "print", text: `${VERSION_NAME} ${packageJson.version}\n` };
+          return { kind: "version", text: `${VERSION_NAME} ${packageJson.version}\n` };
         }
         throw new UsageError(`unexpected argument '-${short}' found`, path);
       }
@@ -340,6 +343,9 @@ export function parseArgs(
       break;
     case "import-bots":
       command = { kind: "importBots", file: first ?? "", dryRun: flag("dry-run") };
+      break;
+    case "update":
+      command = { kind: "update" };
       break;
     case "chat":
       command = { kind: "chat", agent: first, ...conversation };

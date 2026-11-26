@@ -113,6 +113,7 @@ export function processIo(): Io {
     err,
     stdinIsTerminal: process.stdin.isTTY === true,
     stdoutIsTerminal: process.stdout.isTTY === true,
+    stderrIsTerminal: process.stderr.isTTY === true,
     async prompt(label) {
       out(label);
       return reader.readLine();

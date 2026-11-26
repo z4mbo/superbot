@@ -2,6 +2,7 @@ import type { SettingsEnvironment } from "@rakazo/cli-client";
 import { CredentialStore } from "@rakazo/cli-client";
 import type { LocalModelDrivers } from "../local/local-model.js";
 import type { Io } from "../terminal/io.js";
+import type { UpdateEnvironment } from "../update/update-check.js";
 
 /** Everything a command reads from its surroundings; tests pass their own of each. */
 export type CliContext = {
@@ -13,6 +14,8 @@ export type CliContext = {
   localModels?: LocalModelDrivers;
   /** How long a reply may take before the command stops waiting for it. */
   replyBudgetMs?: number;
+  /** The registry and clock the update check uses; tests pass their own. */
+  updates?: UpdateEnvironment;
 };
 
 export const REPLY_BUDGET_MS = 600_000;

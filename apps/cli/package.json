@@ -1,19 +1,46 @@
 {
   "name": "superbot-cli",
-  "version": "0.1.0",
+  "version": "0.13.0",
   "private": true,
+  "description": "Chat with your Superbot agents from a terminal",
+  "keywords": [
+    "superbot",
+    "cli",
+    "ai",
+    "agents",
+    "chat",
+    "terminal"
+  ],
+  "homepage": "https://github.com/z4mbo/superbot/tree/main/apps/cli#readme",
+  "bugs": {
+    "url": "https://github.com/z4mbo/superbot/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/z4mbo/superbot.git",
+    "directory": "apps/cli"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "superbot": "./bin/superbot.js"
   },
+  "files": [
+    "bin/superbot.js",
+    "dist/superbot.js"
+  ],
   "engines": {
     "node": "^24.15.0 || >=26.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "node build.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --root ../.. apps/cli/src"
+    "test": "vitest run --root ../.. apps/cli/src",
+    "pack:npm": "node release/npm-package.mjs stage dist/npm && node release/npm-package.mjs verify dist/npm"
   },
   "dependencies": {
     "@napi-rs/keyring": "2.1.2",

@@ -19,6 +19,9 @@ import {
 import { discover, findAgent, printCatalog } from "../session/catalog.js";
 import type { CliContext } from "../session/context.js";
 import { errorLine } from "../terminal/io.js";
+import type { BackgroundCheck } from "../update/update-check.js";
+import { startBackgroundCheck } from "../update/update-check.js";
+import { updateCheckCommand } from "../update/update-command.js";
 import type { Command, GlobalOptions } from "./args.js";
 import { parseArgs } from "./args.js";
 
@@ -33,8 +36,29 @@ export async function runCli(argv: string[], context: CliContext): Promise<numbe
     context.io.err(parsed.text);
     return 2;
   }
+  if (parsed.kind === "version") {
+    const check = startBackgroundCheck(context, false);
+    context.io.out(parsed.text);
+    await check?.finish();
+    return 0;
+  }
+  // `update` asks the registry itself.
+  const check: BackgroundCheck | undefined =
+    parsed.command.kind === "update"
+      ? undefined
+      : startBackgroundCheck(context, parsed.global.json);
+  const code = await runCommand(context, parsed.global, parsed.command);
+  await check?.finish();
+  return code;
+}
+
+async function runCommand(
+  context: CliContext,
+  global: GlobalOptions,
+  command: Command,
+): Promise<number> {
   try {
-    await run(context, parsed.global, parsed.command);
+    await run(context, global, command);
     return 0;
   } catch (error) {
     // The command already printed what happened.
@@ -45,6 +69,10 @@ export async function runCli(argv: string[], context: CliContext): Promise<numbe
 }
 
 async function run(context: CliContext, global: GlobalOptions, command: Command): Promise<void> {
+  if (command.kind === "update") {
+    await updateCheckCommand(context, global.json);
+    return;
+  }
   if (command.kind === "server") {
     await serverCommand(context, command.url, global.server);
     return;
