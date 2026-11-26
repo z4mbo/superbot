@@ -5,7 +5,12 @@ import type { RunContext } from "../runs/assembly/run-context.js";
 import type { ToolCall } from "../runs/tools/run-tool-gate.js";
 import { taskThreadTools } from "../runs/tools/run-tools-task-threads.js";
 import { createScheduleFromTool, scheduleCreateError } from "../tools/schedule-tools.js";
-import { checkInOfferRefusal, checkInSchedule, checkInTiming } from "./check-in-offer.js";
+import {
+  checkInOfferRefusal,
+  checkInOfferSummary,
+  checkInSchedule,
+  checkInTiming,
+} from "./check-in-offer.js";
 import { CHECK_IN_ALREADY_DISMISSED } from "./task-threads.prompt.js";
 
 vi.mock("../tools/schedule-tools.js", async (original) => ({
@@ -31,6 +36,12 @@ function harness(denied: { request: unknown; result: unknown }[] = []) {
   return { ctx, findMany };
 }
 
+/** The card the request step describes and the gate shows. */
+const offerCard = (args: Record<string, unknown>) =>
+  buildApprovalAskBlock("effect-1", "offer_check_in", args, [], {
+    summary: checkInOfferSummary(args),
+  });
+
 beforeEach(() => vi.clearAllMocks());
 
 describe("offer_check_in", () => {
@@ -53,7 +64,7 @@ describe("offer_check_in", () => {
   });
 
   it("shows an accept or turn-down card that names what and when", () => {
-    const block = buildApprovalAskBlock("effect-1", "offer_check_in", OFFER, []);
+    const block = offerCard(OFFER);
     expect(block).toMatchObject({
       kind: "ask",
       approvalEffectId: "effect-1",
@@ -68,17 +79,12 @@ describe("offer_check_in", () => {
   });
 
   it("escapes what it names, so the card title shows it as written", () => {
-    const block = buildApprovalAskBlock(
-      "effect-1",
-      "offer_check_in",
-      { ...OFFER, subject: "the *launch* [brief]" },
-      [],
-    );
+    const block = offerCard({ ...OFFER, subject: "the *launch* [brief]" });
     expect(block).toMatchObject({ text: expect.stringContaining("the \\*launch\\* \\[brief\\]") });
   });
 
   it("keeps an older reader's plain approval: its answers are the usual allow and deny", () => {
-    const block = buildApprovalAskBlock("effect-1", "offer_check_in", OFFER, []);
+    const block = offerCard(OFFER);
     // A reader from before checkInOffer drops it and labels these as Allow once and Deny.
     expect(block.kind === "ask" && block.actions?.map((action) => action.id)).toEqual([
       "allow",

@@ -1123,18 +1123,24 @@ it("offers a check-in the person sets up or turns down", async () => {
     "No thanks",
   ]);
   await act(async () => button("Set it up")!.click());
-  expect(onAnswer).toHaveBeenCalledWith("allow");
-
-  onAnswer.mockClear();
-  await render({ ...checkInOffer, approvalEffectId: "effect-2" }, undefined, onAnswer);
-  await act(async () => button("No thanks")!.click());
-  expect(onAnswer).toHaveBeenCalledWith("deny");
+  expect(onAnswer).toHaveBeenCalledExactlyOnceWith("allow");
 });
 
-it("shows an answered check-in offer as set up or dismissed", async () => {
+it("turns a check-in offer down with No thanks", async () => {
+  const onAnswer = vi.fn(async () => undefined);
+  await render(checkInOffer, undefined, onAnswer);
+  await act(async () => button("No thanks")!.click());
+  expect(onAnswer).toHaveBeenCalledExactlyOnceWith("deny");
+});
+
+it("shows a check-in offer the person set up", async () => {
   await render({ ...checkInOffer, status: "answered", answer: "allow" });
   expect(container.textContent).toContain("Set up");
   expect(container.querySelector("button")).toBeNull();
+});
+
+it("shows a check-in offer the person turned down as dismissed", async () => {
   await render({ ...checkInOffer, status: "answered", answer: "deny" });
   expect(container.textContent).toContain("Dismissed");
+  expect(container.querySelector("button")).toBeNull();
 });

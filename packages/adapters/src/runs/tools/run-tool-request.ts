@@ -46,7 +46,11 @@ import {
   vaultCardUseOf,
   vaultLoginUseOf,
 } from "../../secrets/vault/vault-card-use.js";
-import { checkInOfferRefusal, OFFER_CHECK_IN_TOOL } from "../../tasks/check-in-offer.js";
+import {
+  checkInOfferRefusal,
+  checkInOfferSummary,
+  OFFER_CHECK_IN_TOOL,
+} from "../../tasks/check-in-offer.js";
 import { stopTaskSummary } from "../../tasks/task-threads.js";
 import { TASK_THREAD_NOT_FOUND } from "../../tasks/task-threads.prompt.js";
 import { isFleetApprovalTool, modelLabel, prepareFleetRequest } from "../../tools/fleet-tools.js";
@@ -492,6 +496,7 @@ export async function prepareToolRequest(
   if (name === OFFER_CHECK_IN_TOOL && nextApprovedTool !== name) {
     const refused = await checkInOfferRefusal(ctx, args);
     if (refused) return refusal("check_in_offer_refused", refused.error);
+    request.fleetSummary = checkInOfferSummary(args);
   }
   // Its card names the task, and a thread this conversation did not start shows none.
   if (name === "stop_task" && nextApprovedTool !== name) {

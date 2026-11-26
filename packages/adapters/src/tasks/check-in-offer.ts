@@ -1,4 +1,5 @@
-import { formatCron } from "@rakazo/core";
+import { CARD_TITLE_ESCAPED_CHARACTERS, formatCron } from "@rakazo/core";
+import type { FleetCardSummary } from "../approvals/approval-ask.js";
 import { boundDirectApprovalDetails } from "../approvals/approval-effect.js";
 import type { RunContext } from "../runs/assembly/run-context.js";
 import { CATALOG_APPROVAL_TOOL } from "../runs/lifecycle/run-effects.js";
@@ -55,6 +56,17 @@ export function checkInTiming(args: Record<string, unknown>): string {
   if (minutes >= 60 && minutes % 60 === 0)
     return minutes === 60 ? "in an hour" : `in ${minutes / 60} hours`;
   return minutes === 1 ? "in a minute" : `in ${Math.max(Math.round(minutes), 1)} minutes`;
+}
+
+/** The offer's card: what to check and when as its title, and what each check-in does under it. */
+export function checkInOfferSummary(args: Record<string, unknown>): FleetCardSummary {
+  const subject = subjectOf(args).replace(new RegExp(CARD_TITLE_ESCAPED_CHARACTERS, "g"), "\\$&");
+  const prompt = String(args.prompt ?? "").trim();
+  return {
+    title: `Check in on ${subject} ${checkInTiming(args)}?`,
+    lines: prompt ? [prompt] : [],
+    checkInOffer: true,
+  };
 }
 
 /**
