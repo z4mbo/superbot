@@ -104,6 +104,10 @@ export async function conversationLibrary(
         authorBotId: "runId" in source && !source.runId ? null : source.botId,
         mimeType: artifact?.mimeType ?? null,
         createdAt: source.createdAt.toISOString(),
+        // A media tool's output keeps what made it, so the library shows it as generated.
+        ...((block.kind === "image" || block.kind === "file") && block.generated
+          ? { generated: block.generated }
+          : {}),
       });
     }
     if (items.size === libraryLimit) break;
