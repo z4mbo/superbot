@@ -11,6 +11,8 @@ import { pageBrowserSessionKey } from "./page-browser-session.js";
 const context: AdapterContext = {
   operationId: "test",
   traceId: "test",
+  spaceId: "space-1",
+  userId: "user-1",
   botId: "bot-1",
   signal: new AbortController().signal,
 };
