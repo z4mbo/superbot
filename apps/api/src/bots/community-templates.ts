@@ -70,7 +70,7 @@ export function communityImportKey(slug: string): string {
 export function communityTemplateSlug(name: string): string {
   const words = name
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -237,10 +237,21 @@ function strings(recipe: CommunityTemplateRecipe): string[] {
   ];
 }
 
-/** What the schema cannot say: no credentials, distinct skill names, routines that would install. */
-function assertShareable(recipe: CommunityTemplateRecipe) {
+// Control characters and text-direction overrides, which could break a line in an email subject
+// or make a name read differently from what it is.
+const NOT_ONE_LINE = /[\p{Cc}\u202A-\u202E\u2066-\u2069]/u;
+
+/**
+ * What the schema cannot say: no credentials, names and the summary on one plain line, distinct
+ * skill names, and routines that would install.
+ */
+export function assertShareable(recipe: CommunityTemplateRecipe) {
   if (strings(recipe).some(looksLikeCredential)) {
     throw new ClientError("BAD_REQUEST", "Remove what looks like a key or token before sharing.");
+  }
+  const lines = [recipe.name, recipe.summary, ...recipe.routines.map((routine) => routine.name)];
+  if (lines.some((line) => NOT_ONE_LINE.test(line))) {
+    throw new ClientError("BAD_REQUEST", "Keep names and the summary to one plain line.");
   }
   const names = recipe.skills.map((skill) => skill.name.toLowerCase());
   if (new Set(names).size !== names.length) {
