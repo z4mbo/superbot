@@ -581,6 +581,17 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["voice/models", { provider: "openrouter" }],
       ["voice/prepare", { text: "Nope" }],
       ["voice/setSpeechModel"],
+      ["voice/realtimeSession", { botId: "missing-bot", turnMode: "push-to-talk" }],
+      [
+        "voice/recordRealtimeTurn",
+        {
+          botId: "missing-bot",
+          callId: "missing-call",
+          turnId: "turn-1",
+          role: "user",
+          text: "Nope",
+        },
+      ],
       ["analytics/screen"],
       ["analytics/modelSignInStep"],
       ["aiConsent/status"],
