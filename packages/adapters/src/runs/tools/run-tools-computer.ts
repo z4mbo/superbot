@@ -75,7 +75,8 @@ import { DESKTOP_HELD_FOR_TAKEOVER_MESSAGE } from "../turn/takeover-resume.promp
 import { auditToolCall } from "./run-tool-audit.js";
 import type { ToolCall, ToolHandlers } from "./run-tool-gate.js";
 
-function appendComputerCommand(ctx: RunContext, payload: ComputerCommand) {
+/** Record a command for the terminal's Activity view; losing an entry never fails the tool. */
+export function appendComputerCommand(ctx: RunContext, payload: ComputerCommand) {
   const { deps, run, runId, bot, thread } = ctx;
   return (
     deps.events

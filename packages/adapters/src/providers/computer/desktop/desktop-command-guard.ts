@@ -675,6 +675,17 @@ function namesProtectedTarget(command: string): boolean {
   });
 }
 
+/**
+ * A code snippet (execute_code) cannot be parsed as a shell line, so it is held to what a quoted
+ * script body is: one that names a process-stopping or service command, the browser profiles or the
+ * display's socket is not run.
+ */
+export function protectedCodeRefusal(code: string): string | undefined {
+  return namesProtectedTarget(code)
+    ? "the code names a command or path that stops the desktop or its browser"
+    : undefined;
+}
+
 export function desktopProtectionGuardMessage(reason: string, command: string): string {
   const syntax = SYNTAX_REFUSALS.has(reason) || reason.startsWith("unresolved variable");
   return desktopGuardRefusalMessage(reason, syntax && !namesProtectedTarget(command));

@@ -5,6 +5,13 @@ import {
   DIALOG_PROMPT_TEXT_MAX_CHARS,
 } from "../browser/browser-control-tools.js";
 import { BROWSER_ACT_KINDS } from "../browser/browser-tools.js";
+import {
+  EXECUTE_CODE_DEFAULT_TIMEOUT_SECONDS,
+  EXECUTE_CODE_LANGUAGES,
+  EXECUTE_CODE_MAX_CHARS,
+  EXECUTE_CODE_MAX_TIMEOUT_SECONDS,
+  EXECUTE_CODE_OUTPUT_MAX_CHARS,
+} from "./workspace/execute-code.js";
 
 export const READ_FILE_MAX_BYTES = 250_000;
 export const READ_FILE_MAX_KB = READ_FILE_MAX_BYTES / 1000;
@@ -297,6 +304,23 @@ export const computerTools: ConnectorTool[] = [
         cwd: { type: "string" },
       },
       required: ["command"],
+    },
+  },
+  {
+    name: "execute_code",
+    description: `Run a short Python snippet on this bot's computer and get its stdout, stderr, exit code, whether it timed out, and result: the value of its last line when that is an expression, as in a notebook cell. It runs as python3 with the bot's folder as working directory and the same files, packages and command variables as shell. It is stopped after timeout_seconds (default ${EXECUTE_CODE_DEFAULT_TIMEOUT_SECONDS}, at most ${EXECUTE_CODE_MAX_TIMEOUT_SECONDS}); output past ${EXECUTE_CODE_OUTPUT_MAX_CHARS} characters per stream is cut. The code cannot call your other tools. For longer jobs or other languages, use shell.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        code: { type: "string", maxLength: EXECUTE_CODE_MAX_CHARS },
+        language: { type: "string", enum: [...EXECUTE_CODE_LANGUAGES] },
+        timeout_seconds: {
+          type: "number",
+          minimum: 1,
+          maximum: EXECUTE_CODE_MAX_TIMEOUT_SECONDS,
+        },
+      },
+      required: ["code"],
     },
   },
   {

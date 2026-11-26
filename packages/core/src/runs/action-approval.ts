@@ -27,6 +27,7 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "search_files",
   "glob",
   "shell",
+  "execute_code",
   "process_manage",
   "open_path",
   "launch_app",
@@ -462,8 +463,8 @@ function actionsOf(args: Record<string, unknown>): Record<string, unknown>[] {
 
 /**
  * Whether a call on the bot's own computer could send something off it, and so goes to the approval
- * model in Auto once outside text entered the run (see isRunTainted): a shell command, which can
- * reach anything; a page opened, or typed or uploaded into, on a site the run was not given
+ * model in Auto once outside text entered the run (see isRunTainted): a shell command or a code
+ * snippet, which can reach anything; a page opened, or typed or uploaded into, on a site the run was not given
  * (`pageSiteGiven`, see outboundSiteGate), text typed into a page's prompt dialog included; desktop
  * typing or key presses (which can paste), or an app opened with a URI. Page clicks, a dialog
  * accepted or dismissed, pointer moves, scrolling and opening a file or app send nothing the bot
@@ -488,7 +489,9 @@ function whatCouldSend(
   args: Record<string, unknown>,
 ): "page" | "other" | undefined {
   switch (toolName) {
+    // Code runs on the computer and can reach anything a shell command can.
     case "shell":
+    case "execute_code":
       return "other";
     // Only start runs a command; list, check and kill touch processes already started.
     case "process_manage":

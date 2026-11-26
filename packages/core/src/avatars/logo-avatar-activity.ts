@@ -91,6 +91,7 @@ const COMPUTER_TOOLS = new Set([
   "user_computer_observe",
   "user_computer_act",
   "shell",
+  "execute_code",
   "process_manage",
   "open_path",
   "launch_app",

@@ -96,6 +96,12 @@ const URL_OPTIONAL_SITE_TOOLS: ReadonlySet<string> = new Set([
   "video_analyze",
 ]);
 
+/**
+ * Built-ins a saved rule for another tool also covers: code runs as a shell command does, so a
+ * space that blocks or always allows shell does the same for execute_code.
+ */
+const RULE_ALIASES: Readonly<Record<string, readonly string[]>> = { execute_code: ["shell"] };
+
 export type AppliedEffect = Awaited<ReturnType<typeof recordEffect>>;
 
 /** A tool call that passed its approval gate, as tool handlers receive it. */
@@ -353,7 +359,7 @@ export async function gateToolCall(
   const resolvedRules = resolveActionApprovalForTools({
     tools: approvalToolNames.map((toolName) => ({
       name: toolName,
-      aliases: toolName === approvalName && approvalName !== name ? [name] : undefined,
+      aliases: toolName === approvalName && approvalName !== name ? [name] : RULE_ALIASES[toolName],
       connectorKind:
         toolName === approvalName
           ? connectorKind
@@ -707,6 +713,7 @@ export async function gateToolCall(
     name === "launch_app" ||
     name === "computer_act" ||
     name === "shell" ||
+    name === "execute_code" ||
     (name === "process_manage" && args.action === "start") ||
     name === "browser_dialog" ||
     (name === "browser_cdp" && classifyCdpMethod(String(args.method ?? "")) !== "read")
