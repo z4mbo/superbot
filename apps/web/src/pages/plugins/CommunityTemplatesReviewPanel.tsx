@@ -117,7 +117,10 @@ export function CommunityTemplatesReviewPanel() {
                     {item.recipe.name}
                   </h3>
                   <p className="truncate text-body-sm text-muted-foreground" dir="auto">
-                    {[item.author ?? t`No public name`, t`version ${item.version}`].join(" · ")}
+                    {item.author ?? t`No public name`}
+                  </p>
+                  <p className="text-body-sm text-muted-foreground">
+                    <Trans>Version {item.version}</Trans>
                   </p>
                 </div>
                 {item.status === "pending" ? (

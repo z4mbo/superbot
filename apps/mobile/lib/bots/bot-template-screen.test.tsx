@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { flush } from "@rakazo/core/test-async";
+import { deferred, flush } from "@rakazo/core/test-async";
 import type { ReactNode } from "react";
 import { act, useEffect } from "react";
 import type { Root } from "react-dom/client";
@@ -265,16 +265,14 @@ it.each([
 });
 
 it("shows a community template with its author and instructions, and creates its bot", async () => {
-  let finish!: (outcome: unknown) => void;
+  const created = deferred<unknown>();
   mocks.rpc.mockImplementation((proc: string) =>
     proc === "bots/templates"
       ? Promise.resolve([])
       : proc === "communityTemplates/list"
         ? Promise.resolve([{ ...template, author: "Ana Author" }])
         : proc === "bots/createFromTemplate"
-          ? new Promise((resolve) => {
-              finish = resolve;
-            })
+          ? created.promise
           : Promise.reject(new Error(`Unexpected ${proc}`)),
   );
   await render();
@@ -290,7 +288,7 @@ it("shows a community template with its author and instructions, and creates its
   expect(
     mocks.rpc.mock.calls.find(([proc]) => proc === "bots/createFromTemplate")?.slice(0, 2),
   ).toEqual(["bots/createFromTemplate", { templateId: "standup", version: 3, name: "Standup" }]);
-  await act(async () => finish({ bot, created: true }));
+  await act(async () => created.resolve({ bot, created: true }));
   await settle();
   expectOpened();
 });

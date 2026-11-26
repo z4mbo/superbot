@@ -109,7 +109,7 @@ it("shows every field that would be listed or installed, as plain text", () => {
   for (const text of [
     "Topic digest",
     "Ana Author",
-    "version 2",
+    "Version 2",
     "Research",
     "What changed on topics you follow",
     "Weekly digest",
