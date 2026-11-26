@@ -25,9 +25,11 @@ export function computerProviderDescriptor(id: string) {
   return descriptor;
 }
 
+/** In the order Settings lists them: featured ones by rank, then the rest in registry order. */
 export function computerProviderDescriptors(perAccount = false): ComputerProviderDescriptor[] {
   return computerProviderRegistry
     .filter((entry) => !perAccount || entry.capabilities.perAccount)
+    .sort((a, b) => (a.featuredRank ?? Infinity) - (b.featuredRank ?? Infinity))
     .map(({ id, displayName, featured, fields, capabilities }) => ({
       id,
       displayName,
@@ -44,7 +46,7 @@ function settingsProvider(
 ): SettingsComputerProvider {
   const {
     displayName,
-    featured = false,
+    featured: featuredRank,
     perAccount = false,
     fields,
     validate,
@@ -59,7 +61,8 @@ function settingsProvider(
   return {
     id,
     displayName,
-    featured,
+    featured: featuredRank !== undefined,
+    ...(featuredRank !== undefined ? { featuredRank } : {}),
     capabilities: { perAccount },
     fields: publicFields,
     verify(values) {

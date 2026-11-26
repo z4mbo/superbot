@@ -107,8 +107,8 @@ export interface ComputerProviderDefinition {
   /** Present when a Space or account can connect this provider from Settings. */
   settings?: {
     displayName: string;
-    /** Settings offers it among the main choices, ahead of the rest. */
-    featured?: boolean;
+    /** Settings offers it among the main choices, ahead of the rest, lowest rank first. */
+    featured?: number;
     perAccount?: boolean;
     fields: readonly ComputerSettingsField[];
     /** Checks beyond each field's own. */
@@ -122,6 +122,8 @@ export interface ComputerProviderDefinition {
 }
 
 export interface SettingsComputerProvider extends ComputerProviderDescriptor {
+  /** Where Settings lists a featured provider among the others featured, lowest first. */
+  featuredRank?: number;
   verify(values: Record<string, string>): SandboxProviderOptions;
   verifyConnection?(values: Record<string, string>, signal: AbortSignal): Promise<void>;
 }

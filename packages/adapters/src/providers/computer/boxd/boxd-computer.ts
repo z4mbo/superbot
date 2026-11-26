@@ -18,7 +18,7 @@ export const boxdComputer: ComputerProviderDefinition = {
   },
   settings: {
     displayName: "boxd (boxd.sh)",
-    featured: true,
+    featured: 1,
     fields: [
       { key: "apiKey", option: "boxdApiKey", label: "API key", kind: "secret" },
       { key: "org", option: "boxdOrg", label: "Organization", kind: "text" },
