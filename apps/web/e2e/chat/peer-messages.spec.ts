@@ -300,11 +300,11 @@ test(
       timeout: 60_000,
     });
     await page.getByTestId("sidebar-search-trigger").click();
-    const search = page.getByTestId("sidebar-search").getByRole("textbox");
+    const search = page.getByTestId("command-palette-search");
     await search.fill(foldedReplyText);
     // Researcher's "Messaged Chief" receipt also matches; jump to the folded reply itself.
     await page
-      .getByRole("button")
+      .getByRole("option")
       .filter({
         hasText: new RegExp(`Researcher\\s*${foldedReplyText} and come back with a result`),
       })

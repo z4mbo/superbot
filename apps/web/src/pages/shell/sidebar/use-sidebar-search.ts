@@ -5,15 +5,14 @@ import { sliceWellFormed } from "@rakazo/core";
 import { useEffect, useRef, useState } from "react";
 import type { createSpaceRpc } from "../../../lib/query/rpc";
 import { errorText } from "../../../lib/query/user-error";
-import type { useShellNavigation } from "../use-shell-navigation";
 
-/** The sidebar's search box: it filters the roster and searches the space. */
+/** A search of the Space for the sidebar's search box and the command palette. */
 export function useSidebarSearch({
   rpc,
   navigate,
 }: {
   rpc: ReturnType<typeof createSpaceRpc>;
-  navigate: ReturnType<typeof useShellNavigation>["navigate"];
+  navigate: (to: { pathname: string; search?: string }) => void;
 }) {
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);

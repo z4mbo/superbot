@@ -77,7 +77,7 @@ export function ScratchpadSection({ botId }: { botId: string }) {
 
   return (
     <div className="mt-6" data-testid="bot-scratchpad">
-      <SectionHeading variant="label" className="mb-2 flex items-center justify-between ps-3 pe-1">
+      <SectionHeading variant="panel" className="mb-2 flex items-center justify-between ps-3 pe-1">
         <Trans>Open work</Trans>
         <Button
           variant="ghost"

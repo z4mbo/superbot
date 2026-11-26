@@ -21,7 +21,7 @@ export function SidebarShelf({
   const [open, setOpen] = useState(false);
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="flex flex-col">
-      <SectionHeading variant="label">
+      <SectionHeading variant="panel">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 hover:bg-sidebar-accent">
           <span>{title}</span>
           <span className="flex items-center gap-1 tabular-nums">

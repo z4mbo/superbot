@@ -57,6 +57,7 @@ export function ShellSidebar({
   createMenuOpen,
   setCreateMenuOpen,
   search,
+  onSearch,
   bots,
   setPanel,
   navigate,
@@ -79,6 +80,8 @@ export function ShellSidebar({
   createMenuOpen: boolean;
   setCreateMenuOpen: (open: boolean) => void;
   search: SidebarSearch;
+  /** The Search button's action: the command palette. The box below opens from its shortcut. */
+  onSearch: () => void;
   bots: Bot[];
   setPanel: (panel: Panel) => void;
   navigate: (path: string) => void;
@@ -137,16 +140,7 @@ export function ShellSidebar({
         <SidebarHeader
           createMenuOpen={createMenuOpen}
           setCreateMenuOpen={setCreateMenuOpen}
-          searchOpen={searchOpen}
-          onSearch={() => {
-            if (searchOpen) {
-              setQuery("");
-              setSearchOpen(false);
-              return;
-            }
-            setSearchOpen(true);
-            focusSidebarSearch();
-          }}
+          onSearch={onSearch}
           bots={bots}
           setMobileSidebarOpen={setMobileOpen}
           setPanel={setPanel}

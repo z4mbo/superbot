@@ -78,7 +78,21 @@ test("sidebar buttons, palette, account menu and tooltips follow the reference",
   await expect(firstBot.locator(":scope > *").first()).toHaveCSS("width", "28px");
   // 8px above and below a two-line row makes the reference's 56px.
   await expect(firstBot).toHaveCSS("padding-top", "8px");
+  // The bots sit under a "Bots" heading, beneath a search that names what it finds.
+  const heading = page.getByTestId("command-palette-list").locator("[cmdk-group-heading]").first();
+  await expect(heading).toHaveText("Bots");
+  await expect(page.getByTestId("command-palette-search")).toHaveAttribute(
+    "placeholder",
+    "Search Bots, Chats, Settings…",
+  );
   await captureScreenshot(page, testInfo, "reference-palette");
+  await page.keyboard.press("Escape");
+  await expect(palette).toBeHidden();
+
+  // The sidebar's Search opens the same palette.
+  await page.getByTestId("sidebar-search-trigger").click();
+  await expect(palette).toBeVisible();
+  await expect(page.getByTestId("command-palette-search")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(palette).toBeHidden();
 
@@ -116,5 +130,9 @@ test("the details panel sits on the window ground at the reference width", async
   await expect(card).toHaveCSS("border-radius", "12px");
   await expect(card).toHaveCSS("border-top-color", "rgba(26, 26, 26, 0.08)");
   await expect(card).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  // Group labels are 13/18, as the reference sets them.
+  const label = page.getByTestId("bot-panel-upcoming").locator('[data-slot="section-heading"]');
+  await expect(label).toHaveCSS("font-size", "13px");
+  await expect(label).toHaveCSS("line-height", "18px");
   await captureScreenshot(page, testInfo, "reference-panel");
 });

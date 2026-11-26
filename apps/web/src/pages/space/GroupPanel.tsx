@@ -350,7 +350,7 @@ export function GroupSettings({
       </Button>
       {pages ? (
         <section className="mt-6">
-          <SectionHeading variant="label" className="mb-2">
+          <SectionHeading variant="panel" className="mb-2">
             <Trans>Pages</Trans>
           </SectionHeading>
           {pages}
