@@ -8,15 +8,12 @@ import type {
   MediaVideoJob,
 } from "@rakazo/adapter-kit";
 import { MediaGenerationError } from "@rakazo/adapter-kit";
-import { FAKE_VIDEO_BASE64 } from "./fake-media-assets.js";
+import { FAKE_IMAGE_BASE64, FAKE_VIDEO_BASE64 } from "./fake-media-assets.js";
 import type {
   MediaModelDescriptor,
   MediaProviderCredential,
   MediaProviderDefinition,
 } from "./media-provider-descriptor.js";
-
-const PIXEL_PNG =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0u8AAAAASUVORK5CYII=";
 
 /** A key value the scripted provider refuses, so tests reach the authentication failure. */
 export const SCRIPTED_MEDIA_REJECTED_KEY = "rejected-key";
@@ -80,7 +77,7 @@ export class ScriptedMediaProvider implements MediaGenerationProvider {
   }
 
   private image(): GeneratedMedia {
-    return { mimeType: "image/png", bytes: Buffer.from(PIXEL_PNG, "base64") };
+    return { mimeType: "image/png", bytes: Buffer.from(FAKE_IMAGE_BASE64, "base64") };
   }
 
   async generateImage(input: MediaGenerationInput, context: AdapterContext) {
