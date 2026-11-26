@@ -154,6 +154,42 @@ export class PageBrowserSession {
     };
   }
 
+  /**
+   * What a password manager's extension does with a login the person approved: type it into the
+   * sign-in form of this page, which must be on `origin` over HTTPS, and submit it. The values go
+   * only into the fields, whose values snapshots never show.
+   */
+  fillLogin(
+    origin: string,
+    login: { username: string; password: string; oneTimeCode?: string },
+  ): "submitted" | "failed" {
+    const win = this.dom.window;
+    const page = new URL(this.url);
+    if (page.protocol !== "https:" || page.origin !== origin) return "failed";
+    const fillable = (el: DomElement): el is InstanceType<DomWindow["HTMLInputElement"]> =>
+      el instanceof win.HTMLInputElement && !el.disabled && !el.readOnly && !isIgnored(win, el);
+    const inputs = (scope: { querySelectorAll(selector: string): Iterable<DomElement> }) =>
+      [...scope.querySelectorAll("input")].filter(fillable);
+    const password = inputs(win.document).find((input) => input.type === "password");
+    if (!password) return "failed";
+    const fields = inputs(password.form ?? win.document);
+    const isCode = (input: { autocomplete: string }) =>
+      input.autocomplete.split(/\s+/).includes("one-time-code");
+    const username = fields.find((input) => USERNAME_INPUT_TYPES.has(input.type) && !isCode(input));
+    const code = fields.find(isCode);
+    const fill = (input: InstanceType<DomWindow["HTMLInputElement"]>, value: string) => {
+      this.loginFilled.add(input);
+      input.value = value;
+      input.dispatchEvent(new win.Event("input", { bubbles: true }));
+      input.dispatchEvent(new win.Event("change", { bubbles: true }));
+    };
+    if (username) fill(username, login.username);
+    fill(password, login.password);
+    if (code && login.oneTimeCode) fill(code, login.oneTimeCode);
+    password.form?.dispatchEvent(new win.Event("submit", { bubbles: true, cancelable: true }));
+    return "submitted";
+  }
+
   private fillPayToken(action: Extract<BrowserActStep, { kind: "pay_token" }>): void {
     this.checkFillOrigin({ ...action, field: "card" });
     const win = this.dom.window;

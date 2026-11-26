@@ -830,6 +830,8 @@ export interface BrowserProvider {
     request: { origin: string; call: SignInFillCall },
     context: AdapterContext,
   ): Promise<unknown>;
+  /** Whether `computer`'s browser has the extension `signInFill` needs. Absent means it has. */
+  canSignInFill?(computer: ComputerRef): boolean;
 }
 
 /**

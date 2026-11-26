@@ -61,17 +61,21 @@ async function waitForOpen(ctx: RunContext, messageId: string, signal: AbortSign
   return false;
 }
 
-function signInRun(ctx: RunContext): SignInRun | undefined {
-  const { deps, run, bot, providers } = ctx;
+/** The computer's browser fill, absent when its browser has no sign-in extension. */
+async function fillPort(ctx: RunContext): Promise<SignInFillPort | undefined> {
+  const browser = ctx.providers.browser;
+  const signInFill = browser.signInFill?.bind(browser);
+  if (!signInFill) return undefined;
+  const computer = await ctx.computer.get("tool", "sign_in");
+  if (browser.canSignInFill?.(computer) === false) return undefined;
+  return { fill: (request, context) => signInFill(computer, request, context) };
+}
+
+async function signInRun(ctx: RunContext): Promise<SignInRun | undefined> {
+  const { deps, run, bot } = ctx;
   const signInSource = deps.signInSource;
   if (!signInSource) return undefined;
-  const browser = providers.browser;
-  const fill: SignInFillPort | undefined = browser.signInFill
-    ? {
-        fill: async (request, context) =>
-          browser.signInFill!(await ctx.computer.get("tool", "sign_in"), request, context),
-      }
-    : undefined;
+  const fill = await fillPort(ctx);
   const ref = (messageId: string) => ({ spaceId: run.spaceId, threadId: run.threadId, messageId });
   return {
     deps: {
@@ -112,10 +116,12 @@ function signInRun(ctx: RunContext): SignInRun | undefined {
 }
 
 async function signInTool(ctx: RunContext, call: ToolCall) {
-  const run = signInRun(ctx);
-  if (!run) return call.finish({ error: "Signing in with a password manager is unavailable." });
+  if (!ctx.deps.signInSource)
+    return call.finish({ error: "Signing in with a password manager is unavailable." });
   const blocked = await screenBlocked(ctx, false);
   if (blocked) return call.finish({ error: blocked });
+  const run = await signInRun(ctx);
+  if (!run) return call.finish({ error: "Signing in with a password manager is unavailable." });
   return call.finish(await signIn(run, { site: call.args.site }));
 }
 

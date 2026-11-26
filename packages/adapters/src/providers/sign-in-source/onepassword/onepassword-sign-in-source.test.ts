@@ -15,7 +15,10 @@ const REDIRECT = "https://app.example.test/sign-in-source/callback";
 // Characters a parse-and-rebuild would normalize; the link must come back byte for byte.
 const APP_LINK = "onepassword://grant-brokered-access?access_request_reference=eyJ%2B%2F~a b";
 
+// Named like the SDK's own error classes, which it tells apart by class name.
 class InvalidTokenError extends Error {}
+class InsufficientScopeError extends Error {}
+class AccessRequestNotFoundError extends Error {}
 
 function fakeSdk() {
   const loginRead = vi.fn(async () => ({ username: "u", password: "fixture-pass-9f3" }));
@@ -37,7 +40,7 @@ function fakeSdk() {
       // The real client also has logins.read; it is here so a call to it would be caught.
       return {
         credentialBroker: { accessRequests: { create, getStatus }, logins: { read: loginRead } },
-      } as Awaited<ReturnType<CredentialBrokerSdk["createOAuthClient"]>>;
+      } as unknown as Awaited<ReturnType<CredentialBrokerSdk["createOAuthClient"]>>;
     },
   };
   return { sdk, create, getStatus, loginRead, configs };
@@ -198,6 +201,11 @@ describe("password manager sign-in source", () => {
     expect(await ask()).toEqual({ state: "denied" });
     fake.getStatus.mockRejectedValueOnce(new InvalidTokenError("expired"));
     await expect(ask()).rejects.toBeInstanceOf(SignInSourceDisconnected);
+    fake.getStatus.mockRejectedValueOnce(new InsufficientScopeError("scope"));
+    await expect(ask()).rejects.toBeInstanceOf(SignInSourceDisconnected);
+    // A request the provider no longer knows ran out, as far as the person is concerned.
+    fake.getStatus.mockRejectedValueOnce(new AccessRequestNotFoundError("gone"));
+    expect(await ask()).toEqual({ state: "expired" });
   });
 
   it("builds the extension's fill call from the grant reference and reads its answer", () => {

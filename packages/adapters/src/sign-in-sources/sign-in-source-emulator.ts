@@ -17,6 +17,7 @@ import { SignInSourceDisconnected } from "@rakazo/adapter-kit";
 /** The emulator's fill call, which only the emulator's own fill extension answers. */
 export const EMULATOR_FILL_METHOD = "emulator.fillGranted";
 const TOKEN_PREFIX = "emulator-token:";
+const GRANT_PREFIX = "emulator-grant/";
 
 /**
  * Deterministic offline sign-in source. Connecting sends the person straight back to the redirect
@@ -118,7 +119,7 @@ export class EmulatorSignInSourceProvider implements SignInSourceProvider {
     const host = request.id.split("~")[0] ?? "";
     if (host.startsWith("deny.")) return { state: "denied" };
     if (host.startsWith("expire.")) return { state: "expired" };
-    return { state: "approved", reference: `emulator-grant/${request.id}` };
+    return { state: "approved", reference: `${GRANT_PREFIX}${request.id}` };
   }
 
   fillCall(credential: SignInSourceCredential, reference: string): SignInFillCall {
@@ -147,4 +148,30 @@ function keyOf(previous: SignInSourceCredential | undefined): string | undefined
   return previous?.secret.startsWith(TOKEN_PREFIX)
     ? previous.secret.slice(TOKEN_PREFIX.length)
     : undefined;
+}
+
+/**
+ * The login every emulator approval grants. Fixture values only, known to the emulator's browser
+ * extension and to tests, which check that none of them ever leaves the browser.
+ */
+export const EMULATOR_LOGIN = {
+  username: "user@example.test",
+  password: "fixture-password-1",
+  oneTimeCode: "123456",
+} as const;
+
+/**
+ * The emulator's browser extension: the login it fills for a fill call, or why it fills nothing.
+ * Like a real extension it checks the call itself, never trusting the page or the bot.
+ */
+export function emulatorExtensionFill(
+  call: SignInFillCall,
+): { login: typeof EMULATOR_LOGIN } | { status: "no_active_grant" | "disconnected" | "failed" } {
+  if (call.method !== EMULATOR_FILL_METHOD) return { status: "failed" };
+  const { token, reference } = call.params;
+  if (typeof token !== "string" || !token.startsWith(TOKEN_PREFIX))
+    return { status: "disconnected" };
+  if (typeof reference !== "string" || !reference.startsWith(GRANT_PREFIX))
+    return { status: "no_active_grant" };
+  return { login: EMULATOR_LOGIN };
 }

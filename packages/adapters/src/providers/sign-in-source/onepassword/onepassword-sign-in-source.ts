@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { AccessRequestEntryType, createOAuthClient, OAuthClient } from "@1password/sdk";
 import type {
   AdapterContext,
   AdapterDescriptor,
@@ -27,48 +28,36 @@ const CONNECT_WINDOW_MS = 15 * 60_000;
 const GOAL_MAX = 140;
 /** The fill call the extension's service worker exposes (`api.agenticAutofill.v1.fillCredential`). */
 const FILL_METHOD = "agenticAutofill.v1.fillCredential";
-/** The SDK, pinned to the developer preview this provider was written against. */
-export const SDK_PACKAGE = "@1password/sdk";
-export const SDK_VERSION = "0.0.0-credential-broker-dev-preview.4";
+/** An access request's one entry type; the SDK types it as an enum of this value. */
+const LOGIN_ENTRY = "login" as AccessRequestEntryType;
 
 /**
- * The part of the SDK's OAuth client this provider uses, matching its type definitions
- * (`createOAuthClient`, `credentialBroker.accessRequests.create` and `getStatus`). The SDK also
- * offers `credentialBroker.logins.read`, which returns the login's values; it is left out on
- * purpose, so this provider cannot read a password even by mistake.
+ * The part of the SDK's OAuth client this provider uses: `createOAuthClient` and the credential
+ * broker's `accessRequests`, typed by the SDK's own definitions. The SDK also offers
+ * `credentialBroker.logins.read`, which returns the login's values; it is left out on purpose, so
+ * this provider cannot read a password even by mistake.
  */
 export interface CredentialBrokerSdk {
-  createOAuthClient(config: { accessToken: string; integrationKey: string }): Promise<{
+  createOAuthClient(config: Parameters<typeof createOAuthClient>[0]): Promise<{
     credentialBroker: {
-      accessRequests: {
-        create(params: {
-          goal?: string;
-          entries: Array<{ type: "login"; parameters: { website: string }; reason?: string }>;
-        }): Promise<{
-          accessRequest: { id: string; entries: Array<{ id: string }> };
-          appLink: string;
-        }>;
-        getStatus(accessRequestId: string): Promise<{
-          state: string;
-          resolved: Array<{ entryId?: string; reference: string }>;
-        }>;
-      };
+      accessRequests: Pick<OAuthClient["credentialBroker"]["accessRequests"], "create" | "getStatus">;
     };
   }>;
 }
 
 /**
- * The SDK is an optional, unbundled dependency: it is a developer preview with no compatibility
- * guarantees and a large WebAssembly core, so a deployment that turns this provider on installs
- * `@1password/sdk@0.0.0-credential-broker-dev-preview.4` itself. Loaded on first use only.
+ * The SDK (a pinned developer preview with a large WebAssembly core) loads on first use, so only
+ * a deployment that turns this provider on ever loads it. Only the access-request half is passed
+ * on: see CredentialBrokerSdk.
  */
 async function importSdk(): Promise<CredentialBrokerSdk> {
-  const specifier: string = SDK_PACKAGE;
-  try {
-    return (await import(/* @vite-ignore */ specifier)) as CredentialBrokerSdk;
-  } catch {
-    throw new Error(`Install ${SDK_PACKAGE}@${SDK_VERSION} to use this sign-in source`);
-  }
+  const sdk = await import("@1password/sdk");
+  return {
+    createOAuthClient: async (config) => {
+      const client = await sdk.createOAuthClient(config);
+      return { credentialBroker: { accessRequests: client.credentialBroker.accessRequests } };
+    },
+  };
 }
 
 type Tokens = { accessToken: string; refreshToken: string; integrationKey: string };
@@ -90,6 +79,7 @@ function base64url(bytes: Buffer): string {
 /** Errors the SDK and extension raise when the connection itself no longer works. */
 const DISCONNECTED_ERRORS = new Set([
   "InvalidTokenError",
+  "InsufficientScopeError",
   "IntegrationKeyInvalidError",
   "AuthExpiredError",
   "FeatureEntitlementMissingError",
@@ -226,7 +216,7 @@ export class OnePasswordSignInSource implements SignInSourceProvider {
     const created = await sdkCall(() =>
       broker.create({
         goal: request.goal.slice(0, GOAL_MAX),
-        entries: [{ type: "login", parameters: { website: request.site } }],
+        entries: [{ type: LOGIN_ENTRY, parameters: { website: request.site } }],
       }),
     );
     const entryId = created.accessRequest.entries[0]?.id;
@@ -242,11 +232,20 @@ export class OnePasswordSignInSource implements SignInSourceProvider {
   ): Promise<SignInAccessState> {
     context.signal.throwIfAborted();
     const broker = await this.broker(credential);
-    const status = await sdkCall(() => broker.getStatus(request.id));
-    if (status.state === "pending") return { state: "pending" };
-    if (status.state === "denied") return { state: "denied" };
-    if (status.state === "expired") return { state: "expired" };
-    if (status.state !== "resolved") return { state: "failed" };
+    let status: Awaited<ReturnType<typeof broker.getStatus>>;
+    try {
+      status = await sdkCall(() => broker.getStatus(request.id));
+    } catch (error) {
+      // The provider no longer knows the request: it ran out, as far as the person is concerned.
+      if (error instanceof Error && error.constructor.name === "AccessRequestNotFoundError")
+        return { state: "expired" };
+      throw error;
+    }
+    const state: string = status.state;
+    if (state === "pending") return { state: "pending" };
+    if (state === "denied") return { state: "denied" };
+    if (state === "expired") return { state: "expired" };
+    if (state !== "resolved") return { state: "failed" };
     // Grants match entries by id, never by position; the person may grant nothing for ours.
     const granted = status.resolved.find((entry) => entry.entryId === request.entryId);
     return granted ? { state: "approved", reference: granted.reference } : { state: "denied" };
