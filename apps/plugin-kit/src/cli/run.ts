@@ -2,6 +2,7 @@ import type { SystemCredentialStore } from "@rakazo/cli-client";
 import { Client, CredentialStore, selectedServer } from "@rakazo/cli-client";
 import { readManifestFile } from "../manifest/manifest-file.js";
 import { authError, registryRequest, selectSpace } from "../registry/registry-request.js";
+import { AppCheckError, checkedAppFolder, scaffoldApp } from "../scaffold/app-scaffold.js";
 import { scaffold } from "../scaffold/scaffold.js";
 import { parseCommandLine } from "./arguments.js";
 import { CommandError, errorText } from "./errors.js";
@@ -30,7 +31,9 @@ export async function run(argv: string[], environment: Environment): Promise<num
     await execute(parsed, environment);
     return 0;
   } catch (error) {
-    environment.stderr(`Error: ${escapeForTerminal(errorText(error))}\n`);
+    // An app's problems are one per line, each escaped on its own.
+    const lines = error instanceof AppCheckError ? error.problems : [errorText(error)];
+    for (const line of lines) environment.stderr(`Error: ${escapeForTerminal(line)}\n`);
     return 1;
   }
 }
@@ -49,6 +52,21 @@ async function execute(
       cwd,
     );
     for (const file of created) environment.stdout(`Created ${file}\n`);
+    return;
+  }
+  if (command.kind === "app-init") {
+    const created = await scaffoldApp(command.folder, command.name, cwd);
+    for (const file of created) environment.stdout(`Created ${file}\n`);
+    return;
+  }
+  if (command.kind === "app-check") {
+    const { check } = await checkedAppFolder(command.folder, cwd);
+    if (!check.ok) return;
+    for (const warning of check.warnings ?? [])
+      environment.stderr(`Warning: ${escapeForTerminal(warning)}\n`);
+    environment.stdout(
+      `${escapeForTerminal(`${check.manifest.name} ${check.manifest.version}`)} is valid\n`,
+    );
     return;
   }
   if (command.kind === "validate") {

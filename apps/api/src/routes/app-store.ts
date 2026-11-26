@@ -38,6 +38,7 @@ export function appStoreRoutes(ctx: RouterContext) {
         const {
           manifest: _manifest,
           source: _source,
+          server: _server,
           ...launch
         } = await readAppLaunch(deps.prisma, context.actor, input.id);
         return launch;

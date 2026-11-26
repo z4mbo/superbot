@@ -15,6 +15,7 @@ import {
   AvailabilityControl,
   AvailabilityLabel,
 } from "../../components/integrations/space-availability";
+import { SignInSourceConnection } from "../../components/sign-in-source/SignInSourceConnection";
 import type { TileContext } from "./parts";
 import { CatalogTile, ConnectionStatus, ConnectorIcon, ViewTitle } from "./parts";
 import type { PluginConnections } from "./use-plugin-connections";
@@ -58,6 +59,7 @@ export function ManageView({
   return (
     <div data-testid="integrations-manage" className="space-y-8">
       <ViewTitle title={<Trans>Your connections</Trans>} onBack={onBack} />
+      <SignInSourceConnection />
 
       {hasApps ? (
         <section data-testid="connected-apps">

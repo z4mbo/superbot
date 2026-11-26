@@ -38,7 +38,7 @@ describe("appManifestSchema", () => {
         },
       ],
     });
-    expect(manifest.actions[0]?.effects[0]).toEqual({
+    expect(manifest.actions[0]?.effects?.[0]).toEqual({
       op: "append",
       path: "tasks",
       assignId: true,
@@ -131,5 +131,7 @@ it("lists only the permissions the host enforces", () => {
     "reply",
     "links",
     "clipboard",
+    "data",
+    "network",
   ]);
 });

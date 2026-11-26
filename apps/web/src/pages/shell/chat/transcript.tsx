@@ -741,6 +741,7 @@ export const Transcript = memo(function Transcript({
                               message.blocks.some(
                                 (block) =>
                                   block.kind === "app_connect" ||
+                                  block.kind === "sign_in" ||
                                   block.kind === "page" ||
                                   block.kind === "computer" ||
                                   block.kind === "routine_event",

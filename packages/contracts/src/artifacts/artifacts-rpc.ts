@@ -139,5 +139,15 @@ export const artifactsRpc = {
         }),
       )
       .output(appActionRunSchema),
+    /** The answer of one of the app's read-only actions, for its view. */
+    appQuery: oc
+      .input(
+        z.strictObject({
+          pageId: Id,
+          action: z.string().min(1).max(64),
+          input: z.record(z.string(), z.json()).optional(),
+        }),
+      )
+      .output(z.strictObject({ result: z.json() })),
   },
 };

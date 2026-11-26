@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@rakazo/db";
 import { availableInSpace, isUniqueViolation } from "@rakazo/db";
-import { appBridgeAllows } from "@rakazo/plugin-sdk";
+import { appBridgeAllows, findAction } from "@rakazo/plugin-sdk";
 import {
   APP_INSTALL_KIND,
   AppChangedError,
@@ -10,6 +10,8 @@ import {
 } from "./app-installs.js";
 import type { AppActionRun, AppPage } from "./app-pages.js";
 import { readAppPage, runAppPageAction, withinGrant } from "./app-pages.js";
+import type { AppFunctionDeps, AppFunctionRunResult } from "./functions/app-function-runs.js";
+import { functionAction, runAppFunction } from "./functions/app-function-runs.js";
 
 /**
  * An installed app keeps its state on a page of its own, one per person and Space, made from the
@@ -104,18 +106,30 @@ export async function readInstalledApp(
   return { ...app, manifest: withinGrant(app.manifest, launch.granted) };
 }
 
+/** A function-backed action's run, with the Space to tell when its records changed. */
+export type InstalledFunctionRun = AppFunctionRunResult & { spaceId: string };
+
 /**
  * Runs one declared action on an installed app for a bot, under only what both its manifest and
- * the install's grant allow. A refused action makes no page; the engine checks again on the
- * stored manifest with the same grant.
+ * the install's grant allow. A function-backed action runs in the function sandbox on this
+ * install's records; an effects action runs on the app's state page, which a refused action
+ * never makes. The engine checks again on the stored manifest with the same grant.
  */
 export async function runInstalledAppAction(
-  prisma: PrismaClient,
+  deps: AppFunctionDeps,
   scope: Scope,
   appId: string,
   request: { action: string; input: unknown },
-): Promise<AppActionRun> {
+  signal?: AbortSignal,
+): Promise<AppActionRun | InstalledFunctionRun> {
+  const prisma = deps.prisma;
   const launch = await installedAppLaunch(prisma, scope, appId);
+  if (findAction(launch.manifest, request.action)?.run !== undefined) {
+    const checked = functionAction(launch, { by: "agent", kind: "action", action: request.action });
+    if (!checked.ok) return checked;
+    const run = await runAppFunction(deps, scope, launch, checked.action, request.input, signal);
+    return { ...run, spaceId: scope.spaceId };
+  }
   const allowed = appBridgeAllows(withinGrant(launch.manifest, launch.granted), {
     by: "agent",
     kind: "action",

@@ -10,12 +10,12 @@ export const AppFileSchema = z.strictObject({
 });
 export type AppFile = z.infer<typeof AppFileSchema>;
 
-/** The most files an app folder may publish: its entry and its icon. */
-export const APP_FILES_MAX = 2;
+/** The most files an app folder may publish: its entry, its server file and its icon. */
+export const APP_FILES_MAX = 3;
 /** The most an app's icon may take, decoded. */
 export const APP_ICON_MAX_BYTES = 128 * 1024;
-/** A request carrying an app: the page source limit plus a base64 icon, with room for JSON. */
-export const APP_SUBMISSION_MAX_CHARS = 512 * 1024;
+/** A request carrying an app: the page and server limits plus a base64 icon, with room for JSON. */
+export const APP_SUBMISSION_MAX_CHARS = 768 * 1024;
 
 /**
  * An app as its author publishes it: the manifest as written in `app.json` and the files it
@@ -33,6 +33,17 @@ export const AppSubmissionResultSchema = z.object({
   status: z.literal("pending"),
 });
 
+/**
+ * What an app reaches beyond its page, named so the person sees it before allowing it and can
+ * review it later: the hosts its functions call, the collections it keeps, whether it runs code
+ * on the platform. Empty for an app that does none of these.
+ */
+const AppAccessShape = {
+  hosts: z.array(z.string()).default([]),
+  collections: z.array(z.string()).default([]),
+  server: z.boolean().default(false),
+};
+
 /** A reviewed app version anyone signed in can install. */
 export const AppListingSchema = z.object({
   releaseId: Id,
@@ -46,6 +57,7 @@ export const AppListingSchema = z.object({
   permissions: z.array(appPermissionSchema),
   /** Content hash of this version, sent back with the install so consent covers exactly it. */
   digest: z.string(),
+  ...AppAccessShape,
 });
 export type AppListing = z.infer<typeof AppListingSchema>;
 
@@ -60,6 +72,7 @@ export const AppInstallSchema = z.object({
   icon: z.string().nullable(),
   granted: z.array(appPermissionSchema),
   createdAt: z.string(),
+  ...AppAccessShape,
 });
 export type AppInstall = z.infer<typeof AppInstallSchema>;
 

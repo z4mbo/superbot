@@ -9,6 +9,7 @@ const RESPONSE_BLOCK_KINDS = new Set<string>([
   "choice",
   "app_connect",
   "tool_question",
+  "sign_in",
   "connect",
   "computer",
   "voice_call",

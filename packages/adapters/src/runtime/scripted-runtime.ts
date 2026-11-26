@@ -155,7 +155,13 @@ function jsonObject(text: string): Record<string, unknown> | undefined {
 }
 
 // Pages and the apps built on them take the same scripted call.
-const SCRIPTED_PAGE_TOOLS = ["save_page", "read_app_state", "run_app_action"] as const;
+const SCRIPTED_PAGE_TOOLS = [
+  "save_page",
+  "read_app_state",
+  "run_app_action",
+  "find_apps",
+  "open_app",
+] as const;
 const THEN_SAY = "\nthen say ";
 
 /**
@@ -469,6 +475,15 @@ export function inferScript(
         toolCalls: [
           { name: "web_fetch", args: { url: "https://docs.example.test/page?q=fixture" } },
         ],
+      },
+    ];
+  }
+  // A sign-in the person approves in their password manager, from a card in the chat.
+  if (lower.includes("sign in to the fixture site")) {
+    return [
+      {
+        assistant: "i will ask your password manager for that login.",
+        toolCalls: [{ name: "sign_in", args: { site: "https://login.example.test/" } }],
       },
     ];
   }

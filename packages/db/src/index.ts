@@ -84,6 +84,7 @@ export {
 export * from "./threads/events.js";
 export * from "./threads/message-blocks.js";
 export * from "./threads/messages.js";
+export * from "./threads/sign-in-blocks.js";
 export * from "./threads/thread-ask.js";
 export { botRunStatuses, primaryActiveRun } from "./threads/thread-listing.js";
 export * from "./threads/thread-reads.js";

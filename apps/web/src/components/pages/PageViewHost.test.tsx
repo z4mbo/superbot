@@ -40,6 +40,7 @@ vi.mock("../../lib/query/query", () => ({
         }),
         key: () => ["app"],
       },
+      appQuery: { key: () => ["appQuery"] },
     },
   }),
   useSave: () => ({ run() {}, pending: false, error: null }),

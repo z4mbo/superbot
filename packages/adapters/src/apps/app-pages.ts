@@ -16,6 +16,8 @@ import * as z from "zod";
 export type AppPage = {
   pageId: string;
   spaceId: string;
+  /** The install whose state page this is; null for an app a bot saved. */
+  appInstallId: string | null;
   title: string;
   manifest: AppManifest;
   state: AppState;
@@ -27,6 +29,7 @@ const AppStateSchema = z.record(z.string(), z.json());
 const appPageSelect = {
   id: true,
   spaceId: true,
+  appInstallId: true,
   title: true,
   appState: true,
   appRevision: true,
@@ -66,6 +69,7 @@ export async function readAppPage(
   return {
     pageId: row.id,
     spaceId: row.spaceId,
+    appInstallId: row.appInstallId,
     title: row.title,
     manifest,
     state,
@@ -162,19 +166,34 @@ export function appForAgent(
 ) {
   const read = appBridgeAllows(app.manifest, { by: "agent", kind: "read" });
   if (!read.ok) return { error: read.error };
-  const canAct = app.manifest.permissions.includes("agent:actions");
+  // Each action a bot may run here: read-only ones with agent:read, the rest with agent:actions.
+  const actions = app.manifest.actions
+    .filter(
+      (action) =>
+        appBridgeAllows(app.manifest, { by: "agent", kind: "action", action: action.name }).ok,
+    )
+    .map(({ name, description, input, readOnly }) => ({
+      name,
+      description,
+      input,
+      ...(readOnly ? { readOnly: true } : {}),
+    }));
+  const cards = app.manifest.cards ?? [];
   return {
     ...ref,
     app: app.manifest.name,
     version: app.manifest.version,
-    state: app.state,
-    revision: app.revision,
-    ...(canAct
+    ...(app.manifest.permissions.includes("state") || !app.manifest.server
+      ? { state: app.state, revision: app.revision }
+      : {}),
+    ...(actions.length ? { actions } : {}),
+    ...(cards.length
       ? {
-          actions: app.manifest.actions.map(({ name, description, input }) => ({
+          cards: cards.map(({ name, title, description, input }) => ({
             name,
+            title,
             description,
-            input,
+            ...(input ? { input } : {}),
           })),
         }
       : {}),

@@ -37,6 +37,7 @@ import {
 } from "../../../components/messages/ToolActivityDisclosure";
 import { ToolQuestionCard } from "../../../components/messages/ToolQuestionCard";
 import { PageBlockCard } from "../../../components/pages/PageBlockCard";
+import { SignInCard } from "../../../components/sign-in-source/SignInCard";
 import { SkillDraftCard } from "../../../components/teach/SkillDraftCard";
 import {
   isToolOnlyNarration,
@@ -191,7 +192,7 @@ export const MessageView = memo(function MessageView({
     <div className="mt-3 flex flex-col gap-3">
       {pages.map((page) => (
         <PageBlockCard
-          key={`${page.pageId}:${page.version}`}
+          key={`${page.pageId}:${page.version}:${page.card ? JSON.stringify(page.card) : ""}`}
           block={page}
           updated={isPageSuperseded?.(message.id, page) ?? false}
         />
@@ -573,6 +574,14 @@ export const MessageView = memo(function MessageView({
                   target={artifactTarget}
                   canAnswer={canAnswer}
                 />
+              </div>
+            );
+          }
+          if (block.kind === "sign_in") {
+            // The server answers only the request's own person; anyone else is told it is closed.
+            return (
+              <div key={i} className="flex justify-start">
+                <SignInCard block={block} canAct />
               </div>
             );
           }

@@ -18,6 +18,10 @@ export * from "./apps/app-install-pages.js";
 export * from "./apps/app-installs.js";
 export * from "./apps/app-pages.js";
 export * from "./apps/app-tools.js";
+export * from "./apps/functions/app-function-runs.js";
+export * from "./apps/functions/app-function-runtime.js";
+export * from "./apps/hosted/app-network.js";
+export * from "./apps/hosted/app-records.js";
 export * from "./billing/billing-emulator.js";
 export * from "./billing/plan-limits.js";
 export * from "./billing/provider-usage.js";
@@ -303,6 +307,12 @@ export {
   vaultItemsUnderOlderKeys,
 } from "./secrets/vault/vault-values.js";
 export * from "./secrets/wrapped-env.js";
+export {
+  reviewSignInRequest,
+  SignInRequestClosedError,
+} from "./sign-in-sources/sign-in-requests.js";
+export * from "./sign-in-sources/sign-in-source-connections.js";
+export * from "./sign-in-sources/sign-in-source-factory.js";
 export * from "./storage/artifact-store-factory.js";
 export * from "./storage/artifacts.js";
 export * from "./storage/home.js";

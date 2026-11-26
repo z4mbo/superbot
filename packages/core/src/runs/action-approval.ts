@@ -34,6 +34,8 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "organize_bot",
   // The wallet owner approves every purchase in the wallet itself; a card here would ask twice.
   "request_purchase",
+  // The person approves each login in their password manager's own app; a card here would ask twice.
+  "sign_in",
 ]);
 
 /**

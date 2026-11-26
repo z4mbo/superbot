@@ -79,6 +79,14 @@ export async function scaffold(
       [besideManifest(manifestPath, "README.md"), TEMPLATE_FILES.converterReadme],
     );
   }
+  return writeNewFiles(files, cwd);
+}
+
+/**
+ * Writes each file, refusing one that exists. When a file cannot be written, the files already
+ * created are removed. Returns the paths created, as written relative to `cwd`.
+ */
+export async function writeNewFiles(files: [string, string][], cwd: string): Promise<string[]> {
   const resolve = (file: string) => path.resolve(cwd, file);
 
   for (const [index, [file]] of files.entries()) {

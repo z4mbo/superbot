@@ -24,6 +24,13 @@ const HEX_COLOR = /^#[0-9a-f]{3,8}$/i;
 /** Served by the API; the viewer inlines it, since the sandbox policy loads nothing. */
 export const PAGE_RUNTIME_PATH = "/api/v1/assets/page-runtime.js";
 
+/** JSON a script element holds as one value: no text in it can close the element. */
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/[\u2028\u2029]/g, (char) => `\\u${char.charCodeAt(0).toString(16)}`);
+}
+
 /**
  * A page as one self-contained document for the same sandboxed viewers: the runtime
  * and a boot script carrying the page's compiled code. `<` is escaped in the JSON so no page
@@ -49,6 +56,10 @@ export function pageViewerDocument(input: {
   appState?: { state: Record<string, unknown>; revision: number };
   /** The host runs the app's actions it asks for; elsewhere its controls stay off. */
   appActions?: boolean;
+  /** The host answers the app's read-only actions (its hosted data); elsewhere they say so. */
+  appQueries?: boolean;
+  /** The card a bot opened the app on, and its input, so the app draws that view. */
+  appCard?: { name: string; input: Record<string, unknown> };
 }): string {
   const boot = JSON.stringify({
     code: input.code,
@@ -61,15 +72,19 @@ export function pageViewerDocument(input: {
       ? `<style>:root{--rk-bottom-inset:${Math.round(input.bottomInset)}px}</style>`
       : "";
   const appState = input.appState
-    ? `<script>globalThis.__rakazoAppState=${JSON.stringify(input.appState)
-        .replace(/</g, "\\u003c")
-        .replace(/[\u2028\u2029]/g, (char) => `\\u${char.charCodeAt(0).toString(16)}`)}</script>`
+    ? `<script>globalThis.__rakazoAppState=${scriptJson(input.appState)}</script>`
     : "";
+  // Data, never markup: the card's input reaches the app as a JSON value it reads.
+  const appCard = input.appCard
+    ? `<script>globalThis.__rakazoAppCard=${scriptJson(input.appCard)}</script>`
+    : "";
+  const appFlags = `${input.appActions ? " data-app-actions" : ""}${input.appQueries ? " data-app-queries" : ""}`;
   return [
-    `<!DOCTYPE html><html${input.touch ? " data-touch" : ""}${input.reply ? " data-reply" : ""}${input.appActions ? " data-app-actions" : ""}><head><meta charset="utf-8">`,
+    `<!DOCTYPE html><html${input.touch ? " data-touch" : ""}${input.reply ? " data-reply" : ""}${appFlags}><head><meta charset="utf-8">`,
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<script>${input.runtime}</script>`,
     appState,
+    appCard,
     input.surface !== undefined && HEX_COLOR.test(input.surface)
       ? `<style>@media screen{:root[data-theme]{--background:${input.surface}}}</style>`
       : "",

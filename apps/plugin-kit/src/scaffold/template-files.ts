@@ -14,4 +14,7 @@ export const TEMPLATE_FILES = {
   converterPage: read("examples/plugins/marketplace-unit-converter/temperature.html"),
   converterReadme: read("apps/plugin-kit/src/scaffold/mcp-app-readme.md"),
   diaryManifest: read("examples/plugins/kcal-diary/plugin.json"),
+  appManifest: read("examples/food-diary/app.json"),
+  appEntry: read("examples/food-diary/app.jsx"),
+  appServer: read("examples/food-diary/server.js"),
 };

@@ -15,6 +15,7 @@ import type {
   PaymentWalletProvider,
   SandboxProvider,
   SecretStore,
+  SignInSourceProvider,
   TransactionalEmailProvider,
   WebProvider,
 } from "@rakazo/adapter-kit";
@@ -97,6 +98,8 @@ export interface ExecutorDeps {
   userCloudAgents?: UserCloudAgents;
   /** The deployment's payment wallet. Null/omit means purchase tools stay uninjected. */
   paymentWallet?: PaymentWalletProvider | null;
+  /** The deployment's sign-in source. Null/omit means the sign_in tool stays uninjected. */
+  signInSource?: SignInSourceProvider | null;
   /** Optional Auto Review verifier. When omitted, the factory selects from env (llm | jev | scripted). */
   autoReview?: AutoReviewProvider;
   /**

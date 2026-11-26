@@ -318,6 +318,18 @@ function blockHistoryText(block: MessageBlock): string {
     }[block.status];
     return `[${block.question.source} asked the user a question during a tool call; ${outcome}]`;
   }
+  // What became of a sign-in request, never how to approve it: only the person reads its link.
+  if (block.kind === "sign_in") {
+    const outcome = {
+      needs_connection: "no password manager is connected",
+      pending: "waiting for the user to approve a login",
+      approved: "the user approved a login",
+      denied: "the user declined",
+      expired: "the request expired",
+      failed: "the request failed",
+    }[block.status];
+    return `[signing in to ${block.site} with ${block.label}; ${outcome}]`;
+  }
   if ("text" in block && typeof block.text === "string") return block.text;
   return "";
 }

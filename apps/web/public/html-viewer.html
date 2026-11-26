@@ -11,6 +11,8 @@ let key = "";
 let gesture = 0;
 let gestureAt = 0;
 const GESTURE_WINDOW_MS = 1000;
+// The longest key an app may ask a read-only answer by; the app refuses longer ones too.
+const QUERY_KEY_MAX = 2048;
 function guard() {
   key = Array.from(crypto.getRandomValues(new Uint32Array(4)), (n) => n.toString(36)).join("");
   return `<script>(() => { const up = parent, key = "${key}"; document.currentScript.remove(); const apply = Reflect.apply, repeat = Object.getOwnPropertyDescriptor(KeyboardEvent.prototype, "repeat").get; const tell = () => up.postMessage({ type: "rakazo-page:gesture", key }, "*"); addEventListener("pointerup", (event) => { if (event.isTrusted) tell(); }, true); addEventListener("keydown", (event) => { if (event.isTrusted && !apply(repeat, event, [])) tell(); }, true); })();</${"script"}>`;
@@ -18,7 +20,7 @@ function guard() {
 addEventListener("message", (event) => {
   const preview = document.getElementById("preview");
   // A page asks the app to open a link, offer a reply, copy text or make room for its height, and an
-  // app also for its state or an action; only those pass up.
+  // app also for its state, an action or a read-only answer; only those pass up.
   if (event.source === preview.contentWindow && parent !== window) {
     const data = event.data;
     // A click or key in the page also activates this shell, which the page cannot fake; the guard
@@ -46,6 +48,13 @@ addEventListener("message", (event) => {
     } else if (data && data.type === "rakazo-app:action" && typeof data.id === "string" && typeof data.name === "string") {
       // An app asks the app to run one of its declared actions; the app checks the input.
       parent.postMessage({ type: data.type, id: data.id.slice(0, 64), name: data.name.slice(0, 64), input: data.input, gesture: fresh }, "*");
+    } else if (data && data.type === "rakazo-app:query" && typeof data.key === "string" && data.key.length <= QUERY_KEY_MAX && typeof data.name === "string") {
+      // An app asks for one of its read-only answers by key; it needs no click, and the app
+      // checks the name and the input.
+      parent.postMessage({ type: data.type, key: data.key, name: data.name.slice(0, 64), input: data.input }, "*");
+    } else if (data && (data.type === "rakazo-app:unquery" || data.type === "rakazo-app:refetch") && typeof data.key === "string" && data.key.length <= QUERY_KEY_MAX) {
+      // An app lets an answer go, or asks for it to be read again.
+      parent.postMessage({ type: data.type, key: data.key }, "*");
     }
     return;
   }
@@ -61,7 +70,12 @@ addEventListener("message", (event) => {
     return;
   }
   if (event.data && event.data.type === "rakazo-app:result") {
-    preview.contentWindow.postMessage({ type: event.data.type, id: String(event.data.id), ok: event.data.ok === true, error: typeof event.data.error === "string" ? event.data.error : undefined }, "*");
+    preview.contentWindow.postMessage({ type: event.data.type, id: String(event.data.id), ok: event.data.ok === true, result: event.data.result, error: typeof event.data.error === "string" ? event.data.error : undefined }, "*");
+    return;
+  }
+  // The answer to a read-only query the app asked for, on the key it asked with.
+  if (event.data && event.data.type === "rakazo-app:answer" && typeof event.data.key === "string") {
+    preview.contentWindow.postMessage({ type: event.data.type, key: event.data.key, status: String(event.data.status), data: event.data.data, error: typeof event.data.error === "string" ? event.data.error : undefined }, "*");
     return;
   }
   if (typeof event.data !== "string") return;

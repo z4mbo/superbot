@@ -28,6 +28,7 @@ const READS: Record<ReadChangeKind, readonly Procedure[]> = {
   artifacts: [["artifacts", "listSpace"]],
   apps: [
     ["pages", "appState"],
+    ["pages", "appQuery"],
     ["apps", "installed"],
   ],
 };

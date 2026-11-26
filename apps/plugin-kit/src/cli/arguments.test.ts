@@ -21,6 +21,9 @@ Commands:
   init            Create a starter skill, TypeScript MCP app or record app [alias: scaffold]
   validate        Validate a manifest locally
   publish         Submit a new version for review [alias: submit]
+  app-init        Create an app folder with hosted records, server functions and a card
+  app-check       Check an app folder as the server will
+  app-publish     Submit an app folder's version for review
   list            List approved versions, your submissions, installations, or the reviewer queue
   status          Look up one of your submitted versions by ID
   agents          List Space agents and their IDs for grants
@@ -211,7 +214,7 @@ describe("commands", () => {
       [
         ["-", "bogus"],
         usageError(
-          "unrecognized subcommand '-'\n\n  tip: a similar subcommand exists: 'set-grants'",
+          "unrecognized subcommand '-'\n\n  tip: some similar subcommands exist: 'set-grants', 'app-check', 'app-init'",
           "[OPTIONS] <COMMAND>",
         ),
       ],

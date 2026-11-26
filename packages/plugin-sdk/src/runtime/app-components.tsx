@@ -1,8 +1,19 @@
 import type { AppActionInput } from "@rakazo/contracts";
 import type { KeyboardEvent } from "react";
-import { useCallback, useState, useSyncExternalStore } from "react";
-import type { ActionResult } from "./app-store.js";
-import { actionsAvailable, getState, runAction, subscribe, surface } from "./app-store.js";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import type { ActionResult, AppCardView, QueryState } from "./app-store.js";
+import {
+  actionsAvailable,
+  cardView,
+  getState,
+  queryKey,
+  queryState,
+  refetchQuery,
+  runAction,
+  subscribe,
+  subscribeQuery,
+  surface,
+} from "./app-store.js";
 
 /** The app's stored state, kept current as people and bots run its actions. Read-only. */
 export function useAppState(): Record<string, unknown> {
@@ -17,6 +28,36 @@ export function useAction(
   name: string,
 ): (input?: Record<string, unknown>) => Promise<ActionResult> {
   return useCallback((input?: Record<string, unknown>) => runAction(name, input), [name]);
+}
+
+/**
+ * The card this view was opened to show, with its input, as a bot asked for it; `name` is null
+ * when the app was opened on its own.
+ */
+export function useCard(): AppCardView {
+  return cardView();
+}
+
+/**
+ * The answer of a read-only action for this input: `data` is what its function returned. It
+ * loads when the view opens, and the host reads it again after any action in this view runs and
+ * whenever the app's data changes elsewhere. `refetch` reads it again now.
+ */
+export function useQuery(
+  name: string,
+  input?: Record<string, unknown>,
+): QueryState & { refetch: () => void } {
+  const key = queryKey(name, input);
+  // The input is keyed by value, so a new object with the same fields keeps the same query.
+  const fixed = useMemo(() => JSON.parse(key)[1] as Record<string, unknown>, [key]);
+  const follow = useCallback(
+    (listener: () => void) => subscribeQuery(name, fixed, listener),
+    [name, fixed],
+  );
+  const read = useCallback(() => queryState(name, fixed), [name, fixed]);
+  const state = useSyncExternalStore(follow, read, read);
+  const refetch = useCallback(() => refetchQuery(name, fixed), [name, fixed]);
+  return { ...state, refetch };
 }
 
 function useRun(action: string) {

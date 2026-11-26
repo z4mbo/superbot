@@ -8,7 +8,9 @@ import type {
   BrowserSnapshotRequest,
   BrowserSnapshotResult,
   ComputerRef,
+  SignInFillCall,
 } from "@rakazo/adapter-kit";
+import { emulatorExtensionFill } from "../sign-in-sources/sign-in-source-emulator.js";
 import { fetchSafeWebText } from "../web/web-ssrf.js";
 import { PageBrowserSessionStore, pageBrowserSessionKey } from "./page-browser-session.js";
 
@@ -136,6 +138,22 @@ export class FakeBrowserProvider implements BrowserProvider {
       };
     }
     return this.sessions.get(pageBrowserSessionKey(computer, context)).act(request.actions);
+  }
+
+  /**
+   * The offline sign-in source's extension, as if installed in this browser: it fills the login
+   * the call names into the page's sign-in form. Calls for any other source fail.
+   */
+  async signInFill(
+    computer: ComputerRef,
+    request: { origin: string; call: SignInFillCall },
+    context: AdapterContext,
+  ): Promise<unknown> {
+    context.signal.throwIfAborted();
+    const answer = emulatorExtensionFill(request.call);
+    if ("status" in answer) return answer;
+    const session = this.sessions.get(pageBrowserSessionKey(computer, context));
+    return { status: session.fillLogin(request.origin, answer.login) };
   }
 }
 

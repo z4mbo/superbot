@@ -75,6 +75,8 @@ async function sourceMessage(
         if (block.kind === "ask")
           return block.status !== "answered" && !block.expired && !block.dismissed;
         if (block.kind === "tool_question") return block.status === "pending";
+        if (block.kind === "sign_in")
+          return block.status === "pending" || block.status === "needs_connection";
         return isBackgroundInputBlock(block);
       }),
     ) ?? null

@@ -1,6 +1,8 @@
 import type { AppPermission } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
+import { appBridgeAllows } from "@rakazo/plugin-sdk";
 import { AppChangedError, listInstalledApps, readAppLaunch } from "./app-installs.js";
+import { withinGrant } from "./app-pages.js";
 import { noAppsFound } from "./app-tools.prompt.js";
 
 type FoundApp = {
@@ -9,9 +11,31 @@ type FoundApp = {
   description: string;
   version: string;
   permissions: AppPermission[];
-  /** Declared actions, listed only when the user let bots run them. */
-  actions?: Array<{ name: string; description: string }>;
+  /** Actions a bot may run here: read-only ones with agent:read, the rest with agent:actions. */
+  actions?: Array<{ name: string; description: string; readOnly?: true }>;
+  /** Cards open_app can show. */
+  cards?: Array<{ name: string; title: string; description: string }>;
 };
+
+/** What a bot may do with an installed app, by its grant. */
+function agentSurface(launch: Awaited<ReturnType<typeof readAppLaunch>>) {
+  const surface = withinGrant(launch.manifest, launch.granted);
+  const actions = surface.actions
+    .filter(
+      (action) => appBridgeAllows(surface, { by: "agent", kind: "action", action: action.name }).ok,
+    )
+    .map(({ name, description, readOnly }) => ({
+      name,
+      description,
+      ...(readOnly ? { readOnly: true as const } : {}),
+    }));
+  const cards = (surface.cards ?? []).map(({ name, title, description }) => ({
+    name,
+    title,
+    description,
+  }));
+  return { ...(actions.length ? { actions } : {}), ...(cards.length ? { cards } : {}) };
+}
 
 /**
  * The installed apps in the run's Space that match, each checked the way a launch checks it, so
@@ -46,14 +70,7 @@ export async function findInstalledApps(
       description: launch.manifest.description,
       version: launch.version,
       permissions: launch.granted,
-      ...(launch.granted.includes("agent:actions") && launch.manifest.actions.length
-        ? {
-            actions: launch.manifest.actions.map(({ name, description }) => ({
-              name,
-              description,
-            })),
-          }
-        : {}),
+      ...agentSurface(launch),
     });
   }
   return apps.length ? { apps } : { apps, note: noAppsFound(query) };

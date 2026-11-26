@@ -136,6 +136,8 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "TrustedLinkSite",
   "FeedbackReport",
   "PaymentWallet",
+  "SignInSource",
+  "SignInRequest",
   "Purchase",
   "SpendingLimit",
   "Payment",
@@ -200,6 +202,7 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "DurableSubmission",
   "DurableDocument",
   "DurableDocumentRevision",
+  "AppRecord",
 ]);
 
 /**

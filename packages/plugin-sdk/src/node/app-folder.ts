@@ -1,5 +1,6 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
+import type { AppManifest } from "@rakazo/contracts";
 import { APP_MANIFEST_FILE } from "@rakazo/contracts";
 import type { AppCheck } from "../check/check-app.js";
 import { checkApp } from "../check/check-app.js";
@@ -42,8 +43,24 @@ async function appFile(root: string, relative: string): Promise<string> {
   return real;
 }
 
-/** Checks an app folder the way the product checks an app: `app.json` and its entry file. */
-export async function checkAppFolder(folder: string): Promise<AppCheck> {
+/** An app folder's files as the check and a publish read them. */
+export type AppFolderFiles = {
+  manifestText: string;
+  source: string;
+  server?: string;
+  icon?: Buffer;
+};
+
+/**
+ * Reads the files an app folder's manifest names: the entry, the server file and the icon. A
+ * missing file, a case mismatch or a link out of the folder is an error naming the file.
+ */
+export async function readAppFolder(
+  folder: string,
+): Promise<
+  | { ok: true; root: string; manifest: AppManifest; files: AppFolderFiles }
+  | { ok: false; errors: string[] }
+> {
   let root: string;
   try {
     root = await realpath(folder);
@@ -58,12 +75,39 @@ export async function checkAppFolder(folder: string): Promise<AppCheck> {
   }
   const parsed = parseAppManifestText(manifestText);
   if (!parsed.ok) return parsed;
-  let source: string;
+  const { manifest } = parsed;
   try {
-    source = normalizeAppText(await readFile(await appFile(root, parsed.manifest.entry), "utf8"));
-    if (parsed.manifest.icon) await appFile(root, parsed.manifest.icon);
+    const source = normalizeAppText(await readFile(await appFile(root, manifest.entry), "utf8"));
+    const server = manifest.server
+      ? normalizeAppText(await readFile(await appFile(root, manifest.server), "utf8"))
+      : undefined;
+    const icon = manifest.icon ? await readFile(await appFile(root, manifest.icon)) : undefined;
+    return {
+      ok: true,
+      root,
+      manifest,
+      files: {
+        manifestText,
+        source,
+        ...(server !== undefined ? { server } : {}),
+        ...(icon ? { icon } : {}),
+      },
+    };
   } catch (error) {
     return { ok: false, errors: [error instanceof Error ? error.message : String(error)] };
   }
-  return checkApp({ manifest: parsed.manifest, source });
+}
+
+/**
+ * Checks an app folder the way the product checks an app: `app.json`, its entry file and its
+ * server file when it has one.
+ */
+export async function checkAppFolder(folder: string): Promise<AppCheck> {
+  const read = await readAppFolder(folder);
+  if (!read.ok) return read;
+  return checkApp({
+    manifest: read.manifest,
+    source: read.files.source,
+    server: read.files.server,
+  });
 }

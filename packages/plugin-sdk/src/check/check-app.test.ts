@@ -97,5 +97,12 @@ it("offers the app names only to apps", () => {
     "export default function P() { return <Page><ActionButton action='x' label='x' /></Page>; }",
   );
   expect(plain.ok).toBe(false);
-  expect(APP_GLOBALS).toEqual(["useAppState", "useAction", "ActionButton", "ActionForm"]);
+  expect(APP_GLOBALS).toEqual([
+    "useAppState",
+    "useAction",
+    "useQuery",
+    "useCard",
+    "ActionButton",
+    "ActionForm",
+  ]);
 });
