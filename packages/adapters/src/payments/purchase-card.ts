@@ -1,7 +1,7 @@
 import type { PurchaseCardSummary, PurchaseStatus } from "@rakazo/adapter-kit";
 import type { MessageBlock, PurchaseCardState } from "@rakazo/contracts";
 import { cardTitle } from "@rakazo/contracts";
-import { ClientError, formatPurchaseAmount, walletPurchaseCardState } from "@rakazo/core";
+import { ClientError, formatPurchaseAmount, retry, walletPurchaseCardState } from "@rakazo/core";
 import type {
   AuditEventInput,
   PrismaClient,
@@ -193,6 +193,9 @@ export class PurchaseNotFoundError extends ClientError {
   }
 }
 
+/** The purchase changed under a cancel, which then wrote nothing. */
+class PurchaseChangedError extends Error {}
+
 /** Statuses a person can still cancel from the chat: nothing has been paid yet. */
 const CANCELABLE: ReadonlySet<string> = new Set<PurchaseStatus>([
   "pending_approval",
@@ -210,23 +213,28 @@ export async function cancelWalletPurchase(
   actor: { userId: string; spaceId: string },
   purchaseId: string,
 ): Promise<PurchaseCardState> {
-  // A poll can change the purchase between the read and the write; each try reads it again.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const purchase = await deps.prisma.purchase.findFirst({
-      where: { id: purchaseId, spaceId: actor.spaceId, userId: actor.userId },
-    });
-    if (!purchase) throw new PurchaseNotFoundError();
-    if (!CANCELABLE.has(purchase.status)) break;
-    await settle(purchase);
-  }
+  const own = { id: purchaseId, spaceId: actor.spaceId, userId: actor.userId };
+  // A poll can change the purchase between the read and the write, and the write then does
+  // nothing; each try reads it again.
+  await retry(
+    async () => {
+      const purchase = await deps.prisma.purchase.findFirst({ where: own });
+      if (!purchase) throw new PurchaseNotFoundError();
+      if (!CANCELABLE.has(purchase.status)) return;
+      await settle(purchase);
+      const after = await deps.prisma.purchase.findFirst({ where: own, select: { status: true } });
+      if (after && CANCELABLE.has(after.status)) throw new PurchaseChangedError();
+    },
+    { attempts: 3, delayMs: 0, retryable: (error) => error instanceof PurchaseChangedError },
+  ).catch((error: unknown) => {
+    // Still not cancelled after every try: the card below says where the purchase stands.
+    if (!(error instanceof PurchaseChangedError)) throw error;
+  });
   const state = await syncWalletPurchaseCard(deps, purchaseId, {
     actor: { type: "user", id: actor.userId },
   });
   if (state) return state;
-  const current = await deps.prisma.purchase.findFirst({
-    where: { id: purchaseId, spaceId: actor.spaceId, userId: actor.userId },
-    select: { status: true },
-  });
+  const current = await deps.prisma.purchase.findFirst({ where: own, select: { status: true } });
   if (!current) throw new PurchaseNotFoundError();
   return walletPurchaseCardState(current.status);
 }
