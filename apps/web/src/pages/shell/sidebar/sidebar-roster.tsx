@@ -568,6 +568,7 @@ function PinnedTiles({
   return (
     <div data-sidebar-group={group.key} className="flex flex-wrap justify-center gap-1 pt-2.5 pb-2">
       {heading ? (
+        // biome-ignore lint/a11y/noStaticElementInteractions: right-click is a shortcut; the actions button beside the name is the keyboard and pointer path.
         <div
           data-pinned-space-heading
           className="flex basis-full items-center justify-between gap-2 ps-2 pb-1"

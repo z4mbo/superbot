@@ -170,7 +170,11 @@ describeCli("superbot command against a local server", () => {
       {
         id: space.id,
         name: space.name,
-        agents: [expect.objectContaining({ name: "Fixture agent" })],
+        // Reading the Space gives it its main bot, which is listed beside the agent made here.
+        agents: [
+          expect.objectContaining({ name: "Fixture agent" }),
+          expect.objectContaining({ name: "Superbot" }),
+        ],
       },
     ]);
 

@@ -9,6 +9,7 @@ import {
 } from "@rakazo/adapters";
 import type { createApp } from "@rakazo/api/app";
 import type { appContract, Space, SpaceNavigation } from "@rakazo/contracts";
+import { PRIMARY_BOT_SPAWN_KEY } from "@rakazo/contracts";
 import {
   claimSpaceDeletionForMember,
   deleteClaimedSpaceForMember,
@@ -580,6 +581,17 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["voice/models", { provider: "openrouter" }],
       ["voice/prepare", { text: "Nope" }],
       ["voice/setSpeechModel"],
+      ["voice/realtimeSession", { botId: "missing-bot", turnMode: "push-to-talk" }],
+      [
+        "voice/recordRealtimeTurn",
+        {
+          botId: "missing-bot",
+          callId: "missing-call",
+          turnId: "turn-1",
+          role: "user",
+          text: "Nope",
+        },
+      ],
       ["analytics/screen"],
       ["analytics/modelSignInStep"],
       ["aiConsent/status"],
@@ -1421,18 +1433,24 @@ describeWithDatabase("API authorization and resource isolation", () => {
     await expectDenied(app, cookie, "bots/get", { botId: supportBot.id });
     await expectDenied(app, cookie, "bots/get", { botId: originalBot.id }, support.id);
 
+    // Reading a Space's roster gives it its main bot, which stays inside that Space.
+    const mainBotOf = (spaceId: string) =>
+      expect.objectContaining({ spaceId, spawnKey: PRIMARY_BOT_SPAWN_KEY });
     const navigation = await rpc<SpaceNavigation>(app, cookie, "spaces/list");
     expect(navigation.current).toEqual(
       expect.objectContaining({
         id: original.spaceId,
-        bots: [expect.objectContaining({ id: originalBot.id })],
+        bots: [expect.objectContaining({ id: originalBot.id }), mainBotOf(original.spaceId)],
       }),
     );
     expect(navigation.spaces).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: original.spaceId,
-          bots: [expect.objectContaining({ id: originalBot.id, notifyOnFinish: false })],
+          bots: [
+            expect.objectContaining({ id: originalBot.id, notifyOnFinish: false }),
+            mainBotOf(original.spaceId),
+          ],
         }),
         expect.objectContaining({
           id: support.id,
@@ -1454,7 +1472,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
     expect(supportNavigation.current).toEqual(
       expect.objectContaining({
         id: support.id,
-        bots: [expect.objectContaining({ id: supportBot.id })],
+        bots: [expect.objectContaining({ id: supportBot.id }), mainBotOf(support.id)],
       }),
     );
     const otherOrganizationNavigation = await rpc<SpaceNavigation>(
@@ -1792,8 +1810,8 @@ describeWithDatabase("API authorization and resource isolation", () => {
       hasContent: true,
       canDelete: true,
       canRename: true,
-      // The archived bot goes too, so the confirmation counts it.
-      botCount: 3,
+      // The archived bot and the Space's main bot go too, so the confirmation counts them.
+      botCount: 4,
     });
     expect(listed.spaces.find((space) => space.id === actor.spaceId)?.canDelete).toBe(false);
     await expect(
@@ -1810,7 +1828,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
     await expect(
       raw(app, intruder, "spaces/rename", { spaceId: busy.id, name: "Stolen" }),
     ).resolves.toMatchObject({ status: 404 });
-    expect(await db.bot.count({ where: { spaceId: busy.id } })).toBe(3);
+    expect(await db.bot.count({ where: { spaceId: busy.id } })).toBe(4);
 
     const removed = await rpc<{ ok: true; activeSpaceId: string }>(app, cookie, "spaces/remove", {
       spaceId: busy.id,
