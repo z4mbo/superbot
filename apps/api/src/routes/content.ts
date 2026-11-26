@@ -1,5 +1,10 @@
 import type { UsageOperationKind } from "@rakazo/adapter-kit";
-import { planLimitsReader, readMemberPlanLimits, resolveBotWorkspacePath } from "@rakazo/adapters";
+import {
+  planLimitsReader,
+  readMemberPlanLimits,
+  readMemberProviderUsage,
+  resolveBotWorkspacePath,
+} from "@rakazo/adapters";
 import type { ExportManifest } from "@rakazo/contracts";
 import { attachmentMaxBytes, resolveBotAvatarSet } from "@rakazo/contracts";
 import {
@@ -155,6 +160,16 @@ export function contentRoutes(ctx: RouterContext) {
           context.actor.userId,
           deps.planLimits ?? planLimitsReader,
           (secretId, provider) => refreshExpiredCredential(context.actor, secretId, provider),
+        ),
+      ),
+      providers: authed.usage.providers.handler(({ context, input }) =>
+        readMemberProviderUsage(
+          deps.prisma,
+          deps.secrets,
+          context.actor.userId,
+          deps.planLimits ?? planLimitsReader,
+          (secretId, provider) => refreshExpiredCredential(context.actor, secretId, provider),
+          { refresh: input?.refresh === true },
         ),
       ),
       summary: authed.usage.summary.handler(async ({ context }) => {

@@ -432,7 +432,10 @@ export async function refreshExpiredModelCredential(
 
 const credentialRefreshKicks = new Map<string, Promise<void>>();
 
-/** Concurrent kicks for one credential collapse into a single refresh. */
+/**
+ * Concurrent kicks for one credential collapse into a single refresh. The result settles when
+ * that refresh ends, whether or not it renewed the sign-in; most callers do not wait for it.
+ */
 export function kickModelCredentialRefresh(
   prisma: ModelCredentialDb,
   secretStore: ModelCredentialStore,
@@ -440,13 +443,21 @@ export function kickModelCredentialRefresh(
   secretId: string,
   provider: string,
   opts?: Pick<ResolveModelOpts, "oauth" | "signal" | "now">,
-): void {
-  if (credentialRefreshKicks.has(secretId)) return;
-  const kick = refreshExpiredModelCredential(prisma, secretStore, scope, secretId, provider, {
-    signal: opts?.signal ?? AbortSignal.timeout(REFRESH_KICK_TIMEOUT_MS),
-    ...(opts?.oauth ? { oauth: opts.oauth } : {}),
-    ...(opts?.now !== undefined ? { now: opts.now } : {}),
-  })
+): Promise<void> {
+  const running = credentialRefreshKicks.get(secretId);
+  if (running) return running;
+  const kick: Promise<void> = refreshExpiredModelCredential(
+    prisma,
+    secretStore,
+    scope,
+    secretId,
+    provider,
+    {
+      signal: opts?.signal ?? AbortSignal.timeout(REFRESH_KICK_TIMEOUT_MS),
+      ...(opts?.oauth ? { oauth: opts.oauth } : {}),
+      ...(opts?.now !== undefined ? { now: opts.now } : {}),
+    },
+  )
     .catch(() => undefined)
     .finally(() => {
       if (credentialRefreshKicks.get(secretId) === kick) {
@@ -454,4 +465,5 @@ export function kickModelCredentialRefresh(
       }
     });
   credentialRefreshKicks.set(secretId, kick);
+  return kick;
 }

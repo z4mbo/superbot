@@ -21,6 +21,7 @@ import type { Panel } from "../right-panel-state";
 import type { SettingsSection } from "../shell-overlay-url";
 import { SidebarFooter } from "./sidebar-footer";
 import { SidebarHeader } from "./sidebar-header";
+import { SidebarUsage } from "./sidebar-usage";
 import type { SidebarSearch } from "./use-sidebar-search";
 
 /** Focuses the search box once it renders, its text selected so typing replaces it. */
@@ -202,6 +203,7 @@ export function ShellSidebar({
         <div className="rk-scroll flex max-h-[40vh] shrink-0 flex-col overflow-y-auto px-2.5 pb-1">
           {archived}
         </div>
+        <SidebarUsage onOpenSettings={() => openSettings("usage")} />
         <PasskeyOffer />
         <ShellSidebarFooter
           user={user}

@@ -119,7 +119,7 @@ export interface RouterDeps {
     scope: { userId: string; spaceId: string },
     secretId: string,
     provider: string,
-  ) => void;
+  ) => void | Promise<void>;
   integrationSettings?: IntegrationProviderSettings;
   mcpOAuth?: McpOAuthBroker;
   /** Probes MCP server health; without it servers are never probed from here. */

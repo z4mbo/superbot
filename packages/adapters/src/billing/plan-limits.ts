@@ -1,196 +1,173 @@
 import type { OAuthCredential } from "@earendil-works/pi-ai";
 import type { SecretStore } from "@rakazo/adapter-kit";
-import type { PlanLimits, PlanLimitWindow } from "@rakazo/contracts";
-import { readBoundedJsonResponse } from "@rakazo/core";
+import type { PlanLimits, PlanLimitWindow, ProviderUsageStatus } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
-import { bestEffort } from "@rakazo/logging";
 import {
   modelProviderAllowed,
   modelProviderAllowlist,
 } from "../models/model-provider-allowlist.js";
+import type { StoredModelSecret } from "../models/model-secret.js";
 import { parseModelSecret } from "../models/model-secret.js";
+import type { UsageReading } from "./usage-readers.js";
 import {
-  ANTHROPIC_OAUTH_PROVIDER,
-  CHATGPT_OAUTH_PROVIDER,
-  oauthCredentialAccountId,
-} from "../runtime/pi/models/pi-oauth.js";
+  keyUsageReader,
+  oauthUsageReader,
+  PLAN_LIMIT_PROVIDERS,
+  UsageHttpError,
+} from "./usage-readers.js";
 
-const MAX_BYTES = 64 * 1024;
-const TIMEOUT_MS = 10_000;
+export {
+  PLAN_LIMIT_PROVIDERS,
+  parseChatGptPlanLimits,
+  parseClaudePlanLimits,
+} from "./usage-readers.js";
+
 /** A fresh reading is reused this long, and a failure is not retried sooner. */
 const FRESH_MS = 60_000;
 const FAILURE_RETRY_MS = 15_000;
+/** Asking again on demand still waits this long after the last attempt. */
+const REFRESH_FLOOR_MS = 10_000;
 /** Older readings are dropped rather than shown as current. */
 const STALE_MS = 30 * 60_000;
 const MAX_ENTRIES = 512;
 
-type Reader = {
-  /** The subscription's own name, which is what people know their plan by. */
-  name: string;
-  read: (credential: OAuthCredential, fetchImpl: typeof fetch) => Promise<PlanLimitWindow[]>;
+/** A connection's usable secret, in the form a usage read takes it. */
+export type UsageSecret =
+  | { kind: "oauth"; credential: OAuthCredential }
+  | { kind: "api_key"; key: string };
+
+type Entry = {
+  /** The last good reading, kept through later failures until it is stale. */
+  reading: UsageReading | null;
+  readAt: number | null;
+  attemptAt: number;
+  retryAt: number;
+  /** Why the latest attempt failed; null when it succeeded. */
+  failure: "error" | "not_signed_in" | null;
 };
 
-function record(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("schema");
-  return value as Record<string, unknown>;
-}
-
-function percent(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error("schema");
-  return Math.min(100, Math.max(0, value));
-}
-
-/** Seconds since the epoch or an ISO string; anything else is unknown. */
-function resetTime(value: unknown): string | null {
-  const ms =
-    typeof value === "number" ? value * 1000 : typeof value === "string" ? Date.parse(value) : NaN;
-  return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null;
-}
-
-function periodFor(seconds: unknown): PlanLimitWindow["period"] | null {
-  if (typeof seconds !== "number" || seconds <= 0) return null;
-  if (seconds <= 86_400) return "session";
-  if (seconds <= 8 * 86_400) return "week";
-  return "month";
-}
-
-async function getJson(
-  fetchImpl: typeof fetch,
-  url: string,
-  headers: Record<string, string>,
-): Promise<unknown> {
-  const signal = AbortSignal.timeout(TIMEOUT_MS);
-  const response = await fetchImpl(url, {
-    headers: { ...headers, accept: "application/json" },
-    redirect: "error",
-    signal,
-  });
-  if (!response.ok) {
-    await bestEffort("cancel unread response body", response.body?.cancel());
-    throw new Error(`http ${response.status}`);
-  }
-  return readBoundedJsonResponse(response, MAX_BYTES, signal);
-}
-
-/** Session and weekly windows; per-model weekly limits do not gate the shared allowance. */
-export function parseClaudePlanLimits(payload: unknown): PlanLimitWindow[] {
-  const body = record(payload);
-  const windows: PlanLimitWindow[] = [];
-  for (const [key, period] of [
-    ["five_hour", "session"],
-    ["seven_day", "week"],
-  ] as const) {
-    if (body[key] == null) continue;
-    const window = record(body[key]);
-    windows.push({
-      period,
-      usedPercent: percent(window.utilization),
-      resetsAt: resetTime(window.resets_at),
-    });
-  }
-  return windows;
-}
-
-/** The account's primary and secondary windows, named by their length. */
-export function parseChatGptPlanLimits(payload: unknown): PlanLimitWindow[] {
-  const limits = record(record(payload).rate_limit);
-  const windows: PlanLimitWindow[] = [];
-  for (const key of ["primary_window", "secondary_window"]) {
-    if (limits[key] == null) continue;
-    const window = record(limits[key]);
-    const period = periodFor(window.limit_window_seconds);
-    if (!period) continue;
-    windows.push({
-      period,
-      usedPercent: percent(window.used_percent),
-      resetsAt: resetTime(window.reset_at),
-    });
-  }
-  return windows;
-}
-
-const READERS: Record<string, Reader> = {
-  [ANTHROPIC_OAUTH_PROVIDER]: {
-    name: "Claude",
-    read: async (credential, fetchImpl) =>
-      parseClaudePlanLimits(
-        await getJson(fetchImpl, "https://api.anthropic.com/api/oauth/usage", {
-          authorization: `Bearer ${credential.access}`,
-          "anthropic-beta": "oauth-2025-04-20",
-        }),
-      ),
-  },
-  [CHATGPT_OAUTH_PROVIDER]: {
-    name: "ChatGPT",
-    read: async (credential, fetchImpl) => {
-      const accountId = oauthCredentialAccountId(credential);
-      if (!accountId) throw new Error("account");
-      return parseChatGptPlanLimits(
-        await getJson(fetchImpl, "https://chatgpt.com/backend-api/wham/usage", {
-          authorization: `Bearer ${credential.access}`,
-          "chatgpt-account-id": accountId,
-          originator: "rakazo",
-        }),
-      );
-    },
-  },
+/** What a connection's row shows; `reading` is set when the provider's last answer still counts. */
+export type UsageOutcome = {
+  status: ProviderUsageStatus;
+  reading: UsageReading | null;
+  readAt: number | null;
 };
-
-export const PLAN_LIMIT_PROVIDERS = Object.keys(READERS);
-
-type Entry = { windows: PlanLimitWindow[]; readAt: number; retryAt: number };
 
 /**
- * Reads subscription allowances with the member's own sign-in. Readings are cached per
- * connection so opening a menu never fans out to providers, and a failed read keeps
- * showing the last good one for a while instead of nothing.
+ * Reads what providers report about the member's own connections. Readings are cached per
+ * connection so opening a menu never fans out to providers, and a failed read keeps showing the
+ * last good one for a while instead of nothing. Subscription allowances and the full usage roster
+ * share one cache, so a connection is never read twice for the two.
  */
 export class PlanLimitsReader {
   private readonly cache = new Map<string, Entry>();
-  private readonly pending = new Map<string, Promise<PlanLimitWindow[] | null>>();
+  private readonly pending = new Map<string, Promise<Entry>>();
 
   constructor(
     private readonly fetchImpl: typeof fetch = fetch,
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** Null when the provider has no readable allowance or it could not be read lately. */
+  /** A subscription's allowances; null when it has none or none could be read lately. */
   async read(
     key: string,
     provider: string,
     credential: OAuthCredential | null,
   ): Promise<PlanLimitWindow[] | null> {
-    const reader = READERS[provider];
-    if (!reader) return null;
-    const now = this.now();
-    const cached = this.cache.get(key);
-    // An expired token reads nothing; the caller has a refresh started.
-    if (cached && (cached.retryAt > now || !credential || credential.expires <= now))
-      return this.current(cached, now);
-    if (!credential || credential.expires <= now) return null;
+    if (!PLAN_LIMIT_PROVIDERS.includes(provider)) return null;
+    const entry = await this.settle(
+      key,
+      provider,
+      credential ? { kind: "oauth", credential } : null,
+      false,
+    );
+    // Allowances for one model family stay out: this list keys its rows by period.
+    const windows =
+      (entry && this.current(entry, this.now()))?.windows.filter((window) => !window.model) ?? [];
+    return windows.length ? windows : null;
+  }
+
+  /** A connection's usage, asking the provider again on `refresh` unless it was just asked. */
+  async usage(
+    key: string,
+    provider: string,
+    secret: UsageSecret,
+    options: { refresh?: boolean } = {},
+  ): Promise<UsageOutcome> {
+    if (!this.source(provider, secret))
+      return { status: "unavailable", reading: null, readAt: null };
+    const entry = await this.settle(key, provider, secret, options.refresh === true);
+    // Nothing read yet, e.g. an expired sign-in whose refresh is still running.
+    if (!entry) return { status: "error", reading: null, readAt: null };
+    const readAt = entry.readAt;
+    if (entry.failure === "not_signed_in")
+      return { status: "not_signed_in", reading: null, readAt };
+    const reading = this.current(entry, this.now());
+    if (!reading) return { status: "error", reading: null, readAt };
+    const reported = reading.windows.length > 0 || reading.credits !== null;
+    return { status: reported ? "ok" : "no_data", reading, readAt };
+  }
+
+  private source(provider: string, secret: UsageSecret): (() => Promise<UsageReading>) | null {
+    if (secret.kind === "oauth") {
+      const reader = oauthUsageReader(provider);
+      return reader ? () => reader.read(secret.credential, this.fetchImpl) : null;
+    }
+    const reader = keyUsageReader(provider);
+    return reader ? () => reader(secret.key, this.fetchImpl) : null;
+  }
+
+  /** The entry once any read this call should make has finished; null when none ever was. */
+  private async settle(
+    key: string,
+    provider: string,
+    secret: UsageSecret | null,
+    refresh: boolean,
+  ): Promise<Entry | null> {
     const inFlight = this.pending.get(key);
     if (inFlight) return inFlight;
-    const task = reader
-      .read(credential, this.fetchImpl)
+    const now = this.now();
+    const cached = this.cache.get(key) ?? null;
+    // An expired token reads nothing; the caller has a refresh started.
+    if (!secret || (secret.kind === "oauth" && secret.credential.expires <= now)) return cached;
+    const read = this.source(provider, secret);
+    if (!read) return cached;
+    const due = !cached || cached.retryAt <= now;
+    if (!due && !(refresh && now - cached.attemptAt >= REFRESH_FLOOR_MS)) return cached;
+    const task = read()
       .then(
-        (windows) => {
-          this.store(key, { windows, readAt: this.now(), retryAt: this.now() + FRESH_MS });
-          return windows.length ? windows : null;
-        },
-        () => {
+        (reading): Entry => ({
+          reading,
+          readAt: this.now(),
+          attemptAt: now,
+          retryAt: this.now() + FRESH_MS,
+          failure: null,
+        }),
+        (error: unknown): Entry => {
           // Provider errors can carry account details; keep only the last good reading.
           const previous = this.cache.get(key);
-          if (previous) this.store(key, { ...previous, retryAt: this.now() + FAILURE_RETRY_MS });
-          return previous ? this.current(previous, this.now()) : null;
+          return {
+            reading: previous?.reading ?? null,
+            readAt: previous?.readAt ?? null,
+            attemptAt: now,
+            retryAt: this.now() + FAILURE_RETRY_MS,
+            failure: error instanceof UsageHttpError && error.rejected ? "not_signed_in" : "error",
+          };
         },
       )
+      .then((entry) => {
+        this.store(key, entry);
+        return entry;
+      })
       .finally(() => this.pending.delete(key));
     this.pending.set(key, task);
     return task;
   }
 
-  private current(entry: Entry, now: number): PlanLimitWindow[] | null {
-    return entry.windows.length && now - entry.readAt < STALE_MS ? entry.windows : null;
+  private current(entry: Entry, now: number): UsageReading | null {
+    return entry.reading && entry.readAt !== null && now - entry.readAt < STALE_MS
+      ? entry.reading
+      : null;
   }
 
   private store(key: string, entry: Entry) {
@@ -205,6 +182,73 @@ export class PlanLimitsReader {
 
 export const planLimitsReader = new PlanLimitsReader();
 
+export type MemberCredentialRow = { id: string; provider: string; label: string; secretId: string };
+
+/**
+ * The member's model connections to allowed providers, oldest first, each with its stored secret,
+ * or null where the secret is missing or cannot be read.
+ */
+export async function loadMemberModelSecrets(
+  prisma: Pick<PrismaClient, "userModelCredential" | "secret">,
+  secretStore: Pick<SecretStore, "load">,
+  userId: string,
+  providers?: readonly string[],
+): Promise<{ row: MemberCredentialRow; secret: StoredModelSecret | null }[]> {
+  const allowlist = modelProviderAllowlist();
+  const rows = (
+    await prisma.userModelCredential.findMany({
+      where: {
+        userId,
+        ...(providers
+          ? {
+              provider: {
+                in: providers.filter((provider) => modelProviderAllowed(allowlist, provider)),
+              },
+            }
+          : {}),
+      },
+      select: { id: true, provider: true, label: true, secretId: true },
+      orderBy: { createdAt: "asc" },
+    })
+  ).filter((row) => modelProviderAllowed(allowlist, row.provider));
+  if (!rows.length) return [];
+  const secrets = await prisma.secret.findMany({
+    where: { id: { in: rows.map((row) => row.secretId) }, userId, spaceId: null },
+    select: { id: true, ciphertext: true },
+  });
+  const ciphertexts = new Map(secrets.map((secret) => [secret.id, secret.ciphertext]));
+  return Promise.all(
+    rows.map(async (row) => {
+      const ciphertext = ciphertexts.get(row.secretId);
+      if (!ciphertext) return { row, secret: null };
+      try {
+        return { row, secret: parseModelSecret(await secretStore.load(ciphertext, row.secretId)) };
+      } catch {
+        return { row, secret: null };
+      }
+    }),
+  );
+}
+
+/** One connection's stored secret as it is now, or null when it is missing or cannot be read. */
+export async function loadMemberModelSecret(
+  prisma: Pick<PrismaClient, "secret">,
+  secretStore: Pick<SecretStore, "load">,
+  userId: string,
+  secretId: string,
+): Promise<StoredModelSecret | null> {
+  const row = await prisma.secret.findFirst({
+    where: { id: secretId, userId, spaceId: null },
+    select: { id: true, ciphertext: true },
+  });
+  if (!row) return null;
+  try {
+    return parseModelSecret(await secretStore.load(row.ciphertext, row.id));
+  } catch {
+    return null;
+  }
+}
+
 /** Allowances for each of the member's subscription sign-ins that can report one. */
 export async function readMemberPlanLimits(
   prisma: Pick<PrismaClient, "userModelCredential" | "secret">,
@@ -213,42 +257,22 @@ export async function readMemberPlanLimits(
   reader: PlanLimitsReader,
   onExpiredToken: (secretId: string, provider: string) => void,
 ): Promise<PlanLimits[]> {
-  const rows = await prisma.userModelCredential.findMany({
-    where: {
-      userId,
-      provider: {
-        in: PLAN_LIMIT_PROVIDERS.filter((provider) =>
-          modelProviderAllowed(modelProviderAllowlist(), provider),
-        ),
-      },
-    },
-    select: { id: true, provider: true, label: true, secretId: true },
-    orderBy: { createdAt: "asc" },
-  });
-  if (!rows.length) return [];
-  const secrets = await prisma.secret.findMany({
-    where: { id: { in: rows.map((row) => row.secretId) }, userId, spaceId: null },
-    select: { id: true, ciphertext: true },
-  });
-  const ciphertexts = new Map(secrets.map((secret) => [secret.id, secret.ciphertext]));
+  const connections = await loadMemberModelSecrets(
+    prisma,
+    secretStore,
+    userId,
+    PLAN_LIMIT_PROVIDERS,
+  );
   const plans = await Promise.all(
-    rows.map(async (row) => {
-      const ciphertext = ciphertexts.get(row.secretId);
-      if (!ciphertext) return null;
-      let credential: OAuthCredential | null = null;
-      try {
-        const stored = parseModelSecret(await secretStore.load(ciphertext, row.secretId));
-        // An API key has no subscription allowance to read.
-        if (stored.kind !== "oauth" || stored.reconnectRequired) return null;
-        credential = stored.credential;
-      } catch {
-        return null;
-      }
+    connections.map(async ({ row, secret }) => {
+      // An API key has no subscription allowance to read.
+      if (secret?.kind !== "oauth" || secret.reconnectRequired) return null;
+      const credential = secret.credential;
       if (credential.expires <= Date.now()) onExpiredToken(row.secretId, row.provider);
       // A new sign-in gets a new secret, so its readings never mix with the old account's.
       const windows = await reader.read(`${userId}:${row.secretId}`, row.provider, credential);
       if (!windows) return null;
-      const name = READERS[row.provider]?.name ?? row.label;
+      const name = oauthUsageReader(row.provider)?.name ?? row.label;
       return { credentialId: row.id, name, label: row.label, windows };
     }),
   );

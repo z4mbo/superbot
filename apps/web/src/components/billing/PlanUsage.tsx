@@ -16,7 +16,8 @@ export function usePlanUsage() {
   return { plans, creditsUsd: modelCreditsUsd(status) };
 }
 
-function useFormatUsd() {
+/** US dollars in the reader's locale. */
+export function useFormatUsd() {
   const { i18n } = useLingui();
   return (value: number) =>
     new Intl.NumberFormat(i18n.locale, { style: "currency", currency: "USD" }).format(value);
@@ -33,9 +34,16 @@ export function useUsageHint(): string | null {
   return null;
 }
 
+/** What an allowance's period is called. */
+export function usePeriodLabel() {
+  const { t } = useLingui();
+  return (period: PlanLimitWindow["period"]) =>
+    ({ session: t`Session`, week: t`Weekly`, month: t`Monthly` })[period];
+}
+
 function WindowUsage({ window }: { window: PlanLimitWindow }) {
   const { t, i18n } = useLingui();
-  const label = { session: t`Session`, week: t`Weekly`, month: t`Monthly` }[window.period];
+  const label = usePeriodLabel()(window.period);
   const used = Math.round(window.usedPercent);
   const reset = formatTimeUntil(window.resetsAt, i18n.locale);
   return (

@@ -20,6 +20,7 @@ export * from "./apps/app-pages.js";
 export * from "./apps/app-tools.js";
 export * from "./billing/billing-emulator.js";
 export * from "./billing/plan-limits.js";
+export * from "./billing/provider-usage.js";
 export * from "./bots/agent-connections.js";
 export * from "./bots/agent-import-settings.js";
 export * from "./bots/bot-avatar.js";

@@ -203,4 +203,33 @@ describe("ChatModelPicker", () => {
       collisionAvoidance: { side: "flip", align: "shift", fallbackAxisSide: "none" },
     });
   });
+
+  it("offers usage at the end of the list, with how used the connection is, and closes on it", () => {
+    const onUsage = vi.fn();
+    act(() =>
+      root.render(
+        <ChatModelPicker
+          compact
+          choices={choices(2)}
+          value=""
+          onChange={onChange}
+          onUsage={onUsage}
+          usageHint="42% used"
+        />,
+      ),
+    );
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-label^="Model"]')!.click());
+    const usage = options().at(-1) as HTMLElement;
+    expect(usage.textContent).toBe("Usage42% used");
+    act(() => usage.click());
+    expect(onUsage).toHaveBeenCalledOnce();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(options()).toHaveLength(0);
+  });
+
+  it("leaves usage out for callers that do not offer it", () => {
+    render(choices(2), "");
+    act(() => container.querySelector<HTMLButtonElement>("button#model")!.click());
+    expect(options().map((option) => option.textContent)).not.toContain("Usage");
+  });
 });

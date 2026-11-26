@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { BillingStatus } from "./billing.js";
 import { modelCreditsUsd } from "./billing.js";
-import { planUsagePercent } from "./usage.js";
+import {
+  planUsagePercent,
+  providerUsageNextReset,
+  providerUsagePercent,
+  tightestProviderUsageFirst,
+} from "./usage.js";
 
 describe("modelCreditsUsd", () => {
   const status = (overrides: Partial<BillingStatus>) => overrides as BillingStatus;
@@ -40,5 +45,44 @@ describe("planUsagePercent", () => {
         },
       ]),
     ).toBe(64);
+  });
+});
+
+describe("provider usage", () => {
+  const window = (usedPercent: number, resetsAt: string | null = null) => ({
+    period: "session" as const,
+    usedPercent,
+    resetsAt,
+  });
+
+  it("judges a connection by its fullest allowance and soonest reset", () => {
+    const usage = {
+      windows: [window(12, "2026-11-26T10:00:00.000Z"), window(64, "2026-11-25T18:00:00.000Z")],
+    };
+    expect(providerUsagePercent(usage)).toBe(64);
+    expect(providerUsageNextReset(usage)).toBe("2026-11-25T18:00:00.000Z");
+  });
+
+  it("reports nothing for a connection without allowances", () => {
+    expect(providerUsagePercent({ windows: [] })).toBeNull();
+    expect(providerUsageNextReset({ windows: [] })).toBeNull();
+    expect(providerUsageNextReset({ windows: [window(5)] })).toBeNull();
+  });
+
+  it("puts the tightest connection first and keeps the rest in order", () => {
+    const rows = [
+      { id: "key", windows: [] },
+      { id: "open", windows: [window(20)] },
+      { id: "spent", windows: [window(0), window(91)] },
+      { id: "other-key", windows: [] },
+      { id: "unused", windows: [window(0)] },
+    ];
+    expect(tightestProviderUsageFirst(rows).map((row) => row.id)).toEqual([
+      "spent",
+      "open",
+      "unused",
+      "key",
+      "other-key",
+    ]);
   });
 });

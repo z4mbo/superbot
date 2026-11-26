@@ -14,7 +14,7 @@ vi.mock("../../../lib/query/rpc", () => {
   const rpc = {
     bots: { update: vi.fn(), list: vi.fn(async () => []) },
     models: {
-      credentials: vi.fn(async () => [{ provider: "acme", label: "Acme" }]),
+      credentials: vi.fn(async () => [{ id: "cred-acme", provider: "acme", label: "Acme" }]),
       list: vi.fn(async () => [
         { provider: "acme", id: "fast", label: "Fast", thinkingLevels: ["low", "high"] },
         { provider: "acme", id: "smart", label: "Smart" },
@@ -23,6 +23,7 @@ vi.mock("../../../lib/query/rpc", () => {
       ]),
     },
     me: vi.fn(async () => ({ defaultProvider: "acme", defaultModel: "fast" })),
+    usage: { providers: vi.fn(async () => []) },
   };
   return {
     rpc,
@@ -318,5 +319,39 @@ describe("ComposerModelPicker", () => {
     });
     act(() => connect.click());
     expect(onConnect).toHaveBeenCalledOnce();
+  });
+
+  it("leads to usage, with how used the model's connection is", async () => {
+    vi.mocked(rpc.usage.providers).mockResolvedValue([
+      { credentialId: "cred-other", windows: [{ period: "session", usedPercent: 12 }] },
+      { credentialId: "cred-acme", windows: [{ period: "session", usedPercent: 86.4 }] },
+    ] as never);
+    const onUsage = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    act(() =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <ComposerModelPicker bot={bot} onSaved={vi.fn()} onConnect={vi.fn()} onUsage={onUsage} />
+        </QueryClientProvider>,
+      ),
+    );
+    const trigger = await vi.waitFor(() => {
+      const button = container.querySelector<HTMLButtonElement>('button[aria-label^="Model"]');
+      if (!button) throw new Error("not rendered yet");
+      return button;
+    });
+    const usage = await vi.waitFor(() => {
+      act(() => {
+        if (trigger.getAttribute("aria-expanded") !== "true") trigger.click();
+      });
+      const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find((row) =>
+        row.textContent?.startsWith("Usage"),
+      );
+      if (!option) throw new Error("no usage row");
+      return option;
+    });
+    expect(usage.textContent).toBe("Usage86% used");
+    act(() => usage.click());
+    expect(onUsage).toHaveBeenCalledOnce();
   });
 });
