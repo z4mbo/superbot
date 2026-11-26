@@ -10,8 +10,8 @@ import { signIn } from "../../sign-in-sources/sign-in-requests.js";
 import type { RunContext } from "../assembly/run-context.js";
 import { publishMessage } from "../assembly/run-messages.js";
 import { notifyRun } from "../lifecycle/run-notifications.js";
-import { screenBlocked } from "./run-tools-computer.js";
 import type { ToolCall, ToolHandlers } from "./run-tool-gate.js";
+import { screenBlocked } from "./run-tools-computer.js";
 
 /** A saved login this bot may use on `origin`: it wins over asking the password manager. */
 async function vaultLoginFor(ctx: RunContext, origin: string): Promise<string | undefined> {
@@ -109,7 +109,8 @@ async function signInRun(ctx: RunContext): Promise<SignInRun | undefined> {
     },
     updateCard: async (messageId, change) => {
       const { seq } = await changeSignInBlock(deps.prisma, ref(messageId), change);
-      if (seq !== undefined) await bestEffort("sign-in card", deps.events.notify(run.threadId, seq));
+      if (seq !== undefined)
+        await bestEffort("sign-in card", deps.events.notify(run.threadId, seq));
     },
     waitForOpen: (messageId, signal) => waitForOpen(ctx, messageId, signal),
   };

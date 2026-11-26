@@ -5,7 +5,6 @@ import { catalogItemKey } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { useId } from "react";
 import type { PluginSelection } from "../../components/integrations/plugin-marketplace";
-import { SignInSourceConnection } from "../../components/sign-in-source/SignInSourceConnection";
 import {
   PluginLogo,
   ROW_BUTTON,
@@ -16,6 +15,7 @@ import {
   AvailabilityControl,
   AvailabilityLabel,
 } from "../../components/integrations/space-availability";
+import { SignInSourceConnection } from "../../components/sign-in-source/SignInSourceConnection";
 import type { TileContext } from "./parts";
 import { CatalogTile, ConnectionStatus, ConnectorIcon, ViewTitle } from "./parts";
 import type { PluginConnections } from "./use-plugin-connections";

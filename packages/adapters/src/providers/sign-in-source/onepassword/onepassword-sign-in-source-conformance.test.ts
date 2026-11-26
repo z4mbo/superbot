@@ -32,11 +32,19 @@ function stubbedProvider(): OnePasswordSignInSource {
             create: async () => {
               const id = `request-${entries.size + 1}`;
               entries.set(id, `entry-${id}`);
-              return { accessRequest: { id, entries: [{ id: `entry-${id}` }] }, appLink: `onepassword://grant?r=${id}` };
+              return {
+                accessRequest: { id, entries: [{ id: `entry-${id}` }] },
+                appLink: `onepassword://grant?r=${id}`,
+              };
             },
             getStatus: async (id: string) => ({
               state: "resolved",
-              resolved: [{ entryId: entries.get(id), reference: `accounts/a/capability/login/configurations/${id}` }],
+              resolved: [
+                {
+                  entryId: entries.get(id),
+                  reference: `accounts/a/capability/login/configurations/${id}`,
+                },
+              ],
             }),
           },
         },
@@ -51,11 +59,15 @@ function stubbedProvider(): OnePasswordSignInSource {
 }
 
 // Its sign-in page sends back a code, the state, and on first consent an integration key.
-signInSourceConformance("password manager", async () => stubbedProvider(), (start) => ({
-  code: "fixture-code",
-  state: start.state,
-  fragment: { integration_key: "ops_fixture-key" },
-}));
+signInSourceConformance(
+  "password manager",
+  async () => stubbedProvider(),
+  (start) => ({
+    code: "fixture-code",
+    state: start.state,
+    fragment: { integration_key: "ops_fixture-key" },
+  }),
+);
 
 describe("password manager sign-in source factory", () => {
   it("is listed without a client registration, but cannot be connected", async () => {

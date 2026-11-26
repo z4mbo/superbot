@@ -2,9 +2,9 @@ import type { BrowserProvider, ComputerRef } from "@rakazo/adapter-kit";
 import type { SignInBlock } from "@rakazo/contracts";
 import * as Db from "@rakazo/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EmulatorSignInSourceProvider } from "../../sign-in-sources/sign-in-source-emulator.js";
 import type { SignInRun } from "../../sign-in-sources/sign-in-requests.js";
 import * as Requests from "../../sign-in-sources/sign-in-requests.js";
+import { EmulatorSignInSourceProvider } from "../../sign-in-sources/sign-in-source-emulator.js";
 import * as Messages from "../assembly/run-messages.js";
 import * as Notifications from "../lifecycle/run-notifications.js";
 import { selectBuiltinToolsForRun } from "./run-tool-selection.js";
@@ -60,7 +60,7 @@ function fakeCtx(
       signInSource: options.signInSource === false ? null : new EmulatorSignInSourceProvider(),
       events: {
         notify: vi.fn(async () => undefined),
-        follow: vi.fn(options.follow ?? (async function* () {})),
+        follow: vi.fn(options.follow ?? async function* () {}),
       },
     },
     run: {
@@ -82,7 +82,12 @@ function fakeCtx(
 async function callTool(ctx: unknown, site = "https://login.example.test") {
   return signInTools.sign_in!(
     ctx as never,
-    { name: "sign_in", args: { site }, executionId: "call-1", finish: async (r: unknown) => r } as never,
+    {
+      name: "sign_in",
+      args: { site },
+      executionId: "call-1",
+      finish: async (r: unknown) => r,
+    } as never,
   );
 }
 

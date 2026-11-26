@@ -42,7 +42,9 @@ export function signInSourceRoutes(ctx: RouterContext) {
             deps.prisma,
             { spaceId: request.spaceId, threadId: request.threadId, messageId: request.messageId },
             (block) =>
-              block.requestId === request.id && !block.opened ? { ...block, opened: true } : undefined,
+              block.requestId === request.id && !block.opened
+                ? { ...block, opened: true }
+                : undefined,
           );
           if (seq !== undefined)
             await bestEffort("sign-in card", deps.events.notify(request.threadId, seq));

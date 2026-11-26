@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { EmulatorSignInSourceProvider } from "./sign-in-source-emulator.js";
-import { createSignInSourceProvider, resolveSignInSourceProvider } from "./sign-in-source-factory.js";
+import {
+  createSignInSourceProvider,
+  resolveSignInSourceProvider,
+} from "./sign-in-source-factory.js";
 import { signInSourceConformance, testContext } from "./sign-in-sources.test-support.js";
 
 // The emulator's sign-in page sends the person straight back with everything in the address.

@@ -40,7 +40,10 @@ const LOGIN_ENTRY = "login" as AccessRequestEntryType;
 export interface CredentialBrokerSdk {
   createOAuthClient(config: Parameters<typeof createOAuthClient>[0]): Promise<{
     credentialBroker: {
-      accessRequests: Pick<OAuthClient["credentialBroker"]["accessRequests"], "create" | "getStatus">;
+      accessRequests: Pick<
+        OAuthClient["credentialBroker"]["accessRequests"],
+        "create" | "getStatus"
+      >;
     };
   }>;
 }
@@ -186,10 +189,7 @@ export class OnePasswordSignInSource implements SignInSourceProvider {
       { grant_type: "refresh_token", refresh_token: current.refreshToken, scope: SCOPE },
       context,
     );
-    return this.credential(
-      { ...tokens, integrationKey: current.integrationKey },
-      tokens.expiresIn,
-    );
+    return this.credential({ ...tokens, integrationKey: current.integrationKey }, tokens.expiresIn);
   }
 
   async disconnect(credential: SignInSourceCredential, context: AdapterContext): Promise<void> {
@@ -254,7 +254,10 @@ export class OnePasswordSignInSource implements SignInSourceProvider {
   fillCall(credential: SignInSourceCredential, reference: string): SignInFillCall {
     const { accessToken, integrationKey } = readTokens(credential);
     // The reference goes in unchanged as `resourcePath`; the browser adds its own tab id.
-    return { method: FILL_METHOD, params: { accessToken, integrationKey, resourcePath: reference } };
+    return {
+      method: FILL_METHOD,
+      params: { accessToken, integrationKey, resourcePath: reference },
+    };
   }
 
   fillOutcome(result: unknown): SignInFillOutcome {

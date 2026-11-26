@@ -35,7 +35,9 @@ export async function changeSignInBlock(
     if (!message || !block) return {};
     const next = change(block);
     if (!next) return { block };
-    const changed = changeMessageBlocks(message, (entry) => (entry.kind === "sign_in" ? next : entry));
+    const changed = changeMessageBlocks(message, (entry) =>
+      entry.kind === "sign_in" ? next : entry,
+    );
     if (!changed || !message.botId) return { block };
     await tx.message.update({ where: { id: message.id }, data: { blocks: changed.stored } });
     const event = await appendEventInTransaction(tx, {

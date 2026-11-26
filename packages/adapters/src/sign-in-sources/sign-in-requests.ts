@@ -8,15 +8,6 @@ import { SignInSourceDisconnected } from "@rakazo/adapter-kit";
 import type { SignInBlock } from "@rakazo/contracts";
 import { abortableDelay, ClientError, pollUntil } from "@rakazo/core";
 import type { SignInRequest } from "@rakazo/db";
-import type { SignInAuditAction } from "./sign-in-source-activity.js";
-import { recordSignInEvent } from "./sign-in-source-activity.js";
-import type { SignInActor, SignInSourceDeps } from "./sign-in-source-connections.js";
-import {
-  providerContext,
-  signInSourceConnected,
-  warnSignIn,
-  withSignInCredential,
-} from "./sign-in-source-connections.js";
 import {
   SIGN_IN_DENIED,
   SIGN_IN_EXPIRED,
@@ -32,6 +23,15 @@ import {
   SIGN_IN_STILL_PENDING,
   SIGN_IN_USE_VAULT_LOGIN,
 } from "./sign-in.prompt.js";
+import type { SignInAuditAction } from "./sign-in-source-activity.js";
+import { recordSignInEvent } from "./sign-in-source-activity.js";
+import type { SignInActor, SignInSourceDeps } from "./sign-in-source-connections.js";
+import {
+  providerContext,
+  signInSourceConnected,
+  warnSignIn,
+  withSignInCredential,
+} from "./sign-in-source-connections.js";
 
 const DAY_MS = 24 * 60 * 60_000;
 
@@ -256,7 +256,11 @@ async function settle(
     }));
   await audit(
     run,
-    approved ? "sign_in.approved" : answer.state === "denied" ? "sign_in.denied" : "sign_in.expired",
+    approved
+      ? "sign_in.approved"
+      : answer.state === "denied"
+        ? "sign_in.denied"
+        : "sign_in.expired",
     settled,
     answer.state === "failed",
   );
@@ -264,7 +268,10 @@ async function settle(
 }
 
 /** Wait for the person to open the review, then ask the provider for their answer. */
-async function awaitAnswer(run: SignInRun, request: SignInRequest): Promise<SignInRequest | string> {
+async function awaitAnswer(
+  run: SignInRun,
+  request: SignInRequest,
+): Promise<SignInRequest | string> {
   const provider = run.deps.signInSource;
   const label = provider.displayName;
   const timing = run.timing ?? SIGN_IN_TIMING;

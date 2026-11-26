@@ -13,12 +13,12 @@ import {
   expectNoVaultSecrets,
   findVaultSecretLeaks,
 } from "../../secrets/vault/vault-leak.test-support.js";
+import { SIGN_IN_FILLED } from "../../sign-in-sources/sign-in.prompt.js";
 import { SIGN_IN_TIMING } from "../../sign-in-sources/sign-in-requests.js";
 import {
   EMULATOR_LOGIN,
   EmulatorSignInSourceProvider,
 } from "../../sign-in-sources/sign-in-source-emulator.js";
-import { SIGN_IN_FILLED } from "../../sign-in-sources/sign-in.prompt.js";
 import { createRunExecutor } from "./executor.js";
 
 const COMPUTER: ComputerRef = {
@@ -224,7 +224,13 @@ async function runSignIn() {
         },
         findFirst: async ({ where }: { where: { id?: string } }) =>
           messages.find((message) => message.id === where.id) ?? null,
-        update: async ({ where, data }: { where: { id: string }; data: { blocks: MessageBlock[] } }) => {
+        update: async ({
+          where,
+          data,
+        }: {
+          where: { id: string };
+          data: { blocks: MessageBlock[] };
+        }) => {
           const message = messages.find((row) => row.id === where.id);
           if (message) message.blocks = data.blocks;
           return message;
@@ -241,7 +247,12 @@ async function runSignIn() {
         findUniqueOrThrow: async ({ where }: { where: { id: string } }) =>
           requests.find((row) => row.id === where.id),
         create: async ({ data }: { data: Record<string, unknown> }) => {
-          const row = { id: `request-${requests.length + 1}`, messageId: null, openedAt: null, ...data };
+          const row = {
+            id: `request-${requests.length + 1}`,
+            messageId: null,
+            openedAt: null,
+            ...data,
+          };
           requests.push(row);
           return row;
         },

@@ -1,8 +1,6 @@
 import type { SignInBlock } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { EncryptedSecretStore } from "../secrets/secrets.js";
-import type { SignInRun } from "./sign-in-requests.js";
-import { reviewSignInRequest, SignInRequestClosedError, signIn } from "./sign-in-requests.js";
 import {
   SIGN_IN_DENIED,
   SIGN_IN_EXPIRED,
@@ -15,6 +13,8 @@ import {
   SIGN_IN_STILL_PENDING,
   SIGN_IN_USE_VAULT_LOGIN,
 } from "./sign-in.prompt.js";
+import type { SignInRun } from "./sign-in-requests.js";
+import { reviewSignInRequest, SignInRequestClosedError, signIn } from "./sign-in-requests.js";
 import { SIGN_IN_SOURCE_SECRET_KIND } from "./sign-in-source-connections.js";
 import {
   FakeCredentialBroker,
@@ -194,7 +194,9 @@ describe("reviewing a sign-in request", () => {
     const markOpened = vi.fn(async () => undefined);
     const deps = run.deps;
     const review = () => reviewSignInRequest(deps, actor, String(request?.id), markOpened);
-    expect(await review()).toEqual({ approvalLink: broker.approvalLink(String(request?.remoteId)) });
+    expect(await review()).toEqual({
+      approvalLink: broker.approvalLink(String(request?.remoteId)),
+    });
     await review();
     expect(markOpened).toHaveBeenCalledTimes(1);
     expect(request?.openedAt).toBeInstanceOf(Date);

@@ -142,10 +142,7 @@ function lockSource(tx: Prisma.TransactionClient, userId: string): Promise<unkno
 }
 
 /** The user's connection with the configured provider; one with another provider counts as none. */
-async function currentSource(
-  deps: SignInSourceDeps,
-  userId: string,
-): Promise<SignInSource | null> {
+async function currentSource(deps: SignInSourceDeps, userId: string): Promise<SignInSource | null> {
   if (!deps.signInSource) return null;
   const row = await deps.prisma.signInSource.findUnique({ where: { userId } });
   return row && row.provider === deps.signInSource.describe().id ? row : null;
@@ -203,7 +200,11 @@ export async function startSignInSourceConnect(
     const row = await tx.signInSource.findUnique({ where: { userId: actor.userId } });
     const held = row && row.provider === provider.describe().id ? await unseal(deps, row) : null;
     const previous =
-      held && "secret" in held ? held.secret : held && "previous" in held ? held.previous : undefined;
+      held && "secret" in held
+        ? held.secret
+        : held && "previous" in held
+          ? held.previous
+          : undefined;
     const secretId = await seal(deps, tx, actor, {
       pending: start.pending,
       state: start.state,

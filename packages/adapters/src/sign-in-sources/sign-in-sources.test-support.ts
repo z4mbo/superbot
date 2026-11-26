@@ -204,7 +204,9 @@ export function signInSourceConformance(
       expect(
         source
           .describe()
-          .capabilities.approvalLinkSchemes.some((scheme) => request.approvalLink.startsWith(scheme)),
+          .capabilities.approvalLinkSchemes.some((scheme) =>
+            request.approvalLink.startsWith(scheme),
+          ),
       ).toBe(true);
       const answer = await source.accessState(credential, request, testContext);
       expect(answer.state).toBe("approved");

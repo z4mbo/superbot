@@ -156,9 +156,6 @@ export * from "./notifications/realtime.js";
 export * from "./payments/paid-services-factory.js";
 export * from "./payments/payment-wallet-factory.js";
 export * from "./payments/payment-wallets.js";
-export * from "./sign-in-sources/sign-in-source-connections.js";
-export * from "./sign-in-sources/sign-in-source-factory.js";
-export { reviewSignInRequest, SignInRequestClosedError } from "./sign-in-sources/sign-in-requests.js";
 export * from "./payments/purchase-poll.js";
 export * from "./payments/purchase-service.js";
 export * from "./personal-calendar/native-calendar.js";
@@ -305,6 +302,12 @@ export {
   vaultItemsUnderOlderKeys,
 } from "./secrets/vault/vault-values.js";
 export * from "./secrets/wrapped-env.js";
+export {
+  reviewSignInRequest,
+  SignInRequestClosedError,
+} from "./sign-in-sources/sign-in-requests.js";
+export * from "./sign-in-sources/sign-in-source-connections.js";
+export * from "./sign-in-sources/sign-in-source-factory.js";
 export * from "./storage/artifact-store-factory.js";
 export * from "./storage/artifacts.js";
 export * from "./storage/home.js";

@@ -49,7 +49,12 @@ function fakeSdk() {
 function tokenFetch(body: Record<string, unknown> = {}, status = 200) {
   return vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) =>
     Response.json(
-      { access_token: "fixture-access", refresh_token: "fixture-refresh", expires_in: 900, ...body },
+      {
+        access_token: "fixture-access",
+        refresh_token: "fixture-refresh",
+        expires_in: 900,
+        ...body,
+      },
       { status },
     ),
   );
@@ -113,7 +118,7 @@ describe("password manager sign-in source", () => {
     );
     const [url, init] = fetch.mock.calls[0]!;
     expect(String(url)).toBe("https://api.1password.com/v1/oauth/token");
-    expect((init?.headers as Record<string, string>).authorization).toBe(
+    expect(((init?.headers ?? {}) as Record<string, string>).authorization).toBe(
       `Basic ${Buffer.from("fixture-client:fixture-client-secret").toString("base64")}`,
     );
     const form = new URLSearchParams(String(init?.body));
@@ -132,7 +137,12 @@ describe("password manager sign-in source", () => {
 
   it("keeps the stored integration key on a reconnect that sends none, and needs one otherwise", async () => {
     const again = await provider().finishConnect(
-      { pending: "v", redirectUri: REDIRECT, callback: { code: "c", state: "s" }, previous: connected },
+      {
+        pending: "v",
+        redirectUri: REDIRECT,
+        callback: { code: "c", state: "s" },
+        previous: connected,
+      },
       context,
     );
     expect(JSON.parse(again.secret).integrationKey).toBe("ops_fixture-key");
@@ -176,8 +186,9 @@ describe("password manager sign-in source", () => {
       accessToken: "fixture-access",
       integrationKey: "ops_fixture-key",
     });
-    expect(await source.accessState(connected, { id: "request-1", entryId: "entry-1" }, context))
-      .toEqual({ state: "approved", reference: "accounts/a/capability/login/configurations/c-1" });
+    expect(
+      await source.accessState(connected, { id: "request-1", entryId: "entry-1" }, context),
+    ).toEqual({ state: "approved", reference: "accounts/a/capability/login/configurations/c-1" });
     expect(fake.loginRead).not.toHaveBeenCalled();
   });
 

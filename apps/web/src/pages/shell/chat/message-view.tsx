@@ -30,8 +30,8 @@ import {
   ToolSteps,
 } from "../../../components/messages/ToolActivityDisclosure";
 import { ToolQuestionCard } from "../../../components/messages/ToolQuestionCard";
-import { SignInCard } from "../../../components/sign-in-source/SignInCard";
 import { PageBlockCard } from "../../../components/pages/PageBlockCard";
+import { SignInCard } from "../../../components/sign-in-source/SignInCard";
 import { SkillDraftCard } from "../../../components/teach/SkillDraftCard";
 import {
   isToolOnlyNarration,
