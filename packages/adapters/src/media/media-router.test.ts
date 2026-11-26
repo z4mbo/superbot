@@ -106,6 +106,10 @@ function fakeDb() {
   };
 }
 
+/** What a run's tool selection reads: the router's tables and somewhere to store media. */
+const toolDeps = (db: ReturnType<typeof fakeDb>) =>
+  ({ ...db.deps(), artifacts: {} }) as unknown as Parameters<typeof runMediaToolOptions>[0];
+
 const route = (db: ReturnType<typeof fakeDb>, job: MediaJob, extra = {}, scope = ALICE) =>
   resolveMediaRoute(db.deps(), scope, { job, ...extra }).then((resolved) => resolved.route);
 
@@ -261,11 +265,7 @@ describe("media routing", () => {
     const db = fakeDb();
     await expect(route(db, "image")).rejects.toThrow("Media generation is unavailable.");
     const options = await runMediaToolOptions(
-      {
-        ...db.deps(),
-        artifacts: {} as never,
-        mediaProviders: undefined,
-      },
+      toolDeps(db),
       { ...ALICE, trigger: "user" },
       undefined,
     );
@@ -301,7 +301,7 @@ describe("media tools a run offers", () => {
   };
   async function offered(db: ReturnType<typeof fakeDb>) {
     const options = await runMediaToolOptions(
-      { ...db.deps(), artifacts: {} as never, mediaProviders: undefined },
+      toolDeps(db),
       { ...ALICE, trigger: "user" },
       undefined,
     );
