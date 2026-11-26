@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { flush } from "@rakazo/core/test-async";
+import { deferred, flush } from "@rakazo/core/test-async";
 import type { ReactNode } from "react";
 import { act, useEffect } from "react";
 import type { Root } from "react-dom/client";
@@ -262,4 +262,39 @@ it.each([
   await create.finish(outcome);
   expectNothingOpened();
   expect(mocks.alert).not.toHaveBeenCalled();
+});
+
+it("shows a community template with its author and instructions, and creates its bot", async () => {
+  const created = deferred<unknown>();
+  mocks.rpc.mockImplementation((proc: string) =>
+    proc === "bots/templates"
+      ? Promise.resolve([])
+      : proc === "communityTemplates/list"
+        ? Promise.resolve([{ ...template, author: "Ana Author" }])
+        : proc === "bots/createFromTemplate"
+          ? created.promise
+          : Promise.reject(new Error(`Unexpected ${proc}`)),
+  );
+  await render();
+  // The shared list is read once Superbot's catalog shows the id isn't one of its own.
+  await vi.waitFor(async () => {
+    await settle();
+    expect(container.textContent).toContain("Shared by Ana Author");
+  });
+  // Someone else wrote it, so its instructions are open before anything is created.
+  expect(container.textContent).toContain("Ask each person.");
+
+  await act(async () => action().click());
+  expect(
+    mocks.rpc.mock.calls.find(([proc]) => proc === "bots/createFromTemplate")?.slice(0, 2),
+  ).toEqual(["bots/createFromTemplate", { templateId: "standup", version: 3, name: "Standup" }]);
+  await act(async () => created.resolve({ bot, created: true }));
+  await settle();
+  expectOpened();
+});
+
+it("reads shared templates only for an id Superbot's catalog doesn't have", async () => {
+  hold("bots/createFromTemplate");
+  await render();
+  expect(mocks.rpc.mock.calls.some(([proc]) => proc === "communityTemplates/list")).toBe(false);
 });

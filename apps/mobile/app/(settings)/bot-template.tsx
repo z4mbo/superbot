@@ -1,7 +1,7 @@
 import { ph } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/native";
-import type { Bot, BotTemplateListing } from "@rakazo/contracts";
+import type { Bot, BotTemplateListing, CommunityTemplateListing } from "@rakazo/contracts";
 import { isBotTemplateChanged } from "@rakazo/contracts";
 import { botTemplateApps, formatCron } from "@rakazo/core";
 import { useQuery } from "@tanstack/react-query";
@@ -39,7 +39,13 @@ export default function BotTemplateScreen() {
   const tokens = useMobileTokens();
   const { t } = useLingui();
   const templates = useQuery(rpcQuery("bots/templates"), queryClient);
-  const template = templates.data?.find((item) => item.id === id);
+  const firstParty = templates.data?.find((item) => item.id === id);
+  // Read only for an id Superbot's catalog doesn't have: one people shared.
+  const community = useQuery(
+    { ...rpcQuery("communityTemplates/list"), enabled: templates.isSuccess && !firstParty },
+    queryClient,
+  );
+  const template = firstParty ?? community.data?.find((item) => item.id === id);
 
   return (
     <ScrollView
@@ -48,18 +54,21 @@ export default function BotTemplateScreen() {
       contentInsetAdjustmentBehavior="automatic"
     >
       {template ? (
-        <TemplateDetail template={template} onChanged={() => void templates.refetch()} />
-      ) : templates.isPending ? (
+        <TemplateDetail
+          template={template}
+          onChanged={() => void ("author" in template ? community.refetch() : templates.refetch())}
+        />
+      ) : templates.isPending || (templates.isSuccess && community.isPending) ? (
         <ActivityIndicator color={tokens.mutedForeground} accessibilityLabel={t`Loading…`} />
       ) : (
         <View style={styles.failure}>
           <Text style={styles.secondary}>
-            {errorText(templates.error, t`Could not load templates`)}
+            {errorText(templates.error ?? community.error, t`Could not load templates`)}
           </Text>
           <NativeActionButton
             fill={false}
             label={t`Retry`}
-            onPress={() => void templates.refetch()}
+            onPress={() => void (templates.error ? templates.refetch() : community.refetch())}
             prominence="secondary"
           />
         </View>
@@ -74,7 +83,8 @@ function TemplateDetail({
   template,
   onChanged,
 }: {
-  template: BotTemplateListing;
+  /** A community template carries its author, and its instructions show open. */
+  template: BotTemplateListing | CommunityTemplateListing;
   onChanged: () => void;
 }) {
   const router = useRouter();
@@ -86,7 +96,14 @@ function TemplateDetail({
   const locale = useUiLocale();
   const { name, summary, sample } = botTemplateCopy(template);
   const { botId } = template;
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const byline =
+    "author" in template
+      ? template.author
+        ? t`Shared by ${ph({ author: template.author })}`
+        : t`Shared by a community member`
+      : null;
+  // Someone else wrote a community template's instructions, so they show before creating.
+  const [expanded, setExpanded] = useState<string | null>(byline ? "bot" : null);
   const catalog = useQuery(
     { ...rpcQuery("connections/catalog", {}), enabled: template.apps.length > 0 },
     queryClient,
@@ -164,6 +181,7 @@ function TemplateDetail({
             {name}
           </Text>
           <Text style={styles.secondary}>{summary}</Text>
+          {byline ? <Text style={styles.byline}>{byline}</Text> : null}
         </View>
       </View>
       <NativeActionButton
@@ -238,6 +256,7 @@ function createStyles() {
     grow: { flex: 1, gap: 2, minWidth: 0 },
     name: { color: native.label, fontSize: 22, fontWeight: "600" },
     secondary: { color: native.secondaryLabel, fontSize: 15 },
+    byline: { color: native.secondaryLabel, fontSize: 13 },
     sample: {
       paddingHorizontal: 16,
       paddingVertical: 12,

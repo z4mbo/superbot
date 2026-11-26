@@ -96,4 +96,11 @@ export const KO_MESSAGES: Record<string, string> = {
   "It works for any other assistant too: send it one prompt and paste its reply.":
     "다른 어시스턴트에서도 됩니다. 프롬프트 하나를 보내고 답변을 붙여넣으세요.",
   "Import an agent": "에이전트 가져오기",
+  "Your shared agent: {name}": "공유한 에이전트: {name}",
+  "{name} is now listed in the Superbot Store.":
+    "{name}이(가) 이제 Superbot Store에 등록되었습니다.",
+  "We couldn't list {name} in the Superbot Store.":
+    "{name}을(를) Superbot Store에 등록할 수 없었습니다.",
+  "{name} is no longer listed in the Superbot Store.":
+    "{name}은(는) 더 이상 Superbot Store에 등록되어 있지 않습니다.",
 };

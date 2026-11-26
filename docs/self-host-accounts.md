@@ -17,10 +17,11 @@ server integration credentials, or deployment updates, and cannot read deploymen
 
 There is no app-admin role, first-user privilege, or `ADMINS` list. Workspace owners manage only their own workspace.
 
-`RAKAZO_ADMIN_EMAILS` names accounts, comma-separated, that review plugin submissions, add stdio
-MCP servers ([integrations](self-host-integrations.md)), and, on deployments that sell model
-credits, give free access at `/admin/access`. An account counts only once its email is verified.
-It grants nothing else.
+`RAKAZO_ADMIN_EMAILS` names accounts, comma-separated, that review plugin submissions and
+[shared agents](bots-and-chats.md#share-a-bot-as-a-template), add stdio MCP servers
+([integrations](self-host-integrations.md)), and, on deployments that sell model credits, give
+free access at `/admin/access`. An account counts only once its email is verified. It grants
+nothing else. Without one, shared agents wait for review and nothing is listed under Community.
 
 A free-access grant names an email and gives up to $1,000 of model credits, up to 12 free own-key
 months, or both. Whoever owns an organization with that verified email receives it the next time they

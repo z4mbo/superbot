@@ -98,4 +98,9 @@ export const PT_BR_MESSAGES: Record<string, string> = {
   "It works for any other assistant too: send it one prompt and paste its reply.":
     "Também funciona com qualquer outro assistente: envie um prompt e cole a resposta.",
   "Import an agent": "Importar um agente",
+  "Your shared agent: {name}": "Seu agente compartilhado: {name}",
+  "{name} is now listed in the Superbot Store.": "{name} agora está na Superbot Store.",
+  "We couldn't list {name} in the Superbot Store.":
+    "Não conseguimos publicar {name} na Superbot Store.",
+  "{name} is no longer listed in the Superbot Store.": "{name} não está mais na Superbot Store.",
 };

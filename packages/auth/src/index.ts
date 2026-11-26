@@ -72,6 +72,10 @@ import type { TokenKey } from "./token-storage.js";
 import { encryptStoredOAuthTokens, openIdToken, sealIdToken } from "./token-storage.js";
 
 export { agentImportEmail } from "./agent-import-email.js";
+export {
+  communityTemplateAdminEmail,
+  communityTemplateReviewedEmail,
+} from "./community-template-email.js";
 export type { DelegatedSession, DelegatedSessionInput } from "./delegated-session.js";
 export type { DirectoryAccountChange } from "./directory.js";
 export { createDirectory } from "./directory.js";

@@ -98,4 +98,10 @@ export const RU_MESSAGES: Record<string, string> = {
   "It works for any other assistant too: send it one prompt and paste its reply.":
     "Это работает и с любым другим ассистентом: отправьте ему один промпт и вставьте его ответ.",
   "Import an agent": "Импортировать агента",
+  "Your shared agent: {name}": "Ваш опубликованный агент: {name}",
+  "{name} is now listed in the Superbot Store.": "{name} теперь доступен в Superbot Store.",
+  "We couldn't list {name} in the Superbot Store.":
+    "Нам не удалось разместить {name} в Superbot Store.",
+  "{name} is no longer listed in the Superbot Store.":
+    "{name} больше не доступен в Superbot Store.",
 };

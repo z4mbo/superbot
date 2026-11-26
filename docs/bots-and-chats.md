@@ -27,6 +27,33 @@ until you turn it on. Nothing is connected for you: the new chat asks for the ap
 with, and it still works without them where it can. Creating the same template again opens the bot
 you already made.
 
+### Share a bot as a template
+
+Right-click a bot you own and choose **Share as template**. Superbot reads a recipe from the bot:
+its instructions, the skills of yours it mentions by name, its scheduled routines (name, prompt and
+schedule only), and the apps connected for it. Keys, vault entries, model settings, servers,
+memory, chats, files and members never leave the bot. You see the whole recipe, can edit or remove
+any part of it, and pick a category, a one-line summary and an example message before you submit.
+
+A shared template waits for a deployment admin to review it. Once approved it appears under
+**Community** in the Store's Agents section, next to Superbot's own templates, with your account
+name (never your email), which the share dialog shows you first. Others see its full instructions
+before they create a bot from it, and its routines start paused, like any template.
+
+- The name claims the template: submitting the same name again sends a new version, which replaces
+  the listed one only once it is approved. A name another author or Superbot already uses is taken.
+- You can have three templates waiting for review at a time. **Shared by you** in the Agents
+  section shows where each one stands and why one was not approved; withdraw one that waits or
+  unlist one that is listed there.
+- Bots people made from your template keep working after you unlist it.
+- The mobile app lists Community agents and makes bots from them. Sharing and review happen in the
+  web and desktop apps, where the whole recipe fits on screen to edit or check.
+- If you delete your account, a listed template stays without your name, and the ones waiting are
+  dropped from review.
+
+Admins review shared agents on the app review page, which shows every field as plain text, and
+approve, reject with a reason, or unlist one. The author gets an email with the decision.
+
 ## Talk to it
 
 Type in the composer and press Enter. You can keep chatting while a bot works, and **Stop** ends

@@ -16,7 +16,11 @@ const bots = vi.hoisted(() => ({
   list: vi.fn(),
 }));
 vi.mock("../../lib/query/rpc", () => {
-  const rpc = { bots, connections: { catalog: vi.fn(async () => []) } };
+  const rpc = {
+    bots,
+    connections: { catalog: vi.fn(async () => []) },
+    communityTemplates: { list: vi.fn(async () => []), mine: vi.fn(async () => []) },
+  };
   return { rpc, rpcForSpace: () => rpc, createSpaceRpc: () => rpc, selectedSpaceId: () => null };
 });
 vi.mock("@lingui/react/macro", () => ({

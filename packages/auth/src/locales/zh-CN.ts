@@ -92,4 +92,8 @@ export const ZH_CN_MESSAGES: Record<string, string> = {
   "It works for any other assistant too: send it one prompt and paste its reply.":
     "其他任何助手也可以：给它发送一条提示词，再粘贴它的回复。",
   "Import an agent": "导入智能体",
+  "Your shared agent: {name}": "你分享的智能体：{name}",
+  "{name} is now listed in the Superbot Store.": "{name} 现已在 Superbot Store 上架。",
+  "We couldn't list {name} in the Superbot Store.": "我们无法在 Superbot Store 上架 {name}。",
+  "{name} is no longer listed in the Superbot Store.": "{name} 已从 Superbot Store 下架。",
 };

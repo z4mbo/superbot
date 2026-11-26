@@ -95,4 +95,8 @@ export const HE_MESSAGES: Record<string, string> = {
   "It works for any other assistant too: send it one prompt and paste its reply.":
     "זה עובד גם עם כל עוזר אחר: שלחו לו פרומפט אחד והדביקו את התשובה שלו.",
   "Import an agent": "ייבוא סוכן",
+  "Your shared agent: {name}": "הסוכן ששיתפת: {name}",
+  "{name} is now listed in the Superbot Store.": "{name} מופיע עכשיו ב-Superbot Store.",
+  "We couldn't list {name} in the Superbot Store.": "לא הצלחנו לפרסם את {name} ב-Superbot Store.",
+  "{name} is no longer listed in the Superbot Store.": "{name} כבר לא מופיע ב-Superbot Store.",
 };

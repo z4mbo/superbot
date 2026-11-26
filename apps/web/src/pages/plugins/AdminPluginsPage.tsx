@@ -6,6 +6,7 @@ import { Link, Navigate } from "react-router-dom";
 import { PageLoading } from "../../components/PageLoading";
 import { WindowChrome } from "../../components/WindowChrome";
 import { useSpaceQueries } from "../../lib/query/query";
+import { CommunityTemplatesReviewPanel } from "./CommunityTemplatesReviewPanel";
 import { PluginSubmissionsPanel } from "./PluginSubmissionsPanel";
 
 export function AdminPluginsPage() {
@@ -32,8 +33,9 @@ export function AdminPluginsPage() {
         </h1>
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-4 py-6">
+        <div className="mx-auto max-w-3xl space-y-10 px-4 py-6">
           <PluginSubmissionsPanel />
+          <CommunityTemplatesReviewPanel />
         </div>
       </main>
     </div>

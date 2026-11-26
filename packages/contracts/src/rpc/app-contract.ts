@@ -8,6 +8,7 @@ import { appStoreRpc } from "../apps/app-store-rpc.js";
 import { artifactsRpc } from "../artifacts/artifacts-rpc.js";
 import { billingRpc } from "../billing/billing-rpc.js";
 import { botsRpc } from "../bots/bots-rpc.js";
+import { communityTemplatesRpc } from "../bots/community-templates-rpc.js";
 import { serverRpc } from "../clients/server-rpc.js";
 import { computersRpc } from "../computers/computers-rpc.js";
 import { integrationsRpc } from "../integrations/integrations-rpc.js";
@@ -31,6 +32,7 @@ export const appContract = {
   ...computersRpc,
   ...modelsRpc,
   ...botsRpc,
+  ...communityTemplatesRpc,
   ...threadsRpc,
   ...conversationContentRpc,
   ...meetingsRpc,

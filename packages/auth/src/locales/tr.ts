@@ -100,4 +100,9 @@ export const TR_MESSAGES: Record<string, string> = {
   "It works for any other assistant too: send it one prompt and paste its reply.":
     "Başka herhangi bir asistanla da çalışır: ona tek bir istem gönderin ve yanıtını yapıştırın.",
   "Import an agent": "Ajan içe aktar",
+  "Your shared agent: {name}": "Paylaştığın ajan: {name}",
+  "{name} is now listed in the Superbot Store.": "{name} artık Superbot Store'da listeleniyor.",
+  "We couldn't list {name} in the Superbot Store.": "{name} Superbot Store'da listelenemedi.",
+  "{name} is no longer listed in the Superbot Store.":
+    "{name} artık Superbot Store'da listelenmiyor.",
 };

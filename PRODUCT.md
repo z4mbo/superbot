@@ -111,6 +111,6 @@ The deployment picks the default approval mode, so a self-hosted server works wi
 
 App accounts never administer the server.
 Signup order, email address, and workspace ownership do not grant deployment privileges or billing exemptions.
-The only admins are verified accounts the operator lists in `RAKAZO_ADMIN_EMAILS`; nothing in the app can add one, and they can only review plugin submissions, add stdio MCP servers, and give capped credits or free own-key months, never change the server or read other accounts.
+The only admins are verified accounts the operator lists in `RAKAZO_ADMIN_EMAILS`; nothing in the app can add one, and they can only review plugin submissions and shared agents, add stdio MCP servers, and give capped credits or free own-key months, never change the server or read other accounts.
 Operators configure the server through environment variables and manage updates, logs, and shared credentials through deployment tooling.
 Desktop host access is a separate local capability that requires native confirmation, is restricted to the app-managed local instance, and can be revoked locally.

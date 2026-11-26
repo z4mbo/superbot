@@ -97,4 +97,10 @@ export const NL_MESSAGES: Record<string, string> = {
   "It works for any other assistant too: send it one prompt and paste its reply.":
     "Het werkt ook met elke andere assistent: stuur één prompt en plak het antwoord.",
   "Import an agent": "Een agent importeren",
+  "Your shared agent: {name}": "Je gedeelde agent: {name}",
+  "{name} is now listed in the Superbot Store.": "{name} staat nu in de Superbot Store.",
+  "We couldn't list {name} in the Superbot Store.":
+    "We konden {name} niet in de Superbot Store zetten.",
+  "{name} is no longer listed in the Superbot Store.":
+    "{name} staat niet meer in de Superbot Store.",
 };

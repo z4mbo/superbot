@@ -96,4 +96,9 @@ export const HI_MESSAGES: Record<string, string> = {
   "It works for any other assistant too: send it one prompt and paste its reply.":
     "यह किसी भी दूसरे असिस्टेंट के साथ भी काम करता है: उसे एक प्रॉम्प्ट भेजें और उसका जवाब पेस्ट करें।",
   "Import an agent": "एजेंट इंपोर्ट करें",
+  "Your shared agent: {name}": "आपका साझा किया गया एजेंट: {name}",
+  "{name} is now listed in the Superbot Store.": "{name} अब Superbot Store में सूचीबद्ध है।",
+  "We couldn't list {name} in the Superbot Store.":
+    "हम {name} को Superbot Store में सूचीबद्ध नहीं कर सके।",
+  "{name} is no longer listed in the Superbot Store.": "{name} अब Superbot Store में सूचीबद्ध नहीं है।",
 };
