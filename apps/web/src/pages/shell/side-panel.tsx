@@ -9,6 +9,8 @@ import { RoutineEditor } from "../routines/RoutineEditor";
 import type { RoutineList } from "../routines/RoutineList";
 import { CreateGroupForm, GroupSettings } from "../space/GroupPanel";
 import { BotSettings } from "./bots/bot-panel";
+import type { BotSpace } from "./bots/bot-share";
+import { BotAccessButton } from "./bots/bot-share";
 import { ResizableSidePanel, sidePanelHeaderStyle } from "./resizable-side-panel";
 import type { Panel } from "./right-panel-state";
 import { firstThreadRoute } from "./use-shell-navigation";
@@ -45,6 +47,10 @@ export function ShellSidePanel({
   onClearBot,
   discardChatAttachments,
   onCoversChat,
+  space,
+  onOpenConnections,
+  onOpenVault,
+  onOpenSkills,
 }: {
   rpc: ReturnType<typeof createSpaceRpc>;
   panel: Panel;
@@ -68,9 +74,16 @@ export function ShellSidePanel({
   /** Drops a deleted chat's pending attachments with their previews. */
   discardChatAttachments: (threadKey: string) => void;
   onCoversChat: (covers: boolean) => void;
+  /** The Space the open bot belongs to, whose people can use it. */
+  space?: BotSpace;
+  onOpenConnections?: () => void;
+  onOpenVault?: () => void;
+  onOpenSkills?: () => void;
 }) {
   const { t } = useLingui();
   const open = sidePanelShown(panel, active, activeGroup);
+  // A bot's profile takes the chat's place; everything else sits beside the chat.
+  const fullPage = panel === "manage" && Boolean(active);
   const botView =
     panel === "routines" || panel === "pages" || panel === "settings" || panel === "manage"
       ? panel
@@ -87,9 +100,16 @@ export function ShellSidePanel({
   }
 
   return (
-    <ResizableSidePanel open={open} panel={panel ?? "closed"} onCoversChat={onCoversChat}>
+    <ResizableSidePanel
+      open={open}
+      panel={panel ?? "closed"}
+      onCoversChat={onCoversChat}
+      fullPage={fullPage}
+    >
       {open ? (
-        <div className="rk-scroll h-full w-full overflow-y-auto px-5 pt-3.5 pb-[17px]">
+        <div
+          className={`rk-scroll h-full w-full overflow-y-auto ${fullPage ? "" : "px-5 pt-3.5 pb-[17px]"}`}
+        >
           {!(botView && active) &&
           panel !== "routine" &&
           panel !== "create-group" &&
@@ -162,6 +182,11 @@ export function ShellSidePanel({
               computer={computerPanel}
               routines={routineList}
               focusModel={modelFocusRequest}
+              space={space}
+              access={space ? <BotAccessButton bot={active} space={space} /> : null}
+              onOpenConnections={onOpenConnections}
+              onOpenVault={onOpenVault}
+              onOpenSkills={onOpenSkills}
               onSave={async ({ computerMode, ...patch }) => {
                 if (computerMode !== undefined && computerMode !== active.computerMode) {
                   await rpc.bots.setComputer({

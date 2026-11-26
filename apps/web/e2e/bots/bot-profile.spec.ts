@@ -38,7 +38,7 @@ test("a new bot keeps its edited name, label, look, and adjusted photo", async (
   await manage.getByRole("textbox", { name: "Label" }).press("Enter");
   await expect(manage.getByRole("button", { name: "Edit label" })).toHaveText("Weekly digest");
 
-  await panel.getByRole("button", { name: "Back", exact: true }).click();
+  await panel.getByRole("button", { name: "Close profile", exact: true }).click();
   const profile = panel.getByTestId("bot-profile-header");
   await expect(profile).toContainText("Sample Desk");
   await profile.getByTestId("avatar-studio-trigger").click();

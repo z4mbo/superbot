@@ -31,6 +31,10 @@ vi.mock("../../../lib/query/rpc", () => {
       list: vi.fn().mockResolvedValue([]),
     },
     me: vi.fn().mockResolvedValue(null),
+    // The profile lists no connectors, vault logins or skills.
+    mcp: { assignments: { list: vi.fn(async () => []) }, servers: { list: vi.fn(async () => []) } },
+    botSecrets: { list: vi.fn(async () => []) },
+    agentSkills: { list: vi.fn(async () => []) },
   };
   return {
     rpc,
@@ -280,8 +284,13 @@ function settingsView() {
   return container.querySelector<HTMLElement>('[data-testid="bot-settings-advanced"]')!;
 }
 
+/** The panel's own tabs, not the profile's behind the gear. */
 function tabs() {
-  return [...container.querySelectorAll<HTMLElement>('[role="tab"]')];
+  return [
+    ...container.querySelectorAll<HTMLElement>(
+      '[data-testid="bot-settings"] > div:not([data-testid="bot-settings-advanced"]) [role="tab"]',
+    ),
+  ];
 }
 
 async function openModelPicker() {
@@ -394,7 +403,7 @@ it("keeps every setting behind the gear and comes back from it", async () => {
   const settings = settingsView();
   expect(settings.querySelector('button[aria-label="Edit name"]')?.textContent).toBe("Ada");
   expect(settings.querySelector('button[aria-label="Edit label"]')?.textContent).toBe("Add label");
-  expect(settings.querySelector('textarea[id$="-instructions"]')).not.toBeNull();
+  expect(settings.querySelectorAll('textarea[id$="-instructions"]')).toHaveLength(1);
   expect(settings.querySelector('textarea[id$="-description"]')).not.toBeNull();
   expect(settings.querySelector('[data-testid="bot-settings-tools"]')).toBeNull();
   expect([...settings.querySelectorAll("button")].map((button) => button.textContent)).toEqual(
@@ -406,9 +415,15 @@ it("keeps every setting behind the gear and comes back from it", async () => {
       (node) => node.firstChild?.textContent,
     ),
   ).toEqual(["Model", "Notifications", "Own computer"]);
+  // The profile has General and Knowledge, with the memory under Knowledge.
+  expect([...settings.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent)).toEqual([
+    "General",
+    "Knowledge",
+  ]);
 
+  // Opened from the panel's gear, closing the profile goes back to the panel.
   await act(async () =>
-    settings.querySelector<HTMLButtonElement>('button[aria-label="Back"]')!.click(),
+    settings.querySelector<HTMLButtonElement>('button[aria-label="Close profile"]')!.click(),
   );
   expect(onViewChange).toHaveBeenLastCalledWith("settings");
   expect(settingsView().hidden).toBe(true);

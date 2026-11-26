@@ -128,9 +128,14 @@ export async function openIntegrationsAdd(page: Page, item: string) {
 
 /**
  * Opens the bot panel from the header pill on the panel itself (avatar, name, Activity and
- * Library), leaving an open routine editor, its settings or one of the panel's whole lists.
+ * Library), leaving an open routine editor, its profile or one of the panel's whole lists.
  */
 export async function openBotPanel(page: Page) {
+  // The profile covers the chat and its pill, so it is closed first.
+  const closeProfile = page
+    .getByTestId("bot-profile-page")
+    .getByRole("button", { name: "Close profile", exact: true });
+  if (await closeProfile.isVisible()) await closeProfile.click();
   const pill = page.getByTestId("bot-settings-trigger");
   const profile = page.getByTestId("bot-settings").getByTestId("bot-profile-header");
   // A reloaded page restores its saved panel a moment after it draws, so a single pass can

@@ -21,6 +21,10 @@ vi.mock("../../../lib/query/rpc", () => {
       list: vi.fn(async () => []),
     },
     me: vi.fn(async () => ({})),
+    // The profile lists no connectors, vault logins or skills.
+    mcp: { assignments: { list: vi.fn(async () => []) }, servers: { list: vi.fn(async () => []) } },
+    botSecrets: { list: vi.fn(async () => []) },
+    agentSkills: { list: vi.fn(async () => []) },
     // This server receives no email, so the panel offers no address.
     bots: { emailAddress: vi.fn(async () => null) },
   };

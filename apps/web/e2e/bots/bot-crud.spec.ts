@@ -135,9 +135,12 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await editName("Researcher");
   await descriptionInput.fill("Finds reliable sources and turns them into concise briefs.");
   const settings = page.getByTestId("bot-settings");
-  // The avatar is edited from the panel itself, back from its settings.
-  await settings.getByRole("button", { name: "Back", exact: true }).click();
-  await page.getByTestId("avatar-studio-trigger").click();
+  // The avatar is edited from the panel itself, back from the profile its gear opened.
+  await settings.getByRole("button", { name: "Close profile", exact: true }).click();
+  const panelAvatar = settings
+    .getByTestId("bot-profile-header")
+    .getByTestId("avatar-studio-trigger");
+  await panelAvatar.click();
   const studio = page.getByTestId("avatar-studio");
   await expect(studio).toBeVisible();
   await expect(studio.getByRole("tab", { name: "Bot", exact: true })).toBeVisible();
@@ -158,8 +161,8 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
   await expect(descriptionInput).toHaveValue(
     "Finds reliable sources and turns them into concise briefs.",
   );
-  await settings.getByRole("button", { name: "Back", exact: true }).click();
-  await settings.getByTestId("avatar-studio-trigger").click();
+  await settings.getByRole("button", { name: "Close profile", exact: true }).click();
+  await panelAvatar.click();
   await expect(studio).toBeVisible();
   await expect(yellow).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Escape");
@@ -201,7 +204,8 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
     botId: deletedBotPath.split("/").at(-1),
     title: "First fixture task",
   });
-  // Open work shows on the Activity tab.
+  // Open work shows on the Activity tab, read again as the panel reopens.
+  await page.getByRole("button", { name: "Close profile" }).click();
   await page.getByRole("button", { name: "Close panel" }).click();
   await openBotPanel(page);
   await expect(openWork.getByText("First fixture task", { exact: true })).toBeVisible();

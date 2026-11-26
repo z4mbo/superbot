@@ -72,6 +72,7 @@ import { SpaceRpcProvider } from "../lib/query/space-rpc";
 import { errorText } from "../lib/query/user-error";
 import { routineNeedsOneShotArm } from "../lib/routines/routine-draft";
 import { shownLabs } from "./settings/shown-labs";
+import { BotAccessButton } from "./shell/bots/bot-share";
 import type { CreateBotDialogInput } from "./shell/bots/create-bot-dialog";
 import type { ImportSetupTarget } from "./shell/bots/import-setup-card";
 import { useTeaching } from "./shell/bots/use-teaching";
@@ -279,6 +280,8 @@ function SpaceShell({ threadId }: { threadId?: string }) {
   const settingsSpaceId = overlay?.kind === "settings" ? overlay.spaceId : null;
   const settingsSpace =
     spaces.find((space) => space.id === (settingsSpaceId ?? currentSpaceId)) ?? null;
+  // The open bot's Space: everyone in it can use the bot.
+  const botSpace = spaces.find((space) => space.id === currentSpaceId);
   // Never fall back to another space's settings when the edited space goes away.
   const settingsSpaceGone = initialBotsLoaded && settingsSpaceId !== null && !settingsSpace;
   useEffect(() => {
@@ -832,7 +835,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
       userId && bootstrapMe?.spaceId
         ? rightPanelStorageKey(userId, bootstrapMe.spaceId, kind, id)
         : null;
-    rightPanel.openPanelInChat(destKey, kind === "bot" ? "settings" : "group-settings", () =>
+    rightPanel.openPanelInChat(destKey, kind === "bot" ? "manage" : "group-settings", () =>
       navigate(kind === "bot" ? `/app/${id}` : `/app/g/${id}`),
     );
   }
@@ -1199,6 +1202,11 @@ function SpaceShell({ threadId }: { threadId?: string }) {
             sidePanelShown={sidePanelShown(panel, active, activeGroup)}
             onOpenNavigation={() => setMobileSidebarOpen(true)}
             onTogglePanel={toggleChatPanel}
+            access={
+              active && !inGroup && botSpace ? (
+                <BotAccessButton key={active.id} bot={active} space={botSpace} compactOnPhone />
+              ) : undefined
+            }
             modelPicker={
               showComposerModel && active && !inGroup ? (
                 <ComposerModelPicker
@@ -1396,6 +1404,10 @@ function SpaceShell({ threadId }: { threadId?: string }) {
         refreshGroupThread={refreshGroupThread}
         discardChatAttachments={composer.discardThreadAttachments}
         onCoversChat={setPanelCoversChat}
+        space={botSpace}
+        onOpenConnections={() => setOverlay({ kind: "connections" })}
+        onOpenVault={() => openSettings("vault")}
+        onOpenSkills={() => setOverlay({ kind: "skills" })}
         computerOpen={computerOpen}
         computerPanel={
           active ? (

@@ -354,6 +354,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await page.getByRole("menuitem", { name: "Export" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/superbot-export\.json/i);
+  await page.getByRole("button", { name: "Close profile" }).click();
   await page.getByRole("button", { name: "Close panel" }).click();
 
   await page

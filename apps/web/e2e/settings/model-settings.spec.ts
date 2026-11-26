@@ -373,6 +373,8 @@ test("connects, lists, and uses an OpenAI-compatible endpoint", async ({ page },
     await botSaved;
 
     if (process.env.AGENT_RUNTIME === "pi") {
+      // The profile takes the chat's place; closing it brings the composer back.
+      await settings.getByRole("button", { name: "Close profile", exact: true }).click();
       const composer = page.getByPlaceholder(/Message/);
       await composer.fill("Reply with the endpoint verification message.");
       await page.keyboard.press("Enter");
