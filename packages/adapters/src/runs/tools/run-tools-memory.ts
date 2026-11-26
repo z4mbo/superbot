@@ -31,6 +31,21 @@ export function historyMyChatsAllowed(
 }
 
 /**
+ * Whether a path the model gave names the Space's MEMORY.md index in any spelling a memory store
+ * might resolve to it: another case, a leading `./` or `/`, backslashes, or `..` segments.
+ */
+export function namesMemoryIndex(path: string): boolean {
+  const resolved: string[] = [];
+  for (const segment of path.normalize("NFKC").replaceAll("\\", "/").split("/")) {
+    const part = segment.trim();
+    if (part === "" || part === ".") continue;
+    if (part === "..") resolved.pop();
+    else resolved.push(part);
+  }
+  return resolved.length === 1 && resolved[0]?.toLowerCase() === MEMORY_INDEX_PATH.toLowerCase();
+}
+
+/**
  * Models often fill optional fields they do not use with "" or null (botId: "", linkedRunId: "").
  * No history field means anything when blank, so a blank field counts as not given.
  */
@@ -185,6 +200,24 @@ export const memoryTools: ToolHandlers = {
         return call.finish({ error: error.message });
       throw error;
     }
+  },
+  async delete_shared_memory(ctx, call) {
+    const { deps, context } = ctx;
+    const path = String(call.args.path ?? "").trim();
+    if (!path) return call.finish({ error: "path is required" });
+    const keep = { error: `${MEMORY_INDEX_PATH} cannot be deleted; edit its content instead.` };
+    if (namesMemoryIndex(path)) return call.finish(keep);
+    const doc = (await deps.memory.read({ scope: "user", path }, context)).documents[0];
+    if (!doc) return call.finish({ error: `No shared memory document named ${path}.` });
+    // Checked again on the stored path, in case a memory store resolved the name itself.
+    if (namesMemoryIndex(doc.path)) return call.finish(keep);
+    // The id pins the document just read, so a newer one saved at the same path stays.
+    const { removed } = await deps.memory.remove(
+      { id: doc.id, scope: "user", path: doc.path },
+      context,
+    );
+    if (!removed) return call.finish({ error: `${path} was already deleted.` });
+    return call.finish({ ok: true, path: doc.path });
   },
   async recall_memory(ctx, call) {
     const { bot, thread, context } = ctx;

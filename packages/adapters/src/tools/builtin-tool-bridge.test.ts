@@ -63,9 +63,9 @@ describe("built-in tool bridge", () => {
     // connected-app events) a routine can start on, saying a Git event needs no connected app;
     // remember can log to
     // today's daily note and save to the profile of the person the bot works for; the media area
-    // names the two app tools. find_apps and open_app are deferred and cost only their names in the
-    // find_tool index.
-    expect(definitionBytes(listed)).toBeLessThanOrEqual(36_671);
+    // names the two app tools. find_apps, open_app, remove_mcp_server and delete_shared_memory are
+    // deferred and cost only their names in the find_tool index.
+    expect(definitionBytes(listed)).toBeLessThanOrEqual(36_709);
     expect(deferred.map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["render_plot", "create_space", "generate_secret", "scratchpad_add"]),
     );

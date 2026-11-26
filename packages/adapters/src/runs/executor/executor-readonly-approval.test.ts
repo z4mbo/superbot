@@ -954,6 +954,18 @@ describe("connector read-only metadata and approval enforcement", () => {
     });
   });
 
+  it.each([
+    ["delete_shared_memory", { path: "team.md" }],
+    ["remove_mcp_server", { name: "Linear" }],
+  ] as const)("asks before %s deletes anything, even in an owner's own run", async (name, args) => {
+    const f = fixture({ name, builtin: true, existingSharedMemory: "Old rule" });
+    f.setCalls([{ args, executionId: "call-1" }]);
+    await f.run();
+    expect(f.pauseRunForInput).toHaveBeenCalledTimes(1);
+    expect(isApprovalPausedResult(f.results[0])).toBe(true);
+    expect(f.sharedMemoryState.content).toBe("Old rule");
+  });
+
   it("rejects a shared memory save without a path", async () => {
     const f = fixture({ name: "save_shared_memory", builtin: true });
     f.setCalls([{ args: { path: "  ", content: "ok" }, executionId: "call-1" }]);

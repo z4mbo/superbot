@@ -6,6 +6,7 @@ import {
   deriveMcpSlug,
   needsOAuthProbe,
   parseMcpServerToolArgs,
+  removeMcpServerFromTool,
 } from "./mcp-server-tool.js";
 
 describe("deriveMcpSlug", () => {
@@ -113,6 +114,79 @@ describe("addMcpServerFromTool", () => {
       "exec-1",
     );
     expect(result).toEqual({ error: "Put token in a header instead of the server URL" });
+  });
+});
+
+describe("removeMcpServerFromTool", () => {
+  const owner = { spaceId: "space-1", userId: "user-1" };
+  const setup = (
+    servers: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      transport: string;
+      secretId: string | null;
+    }>,
+  ) => {
+    const tx = {
+      message: { findMany: vi.fn(async () => []), update: vi.fn() },
+      mcpServer: { delete: vi.fn() },
+      secret: { deleteMany: vi.fn() },
+    };
+    const deps = {
+      prisma: {
+        mcpServer: { findMany: vi.fn(async () => servers) },
+        $transaction: vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
+      },
+      events: { notify: vi.fn() },
+    } as unknown as Pick<ExecutorDeps, "prisma" | "events">;
+    return { deps, tx };
+  };
+  const linear = {
+    id: "srv-1",
+    name: "Linear",
+    slug: "linear",
+    transport: "streamable_http",
+    secretId: "sec-1",
+  };
+
+  it("removes the named server with its saved credential", async () => {
+    const { deps, tx } = setup([linear]);
+    await expect(removeMcpServerFromTool(deps, owner, { name: " linear " })).resolves.toEqual({
+      ok: true,
+      removed: "Linear",
+    });
+    expect(deps.prisma.mcpServer.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ userId: "user-1" }) }),
+    );
+    expect(tx.mcpServer.delete).toHaveBeenCalledWith({ where: { id: "srv-1" } });
+    expect(tx.secret.deleteMany).toHaveBeenCalledWith({
+      where: { id: "sec-1", userId: "user-1", OR: [{ spaceId: "space-1" }, { spaceId: null }] },
+    });
+  });
+
+  it("names the servers it has when none matches, and removes nothing", async () => {
+    const { deps, tx } = setup([linear]);
+    await expect(removeMcpServerFromTool(deps, owner, { name: "Brex" })).resolves.toEqual({
+      error: 'No MCP server named "Brex". Remote servers here: Linear.',
+    });
+    expect(deps.prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.mcpServer.delete).not.toHaveBeenCalled();
+  });
+
+  it("leaves a local (stdio) server to Settings, as adding one does", async () => {
+    const { deps } = setup([{ ...linear, transport: "stdio" }]);
+    await expect(removeMcpServerFromTool(deps, owner, { name: "Linear" })).resolves.toEqual({
+      error: "Local (stdio) MCP servers are removed in Settings.",
+    });
+    expect(deps.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("asks for a name", async () => {
+    const { deps } = setup([linear]);
+    await expect(removeMcpServerFromTool(deps, owner, {})).resolves.toEqual({
+      error: "Give the name of the MCP server to remove.",
+    });
   });
 });
 
