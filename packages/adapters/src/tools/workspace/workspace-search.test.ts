@@ -76,6 +76,55 @@ describe("search command", () => {
     ).resolves.toEqual({ error: expect.stringContaining("search stopped"), path: "" });
   });
 
+  it("ends options before the pattern wherever ripgrep or grep reads it", () => {
+    const script = searchCommandArgv({
+      pattern: "x",
+      target: ".",
+      limit: 1,
+      ignoreCase: false,
+      names: [],
+    })[2]!;
+    const reads = script.split("\n").filter((line) => line.includes(`"$pattern"`));
+    expect(reads.length).toBeGreaterThanOrEqual(4);
+    for (const line of reads) expect(line).toContain('-- "$pattern"');
+  });
+
+  it("reads ripgrep's output into capped matches with paths as the bot names them", async () => {
+    const argv: string[][] = [];
+    const long = `const value = "${"a".repeat(400)}";`;
+    const stdout = [
+      `bots/bot-1/src/app.ts\u00001:${long}`,
+      "bots/bot-1/src/app.ts\u00002:token=TOPSECRET",
+      "bots/bot-1/src/view.tsx\u000010:<Foo />",
+      "",
+    ].join("\n");
+    const sandbox = {
+      async *execute(_computer: ComputerRef, request: { argv: string[] }) {
+        argv.push(request.argv);
+        yield { type: "stdout" as const, data: stdout };
+        yield { type: "exit" as const, code: 0 };
+      },
+    } as unknown as SandboxProvider;
+    const computer = { id: "c", botId: "bot-1", kind: "docker", providerRef: "c" } as ComputerRef;
+    const result = await searchFilesFromTool(
+      sandbox,
+      workspaceFor(computer, "team", ["TOPSECRET"]),
+      { pattern: "a", path: "src", max_matches: 2, case_sensitive: false, glob: "*.ts" },
+      { nativeShell: false },
+    );
+    // The script prints one line past the limit so the result can say there were more.
+    expect(argv[0]!.slice(3)).toEqual(["rakazo-search", "a", "bots/bot-1/src", "2", "1", "*.ts"]);
+    expect(result).toEqual({
+      path: "src",
+      pattern: "a",
+      matches: [
+        { file: "src/app.ts", line: 1, text: `${long.slice(0, 200)}…` },
+        { file: "src/app.ts", line: 2, text: "token=[redacted]" },
+      ],
+      truncated: true,
+    });
+  });
+
   it("is refused on a computer with its own native shell", async () => {
     const computer = { id: "c", botId: "bot-1", kind: "desktop", providerRef: "c" } as ComputerRef;
     await expect(

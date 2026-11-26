@@ -138,6 +138,24 @@ export function isBuiltinToolName(name: string): name is BuiltinToolName {
   return builtinToolNameSet.has(name);
 }
 
+/**
+ * Built-ins that do part of another's job, so turning that one off turns them off too: a bot
+ * without shell starts no background command, and one without write_file edits no file.
+ */
+const BUILTIN_TOOL_FOLLOWS: Readonly<Partial<Record<BuiltinToolName, BuiltinToolName>>> = {
+  edit_file: "write_file",
+  search_files: "read_file",
+  glob: "list_files",
+  process_manage: "shell",
+};
+
+/** Whether a built-in is off, by its own name or the tool it follows. */
+export function builtinToolDisabled(disabled: ReadonlySet<string>, name: string): boolean {
+  if (disabled.has(name)) return true;
+  const follows = isBuiltinToolName(name) ? BUILTIN_TOOL_FOLLOWS[name] : undefined;
+  return follows !== undefined && disabled.has(follows);
+}
+
 export function disabledBuiltinToolSet(names: readonly string[] | undefined): Set<string> {
   const disabled = new Set<string>();
   if (!names) return disabled;

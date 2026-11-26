@@ -9,6 +9,7 @@ import {
   approvalRuleChoices,
   approvalRuleEffectChoices,
   batchActions,
+  builtinCallRequiresApproval,
   clicksBeforeTyping,
   connectorKindFromToolName,
   connectorReadRequiresApproval,
@@ -1293,6 +1294,52 @@ describe("unattendedApprovalExpireAfterMs", () => {
   it("keeps 30 minutes for a blank, unreadable or out-of-range value", () => {
     for (const raw of [undefined, "", "   ", "soon", "0", "-1000", "59999", "2592000001"]) {
       expect(unattendedApprovalExpireAfterMs(raw), String(raw)).toBe(30 * 60 * 1000);
+    }
+  });
+});
+
+describe("workspace tools", () => {
+  it("gates edit_file as write_file, and starting a process as shell", () => {
+    for (const name of ["edit_file", "search_files", "glob", "process_manage"]) {
+      expect(toolRequiresApproval(name, false)).toBe(toolRequiresApproval("shell", false));
+    }
+    for (const trigger of ["webhook", "user"]) {
+      expect(outsideRunToolRequiresApproval(trigger, "edit_file")).toBe(
+        outsideRunToolRequiresApproval(trigger, "write_file"),
+      );
+      expect(outsideRunToolRequiresApproval(trigger, "process_manage")).toBe(
+        outsideRunToolRequiresApproval(trigger, "shell"),
+      );
+    }
+    // Searching only looks, so a run outside text started may search freely.
+    expect(outsideRunToolRequiresApproval("webhook", "search_files")).toBe(false);
+    expect(outsideRunToolRequiresApproval("webhook", "glob")).toBe(false);
+  });
+
+  it("holds only stopping a background process for approval", () => {
+    expect(builtinCallRequiresApproval("process_manage", { action: "kill", id: "abc" })).toBe(true);
+    for (const action of ["start", "list", "check", undefined]) {
+      expect(builtinCallRequiresApproval("process_manage", { action })).toBe(false);
+    }
+    expect(builtinCallRequiresApproval("shell", { action: "kill" })).toBe(false);
+  });
+
+  it("taints the run with what files and processes print, not with an edit's confirmation", () => {
+    expect(toolResultTaintsRun("edit_file")).toBe(false);
+    for (const name of ["search_files", "glob", "process_manage"]) {
+      expect(toolResultTaintsRun(name)).toBe(true);
+    }
+  });
+
+  it("sends a started command to the approval model after outside text, as shell", async () => {
+    const checks = { tainted: async () => true, pageSiteGiven: async () => false };
+    await expect(
+      ownComputerActionNeedsReview("process_manage", { action: "start", command: "x" }, checks),
+    ).resolves.toBe(true);
+    for (const action of ["list", "check", "kill"]) {
+      await expect(
+        ownComputerActionNeedsReview("process_manage", { action }, checks),
+      ).resolves.toBe(false);
     }
   });
 });

@@ -85,6 +85,18 @@ describe("logo avatar activity from public events", () => {
     expect(state.composing).toBe(false);
   });
 
+  it("counts an edit as writing and a background process as computer use", () => {
+    const activity = (name: string) =>
+      logoAvatarActivity(
+        reduceLogoAvatarSignals(
+          started(),
+          event(2, "agent.tool.called", { name, executionId: "t" }),
+        ),
+      );
+    expect(activity("edit_file")).toBe("writing");
+    expect(activity("process_manage")).toBe("computer");
+  });
+
   it("does not invent thinking, reading or computer use from narration or a running computer", () => {
     let state = reduceLogoAvatarSignals(
       started(),

@@ -702,3 +702,29 @@ describe("the user's computer after a routine or webhook joined the run", () => 
     await expect(prepareToolRequest(ctx as never, request)).resolves.toBeUndefined();
   });
 });
+
+describe("prepareToolRequest: process_manage", () => {
+  it("holds stopping a background process for approval, and nothing else it does", async () => {
+    const { ctx, request } = ownBotUpdateCall();
+    const call = (args: Record<string, unknown>) => ({
+      ...request(),
+      name: "process_manage",
+      args,
+    });
+    const kill = call({ action: "kill", id: "0123456789ab" });
+    await expect(prepareToolRequest(ctx as never, kill)).resolves.toBeUndefined();
+    expect(kill.heldForApproval).toBe(true);
+    // An approved replay stays held, so it claims the approval it was given.
+    const replay = {
+      ...call({ action: "kill", id: "0123456789ab" }),
+      nextApprovedTool: "process_manage",
+    };
+    await expect(prepareToolRequest(ctx as never, replay)).resolves.toBeUndefined();
+    expect(replay.heldForApproval).toBe(true);
+    for (const args of [{ action: "start", command: "npm run dev" }, { action: "list" }]) {
+      const other = call(args);
+      await expect(prepareToolRequest(ctx as never, other)).resolves.toBeUndefined();
+      expect(other.heldForApproval).toBe(false);
+    }
+  });
+});

@@ -32,7 +32,9 @@ describe("built-in tool bridge", () => {
       "ask_user",
       "attach_file",
       "connect_app",
+      "edit_file",
       "find_tool",
+      "glob",
       "list_files",
       "message_bot",
       "message_user",
@@ -44,6 +46,7 @@ describe("built-in tool bridge", () => {
       "run_subagent",
       "schedule_create",
       "schedule_list",
+      "search_files",
       "search_history",
       "shell",
       "skill_read",
@@ -64,10 +67,17 @@ describe("built-in tool bridge", () => {
     // remember can log to
     // today's daily note and save to the profile of the person the bot works for; the media area
     // names the two app tools. find_apps, open_app, remove_mcp_server and delete_shared_memory are
-    // deferred and cost only their names in the find_tool index.
-    expect(definitionBytes(listed)).toBeLessThanOrEqual(36_709);
+    // deferred and cost only their names in the find_tool index. edit_file, search_files and glob
+    // are listed beside the other file tools; process_manage is deferred.
+    expect(definitionBytes(listed)).toBeLessThanOrEqual(38_897);
     expect(deferred.map((tool) => tool.name)).toEqual(
-      expect.arrayContaining(["render_plot", "create_space", "generate_secret", "scratchpad_add"]),
+      expect.arrayContaining([
+        "render_plot",
+        "create_space",
+        "generate_secret",
+        "scratchpad_add",
+        "process_manage",
+      ]),
     );
   });
 

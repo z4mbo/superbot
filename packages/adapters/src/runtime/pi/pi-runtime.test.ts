@@ -64,6 +64,20 @@ describe("describeToolActivity", () => {
     expect(describeToolActivity("write_file", { path: "out.csv", content: "…" })).toBe(
       "Writing out.csv",
     );
+    expect(describeToolActivity("edit_file", { path: "src/app.ts", patch: "…" })).toBe(
+      "Editing src/app.ts",
+    );
+    expect(describeToolActivity("search_files", { pattern: "TODO" })).toBe("Searching files: TODO");
+    expect(describeToolActivity("glob", { pattern: "**/*.md" })).toBe("Finding files: **/*.md");
+    expect(describeToolActivity("process_manage", { action: "start", command: "pnpm dev" })).toBe(
+      "Starting in the background: pnpm dev",
+    );
+    expect(describeToolActivity("process_manage", { action: "check", id: "abc" })).toBe(
+      "Checking background processes",
+    );
+    expect(describeToolActivity("process_manage", { action: "kill", id: "abc" })).toBe(
+      "Stopping a background process",
+    );
     expect(describeToolActivity("list_fleet", {})).toBe("Checking your bots");
     expect(describeToolActivity("render_plot", { spec: {} })).toBe("Rendering a chart");
     expect(describeToolActivity("save_page", { help: true })).toBe(

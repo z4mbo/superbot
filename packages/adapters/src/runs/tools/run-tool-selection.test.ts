@@ -120,3 +120,52 @@ describe("unavailableBuiltinToolReasons", () => {
     for (const name of Object.keys(reasons)) expect(BUILTIN_AGENT_TOOL_NAMES.has(name)).toBe(true);
   });
 });
+
+describe("workspace tool selection", () => {
+  const WORKSPACE_TOOLS = ["edit_file", "search_files", "glob", "process_manage"];
+  const names = (options: { trigger?: string; disabledBuiltinTools?: string[] } = {}) =>
+    selectBuiltinToolsForRun({
+      graphicalToolsAllowed: false,
+      groupId: null,
+      trigger: options.trigger ?? "user",
+      semanticMemoryEnabled: false,
+      messagingChannelRun: false,
+      disabledBuiltinTools: options.disabledBuiltinTools,
+    }).map((tool) => tool.name);
+
+  it("offers the workspace tools beside the file tools and shell", () => {
+    const offered = names();
+    for (const name of ["read_file", "write_file", "list_files", "shell", ...WORKSPACE_TOOLS]) {
+      expect(offered).toContain(name);
+    }
+    // The creation intro offers neither the file tools nor these.
+    const created = names({ trigger: "created" });
+    for (const name of ["read_file", "write_file", "shell", ...WORKSPACE_TOOLS]) {
+      expect(created).not.toContain(name);
+    }
+  });
+
+  it("turns each off with the tool it does part of the job of", () => {
+    const cases: [string, string[]][] = [
+      ["write_file", ["edit_file"]],
+      ["read_file", ["search_files"]],
+      ["list_files", ["glob"]],
+      ["shell", ["process_manage"]],
+    ];
+    for (const [parent, followers] of cases) {
+      const offered = names({ disabledBuiltinTools: [parent] });
+      for (const name of followers) expect(offered).not.toContain(name);
+      const others = WORKSPACE_TOOLS.filter((name) => !followers.includes(name));
+      for (const name of others) expect(offered).toContain(name);
+      const reasons = unavailableBuiltinToolReasons(
+        { groupId: null, trigger: "user", disabledBuiltinTools: [parent] },
+        offered.map((name) => ({ name })),
+      );
+      for (const name of followers) expect(reasons[name]).toBeDefined();
+    }
+    // Each can also be turned off alone.
+    const offered = names({ disabledBuiltinTools: ["process_manage"] });
+    expect(offered).toContain("shell");
+    expect(offered).not.toContain("process_manage");
+  });
+});

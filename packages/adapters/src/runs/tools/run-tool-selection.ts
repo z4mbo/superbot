@@ -1,4 +1,5 @@
 import {
+  builtinToolDisabled,
   disabledBuiltinToolSet,
   FLEET_TOOL_NAMES,
   FLEET_WRITE_TOOL_NAMES,
@@ -198,7 +199,7 @@ export function selectBuiltinToolsForRun(options: {
     Boolean(options.cloudAgentCleanupEnabled),
   ).filter(
     (tool) =>
-      !disabled.has(tool.name) &&
+      !builtinToolDisabled(disabled, tool.name) &&
       (options.trigger !== "created" || CREATED_RUN_TOOL_NAMES.has(tool.name)) &&
       (options.trigger !== BACKGROUND_HELPER_TRIGGER || !SUBAGENT_HIDDEN_TOOLS.has(tool.name)) &&
       (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
@@ -276,7 +277,7 @@ export function unavailableBuiltinToolReasons(
     if (offeredNames.has(name)) continue;
     if (options.trigger === "created" && !CREATED_RUN_TOOL_NAMES.has(name)) {
       reasons[name] = createdRunToolUnavailableReason(name);
-    } else if (disabled.has(name)) {
+    } else if (builtinToolDisabled(disabled, name)) {
       reasons[name] = disabledBuiltinToolUnavailableReason(name);
     } else if (options.groupId && name === "message_bot") {
       reasons[name] = groupMessageBotUnavailableReason(offeredNames.has("handoff_to_bot"));
