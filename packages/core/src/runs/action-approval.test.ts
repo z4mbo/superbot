@@ -28,6 +28,7 @@ import {
   resolveActionApproval,
   resolveActionApprovalDetail,
   resolveActionApprovalForTools,
+  SITE_SENDING_TOOLS,
   savedContextWriteNeedsReview,
   toolRequiresApproval,
   toolRequiresExplicitApproval,
@@ -1361,5 +1362,18 @@ describe("workspace tools", () => {
         ownComputerActionNeedsReview("process_manage", { action }, checks),
       ).resolves.toBe(false);
     }
+  });
+});
+
+describe("keyed research tools", () => {
+  it("read like web_search and web_fetch, with the page reader gated by site", () => {
+    for (const tool of ["web_search", "web_fetch", "exa_search", "firecrawl_scrape"]) {
+      expect(toolRequiresApproval(tool, false)).toBe(false);
+      expect(outsideRunToolRequiresApproval("webhook", tool)).toBe(false);
+      // What they return was written outside the run.
+      expect(toolResultTaintsRun(tool)).toBe(true);
+    }
+    expect(SITE_SENDING_TOOLS.has("firecrawl_scrape")).toBe(true);
+    expect(SITE_SENDING_TOOLS.has("exa_search")).toBe(false);
   });
 });

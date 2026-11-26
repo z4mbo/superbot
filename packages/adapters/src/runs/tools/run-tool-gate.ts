@@ -1,4 +1,5 @@
 import type { AgentToolExecutionObserver, ConnectorCall } from "@rakazo/adapter-kit";
+import { KEYED_PAGE_READ_TOOL_NAMES } from "@rakazo/contracts";
 import {
   approvalModeFromPreference,
   batchActions,
@@ -166,7 +167,8 @@ export async function gateToolCall(
   const httpWatch = watch?.kind === "http";
   // paid_request with only a purchase id sends the request its approval already named.
   const sendsToSite =
-    httpWatch || (SITE_SENDING_TOOLS.has(name) && (name === "web_fetch" || args.url !== undefined));
+    httpWatch ||
+    (SITE_SENDING_TOOLS.has(name) && (name !== "paid_request" || args.url !== undefined));
   const fetchUrl = sendsToSite
     ? normalizedHttpUrl(String(httpWatch ? watch.url : (args.url ?? "")))
     : undefined;
@@ -490,15 +492,21 @@ export async function gateToolCall(
 
   // Refuse a repeat of a tool the user denied earlier in this run. Refusals carry a result,
   // so only real denies match. A stored row is checked only while it still waits for an
-  // answer. web_fetch and secret_request target one site per call; request_secret and
-  // connect_app name their own target.
+  // answer. web_fetch, keyed page readers and secret_request target one site per call;
+  // request_secret and connect_app name their own target.
   // Browsing goes on after a denied purchase: a purchase is checked against earlier denied purchases
   // on the same site, and other page work against earlier denied page work that bought nothing.
   const pageAction = PURCHASE_CHECKED_TOOLS.has(name);
   const repeatChecked =
     applied &&
     (!applied.duplicate || applied.effect.status === "intended") &&
-    !["web_fetch", "secret_request", "request_secret", "connect_app"].includes(name);
+    ![
+      "web_fetch",
+      ...KEYED_PAGE_READ_TOOL_NAMES,
+      "secret_request",
+      "request_secret",
+      "connect_app",
+    ].includes(name);
   const deniedEarlier = repeatChecked
     ? (
         await deps.prisma.externalEffect.findMany({

@@ -1,5 +1,5 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
-import { FLEET_TOOL_NAMES } from "@rakazo/contracts";
+import { FLEET_TOOL_NAMES, KEYED_RESEARCH_TOOL_NAMES } from "@rakazo/contracts";
 import { READ_MEETING_TRANSCRIPT } from "../meetings/meeting-chat.tool-definition.js";
 import { BUILTIN_AGENT_TOOL_NAMES } from "../runs/tools/run-tool-selection.js";
 import { bridgeToolDefinitions } from "./builtin.tool-definition.js";
@@ -31,6 +31,8 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
   "attach_file",
   "web_search",
   "web_fetch",
+  // Offered only once the person saved a key, which they did to have it used.
+  ...KEYED_RESEARCH_TOOL_NAMES,
   "service_search",
   "service_call",
   "computer_observe",

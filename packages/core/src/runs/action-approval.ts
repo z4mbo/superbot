@@ -1,5 +1,9 @@
 import type { ActionApprovalRule as StoredActionApprovalRule } from "@rakazo/contracts";
-import { BUILTIN_TOOL_NAMES } from "@rakazo/contracts";
+import {
+  BUILTIN_TOOL_NAMES,
+  KEYED_PAGE_READ_TOOL_NAMES,
+  KEYED_RESEARCH_TOOL_NAMES,
+} from "@rakazo/contracts";
 
 export { isSecretAskBlock } from "../asks/ask-kind.js";
 
@@ -80,6 +84,7 @@ const OUTSIDE_RUN_SAFE_BUILTIN_TOOLS = new Set([
   "skill_read",
   "task_catalog",
   "web_fetch",
+  ...KEYED_RESEARCH_TOOL_NAMES,
   "web_search",
 ]);
 
@@ -532,9 +537,14 @@ export function outboundSiteGate(input: {
 
 /**
  * These send data to the site their url names, so a site the run was not given is gated, and
- * "Always allow" on a card naming that site allows the site, never the tool.
+ * "Always allow" on a card naming that site allows the site, never the tool. A keyed page reader
+ * has its provider request the URL, which reaches that site the same way.
  */
-export const SITE_SENDING_TOOLS: ReadonlySet<string> = new Set(["web_fetch", "paid_request"]);
+export const SITE_SENDING_TOOLS: ReadonlySet<string> = new Set([
+  "web_fetch",
+  ...KEYED_PAGE_READ_TOOL_NAMES,
+  "paid_request",
+]);
 
 export function siteAlwaysAllowed(rules: ActionApprovalRule[], site: string): boolean {
   return rules.some(

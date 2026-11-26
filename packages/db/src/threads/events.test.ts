@@ -2698,6 +2698,7 @@ describe("answerRunInput approvals", () => {
   it.each([
     ["destination.write", {}, "tool", "destination.write", false],
     ["web_fetch", { url: "https://docs.example.com/a?b=c" }, "site", "example.com", true],
+    ["firecrawl_scrape", { url: "https://docs.example.com/a" }, "site", "example.com", false],
     [
       "paid_request",
       { url: "https://api.example.com/quote", method: "GET" },

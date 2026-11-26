@@ -1,5 +1,9 @@
 import type { ConnectorApp } from "@rakazo/adapter-kit";
-import { MCP_APP_HTML_MAX_BYTES } from "@rakazo/contracts";
+import {
+  KEYED_RESEARCH_TOOL_NAMES,
+  KEYED_SEARCH_TOOL_NAMES,
+  MCP_APP_HTML_MAX_BYTES,
+} from "@rakazo/contracts";
 import { isBackgroundRunTrigger, mcpAppCsp, redactSecrets } from "@rakazo/core";
 import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
@@ -22,8 +26,10 @@ import { addMcpServerFromTool, removeMcpServerFromTool } from "../../mcp/mcp-ser
 import { serviceCallFromTool, serviceSearchFromTool } from "../../payments/paid-service-tools.js";
 import { collectLogIds } from "../../providers/integration/composio/composio-connector.js";
 import { storeMcpAppHtml } from "../../storage/thread-artifacts.js";
+import { researchToolFromCall } from "../../web/research/research-tools.js";
 import { webFetchFromTool, webSearchFromTool } from "../../web/web-tools.js";
 import type { RunContext } from "../assembly/run-context.js";
+import { addRunSecrets } from "../assembly/run-context.js";
 import { publishMessage } from "../assembly/run-messages.js";
 import { runScopedToolExecutionId } from "../lifecycle/run-effects.js";
 import {
@@ -179,6 +185,34 @@ async function showConnectorApp(
   }
 }
 
+const KEYED_SEARCH_TOOLS: ReadonlySet<string> = new Set(KEYED_SEARCH_TOOL_NAMES);
+
+/** A research tool with the run owner's own key; without one it tells the model what to use. */
+async function researchTool(ctx: RunContext, call: ToolCall) {
+  const { deps, run, context } = ctx;
+  const { result: found, redactions } = await researchToolFromCall(
+    { prisma: deps.prisma, secrets: deps.secretStore, ...deps.research },
+    run.userId,
+    call.name,
+    call.args,
+    context.signal,
+  );
+  // The key never reaches the model, but the run redacts it anywhere it could still appear.
+  addRunSecrets(ctx, redactions);
+  // As for web_search: a search result's exact URL was chosen by the search index.
+  if (KEYED_SEARCH_TOOLS.has(call.name) && found && typeof found === "object" && "results" in found)
+    for (const hit of Array.isArray(found.results) ? (found.results as { url?: unknown }[]) : []) {
+      const url = typeof hit.url === "string" ? normalizedHttpUrl(hit.url) : undefined;
+      if (url) ctx.trust.searchResultUrls.add(url);
+    }
+  return call.finish(found);
+}
+
+/** Every research tool a saved key can turn on runs the same way; its provider tells them apart. */
+const researchToolHandlers: ToolHandlers = Object.fromEntries(
+  KEYED_RESEARCH_TOOL_NAMES.map((name) => [name, researchTool]),
+);
+
 // A runtime can emit a tool name it was not offered; this run may not be one that can spend credits.
 function paidServicesOffered(ctx: RunContext): boolean {
   return ctx.tools.offered.some((tool) => tool.name === "service_call");
@@ -216,6 +250,7 @@ export const integrationTools: ToolHandlers = {
     const { args } = call;
     return call.finish(await webFetchFromTool(ctx.providers.web, context, args));
   },
+  ...researchToolHandlers,
   async service_search(ctx, call) {
     const provider = ctx.providers.paidServices;
     if (!provider || !paidServicesOffered(ctx)) {
