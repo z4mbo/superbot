@@ -82,6 +82,8 @@ Built-in tools come from the catalog in `packages/contracts/src/bots/builtin-too
 | --- | --- |
 | `web_search` | Searches the public web. |
 | `web_fetch` | Reads a public page as text. |
+| `exa_search` | Searches the web with Exa, with domain and date filters and page excerpts or text. Offered only once the person saved an Exa key in Settings. |
+| `firecrawl_scrape` | Reads a public page as markdown with Firecrawl, including pages that need JavaScript. Offered only once the person saved a Firecrawl key in Settings. |
 | `service_search` | Finds a paid data service and its price per call. |
 | `service_call` | Calls a paid data service. Asks first. |
 

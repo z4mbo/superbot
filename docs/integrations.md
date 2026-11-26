@@ -72,6 +72,21 @@ Executor asks the bot to resume a step that needs approval; a pause is lost if E
 To connect with an Executor access token instead of signing in, add it as an **MCP server** with a
 bearer token, using a token for one organization.
 
+## Web research with your own key
+
+Bots search the web and read pages with `web_search` and `web_fetch`, which need no setup. To give
+them stronger research tools, open **Settings → General → Web research** on web or desktop and
+save your own API key:
+
+- **Exa API key** adds `exa_search`: search with domain and date filters and page excerpts or text.
+- **Firecrawl API key** adds `firecrawl_scrape`: reads a page as markdown, including pages that
+  need JavaScript.
+
+A tool appears in your own runs once its key is saved, in every space you use, and the bot chooses
+it when it suits the task. People who message a bot through a chat app never use your key. Each search or page read uses your account with that service.
+The key is encrypted, never shown again and never sent to the model. Choose **Replace** to change
+it or **Remove** to turn the tool off. The mobile app uses keys saved on web or desktop.
+
 ## Apps in chat
 
 Some MCP servers come with an app: a small interactive view of a tool's result, such as a chart,
