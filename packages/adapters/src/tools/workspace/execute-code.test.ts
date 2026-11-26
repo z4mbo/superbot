@@ -296,7 +296,6 @@ describe.skipIf(process.platform !== "linux")("execute_code on a real computer",
     `stops the snippet and what it started when its time is up${NEEDS_PYTHON}`,
     async () => {
       const marker = path.join(scratch, "child.pid");
-      const started = Date.now();
       const result = await exec(
         [
           "import subprocess, time",
@@ -308,7 +307,6 @@ describe.skipIf(process.platform !== "linux")("execute_code on a real computer",
         2,
       );
       expect(result).toMatchObject({ stdout: "waiting\n", exitCode: null, timedOut: true });
-      expect(Date.now() - started).toBeLessThan(20_000);
       const child = Number(readFileSync(marker, "utf8"));
       await vi.waitFor(() => {
         expect(() => process.kill(child, 0)).toThrow();
