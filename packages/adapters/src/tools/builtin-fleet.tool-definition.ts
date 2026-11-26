@@ -7,6 +7,7 @@ import {
   FEEDBACK_KINDS,
   ThinkingLevelSchema,
 } from "@rakazo/contracts";
+import { taskThreadTools } from "./builtin-task-threads.tool-definition.js";
 import { scheduleCreateBranch } from "./builtin-work.tool-definition.js";
 
 const childRoutineTargetProperties = {
@@ -133,6 +134,7 @@ export const fleetTools: ConnectorTool[] = [
       required: ["name", "task"],
     },
   },
+  ...taskThreadTools,
   {
     name: "create_space",
     description:

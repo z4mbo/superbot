@@ -31,6 +31,11 @@ import {
   SUBAGENT_DELEGATION_UNAVAILABLE,
   startedNote,
 } from "./background-helpers.prompt.js";
+import {
+  TASK_THREAD_NOT_FOUND,
+  TASK_THREAD_STILL_WORKING,
+  taskThreadStartedNote,
+} from "./task-threads.prompt.js";
 
 const RESULT_LIMIT = 12_000;
 
@@ -40,6 +45,15 @@ type HelperDeps = Pick<ExecutorDeps, "prisma"> & {
   jobs?: ExecutorDeps["jobs"];
 };
 type HelperBlock = Extract<MessageBlock, { kind: "subagent" }>;
+
+/**
+ * Where a helper works besides its own hidden thread: a new task thread the person can open, or
+ * one this conversation started earlier, which takes a follow-up once its last run has ended.
+ * `message` is shown first in that thread, so the person sees what the work was asked to do.
+ */
+export type TaskThreadTarget =
+  | { title: string; message: string }
+  | { threadId: string; message: string };
 
 /** Delegation has one behavior in every conversation, without recursive result chains. */
 export function backgroundHelpersAllowed(turn: { trigger: string }): boolean {
@@ -56,9 +70,11 @@ export async function startBackgroundHelper(
     modelId: string;
     executionId: string;
     effectKey: string;
+    taskThread?: TaskThreadTarget;
   },
-) {
+): Promise<{ error: string } | { ok: true; name: string; note: string; threadId?: string }> {
   const { deps, run, runId, bot, thread } = ctx;
+  const { taskThread } = input;
   if (!backgroundHelpersAllowed(run)) {
     return {
       error: SUBAGENT_DELEGATION_UNAVAILABLE,
@@ -84,12 +100,29 @@ export async function startBackgroundHelper(
     if (thread.groupId)
       await tx.$queryRaw`SELECT id FROM chat_groups WHERE id = ${thread.groupId} FOR NO KEY UPDATE`;
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${thread.id} FOR UPDATE`;
+    // A follow-up's task thread next: its messages and runs change under this lock.
+    if (taskThread && "threadId" in taskThread)
+      await tx.$queryRaw`SELECT id FROM threads WHERE id = ${taskThread.threadId} FOR UPDATE`;
     // The cap belongs to the bot, including starts in different conversations.
     await tx.$queryRaw`SELECT id FROM bots WHERE id = ${bot.id} FOR UPDATE`;
-    if (
-      await tx.run.findFirst({ where: { spaceId: run.spaceId, clientNonce }, select: { id: true } })
-    )
-      return null;
+    const replay = await tx.run.findFirst({
+      where: { spaceId: run.spaceId, clientNonce },
+      select: { threadId: true },
+    });
+    if (replay) return { replayThreadId: replay.threadId };
+    if (taskThread && "threadId" in taskThread) {
+      const owned = await tx.thread.findFirst({
+        where: { ...ownedTaskThreadWhere(ctx), id: taskThread.threadId },
+        select: { conversationArchivedAt: true },
+      });
+      if (!owned || owned.conversationArchivedAt) return "missing" as const;
+      // A helper takes no steering, so more for a task waits until its work has ended.
+      const working = await tx.run.findFirst({
+        where: { threadId: taskThread.threadId, status: { in: [...ACTIVE_RUN_STATUSES] } },
+        select: { id: true },
+      });
+      if (working) return "working" as const;
+    }
     const running = await tx.run.count({
       where: {
         botId: bot.id,
@@ -116,11 +149,43 @@ export async function startBackgroundHelper(
       payload: { messageId: message.id, role: "bot", blocks: [card] },
     });
     // The helper's own thread: no chat list shows it, nothing sent to the bot waits behind the
-    // helper, and it goes when the bot is deleted.
-    const helperThread = await tx.thread.create({
-      data: { spaceId: run.spaceId, userId: run.userId, helperBotId: bot.id },
-      select: { id: true },
-    });
+    // helper, and it goes when the bot is deleted. A task thread is instead one of the bot's
+    // conversations, linked to this one, which the person can open.
+    const helperThread = !taskThread
+      ? await tx.thread.create({
+          data: { spaceId: run.spaceId, userId: run.userId, helperBotId: bot.id },
+          select: { id: true },
+        })
+      : "threadId" in taskThread
+        ? { id: taskThread.threadId }
+        : await tx.thread.create({
+            data: {
+              spaceId: run.spaceId,
+              userId: run.userId,
+              conversationBotId: bot.id,
+              conversationTitle: taskThread.title,
+              parentThreadId: thread.id,
+            },
+            select: { id: true },
+          });
+    if (taskThread) {
+      // The bot's own words, never the person's: what it asked the task to do.
+      const blocks: MessageBlock[] = [{ kind: "text", text: taskThread.message }];
+      const shown = await createThreadMessageInTransaction(tx, {
+        threadId: helperThread.id,
+        role: "bot",
+        botId: bot.id,
+        blocks,
+        markUnread: false,
+      });
+      await appendEventInTransaction(tx, {
+        spaceId: run.spaceId,
+        threadId: helperThread.id,
+        botId: bot.id,
+        type: "thread.message.created",
+        payload: { messageId: shown.id, role: "bot", blocks },
+      });
+    }
     const task = await tx.task.create({
       data: {
         spaceId: run.spaceId,
@@ -185,19 +250,41 @@ export async function startBackgroundHelper(
         payload: { messageId: input.id, role: "user", blocks: attachments },
       });
     }
-    return { eventSeq: event.seq, helperRunId: helperRun.id };
+    return {
+      eventSeq: event.seq,
+      helperRunId: helperRun.id,
+      threadId: helperThread.id,
+      replayThreadId: undefined,
+    };
   }, THREAD_LOCK_TRANSACTION_OPTIONS);
   if (committed === "full") {
     return {
       error: backgroundHelperLimitNote(MAX_PARALLEL_SUBAGENTS),
     };
   }
-  if (!committed) return started;
+  if (committed === "missing") return { error: TASK_THREAD_NOT_FOUND };
+  if (committed === "working") return { error: TASK_THREAD_STILL_WORKING };
+  const startedIn = (threadId: string) =>
+    taskThread ? { ...started, threadId, note: taskThreadStartedNote(input.name) } : started;
+  if (committed.replayThreadId !== undefined) return startedIn(committed.replayThreadId);
   await deps.events.notify(thread.id, committed.eventSeq).catch((error) => {
     getLogger().error("background helper card notification", error);
   });
   await wakeRun(deps.jobs, committed.helperRunId);
-  return started;
+  return startedIn(committed.threadId);
+}
+
+/**
+ * The task threads a run's conversation started: the bot's conversations in this Space, of the
+ * same person, linked to it. Every task-thread tool reads and acts only within these.
+ */
+export function ownedTaskThreadWhere(ctx: Pick<RunContext, "run" | "bot" | "thread">) {
+  return {
+    spaceId: ctx.run.spaceId,
+    userId: ctx.run.userId,
+    conversationBotId: ctx.bot.id,
+    parentThreadId: ctx.thread.id,
+  };
 }
 
 /**

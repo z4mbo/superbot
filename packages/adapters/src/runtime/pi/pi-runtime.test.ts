@@ -79,6 +79,18 @@ describe("describeToolActivity", () => {
       "Stopping a background process",
     );
     expect(describeToolActivity("list_fleet", {})).toBe("Checking your bots");
+    expect(describeToolActivity("delegate", { brief: "Shortlist venues\nfor 40" })).toBe(
+      "Starting a task: Shortlist venues",
+    );
+    expect(describeToolActivity("delegate", { brief: "…", title: "Venue shortlist" })).toBe(
+      "Starting a task: Venue shortlist",
+    );
+    expect(describeToolActivity("follow_up", { threadId: "t" })).toBe("Following up on a task");
+    expect(describeToolActivity("stop_task", { threadId: "t" })).toBe("Stopping a task");
+    expect(describeToolActivity("link_to_thread", {})).toBe("Finding a task");
+    expect(describeToolActivity("offer_check_in", { subject: "Launch brief" })).toBe(
+      "Offering a check-in: Launch brief",
+    );
     expect(describeToolActivity("render_plot", { spec: {} })).toBe("Rendering a chart");
     expect(describeToolActivity("save_page", { help: true })).toBe(
       "Reading the page kit reference",

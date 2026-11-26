@@ -27,12 +27,14 @@ export const MAX_FETCH_URL_LENGTH = 2_048;
 /** `onceOnly`: the card never offers Always allow, as for a purchase. */
 /** `receipt`: a payment's order, which apps draw in place of the lines. */
 /** `payment`: a purchase, which apps draw as an order card with Pay and Cancel. */
+/** `checkInOffer`: an offered check-in, which the person sets up or turns down. */
 export type FleetCardSummary = {
   title: string;
   lines: string[];
   onceOnly?: boolean;
   receipt?: AskReceipt;
   payment?: AskPayment;
+  checkInOffer?: true;
 };
 
 /**
@@ -118,23 +120,30 @@ export function buildApprovalAskBlock(
       ...(options.summary.payment
         ? { payment: redactPayment(options.summary.payment, secrets) }
         : {}),
+      ...(options.summary.checkInOffer ? { checkInOffer: true as const } : {}),
       status: "pending",
-      actions: options.summary.payment
-        ? // A purchase asks every time: there is no Always allow to offer.
+      actions: options.summary.checkInOffer
+        ? // An offer, not a permission: the person sets the check-in up or turns it down.
           [
-            { id: "allow", label: "Pay" },
-            { id: "deny", label: "Cancel" },
+            { id: "allow", label: "Set it up" },
+            { id: "deny", label: "No thanks" },
           ]
-        : onceOnly || options.summary.onceOnly
-          ? [
-              { id: "allow", label: "Allow once" },
-              { id: "deny", label: "Deny" },
+        : options.summary.payment
+          ? // A purchase asks every time: there is no Always allow to offer.
+            [
+              { id: "allow", label: "Pay" },
+              { id: "deny", label: "Cancel" },
             ]
-          : [
-              { id: "allow", label: "Allow once" },
-              { id: "always", label: "Always allow this tool" },
-              { id: "deny", label: "Deny" },
-            ],
+          : onceOnly || options.summary.onceOnly
+            ? [
+                { id: "allow", label: "Allow once" },
+                { id: "deny", label: "Deny" },
+              ]
+            : [
+                { id: "allow", label: "Allow once" },
+                { id: "always", label: "Always allow this tool" },
+                { id: "deny", label: "Deny" },
+              ],
     };
   }
   if (toolName === "respond_agent_connection") {

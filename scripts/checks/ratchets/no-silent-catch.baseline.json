@@ -17,7 +17,6 @@
   "apps/api/src/routes/threads.ts": 2,
   "apps/api/src/telemetry/monitoring.ts": 1,
   "apps/api/src/threads/thread-image-admission.ts": 1,
-  "apps/api/src/threads/thread-stop.ts": 1,
   "apps/worker/src/health.ts": 1,
   "apps/worker/src/index.ts": 1,
   "infra/sandboxes/supervisor/src/egress-probe.ts": 2,

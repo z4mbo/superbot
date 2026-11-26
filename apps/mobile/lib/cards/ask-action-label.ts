@@ -1,4 +1,5 @@
-import { t } from "@lingui/core/macro";
+import { ph, t } from "@lingui/core/macro";
+import { selectedAskActionLabel } from "@rakazo/core";
 
 export type AskAction = { id: string; label: string; outcome?: "created" | "cancelled" };
 
@@ -14,9 +15,11 @@ export function allowsSpace(actions: AskAction[] | undefined): boolean {
 
 export function askActionLabel(
   action: AskAction,
-  { approval, site }: { approval: boolean; site?: string },
+  { approval, site, checkInOffer }: { approval: boolean; site?: string; checkInOffer?: boolean },
 ): string {
   if (!approval) return action.label;
+  if (checkInOffer && action.id === "allow") return t`Set it up`;
+  if (checkInOffer && action.id === "deny") return t`No thanks`;
   if (action.outcome === "created") return t`Create space`;
   if (action.outcome === "cancelled") return t`Cancel`;
   if (action.id === "allow")
@@ -24,4 +27,22 @@ export function askActionLabel(
   if (action.id === "always") return site ? t`Always allow ${site}` : t`Always allow this tool`;
   if (action.id === "deny") return t`Deny`;
   return action.label;
+}
+
+/** What an answered card says in place of its buttons. */
+export function approvalAnswerLabel(
+  answer: string | undefined,
+  actions: AskAction[] | undefined,
+  { approval, checkInOffer }: { approval: boolean; checkInOffer?: boolean },
+): string {
+  if (!answer) return t`Answered`;
+  const outcome = actions?.find((action) => action.id === answer)?.outcome;
+  if (approval && checkInOffer) return answer === "deny" ? t`Dismissed` : t`Set up`;
+  if (approval && outcome === "created") return t`Created`;
+  if (approval && outcome === "cancelled") return t`Cancelled`;
+  if (approval && answer === "allow")
+    return allowsSpace(actions) ? t`Allowed in this space` : t`Allowed once`;
+  if (approval && answer === "always") return t`Always allowed`;
+  if (approval && answer === "deny") return t`Denied`;
+  return t`Answered: ${ph({ answer: selectedAskActionLabel(answer, actions) })}`;
 }

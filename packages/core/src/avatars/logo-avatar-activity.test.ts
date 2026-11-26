@@ -95,6 +95,10 @@ describe("logo avatar activity from public events", () => {
       );
     expect(activity("edit_file")).toBe("writing");
     expect(activity("process_manage")).toBe("computer");
+    // Handing work to a task thread, or checking on one, is plain work, like run_subagent.
+    for (const name of ["delegate", "follow_up", "stop_task", "link_to_thread", "offer_check_in"]) {
+      expect(activity(name)).toBe("working");
+    }
   });
 
   it("does not invent thinking, reading or computer use from narration or a running computer", () => {

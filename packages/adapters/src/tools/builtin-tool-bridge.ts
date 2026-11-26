@@ -44,6 +44,7 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
   "request_secret",
   "connect_app",
   "run_subagent",
+  "delegate",
   "message_bot",
   "skill_read",
   "update_bot",
@@ -64,9 +65,18 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
 
 const FLEET_NAMES: ReadonlySet<string> = new Set(FLEET_TOOL_NAMES);
 
+/** The deferred task-thread tools; delegate itself is always listed. */
+const TASK_THREAD_AREA: ReadonlySet<string> = new Set([
+  "follow_up",
+  "stop_task",
+  "link_to_thread",
+  "offer_check_in",
+]);
+
 const AREAS: Array<[area: string, matches: (name: string) => boolean]> = [
   ["secrets", (name) => name.includes("secret")],
   ["bots", (name) => FLEET_NAMES.has(name) || name.endsWith("_bot") || name === "post_to_group"],
+  ["task threads", (name) => TASK_THREAD_AREA.has(name)],
   [
     "tasks",
     (name) =>

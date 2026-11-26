@@ -283,6 +283,12 @@ export function describeToolActivity(
   if (toolName === "browser_act") return "Using the page";
   if (toolName === "computer_act") return "Operating the computer";
   if (toolName === "run_subagent") return `Delegating to helper: ${detail(record.name)}`;
+  if (toolName === "delegate")
+    return `Starting a task: ${detail(record.title || String(record.brief ?? "").split("\n", 1)[0])}`;
+  if (toolName === "follow_up") return "Following up on a task";
+  if (toolName === "stop_task") return "Stopping a task";
+  if (toolName === "link_to_thread") return "Finding a task";
+  if (toolName === "offer_check_in") return `Offering a check-in: ${detail(record.subject)}`;
   if (toolName === "create_space") return `Creating space: ${detail(record.name)}`;
   if (toolName === "list_fleet") return "Checking your bots";
   if (toolName === "create_group") return `Creating group: ${detail(record.name)}`;

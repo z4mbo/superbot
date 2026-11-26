@@ -56,6 +56,7 @@ import { preferenceTools } from "./run-tools-preferences.js";
 import { purchaseTools } from "./run-tools-purchases.js";
 import { secretTools } from "./run-tools-secrets.js";
 import { signInTools } from "./run-tools-sign-in.js";
+import { taskThreadTools } from "./run-tools-task-threads.js";
 import { taskTools } from "./run-tools-tasks.js";
 import {
   USER_COMPUTER_ACT_TOOL,
@@ -90,6 +91,7 @@ const TOOL_HANDLERS = new Map<string, ToolHandler>([
   ...Object.entries(integrationTools),
   ...Object.entries(taskTools),
   ...Object.entries(messagingTools),
+  ...Object.entries(taskThreadTools),
   ...Object.entries(secretTools),
   ...Object.entries(fleetTools),
   ["user_computer_list", userComputerList],

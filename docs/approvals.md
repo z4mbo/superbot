@@ -60,9 +60,11 @@ In **Auto** and **Ask**, these always show a card, and **Always allow** doesn't 
 - A routine that watches a command or a site.
 - A payment, and a saved login or card the bot fills in.
 - The first use of your own computer in a space, and of each app on it.
+- A [check-in](./routines.md) a bot offers.
 
-**Never ask** runs all of them. The one exception is accepting another owner's bot connection, which
-it refuses when someone else started the run or outside content entered it.
+**Never ask** runs all of them, with two exceptions. It refuses accepting another owner's bot
+connection when someone else started the run or outside content entered it. And only you can accept
+a check-in offer, so there the bot asks in words instead.
 
 ## Spending limit
 

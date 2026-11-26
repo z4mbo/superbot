@@ -1335,6 +1335,11 @@ model Thread {
   /// Set only on a background helper's own thread: the bot that started the helper owns it.
   helperBotId                 String?
   helperBot                   Bot?       @relation("BotHelperThreads", fields: [helperBotId], references: [id], onDelete: Cascade)
+  /// Set only on a task thread: the conversation whose bot started it with `delegate`. Only that
+  /// conversation's runs may follow it up, stop it or list it.
+  parentThreadId              String?
+  parentThread                Thread?    @relation("TaskThreads", fields: [parentThreadId], references: [id], onDelete: SetNull)
+  taskThreads                 Thread[]   @relation("TaskThreads")
   groupId                     String?    @unique
   group                       ChatGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
   externalConversationId      String?    @unique
@@ -1360,6 +1365,7 @@ model Thread {
   @@index([spaceId, userId])
   @@index([conversationBotId, createdAt, id])
   @@index([helperBotId])
+  @@index([parentThreadId, createdAt])
   @@map("threads")
 }
 

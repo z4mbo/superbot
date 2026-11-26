@@ -7,13 +7,13 @@ import { mayOpenModelStream, requeueComputerRun } from "../lifecycle/run-lifecyc
 import { takeoverCheckpointOf } from "../turn/takeover-resume.js";
 import {
   loadComputerInstructions,
-  loadModelFallbacks,
   prepareRunComputer,
   resolveRunCapabilities,
   selectRunTools,
   startTurnModel,
 } from "./run-assembly-capabilities.js";
 import { buildTurnPrompt, createRunContext } from "./run-assembly-context.js";
+import { loadModelFallbacks } from "./run-assembly-fallbacks.js";
 import { loadTurnContext, readThreadHistory } from "./run-assembly-history.js";
 import type { ConnectedRun } from "./run-assembly-records.js";
 import { connectRun, loadRunRecords, loadSavedTurn } from "./run-assembly-records.js";

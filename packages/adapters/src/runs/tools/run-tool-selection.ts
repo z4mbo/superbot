@@ -4,7 +4,13 @@ import {
   FLEET_TOOL_NAMES,
   FLEET_WRITE_TOOL_NAMES,
 } from "@rakazo/contracts";
-import { BACKGROUND_HELPER_TRIGGER, isBackgroundRunTrigger, isOwnerStartedRun } from "@rakazo/core";
+import {
+  BACKGROUND_HELPER_TRIGGER,
+  HELPER_RESULT_TRIGGER,
+  isBackgroundRunTrigger,
+  isConversationalRun,
+  isOwnerStartedRun,
+} from "@rakazo/core";
 import { selectCloudAgentTools } from "../../cloud-agents/cloud-agent-tools-select.js";
 import { withMediaChoices } from "../../media/media-generation.tool-definition.js";
 import { READ_MEETING_TRANSCRIPT } from "../../meetings/meeting-chat.tool-definition.js";
@@ -41,6 +47,7 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
   "search_history",
   "request_takeover",
   "run_subagent",
+  "link_to_thread",
   "task_catalog",
   "recall_memory",
   "reflect_memory",
@@ -94,6 +101,11 @@ const BACKGROUND_DROPPED_TOOL_NAMES: ReadonlySet<string> = new Set([
 /** Delegation stays one level deep; account settings and direct replies remain the parent's. */
 export const SUBAGENT_HIDDEN_TOOLS: ReadonlySet<string> = new Set([
   "run_subagent",
+  "delegate",
+  "follow_up",
+  "stop_task",
+  "link_to_thread",
+  "offer_check_in",
   "spawn_bot",
   "message_user",
   "call_user",
@@ -103,6 +115,21 @@ export const SUBAGENT_HIDDEN_TOOLS: ReadonlySet<string> = new Set([
   "update_preferences",
   "feedback",
 ]);
+
+/**
+ * Tools that start or act on task threads: conversations of the bot's own in the app, linked to
+ * the conversation that started them. Offered where a background helper may start, in the bot's
+ * own app chat only: a group or a chat app's conversation cannot open one.
+ */
+export const TASK_THREAD_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "delegate",
+  "follow_up",
+  "stop_task",
+  "link_to_thread",
+]);
+
+/** Offers a check-in the person accepts or turns down; offered where follow-ups are. */
+const CHECK_IN_OFFER_TOOL = "offer_check_in";
 
 /** Cross-owner agent connections only exist for chat-linked bots, in turns that can talk. */
 export function offersAgentConnectionTools(options: {
@@ -169,6 +196,10 @@ export function selectBuiltinToolsForRun(options: {
   emailClaimable?: boolean;
   /** The inbox may be read and this server can send email. */
   emailSend?: boolean;
+  /** The chat is a chat app's conversation, reached from outside the app. */
+  externalConversation?: boolean;
+  /** The chat is itself a task thread: delegation stays one level deep, as run_subagent's does. */
+  taskThread?: boolean;
 }) {
   const disabled = disabledBuiltinToolSet(options.disabledBuiltinTools);
   const ownerStartedRun = isOwnerStartedRun(
@@ -184,7 +215,15 @@ export function selectBuiltinToolsForRun(options: {
     !options.groupId &&
     !options.messagingChannelRun;
   const emailMailbox = Boolean(options.emailInbox) || emailClaimOffered;
-  return selectCloudAgentTools(
+  // Where a background helper may start (see backgroundHelpersAllowed).
+  const taskThreadsOffered =
+    options.trigger !== HELPER_RESULT_TRIGGER &&
+    isConversationalRun(options.trigger) &&
+    !options.groupId &&
+    !options.externalConversation &&
+    !options.taskThread &&
+    !options.messagingChannelRun;
+  const selected = selectCloudAgentTools(
     selectMemoryTools(
       filterBuiltinToolsForRun(
         filterBuiltinToolsForThread(
@@ -202,67 +241,78 @@ export function selectBuiltinToolsForRun(options: {
     ),
     Boolean(options.cloudAgentEnabled),
     Boolean(options.cloudAgentCleanupEnabled),
-  ).filter(
-    (tool) =>
-      !builtinToolDisabled(disabled, tool.name) &&
-      (options.trigger !== "created" || CREATED_RUN_TOOL_NAMES.has(tool.name)) &&
-      (options.trigger !== BACKGROUND_HELPER_TRIGGER || !SUBAGENT_HIDDEN_TOOLS.has(tool.name)) &&
-      (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
-        (Boolean(options.fleetManagement) && ownerStartedRun)) &&
-      (options.fleetManagement || tool.name !== "spawn_bot") &&
-      (ownerStartedRun || (tool.name !== "update_preferences" && tool.name !== "feedback")) &&
-      (options.paymentWalletEnabled || !PURCHASE_TOOL_NAMES.has(tool.name)) &&
-      // Signing in fills a login in the page browser, so it goes where that browser is offered.
-      (tool.name !== "sign_in" ||
-        (Boolean(options.signInSourceEnabled) &&
-          (options.pageBrowserAllowed ?? options.graphicalToolsAllowed))) &&
-      (options.mediaImagesEnabled || tool.name !== "generate_image") &&
-      (options.mediaImageEditEnabled || tool.name !== "edit_image") &&
-      (options.mediaVideoEnabled || tool.name !== "generate_video") &&
-      (options.paidServicesEnabled || !PAID_SERVICE_TOOL_NAMES.has(tool.name)) &&
-      // Alone in its Space a bot has nobody to message. A bot it creates gets its first task
-      // from spawn_bot, and its reply starts a run that offers message_bot.
-      (options.hasTeammates !== false || tool.name !== "message_bot") &&
-      (options.hasGroups === true || tool.name !== "post_to_group") &&
-      (options.ticketBoardEnabled ||
-        (tool.name !== "board_tickets" && !tool.name.startsWith("ticket_"))) &&
-      (!isBackgroundRunTrigger(options.trigger) || !BACKGROUND_DROPPED_TOOL_NAMES.has(tool.name)) &&
-      (options.voiceCall || tool.name !== "end_call") &&
-      (emailMailbox || !EMAIL_INBOX_TOOL_NAMES.has(tool.name)) &&
-      ((emailMailbox && options.emailSend) || tool.name !== "send_email") &&
-      (emailClaimOffered || tool.name !== "claim_email_address") &&
-      (options.userComputer || tool.name !== "user_computer_shell") &&
-      (options.userComputer || options.userComputerScreen || tool.name !== "user_computer_list") &&
-      (options.userComputerScreen || !USER_COMPUTER_SCREEN_TOOLS.has(tool.name)) &&
-      // Already on a call, or reached through a messaging channel that cannot ring.
-      ((options.phoneCallsEnabled &&
-        !options.groupId &&
-        !options.voiceCall &&
-        !options.messagingChannelRun &&
-        !isBackgroundRunTrigger(options.trigger)) ||
-        tool.name !== "call_user") &&
-      (options.historyRetrievalEnabled ||
-        !["search_history", "read_history"].includes(tool.name)) &&
-      (options.meetingTranscriptsAvailable || tool.name !== READ_MEETING_TRANSCRIPT) &&
-      (!options.messagingChannelRun ||
-        (!SCHEDULE_TOOL_NAMES.has(tool.name) &&
-          !SKILL_TOOL_NAMES.has(tool.name) &&
-          ![
-            "remember",
-            "save_shared_memory",
-            "delete_shared_memory",
-            "remove_mcp_server",
-            "save_memory",
-            "recall_memory",
-            "forget_memory",
-            "reflect_memory",
-            "task_catalog",
-            "board_tickets",
-          ].includes(tool.name) &&
-          !tool.name.startsWith("scratchpad_") &&
-          !tool.name.startsWith("ticket_"))),
   )
+    .filter(
+      (tool) =>
+        !builtinToolDisabled(disabled, tool.name) &&
+        (options.trigger !== "created" || CREATED_RUN_TOOL_NAMES.has(tool.name)) &&
+        (options.trigger !== BACKGROUND_HELPER_TRIGGER || !SUBAGENT_HIDDEN_TOOLS.has(tool.name)) &&
+        (taskThreadsOffered || !TASK_THREAD_TOOL_NAMES.has(tool.name)) &&
+        (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
+          (Boolean(options.fleetManagement) && ownerStartedRun)) &&
+        (options.fleetManagement || tool.name !== "spawn_bot") &&
+        (ownerStartedRun || (tool.name !== "update_preferences" && tool.name !== "feedback")) &&
+        (options.paymentWalletEnabled || !PURCHASE_TOOL_NAMES.has(tool.name)) &&
+        // Signing in fills a login in the page browser, so it goes where that browser is offered.
+        (tool.name !== "sign_in" ||
+          (Boolean(options.signInSourceEnabled) &&
+            (options.pageBrowserAllowed ?? options.graphicalToolsAllowed))) &&
+        (options.mediaImagesEnabled || tool.name !== "generate_image") &&
+        (options.mediaImageEditEnabled || tool.name !== "edit_image") &&
+        (options.mediaVideoEnabled || tool.name !== "generate_video") &&
+        (options.paidServicesEnabled || !PAID_SERVICE_TOOL_NAMES.has(tool.name)) &&
+        // Alone in its Space a bot has nobody to message. A bot it creates gets its first task
+        // from spawn_bot, and its reply starts a run that offers message_bot.
+        (options.hasTeammates !== false || tool.name !== "message_bot") &&
+        (options.hasGroups === true || tool.name !== "post_to_group") &&
+        (options.ticketBoardEnabled ||
+          (tool.name !== "board_tickets" && !tool.name.startsWith("ticket_"))) &&
+        (!isBackgroundRunTrigger(options.trigger) ||
+          !BACKGROUND_DROPPED_TOOL_NAMES.has(tool.name)) &&
+        (options.voiceCall || tool.name !== "end_call") &&
+        (emailMailbox || !EMAIL_INBOX_TOOL_NAMES.has(tool.name)) &&
+        ((emailMailbox && options.emailSend) || tool.name !== "send_email") &&
+        (emailClaimOffered || tool.name !== "claim_email_address") &&
+        (options.userComputer || tool.name !== "user_computer_shell") &&
+        (options.userComputer ||
+          options.userComputerScreen ||
+          tool.name !== "user_computer_list") &&
+        (options.userComputerScreen || !USER_COMPUTER_SCREEN_TOOLS.has(tool.name)) &&
+        // Already on a call, or reached through a messaging channel that cannot ring.
+        ((options.phoneCallsEnabled &&
+          !options.groupId &&
+          !options.voiceCall &&
+          !options.messagingChannelRun &&
+          !isBackgroundRunTrigger(options.trigger)) ||
+          tool.name !== "call_user") &&
+        (options.historyRetrievalEnabled ||
+          !["search_history", "read_history"].includes(tool.name)) &&
+        (options.meetingTranscriptsAvailable || tool.name !== READ_MEETING_TRANSCRIPT) &&
+        (!options.messagingChannelRun ||
+          (!SCHEDULE_TOOL_NAMES.has(tool.name) &&
+            !SKILL_TOOL_NAMES.has(tool.name) &&
+            ![
+              "remember",
+              "save_shared_memory",
+              "delete_shared_memory",
+              "remove_mcp_server",
+              "save_memory",
+              "recall_memory",
+              "forget_memory",
+              "reflect_memory",
+              "task_catalog",
+              "board_tickets",
+            ].includes(tool.name) &&
+            !tool.name.startsWith("scratchpad_") &&
+            !tool.name.startsWith("ticket_"))),
+    )
     .map((tool) => withMediaChoices(tool, options.mediaChoices?.[tool.name] ?? ""));
+  // A check-in offer sets up a follow-up, so it goes only where the run may set its own.
+  return selected.filter(
+    (tool) =>
+      tool.name !== CHECK_IN_OFFER_TOOL ||
+      followUpsOffered(selected, ownerStartedRun, options.trigger),
+  );
 }
 
 /**

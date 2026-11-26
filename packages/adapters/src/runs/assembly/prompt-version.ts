@@ -112,6 +112,7 @@ export function promptVersionParts() {
           offeredFleetTools: FLEET_WRITE_TOOL_NAMES,
           followUpsOffered: true,
           backgroundHelpersAllowed: true,
+          taskThreadsOffered: true,
           userComputer,
         }),
       ),

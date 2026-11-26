@@ -339,12 +339,16 @@ function PromptAskCard({
               ? displayedAnswer === "deny"
                 ? t`Dismissed`
                 : t`Allowed once`
-              : formatAnsweredState(
-                  displayedAnswer,
-                  Boolean(approvalActions),
-                  approvalActions?.find((action) => action.id === displayedAnswer)?.outcome,
-                  askActions,
-                )}
+              : block.checkInOffer
+                ? displayedAnswer === "deny"
+                  ? t`Dismissed`
+                  : t`Set up`
+                : formatAnsweredState(
+                    displayedAnswer,
+                    Boolean(approvalActions),
+                    approvalActions?.find((action) => action.id === displayedAnswer)?.outcome,
+                    askActions,
+                  )}
         </div>
       ) : !canAnswer ? (
         <div className="mt-3.5 text-body font-medium text-muted-foreground">
@@ -374,6 +378,12 @@ function PromptAskCard({
                   t`Apply`
                 ) : (
                   t`Dismiss`
+                )
+              ) : block.checkInOffer ? (
+                action.id === "allow" ? (
+                  t`Set it up`
+                ) : (
+                  t`No thanks`
                 )
               ) : (
                 approvalActionLabel(action.id, action.label, action.outcome, block.site)

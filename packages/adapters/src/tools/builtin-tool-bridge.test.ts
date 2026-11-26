@@ -32,6 +32,7 @@ describe("built-in tool bridge", () => {
       "ask_user",
       "attach_file",
       "connect_app",
+      "delegate",
       "edit_file",
       "find_tool",
       "glob",
@@ -68,8 +69,9 @@ describe("built-in tool bridge", () => {
     // today's daily note and save to the profile of the person the bot works for; the media area
     // names the two app tools. find_apps, open_app, remove_mcp_server and delete_shared_memory are
     // deferred and cost only their names in the find_tool index. edit_file, search_files and glob
-    // are listed beside the other file tools; process_manage is deferred.
-    expect(definitionBytes(listed)).toBeLessThanOrEqual(38_897);
+    // are listed beside the other file tools; process_manage is deferred. delegate is listed beside
+    // run_subagent; the tools that act on its task threads are deferred.
+    expect(definitionBytes(listed)).toBeLessThanOrEqual(39_648);
     expect(deferred.map((tool) => tool.name)).toEqual(
       expect.arrayContaining([
         "render_plot",
@@ -97,6 +99,16 @@ describe("built-in tool bridge", () => {
     expect(description).toContain("secrets:\n");
     expect(description).not.toContain("inputSchema");
     expect(listed.some((tool) => tool.name === USE_TOOL)).toBe(true);
+  });
+
+  it("keeps delegate listed and the other task thread tools in their own area", () => {
+    const { listed, deferred } = partitionTools(ownerChat);
+    expect(listed.map((tool) => tool.name)).toContain("delegate");
+    const description = listed.find((tool) => tool.name === FIND_TOOL)!.description;
+    expect(description).toContain("task threads:");
+    for (const name of ["follow_up", "stop_task", "link_to_thread", "offer_check_in"]) {
+      expect(deferred.map((tool) => tool.name)).toContain(name);
+    }
   });
 
   it("finds exact names and ranks a query over names, descriptions and parameters", () => {

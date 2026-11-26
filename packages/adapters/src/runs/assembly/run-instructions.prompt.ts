@@ -1,6 +1,7 @@
 import { FLEET_WRITE_TOOL_NAMES } from "@rakazo/contracts";
 import { runReadsThreadHistory, toolRequiresExplicitApproval } from "@rakazo/core";
 import { MODEL_CANNOT_SEE_MESSAGE } from "../../models/model-vision.prompt.js";
+import { TASK_THREADS_INSTRUCTION } from "../../tasks/task-threads.prompt.js";
 import { SCHEDULE_TOOL_NAMES } from "../../tools/schedule-tools.js";
 import type { UserComputerState } from "../tools/run-tools-user-computer.js";
 import { DESKTOP_HELD_FOR_TAKEOVER_MESSAGE } from "../turn/takeover-resume.prompt.js";
@@ -441,6 +442,8 @@ export function userTurnInstructions(parts: {
   followUpsOffered?: boolean;
   /** Whether this turn may start a background helper (only in the bot's own app chat). */
   backgroundHelpersAllowed?: boolean;
+  /** The run was offered delegate (see TASK_THREAD_TOOL_NAMES). */
+  taskThreadsOffered?: boolean;
   userComputer?: UserComputerState;
 }): (string | undefined)[] {
   return [
@@ -474,6 +477,7 @@ export function userTurnInstructions(parts: {
         ? "run_subagent delegates work independently and returns immediately. Use it for work another agent can complete. Its result comes back later; end your turn when nothing else needs doing, and remain available for new user messages. Wait for the needed results before giving a final answer, combine related results, and honor newer instructions or cancellation. Subagents can act under the applicable permissions and request approval in this chat."
         : "Subagent delegation is unavailable in this conversation. Complete the work yourself; do not claim to have delegated it.",
     ),
+    parts.taskThreadsOffered ? TASK_THREADS_INSTRUCTION : undefined,
     parts.botDirectory,
     offeredBuiltinClause(
       parts.disabledBuiltinTools,

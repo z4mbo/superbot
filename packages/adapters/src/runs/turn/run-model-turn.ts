@@ -251,6 +251,7 @@ function modelTurnRequest(
       backgroundHelpersAllowed: backgroundHelpersAllowed({
         trigger: run.trigger,
       }),
+      taskThreadsOffered: strategicBuiltins.some((tool) => tool.name === "delegate"),
       userComputer,
     })
       .filter((instruction): instruction is string => Boolean(instruction))
