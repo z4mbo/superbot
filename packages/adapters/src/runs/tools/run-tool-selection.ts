@@ -375,6 +375,8 @@ export const PAGE_BROWSER_TOOL_NAMES = new Set([
   "browser_navigate",
   "browser_snapshot",
   "browser_act",
+  "browser_cdp",
+  "browser_dialog",
 ]);
 
 export function filterPageBrowserTools<T extends { name: string }>(

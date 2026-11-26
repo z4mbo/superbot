@@ -516,6 +516,10 @@ app.post("/computers/:id/exec", async (c) => {
 
 // The bot's folder in the computer's home that files its page downloads, and PDFs its tabs show, are saved to.
 const downloadFolder = z.string().min(1).max(1024).optional();
+const dialogType = z.enum(["alert", "confirm", "prompt", "beforeunload"]);
+// One DevTools protocol method, such as DOM.getDocument; the server decides which may run.
+const cdpMethod = z.string().regex(/^[A-Z][A-Za-z]{0,39}\.[a-z][A-Za-z]{0,79}$/);
+const CDP_PARAMS_MAX_CHARS = 16_000;
 
 app.post("/computers/:id/browser", async (c) => {
   const headers = identityHeaders(c);
@@ -555,6 +559,22 @@ app.post("/computers/:id/browser", async (c) => {
         points: z
           .array(z.object({ x: z.number().finite(), y: z.number().finite() }))
           .max(24)
+          .optional(),
+      }),
+      z.object({
+        command: z.literal("dialog"),
+        action: z.enum(["status", "accept", "dismiss"]),
+        text: z.string().max(2000).optional(),
+        // Accept only this dialog, as the user approved it, or only a dialog of these types.
+        expect: z.object({ type: dialogType, message: z.string().max(300) }).optional(),
+        only: z.array(dialogType).max(4).optional(),
+      }),
+      z.object({
+        command: z.literal("cdp"),
+        method: cdpMethod,
+        params: z
+          .record(z.string(), z.unknown())
+          .refine((params) => JSON.stringify(params).length <= CDP_PARAMS_MAX_CHARS)
           .optional(),
       }),
       z.object({
@@ -632,6 +652,12 @@ app.post("/computers/:id/browser", async (c) => {
   const body = parsed.data;
   const carriesSavedLogin =
     body.command === "act" && body.actions.some((step) => "origin" in step && step.origin);
+  // Commands only newer images know, whose arguments (prompt text, protocol params) need no argv copy.
+  const stdinOnly = carriesSavedLogin || body.command === "dialog" || body.command === "cdp";
+  // A dialog answer or protocol command goes to the browser already showing a site: a fresh screen
+  // would start one with none, so a failure there is not retried on one.
+  const retriesOnFreshScreen =
+    body.command !== "purchase_check" && body.command !== "dialog" && body.command !== "cdp";
   const screen = (reuseRecent: boolean) =>
     managedScreen(
       c.req.param("id"),
@@ -652,7 +678,7 @@ app.post("/computers/:id/browser", async (c) => {
       [
         "/usr/local/bin/rakazo-page-browser",
         body.command,
-        ...(carriesSavedLogin ? [] : [JSON.stringify(body)]),
+        ...(stdinOnly ? [] : [JSON.stringify(body)]),
       ],
       {
         env: [
@@ -676,7 +702,7 @@ app.post("/computers/:id/browser", async (c) => {
     let result = await runHelper(reusable);
     // A reused screen skipped setup, so a browser that has since exited gets it before one retry. A
     // purchase check presses nothing and never starts the browser again: no browser has nothing to buy.
-    if (reusable.reused && body.command !== "purchase_check" && pageBrowserNotReady(result))
+    if (reusable.reused && retriesOnFreshScreen && pageBrowserNotReady(result))
       result = await runHelper(await screen(false));
     // Exit 2 is the page browser refusing the command before touching the page (an older
     // computer image does not know it). Pass its reply on, as LinuxDesktop does, so a caller

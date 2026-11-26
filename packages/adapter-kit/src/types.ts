@@ -1723,6 +1723,79 @@ export interface BrowserPurchaseCheckResult {
   dialog?: string;
 }
 
+/** The JavaScript dialog types a page can open. */
+export const BROWSER_DIALOG_TYPES = ["alert", "confirm", "prompt", "beforeunload"] as const;
+
+/** A JavaScript dialog the page has open, as the page wrote it. */
+export interface BrowserDialog {
+  /** One of BROWSER_DIALOG_TYPES. */
+  type: string;
+  message: string;
+}
+
+export interface BrowserDialogRequest {
+  /** status only reads the open dialog; accept and dismiss answer it. */
+  action: "status" | "accept" | "dismiss";
+  /** Typed into a prompt dialog before it is accepted. */
+  text?: string;
+  /** Accept only this dialog, as a person approved it; any other is left open. */
+  expect?: BrowserDialog;
+  /** Accept only a dialog of these types; any other is left open. */
+  only?: string[];
+  signal?: AbortSignal;
+}
+
+export interface BrowserDialogResult {
+  ok: boolean;
+  /** The type of the dialog that was open, if any. */
+  dialog?: string;
+  message?: string;
+  /** The dialog was answered. */
+  answered?: boolean;
+  /** The answer may have reached the page although the call failed. */
+  uncertain?: boolean;
+  /** No page is open in the browser, so nothing was asked of it. */
+  noPage?: boolean;
+  /** The page after the answer, when it could be read in time. */
+  url?: string;
+  title?: string;
+  tree?: string;
+  elements?: BrowserSnapshotNode[];
+  loading?: boolean;
+  fallback?: "computer_act";
+  error?: string;
+  note?: string;
+}
+
+/** One DevTools protocol command for the page's own tab, such as Page.getLayoutMetrics. */
+export interface BrowserCdpRequest {
+  method: string;
+  params?: Record<string, unknown>;
+  signal?: AbortSignal;
+}
+
+export interface BrowserCdpResult {
+  ok: boolean;
+  /** The tab the command ran in. */
+  url?: string;
+  title?: string;
+  /** What the command returned. */
+  result?: unknown;
+  /** The result was larger than the browser sends back, and was cut. */
+  truncated?: boolean;
+  /** The command may have run although the call failed. */
+  uncertain?: boolean;
+  /** No page is open in the browser, so nothing was sent. */
+  noPage?: boolean;
+  /**
+   * The page holds a secret value (a typed password, or a saved login, card or code the run filled),
+   * so nothing was sent: a script or protocol read could carry it off in a form redaction misses.
+   */
+  secretOnPage?: boolean;
+  fallback?: "computer_act";
+  error?: string;
+}
+
 /** A sandbox must route these commands through its owned screen, never generic host execution. */
 export type PageBrowserCommand =
   | { command: "navigate"; url: string; downloads?: string }
@@ -1735,13 +1808,31 @@ export type PageBrowserCommand =
       enter?: boolean;
       points?: BrowserPurchaseCheckRequest["points"];
       unplaced?: boolean;
-    };
+    }
+  | {
+      command: "dialog";
+      action: BrowserDialogRequest["action"];
+      text?: string;
+      expect?: BrowserDialog;
+      only?: string[];
+    }
+  | { command: "cdp"; method: string; params?: Record<string, unknown> };
 
 export type PageBrowserResult = Partial<BrowserSnapshotResult & BrowserActResult> & {
   ok: boolean;
   /** A purchase check: the page's host, and what the purchase is as the page shows it. */
   site?: string;
   purchase?: unknown;
+  /** A dialog command: the open dialog's message, and whether it was answered. */
+  message?: string;
+  answered?: boolean;
+  /** A DevTools protocol command: what it returned, and whether that was cut. */
+  result?: unknown;
+  truncated?: boolean;
+  /** A dialog or DevTools protocol command found no page open, so nothing was sent. */
+  noPage?: boolean;
+  /** A DevTools protocol command found a secret value on the page, so nothing was sent. */
+  secretOnPage?: boolean;
 };
 
 export type CloudAgentStatus = "running" | "finished" | "failed" | "cancelled" | "expired";

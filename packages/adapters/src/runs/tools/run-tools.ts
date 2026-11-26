@@ -43,6 +43,7 @@ import {
   SUBAGENT_HIDDEN_TOOLS,
 } from "./run-tool-selection.js";
 import { appTools } from "./run-tools-apps.js";
+import { BROWSER_CONTROL_TOOL_NAMES, browserControlTool } from "./run-tools-browser-control.js";
 import { computerTools, pageBrowserTool } from "./run-tools-computer.js";
 import { emailTools } from "./run-tools-email.js";
 import { feedbackTools } from "./run-tools-feedback.js";
@@ -106,7 +107,10 @@ const TOOL_HANDLERS = new Map<string, ToolHandler>([
   ...Object.entries(feedbackTools),
   ...Object.entries(emailTools),
   ...personalCalendarTools.map(({ name }) => [name, calendarTool] as const),
-  ...[...PAGE_BROWSER_TOOL_NAMES].map((name) => [name, pageBrowserTool] as const),
+  ...[...PAGE_BROWSER_TOOL_NAMES].map(
+    (name) =>
+      [name, BROWSER_CONTROL_TOOL_NAMES.has(name) ? browserControlTool : pageBrowserTool] as const,
+  ),
 ]);
 
 function toolHandler(name: string): ToolHandler {

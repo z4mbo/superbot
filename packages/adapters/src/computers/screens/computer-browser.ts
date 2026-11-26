@@ -2,6 +2,10 @@ import type {
   AdapterContext,
   BrowserActRequest,
   BrowserActResult,
+  BrowserCdpRequest,
+  BrowserCdpResult,
+  BrowserDialogRequest,
+  BrowserDialogResult,
   BrowserNavigateRequest,
   BrowserNavigateResult,
   BrowserProvider,
@@ -323,6 +327,91 @@ export class ComputerBrowserProvider implements BrowserProvider {
 
   private purchaseCheckWarned = false;
 
+  /** The JavaScript dialog the page has open, read or answered by the computer's helper. */
+  async dialog(
+    computer: ComputerRef,
+    request: BrowserDialogRequest,
+    context: AdapterContext,
+  ): Promise<BrowserDialogResult> {
+    if (this.canUseInProcess(computer)) return this.fake.dialog(computer, request, context);
+    const live = await this.runLive(
+      computer,
+      {
+        command: "dialog",
+        action: request.action,
+        ...(request.text !== undefined ? { text: request.text } : {}),
+        ...(request.expect ? { expect: request.expect } : {}),
+        ...(request.only ? { only: request.only } : {}),
+      },
+      context,
+    );
+    const shown = {
+      ...(typeof live?.dialog === "string" && live.dialog ? { dialog: live.dialog } : {}),
+      ...(typeof live?.message === "string" ? { message: live.message } : {}),
+      ...(typeof live?.url === "string" ? { url: live.url } : {}),
+      ...(typeof live?.title === "string" ? { title: live.title } : {}),
+      ...(typeof live?.note === "string" ? { note: live.note } : {}),
+    };
+    if (live?.ok !== true) {
+      return {
+        ok: false,
+        ...shown,
+        // An answer sent with no reply may have reached the dialog.
+        uncertain: live?.noPage === true ? false : (live?.uncertain ?? request.action !== "status"),
+        ...(live?.noPage === true ? { noPage: true } : {}),
+        ...(live?.fallback === "computer_act" ? { fallback: "computer_act" as const } : {}),
+        error: live?.error || DETACHED_MESSAGE,
+      };
+    }
+    const elements = Array.isArray(live.elements) ? live.elements : undefined;
+    return {
+      ok: true,
+      ...shown,
+      ...(live.answered === true ? { answered: true } : {}),
+      ...(typeof live.tree === "string" ? { tree: live.tree, elements: elements ?? [] } : {}),
+      ...(live.loading === true ? { loading: true } : {}),
+    };
+  }
+
+  /** One DevTools protocol command on the page's tab, through the computer's helper. */
+  async cdp(
+    computer: ComputerRef,
+    request: BrowserCdpRequest,
+    context: AdapterContext,
+  ): Promise<BrowserCdpResult> {
+    if (this.canUseInProcess(computer)) return this.fake.cdp(computer, request, context);
+    const live = await this.runLive(
+      computer,
+      {
+        command: "cdp",
+        method: request.method,
+        ...(request.params ? { params: request.params } : {}),
+      },
+      context,
+    );
+    const page = {
+      ...(typeof live?.url === "string" ? { url: live.url } : {}),
+      ...(typeof live?.title === "string" ? { title: live.title } : {}),
+    };
+    if (live?.ok !== true) {
+      return {
+        ok: false,
+        ...page,
+        ...(live?.uncertain !== undefined ? { uncertain: live.uncertain } : {}),
+        ...(live?.noPage === true ? { noPage: true } : {}),
+        ...(live?.secretOnPage === true ? { secretOnPage: true } : {}),
+        ...(live?.fallback === "computer_act" ? { fallback: "computer_act" as const } : {}),
+        error: live?.error || DETACHED_MESSAGE,
+      };
+    }
+    return {
+      ok: true,
+      ...page,
+      result: live.result,
+      ...(live.truncated === true ? { truncated: true } : {}),
+    };
+  }
+
   private canUseInProcess(computer: ComputerRef): boolean {
     return computer.kind === "fake";
   }
@@ -371,7 +460,11 @@ export class ComputerBrowserProvider implements BrowserProvider {
         return { ok: false, uncertain: false, error: error.message };
       }
       return {
-        uncertain: request.command === "act",
+        // A step, answer or protocol command sent with no reply may have reached the page.
+        uncertain:
+          request.command === "act" ||
+          request.command === "cdp" ||
+          (request.command === "dialog" && request.action !== "status"),
         ok: false,
         error: error instanceof Error ? error.message : String(error),
         fallback: "computer_act",
