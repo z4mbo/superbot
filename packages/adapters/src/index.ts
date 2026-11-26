@@ -105,6 +105,7 @@ export * from "./mcp/mcp-server-removal.js";
 export * from "./mcp/mcp-server-tool.js";
 export * from "./mcp/mcp-transport.js";
 export * from "./mcp/remote-mcp.js";
+export * from "./media/generated-media-lookup.js";
 export * from "./media/media-generation-factory.js";
 export * from "./media/media-provider-descriptor.js";
 export * from "./media/media-providers.js";

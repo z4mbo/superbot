@@ -102,6 +102,8 @@ function rowsFor(t: Tenant, tag: string): Array<[string, Record<string, unknown>
       { spaceId: t.spaceId, userId: t.userId, name: `n-${tag}`, description: "d", content: "c" },
     ],
     ["userVoiceCredential", { userId: t.userId, provider: "p", secretId: t.personalSecretId }],
+    ["userMediaCredential", { userId: t.userId, provider: "p", secretId: t.personalSecretId }],
+    ["userMediaPreference", { userId: t.userId, kind: "image", provider: "p" }],
     ["trustedLinkSite", { userId: t.userId, site: `${tag}.example.test` }],
     ["spendingLimit", { userId: t.userId, amount: 100, currency: "usd", period: "month" }],
     [
@@ -264,9 +266,17 @@ describePostgres("row-level security (PostgreSQL)", () => {
         "taughtSkill",
         "agentSkill",
         "userVoiceCredential",
+        "userMediaCredential",
+        "userMediaPreference",
         "trustedLinkSite",
       ].map(async (table) => {
-        const scope = ["userVoiceCredential", "vaultCredential", "trustedLinkSite"].includes(table)
+        const scope = [
+          "userVoiceCredential",
+          "userMediaCredential",
+          "userMediaPreference",
+          "vaultCredential",
+          "trustedLinkSite",
+        ].includes(table)
           ? "userId"
           : "spaceId";
         const ids = tenants.map((t) => t[scope]);
@@ -1052,7 +1062,7 @@ describePostgres("row-level security (PostgreSQL)", () => {
     ).rejects.toThrow(/row-level security/);
   });
 
-  it("applies the same rules to secrets, skills, voice credentials and trusted link sites", async () => {
+  it("applies the same rules to secrets, skills, voice and media credentials and trusted link sites", async () => {
     const none = {
       botSecret: [],
       vaultCredential: [],
@@ -1060,6 +1070,8 @@ describePostgres("row-level security (PostgreSQL)", () => {
       taughtSkill: [],
       agentSkill: [],
       userVoiceCredential: [],
+      userMediaCredential: [],
+      userMediaPreference: [],
       trustedLinkSite: [],
     };
     expect(await owners()).toEqual(none);
@@ -1071,6 +1083,8 @@ describePostgres("row-level security (PostgreSQL)", () => {
       taughtSkill: [a.spaceId],
       agentSkill: [a.spaceId],
       userVoiceCredential: [a.userId],
+      userMediaCredential: [a.userId],
+      userMediaPreference: [a.userId],
       trustedLinkSite: [a.userId],
     });
     const everyone = await runAsSystem("row-level security test", owners);

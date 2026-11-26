@@ -162,6 +162,10 @@ export async function disconnectMediaProvider(
 ): Promise<{ ok: true }> {
   await withTransactionRetry(() =>
     deps.prisma.$transaction(async (tx) => {
+      // A default that names the provider would point at nothing; the next connected one leads.
+      await tx.userMediaPreference.deleteMany({
+        where: { userId: actor.userId, provider: input.provider },
+      });
       const rows = await tx.userMediaCredential.findMany({
         where: { userId: actor.userId, provider: input.provider },
       });
