@@ -7,7 +7,6 @@
   "packages/adapters/src/computers/host/host-computer-sandbox.ts": 1,
   "packages/adapters/src/computers/host/user-device-gateway.ts": 1,
   "packages/adapters/src/integrations/plugin-connectors.ts": 1,
-  "packages/adapters/src/media/media-generation-provider.ts": 1,
   "packages/adapters/src/models/model-connect-check.ts": 1,
   "packages/adapters/src/providers/cloud-agent/cursor/cursor-cloud-agent.ts": 1,
   "packages/adapters/src/providers/computer/boat/boat-errors.ts": 1,

@@ -104,6 +104,19 @@ export const AskPayment = z.object({
 });
 export type AskPayment = z.infer<typeof AskPayment>;
 
+/** What made a generated image or video: shown on its card and in the conversation's library. */
+export const GeneratedMediaSchema = z.object({
+  kind: z.enum(["image", "video"]),
+  /** Set when an existing image was changed rather than a new one made. */
+  edit: z.literal(true).optional(),
+  prompt: z.string().max(4000),
+  /** The media provider's id, opaque outside adapters, and the name to show for it. */
+  provider: z.string().max(80),
+  providerName: z.string().max(120),
+  model: z.string().max(200).optional(),
+});
+export type GeneratedMediaInfo = z.infer<typeof GeneratedMediaSchema>;
+
 export const MessageBlock = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({
@@ -357,6 +370,8 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     artifactId: Id,
     mimeType: z.string(),
     name: z.string(),
+    /** Set on an image a media tool made. */
+    generated: GeneratedMediaSchema.optional(),
   }),
   z.object({
     kind: z.literal("file"),
@@ -364,6 +379,22 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     mimeType: z.string(),
     name: z.string(),
     size: z.number().int().nonnegative(),
+    /** Set on a video a media tool made. */
+    generated: GeneratedMediaSchema.optional(),
+  }),
+  z.object({
+    /**
+     * A video being made in the background. It is posted as `pending` when the job is accepted
+     * and changed in place to `completed` (the video then arrives as its own message, an image
+     * or file block with `generated`) or `failed`. It has no text or attachment, so chat apps
+     * and older clients show nothing for it.
+     */
+    kind: z.literal("media_generation"),
+    jobId: Id,
+    status: z.enum(["pending", "completed", "failed"]),
+    media: GeneratedMediaSchema,
+    /** On `completed`: the delivered video. */
+    artifactId: Id.optional(),
   }),
   z.object({
     /**

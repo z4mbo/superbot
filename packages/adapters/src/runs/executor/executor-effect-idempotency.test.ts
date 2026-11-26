@@ -13,7 +13,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import type * as AutoReviewModule from "../../approvals/auto-review.js";
 import type * as ComputerLifecycleModule from "../../computers/computer-lifecycle.js";
-import { FakeMediaGenerationProvider } from "../../media/media-generation-provider.js";
+import { ScriptedMediaProvider } from "../../media/scripted-media-provider.js";
 import { createRunExecutor } from "./executor.js";
 
 vi.mock("../../computers/computer-lifecycle.js", async (importOriginal) => ({
@@ -55,7 +55,7 @@ type ToolCall = {
 function fixture(runId = "run-1") {
   const effects: Effect[] = [];
   const results: unknown[] = [];
-  const media = new FakeMediaGenerationProvider();
+  const media = new ScriptedMediaProvider();
   const artifactRows: Array<{ id: string; name: string; mimeType: string; size: number }> = [];
   const artifactPut = vi.fn();
   const messageCreate = vi.fn(async ({ data }: { data: unknown }) => ({
@@ -192,7 +192,11 @@ function fixture(runId = "run-1") {
       findUniqueOrThrow: vi.fn(async () => ({ id: run.threadId, groupId: null })),
       update: vi.fn(async () => ({ nextMessageSeq: 2, nextEventSeq: 2 })),
     },
-    message: { findMany: vi.fn(async () => []), create: messageCreate },
+    message: {
+      findMany: vi.fn(async () => []),
+      findFirst: vi.fn(async () => null),
+      create: messageCreate,
+    },
     event: { create: vi.fn(async () => ({ seq: 1 })) },
     artifact: {
       findFirst: vi.fn(
@@ -206,7 +210,9 @@ function fixture(runId = "run-1") {
     connection: { findMany: vi.fn(async () => []) },
     userModelPreference: { findFirst: vi.fn(async () => null) },
     userModelRoleChoice: { findMany: vi.fn(async () => []) },
-    userModelCredential: { findFirst: vi.fn(async () => null) },
+    userModelCredential: { findFirst: vi.fn(async () => null), findMany: vi.fn(async () => []) },
+    userMediaCredential: { findMany: vi.fn(async () => []) },
+    userMediaPreference: { findMany: vi.fn(async () => []) },
     deploymentSettings: {
       findUnique: vi.fn(async () => ({
         defaultModelProvider: "openrouter",
@@ -348,7 +354,7 @@ describe("mutating tool effect idempotency keys", () => {
         status: name === "generate_image" ? "media_polling" : "media_pending",
         request: { prompt: args.prompt, executionId: "wrapper" },
         result: {
-          provider: "fake",
+          provider: "scripted",
           ...(name === "generate_video"
             ? { jobId: "remote-video" }
             : { artifactId: "saved-image" }),

@@ -8,7 +8,17 @@ import {
 import type { Artifact, Prisma } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { resolveBotWorkspacePath } from "../../computers/screens/computer-support.js";
+import type { MediaToolName } from "../../media/media-generation.tool-definition.js";
+import { MEDIA_TOOL_NAMES } from "../../media/media-generation.tool-definition.js";
+import { prepareMediaInput } from "../../media/media-generation-input.js";
 import { generateMediaFromTool } from "../../media/media-generation-tools.js";
+import type { MediaJob, MediaRouterDeps } from "../../media/media-router.js";
+import {
+  reopenMediaRoute,
+  resolveMediaRoute,
+  SERVER_MEDIA_ROUTE,
+} from "../../media/media-router.js";
+import { mediaImageLoader } from "../../media/media-source-images.js";
 import { mediaDelivery, scheduleMediaPoll } from "../../media/media-video-poll.js";
 import {
   desktopGuardApplies,
@@ -52,31 +62,89 @@ async function artifactGroupId(ctx: RunContext): Promise<string | undefined> {
   return conversation?.groupId ?? undefined;
 }
 
-/** Generate an image or video, or with recoverOnly, only resume a job an earlier attempt started. */
+export function isMediaToolName(name: string): name is MediaToolName {
+  return (MEDIA_TOOL_NAMES as readonly string[]).includes(name);
+}
+
+const MEDIA_JOBS: Record<MediaToolName, MediaJob> = {
+  generate_image: "image",
+  edit_image: "image_edit",
+  generate_video: "video",
+};
+
+/** The user's media connections and the server's own provider, for routing a run's calls. */
+export function runMediaRouterDeps(ctx: RunContext): MediaRouterDeps {
+  return {
+    prisma: ctx.deps.prisma,
+    secretStore: ctx.deps.secretStore,
+    serverDefault: ctx.providers.mediaGeneration,
+    registry: ctx.deps.mediaProviders,
+  };
+}
+
+/** Make or edit an image or a video, or with recoverOnly, only resume a job an earlier attempt started. */
 export async function callMediaTool(ctx: RunContext, call: ToolCall, recoverOnly = false) {
   const { deps, run, thread, context } = ctx;
   const { name, args, executionId, applied } = call;
-  const mediaGeneration = ctx.providers.mediaGeneration;
-  if (
-    (name !== "generate_image" && name !== "generate_video") ||
-    isBackgroundRunTrigger(run.trigger) ||
-    !mediaGeneration ||
-    !deps.artifacts
-  )
+  const artifacts = deps.artifacts;
+  if (!isMediaToolName(name) || isBackgroundRunTrigger(run.trigger) || !artifacts)
     return { error: "Media generation is unavailable." };
+  const router = runMediaRouterDeps(ctx);
+  const scope = { userId: run.userId, spaceId: run.spaceId };
+  const groupId = await artifactGroupId(ctx);
+  const job = MEDIA_JOBS[name];
   const result = await generateMediaFromTool({
     name,
     args,
     executionId: applied?.effect.id ?? executionId,
     recoverOnly,
-    provider: mediaGeneration,
+    route: {
+      prepare: async () => {
+        const resolved = await resolveMediaRoute(
+          router,
+          scope,
+          {
+            job,
+            provider:
+              typeof args.provider === "string" ? args.provider.trim() || undefined : undefined,
+            model: typeof args.model === "string" ? args.model.trim() || undefined : undefined,
+          },
+          context.signal,
+        );
+        const workspace = runWorkspace(ctx, call);
+        const loadImage = mediaImageLoader({
+          prisma: deps.prisma,
+          artifacts,
+          run,
+          threadId: ctx.source.conversationThreadId ?? thread.id,
+          groupId,
+          context,
+          readWorkspaceFile: async (path, maxBytes) =>
+            deps.sandbox.readFile(
+              await workspace.computer(),
+              resolveBotWorkspacePath(workspace.computerMode, workspace.botId, path),
+              context,
+              { maxBytes },
+            ),
+        });
+        const input = await prepareMediaInput(
+          job,
+          args,
+          resolved.model,
+          resolved.route.model,
+          loadImage,
+        );
+        return { provider: resolved.provider, route: resolved.route, input };
+      },
+      reopen: (route) =>
+        reopenMediaRoute(router, scope, route ?? SERVER_MEDIA_ROUTE, context.signal),
+    },
     prisma: deps.prisma,
     context,
     run,
     threadGeneration: thread.historyCompactionGeneration,
-    ...mediaDelivery({ ...deps, artifacts: deps.artifacts }, run, {
-      providerId: mediaGeneration.id,
-      groupId: await artifactGroupId(ctx),
+    ...mediaDelivery({ ...deps, artifacts }, run, {
+      groupId,
       operationId: executionId,
     }),
   });
@@ -140,6 +208,7 @@ export const fileTools: ToolHandlers = {
     return call.finish({ ok: true, path: filePath });
   },
   generate_image: generateMedia,
+  edit_image: generateMedia,
   generate_video: generateMedia,
   async render_plot(ctx, call) {
     const { deps, run } = ctx;

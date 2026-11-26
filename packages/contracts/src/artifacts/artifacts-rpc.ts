@@ -7,6 +7,7 @@ import {
   ARTIFACT_DESCRIPTION_MAX_LENGTH,
   ARTIFACT_NAME_MAX_LENGTH,
 } from "../threads/attachments.js";
+import { GeneratedMediaSchema } from "../threads/message-blocks.js";
 import { threadTarget } from "../threads/thread-send.js";
 import { ArtifactSchema, ArtifactVersionSchema, ArtifactWithContentSchema } from "./artifacts.js";
 import {
@@ -61,7 +62,13 @@ export const artifactsRpc = {
       )
       .output(
         z.object({
-          items: z.array(ArtifactSchema.extend({ versionCount: z.number().int() })),
+          items: z.array(
+            ArtifactSchema.extend({
+              versionCount: z.number().int(),
+              /** Set on an image or video a media tool made, as its chat card shows it. */
+              generated: GeneratedMediaSchema.optional(),
+            }),
+          ),
           nextCursor: z.string().nullable(),
         }),
       ),

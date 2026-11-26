@@ -77,6 +77,7 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "create_reminder",
   "complete_reminder",
   "generate_image",
+  "edit_image",
   "generate_video",
   "service_call",
   "archive_bot",

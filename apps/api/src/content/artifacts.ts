@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import type { ArtifactStore, MessagingInboundAttachment } from "@rakazo/adapter-kit";
 import { createAdapterContext } from "@rakazo/adapter-kit";
-import { inboundAttachmentMimeType, inboundAttachmentRefusal } from "@rakazo/adapters";
+import {
+  generatedMediaForArtifacts,
+  inboundAttachmentMimeType,
+  inboundAttachmentRefusal,
+} from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
 import {
   ARTIFACT_NAME_MAX_LENGTH,
@@ -484,7 +488,7 @@ function cursorBotId(value: unknown): string | null {
 }
 
 export async function listSpaceArtifacts(
-  deps: { prisma: Pick<PrismaClient, "artifact" | "$queryRaw"> },
+  deps: { prisma: Pick<PrismaClient, "artifact" | "externalEffect" | "$queryRaw"> },
   actor: Actor,
   input: { botId?: string; madeByBots?: boolean; cursor?: string; limit?: number },
 ) {
@@ -538,6 +542,12 @@ export async function listSpaceArtifacts(
   const hasMore = rows.length > take;
   const page = hasMore ? rows.slice(0, take) : rows;
   const last = page.at(-1);
+  // A media tool's output is the root of its family, so the family id finds the job that made it.
+  const generated = await generatedMediaForArtifacts(
+    deps.prisma,
+    actor.spaceId,
+    page.map((row) => row.familyId),
+  );
 
   return {
     // id is the family root so the card URL stays stable across versions.
@@ -553,6 +563,7 @@ export async function listSpaceArtifacts(
       version: row.version,
       versionCount: Number(row.versionCount),
       createdAt: row.createdAt.toISOString(),
+      ...(generated.has(row.familyId) ? { generated: generated.get(row.familyId) } : {}),
     })),
     nextCursor:
       hasMore && last

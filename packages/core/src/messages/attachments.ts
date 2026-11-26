@@ -262,7 +262,14 @@ function blockHistoryText(block: MessageBlock): string {
   if (block.kind === "steps") return toolStepsHistoryText(block.steps);
   if (block.kind === "chart") return `[chart: ${block.name}]`;
   if (block.kind === "app") return `[app: ${block.server} showed ${block.tool}]`;
+  // A generated image keeps its id, so a later turn can change it with edit_image.
+  if (block.kind === "image" && block.generated) {
+    return `[generated image: ${block.name} (artifactId ${block.artifactId})]`;
+  }
   if (block.kind === "image") return `[image: ${block.name}]`;
+  if (block.kind === "media_generation") {
+    return `[video job ${block.jobId}: ${block.status}]`;
+  }
   // The id lets a later turn, or another chat, update this page instead of making a new one.
   if (block.kind === "page") {
     return `[page: ${block.title} (pageId ${block.pageId}, version ${block.version})]`;

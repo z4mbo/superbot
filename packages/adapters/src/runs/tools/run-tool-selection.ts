@@ -5,6 +5,7 @@ import {
 } from "@rakazo/contracts";
 import { BACKGROUND_HELPER_TRIGGER, isBackgroundRunTrigger, isOwnerStartedRun } from "@rakazo/core";
 import { selectCloudAgentTools } from "../../cloud-agents/cloud-agent-tools-select.js";
+import { withMediaChoices } from "../../media/media-generation.tool-definition.js";
 import { READ_MEETING_TRANSCRIPT } from "../../meetings/meeting-chat.tool-definition.js";
 import { selectMemoryTools } from "../../memory/memory-tools.js";
 import { filterImageReturningComputerTools } from "../../models/model-vision.js";
@@ -83,6 +84,7 @@ const BACKGROUND_DROPPED_TOOL_NAMES: ReadonlySet<string> = new Set([
   "handoff_to_bot",
   "message_agent",
   "generate_image",
+  "edit_image",
   "generate_video",
 ]);
 
@@ -136,7 +138,10 @@ export function selectBuiltinToolsForRun(options: {
   /** The run's user connected a payment wallet. */
   paymentWalletEnabled?: boolean;
   mediaImagesEnabled?: boolean;
+  mediaImageEditEnabled?: boolean;
   mediaVideoEnabled?: boolean;
+  /** The providers and models each media tool may name, appended to its description. */
+  mediaChoices?: Partial<Record<string, string>>;
   /** The deployment configured paid data services. */
   paidServicesEnabled?: boolean;
   messagingChannelRun: boolean;
@@ -209,6 +214,7 @@ export function selectBuiltinToolsForRun(options: {
         (Boolean(options.signInSourceEnabled) &&
           (options.pageBrowserAllowed ?? options.graphicalToolsAllowed))) &&
       (options.mediaImagesEnabled || tool.name !== "generate_image") &&
+      (options.mediaImageEditEnabled || tool.name !== "edit_image") &&
       (options.mediaVideoEnabled || tool.name !== "generate_video") &&
       (options.paidServicesEnabled || !PAID_SERVICE_TOOL_NAMES.has(tool.name)) &&
       // Alone in its Space a bot has nobody to message. A bot it creates gets its first task
@@ -252,7 +258,8 @@ export function selectBuiltinToolsForRun(options: {
           ].includes(tool.name) &&
           !tool.name.startsWith("scratchpad_") &&
           !tool.name.startsWith("ticket_"))),
-  );
+  )
+    .map((tool) => withMediaChoices(tool, options.mediaChoices?.[tool.name] ?? ""));
 }
 
 /**

@@ -402,7 +402,7 @@ export function createRunReconciler(
   > = {},
   chat: { messagingDelivery?: MessagingDelivery; teamChat?: TeamChat } = {},
 ) {
-  const { prisma, jobs, cloudAgent, paymentWallet, mediaGeneration } = deps;
+  const { prisma, jobs, cloudAgent, paymentWallet } = deps;
   const { messagingDelivery, teamChat } = chat;
   const chatHistoryDays = chatHistoryRetentionDays();
   return createJobReconciler({
@@ -436,7 +436,7 @@ export function createRunReconciler(
     reconcileCloudAgents: () =>
       reconcileCloudAgents({ prisma, jobs, cloudAgent, userCloudAgents: deps.userCloudAgents }),
     reconcilePurchases: () => reconcilePurchases({ prisma, jobs, paymentWallet }),
-    reconcileMediaVideos: () => reconcileMediaVideos({ prisma, jobs, mediaGeneration }),
+    reconcileMediaVideos: () => reconcileMediaVideos({ prisma, jobs }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs, events: deps.events }),
     reconcileSecurityEventRetention: createSecurityEventPruner(
       prisma,

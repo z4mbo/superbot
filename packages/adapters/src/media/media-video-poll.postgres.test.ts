@@ -7,26 +7,28 @@ import type {
   BackgroundJob,
   JobPublisher,
   MediaVideoJob,
+  SecretStore,
 } from "@rakazo/adapter-kit";
 import { MediaGenerationError } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { asSystem, clearThread, createDb, runAsSystem, runAsTenant } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createArtifactStore } from "../storage/artifact-store-factory.js";
-import { FakeMediaGenerationProvider } from "./media-generation-provider.js";
 import { generateMediaFromTool } from "./media-generation-tools.js";
+import { SERVER_MEDIA_ROUTE } from "./media-router.js";
 import {
   MEDIA_POLL_DEADLINE_MS,
   mediaDelivery,
   pollMediaVideo,
   reconcileMediaVideos,
 } from "./media-video-poll.js";
+import { ScriptedMediaProvider } from "./scripted-media-provider.js";
 
 const describePostgres =
   process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;
 
 /** A provider whose remote job finishes, fails or errors when the test says so. */
-class ScriptedVideoProvider extends FakeMediaGenerationProvider {
+class ScriptedVideoProvider extends ScriptedMediaProvider {
   remote: "running" | "completed" | "failed" | "error" = "running";
   submissions = 0;
   polls = 0;
@@ -34,7 +36,7 @@ class ScriptedVideoProvider extends FakeMediaGenerationProvider {
   duringPoll?: () => Promise<void>;
   override async generateVideo(): Promise<MediaVideoJob> {
     this.submissions++;
-    return { id: `remote-${this.submissions}`, status: "queued", progress: 0 };
+    return { id: `scripted:remote-${this.submissions}`, status: "queued", progress: 0 };
   }
   override async pollVideo(id: string, context: AdapterContext): Promise<MediaVideoJob> {
     this.polls++;
@@ -137,6 +139,8 @@ describePostgres("background video delivery (PostgreSQL)", () => {
         events: { notify: vi.fn(async () => undefined) },
         artifacts: createArtifactStore(dataDir, prisma, {}),
         mediaGeneration: media,
+        // Jobs here go to the server's own provider, which needs no saved key.
+        secretStore: {} as SecretStore,
         ...limits,
       };
     };
@@ -155,7 +159,14 @@ describePostgres("background video delivery (PostgreSQL)", () => {
           name: "generate_video",
           args: { prompt: "a lighthouse at dusk" },
           executionId: randomUUID(),
-          provider: media,
+          route: {
+            prepare: async () => ({
+              provider: media,
+              route: SERVER_MEDIA_ROUTE,
+              input: { prompt: "a lighthouse at dusk" },
+            }),
+            reopen: async () => media,
+          },
           prisma,
           context: {
             operationId: randomUUID(),
@@ -167,7 +178,7 @@ describePostgres("background video delivery (PostgreSQL)", () => {
           },
           run,
           threadGeneration: 0,
-          ...mediaDelivery(deps, run, { providerId: media.id, operationId: "submit" }),
+          ...mediaDelivery(deps, run, { operationId: "submit" }),
         }),
       );
       if (!result || !("jobId" in result) || !result.jobId) throw new Error("Submission failed");
@@ -181,8 +192,20 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     const reconcile = () => runAsSystem("reconcile", () => reconcileMediaVideos(process()));
     const job = (jobId: string) =>
       asSystem(prisma).externalEffect.findUniqueOrThrow({ where: { id: jobId } });
+    // Messages the bot posted, leaving out each video's pending card, which `cards` reads.
     const messages = (threadId = user.thread.id) =>
-      asSystem(prisma).message.findMany({ where: { threadId }, orderBy: { seq: "asc" } });
+      asSystem(prisma).message.findMany({
+        where: {
+          threadId,
+          OR: [{ clientNonce: null }, { NOT: { clientNonce: { startsWith: "media-card:" } } }],
+        },
+        orderBy: { seq: "asc" },
+      });
+    const cards = () =>
+      asSystem(prisma).message.findMany({
+        where: { threadId: user.thread.id, clientNonce: { startsWith: "media-card:" } },
+        orderBy: { seq: "asc" },
+      });
     const wakes = () =>
       asSystem(prisma).run.findMany({
         where: { threadId: user.thread.id, trigger: "media" },
@@ -217,6 +240,7 @@ describePostgres("background video delivery (PostgreSQL)", () => {
       reconcile,
       job,
       messages,
+      cards,
       wakes,
       tenant,
     };
@@ -227,6 +251,16 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     const other = await owner();
     const jobId = await h.submit();
     expect(h.media.submissions).toBe(1);
+    // The chat shows the video as pending from the moment the provider accepts it.
+    const media = {
+      kind: "video",
+      prompt: "a lighthouse at dusk",
+      provider: "server",
+      providerName: "Server default",
+    };
+    expect((await h.cards()).map((card) => card.blocks)).toEqual([
+      [{ kind: "media_generation", jobId, status: "pending", media }],
+    ]);
     // Restart: the scheduled poll is lost, and recovery finds the job from the database alone.
     await h.stall(jobId);
     h.enqueued.length = 0;
@@ -248,7 +282,14 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     const posted = await h.messages();
     expect(posted).toHaveLength(1);
     expect(posted[0]).toMatchObject({ role: "bot", botId: h.user.bot.id, runId: h.user.run.id });
-    expect(posted[0]!.blocks).toEqual([expect.objectContaining({ mimeType: "video/mp4" })]);
+    expect(posted[0]!.blocks).toEqual([
+      expect.objectContaining({ kind: "file", mimeType: "video/mp4", generated: media }),
+    ]);
+    const artifactId = (posted[0]!.blocks as Array<{ artifactId: string }>)[0]!.artifactId;
+    // The pending card is changed in place, once, to point at the delivered video.
+    expect((await h.cards()).map((card) => card.blocks)).toEqual([
+      [{ kind: "media_generation", jobId, status: "completed", media, artifactId }],
+    ]);
     expect(await h.messages(other.thread.id)).toHaveLength(0);
     const wakes = await h.wakes();
     expect(wakes).toHaveLength(1);
@@ -267,6 +308,9 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     await h.poll(jobId);
     expect((await h.job(jobId)).status).toBe("media_failed");
     expect(await h.messages()).toHaveLength(0);
+    expect((await h.cards()).map((card) => card.blocks)).toEqual([
+      [expect.objectContaining({ kind: "media_generation", jobId, status: "failed" })],
+    ]);
     const wakes = await h.wakes();
     expect(wakes).toHaveLength(1);
     expect(wakes[0]!.task.prompt).toContain("failed");
@@ -314,7 +358,9 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     await runAsSystem("test fixture", () =>
       prisma.externalEffect.update({
         where: { id: jobId },
-        data: { result: { provider: h.media.id, jobId: "remote-1", artifactId: "not-posted" } },
+        data: {
+          result: { provider: h.media.id, jobId: "scripted:remote-1", artifactId: "not-posted" },
+        },
       }),
     );
     await h.age(jobId, MEDIA_POLL_DEADLINE_MS + 60_000);

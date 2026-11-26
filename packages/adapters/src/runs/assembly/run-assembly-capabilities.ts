@@ -28,6 +28,7 @@ import { resolveComputerRunModel } from "../../computers/computer-model-settings
 import { checkpointRunComputerWorkspace } from "../../computers/computer-workspace.js";
 import { sandboxKindCapabilities } from "../../computers/sandbox/sandbox-kind-capabilities.js";
 import { teamWorkspaceInstruction } from "../../computers/screens/computer-support.prompt.js";
+import { runMediaToolOptions } from "../../media/media-run-tools.js";
 import { approvedModelCreditOffering } from "../../model-credits/offerings.js";
 import { resolveDeploymentModel } from "../../models/deployment-model.js";
 import { selectConfiguredModel } from "../../models/model-roles.js";
@@ -737,8 +738,7 @@ export async function selectRunTools(
       semanticMemoryEnabled,
       semanticMemoryForgets: Boolean(semanticMemory?.forget),
       semanticMemoryReflects: Boolean(semanticMemory?.reflect),
-      mediaImagesEnabled: Boolean(deps.artifacts && mediaGeneration?.capabilities.images),
-      mediaVideoEnabled: Boolean(deps.artifacts && mediaGeneration?.capabilities.video),
+      ...(await runMediaToolOptions(deps, run, mediaGeneration)),
       paidServicesEnabled: Boolean(paidServices),
       cloudAgentEnabled: Boolean(cloudAgent),
       cloudAgentCleanupEnabled,

@@ -1,16 +1,14 @@
 import type { MediaGenerationProvider } from "@rakazo/adapter-kit";
+import { FalMediaGenerationProvider } from "../providers/media/fal/fal-media.js";
 import { OpenAIMediaGenerationProvider } from "../providers/media/openai/openai-media.js";
-import {
-  FakeMediaGenerationProvider,
-  FalMediaGenerationProvider,
-} from "./media-generation-provider.js";
+import { ScriptedMediaProvider } from "./scripted-media-provider.js";
 
 export function createMediaGenerationProvider(
   env: NodeJS.ProcessEnv = process.env,
 ): MediaGenerationProvider | undefined {
   const kind = env.MEDIA_GENERATION_PROVIDER?.trim().toLowerCase();
   if (!kind || kind === "disabled") return undefined;
-  if (kind === "fake") return new FakeMediaGenerationProvider();
+  if (kind === "fake") return new ScriptedMediaProvider();
   if (kind !== "fal" && kind !== "openai") throw new Error("Unknown media generation provider");
   const apiKey = env.MEDIA_GENERATION_API_KEY?.trim();
   const imageModel = env.MEDIA_GENERATION_IMAGE_MODEL?.trim();

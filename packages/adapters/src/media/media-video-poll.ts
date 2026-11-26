@@ -3,15 +3,21 @@ import type {
   ArtifactStore,
   JobPublisher,
   MediaGenerationProvider,
+  SecretStore,
 } from "@rakazo/adapter-kit";
 import { mediaPollJob } from "@rakazo/adapter-kit";
+import type { GeneratedMediaInfo, MessageBlock } from "@rakazo/contracts";
 import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
+import { appendEventInTransaction, changeMessageBlocks, isUniqueViolation } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { persistMessageInTransaction } from "../runs/assembly/run-messages.js";
 import { wakeRun } from "../runs/wakeups/wake-run.js";
 import { mediaVideoWakePrompt } from "../runs/wakeups/wakes.prompt.js";
 import { attachWorkspaceFileToThread } from "../storage/thread-artifacts.js";
+import type { MediaSettled } from "./media-generation-tools.js";
 import { generateMediaFromTool, MEDIA_JOB_KIND } from "./media-generation-tools.js";
+import type { MediaProviderRegistry } from "./media-providers.js";
+import { MediaConnectionError, reopenMediaRoute, SERVER_MEDIA_ROUTE } from "./media-router.js";
 
 /** A short video takes minutes; one still unfinished after this is reported as failed. */
 export const MEDIA_POLL_DEADLINE_MS = 60 * 60_000;
@@ -31,7 +37,11 @@ export interface MediaVideoDeps {
   events: Pick<ThreadEvents, "notify" | "publishSpaceChange">;
   artifacts?: ArtifactStore;
   maxUploadSizeBytes?: number;
+  /** The server's own provider, for jobs submitted to it. */
   mediaGeneration?: MediaGenerationProvider;
+  /** Reads the saved key or model connection a job was submitted with. */
+  secretStore: Pick<SecretStore, "load" | "put" | "delete" | "isRemote">;
+  mediaRegistry?: MediaProviderRegistry;
 }
 
 type MediaRun = { id: string; threadId: string; botId: string; userId: string; spaceId: string };
@@ -53,7 +63,44 @@ export async function scheduleMediaPoll(
   });
 }
 
-type Settled = "completed" | "failed";
+type Settled = MediaSettled;
+
+/** The client nonce of a video's pending card, one per job. */
+function cardNonce(jobId: string): string {
+  return `media-card:${jobId}`;
+}
+
+/**
+ * Changes a video's pending card to how its job ended. Returns the event's seq to signal, or
+ * null when there is no pending card (an image, a job from before cards, or one already settled).
+ */
+async function settleMediaCard(
+  tx: Prisma.TransactionClient,
+  run: MediaRun,
+  jobId: string,
+  change: { status: Settled; artifactId?: string },
+): Promise<number | null> {
+  const message = await tx.message.findFirst({
+    where: { threadId: run.threadId, clientNonce: cardNonce(jobId) },
+    select: { id: true, blocks: true },
+  });
+  if (!message) return null;
+  const changed = changeMessageBlocks(message, (block) =>
+    block.kind === "media_generation" && block.jobId === jobId && block.status === "pending"
+      ? { ...block, ...change }
+      : block,
+  );
+  if (!changed) return null;
+  await tx.message.update({ where: { id: message.id }, data: { blocks: changed.stored } });
+  const event = await appendEventInTransaction(tx, {
+    spaceId: run.spaceId,
+    threadId: run.threadId,
+    botId: run.botId,
+    type: "thread.message.updated",
+    payload: { messageId: message.id, role: "bot", blocks: changed.blocks },
+  });
+  return event.seq;
+}
 
 /** Attach a finished video to the run's chat and post it, once, with the job's completion. */
 export function mediaDelivery(
@@ -62,7 +109,6 @@ export function mediaDelivery(
   },
   run: MediaRun,
   options: {
-    providerId: string;
     groupId?: string;
     operationId: string;
     /** Background delivery outlives the turn that asked, even one that was stopped. */
@@ -71,6 +117,12 @@ export function mediaDelivery(
     onSettled?: (tx: Prisma.TransactionClient, status: Settled) => Promise<void>;
   },
 ) {
+  /** The newest card change a committed transaction made, signalled once it commits. */
+  let cardSeq: number | null = null;
+  const notify = (seq: number | null, firstResponseRunId?: string) =>
+    seq === null
+      ? undefined
+      : deps.events.notify(run.threadId, seq, firstResponseRunId).catch(() => undefined);
   return {
     attach: (
       output: { bytes: Uint8Array },
@@ -109,10 +161,32 @@ export function mediaDelivery(
           },
         },
       ),
+    /** Posts a video's pending card once; the job's end changes it in place. */
+    announce: async (jobId: string, media: GeneratedMediaInfo) => {
+      const card: MessageBlock = { kind: "media_generation", jobId, status: "pending", media };
+      try {
+        const posted = await deps.prisma.$transaction((tx) =>
+          persistMessageInTransaction(
+            tx,
+            run,
+            "bot",
+            [card],
+            undefined,
+            cardNonce(jobId),
+            options.afterRun,
+          ),
+        );
+        await notify(posted.eventSeq, posted.firstResponseRunId);
+      } catch (error) {
+        // A retried submission already posted it.
+        if (!isUniqueViolation(error)) throw error;
+      }
+    },
     publish: async (
       block: Parameters<typeof persistMessageInTransaction>[3][number],
       jobId: string,
       artifactId: string,
+      providerId: string,
     ) => {
       const committed = await deps.prisma.$transaction(async (tx) => {
         // Commit completion with the message so a restarted poll cannot post twice, and a job
@@ -121,10 +195,14 @@ export function mediaDelivery(
           where: { id: jobId, status: "media_polling" },
           data: {
             status: "media_completed",
-            result: { provider: options.providerId, artifactId },
+            result: { provider: providerId, artifactId },
           },
         });
         if (!claimed.count) return null;
+        const cardEventSeq = await settleMediaCard(tx, run, jobId, {
+          status: "completed",
+          artifactId,
+        });
         const message = await persistMessageInTransaction(
           tx,
           run,
@@ -135,14 +213,25 @@ export function mediaDelivery(
           options.afterRun,
         );
         await options.onSettled?.(tx, "completed");
-        return message;
+        return { ...message, cardEventSeq };
       });
-      if (committed)
-        await deps.events
-          .notify(run.threadId, committed.eventSeq, committed.firstResponseRunId)
-          .catch(() => undefined);
+      if (committed) {
+        await notify(
+          Math.max(committed.eventSeq, committed.cardEventSeq ?? 0),
+          committed.firstResponseRunId,
+        );
+      }
     },
-    onSettled: options.onSettled,
+    onSettled: async (tx: Prisma.TransactionClient, status: Settled, jobId: string) => {
+      const seq = await settleMediaCard(tx, run, jobId, { status });
+      if (seq !== null) cardSeq = Math.max(cardSeq ?? 0, seq);
+      await options.onSettled?.(tx, status);
+    },
+    afterSettled: async () => {
+      const seq = cardSeq;
+      cardSeq = null;
+      await notify(seq);
+    },
   };
 }
 
@@ -184,9 +273,8 @@ async function recipientRemains(
  * failed or expired one is marked failed; either way the bot gets one turn to follow up.
  */
 export async function pollMediaVideo(deps: MediaVideoDeps, payload: { jobId: string }) {
-  const provider = deps.mediaGeneration;
   const artifacts = deps.artifacts;
-  if (!provider?.capabilities.video || !artifacts) return;
+  if (!artifacts) return;
   const job = await deps.prisma.externalEffect.findFirst({
     where: { id: payload.jobId, ...VIDEO_JOB, status: { in: PENDING_STATUSES } },
     select: {
@@ -241,22 +329,37 @@ export async function pollMediaVideo(deps: MediaVideoDeps, payload: { jobId: str
     botId: run.botId,
     signal: AbortSignal.timeout(5 * 60_000),
   };
+  const delivery = mediaDelivery({ ...deps, artifacts }, run, {
+    groupId: thread.groupId ?? undefined,
+    operationId,
+    afterRun: true,
+    onSettled,
+  });
   const result = await generateMediaFromTool({
     name: "generate_video",
     args: { jobId: job.id },
     executionId: operationId,
     recoverOnly: true,
-    provider,
+    // The background check never submits; it only rebuilds the provider the job went to.
+    route: {
+      prepare: () => Promise.reject(new MediaConnectionError("Media generation is unavailable.")),
+      reopen: (route) =>
+        reopenMediaRoute(
+          {
+            prisma: deps.prisma,
+            secretStore: deps.secretStore,
+            serverDefault: deps.mediaGeneration,
+            registry: deps.mediaRegistry,
+          },
+          run,
+          route ?? SERVER_MEDIA_ROUTE,
+          context.signal,
+        ),
+    },
     prisma: deps.prisma,
     context,
     run,
-    ...mediaDelivery({ ...deps, artifacts }, run, {
-      providerId: provider.id,
-      groupId: thread.groupId ?? undefined,
-      operationId,
-      afterRun: true,
-      onSettled,
-    }),
+    ...delivery,
   });
   let settled = result?.status === "completed" || result?.status === "failed";
   // A final check that errored is no answer; keep trying a little longer before giving up.
@@ -282,9 +385,10 @@ export async function pollMediaVideo(deps: MediaVideoDeps, payload: { jobId: str
         },
         data: { status: "media_failed" },
       });
-      if (failed.count) await onSettled(tx, "failed");
+      if (failed.count) await delivery.onSettled(tx, "failed", job.id);
       return failed.count > 0;
     });
+    if (settled) await delivery.afterSettled();
   }
   // Still running, briefly locked by another check, or a provider error: try again later.
   if (!settled) await scheduleMediaPoll(deps.jobs, job.id, job.createdAt);
@@ -333,10 +437,7 @@ async function queueWake(
  * Re-enqueue unfinished videos whose poll was lost, for example to a worker restart. A healthy
  * job is checked at least every five minutes, so only one untouched for longer is picked up.
  */
-export async function reconcileMediaVideos(
-  deps: Pick<MediaVideoDeps, "prisma" | "jobs" | "mediaGeneration">,
-) {
-  if (!deps.mediaGeneration?.capabilities.video) return;
+export async function reconcileMediaVideos(deps: Pick<MediaVideoDeps, "prisma" | "jobs">) {
   const now = Date.now();
   const pageSize = 100;
   let after: string | undefined;

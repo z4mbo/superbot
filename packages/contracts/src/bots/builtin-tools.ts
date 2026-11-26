@@ -53,6 +53,7 @@ export const BUILTIN_TOOL_NAMES = [
   "find_apps",
   "open_app",
   "generate_image",
+  "edit_image",
   "generate_video",
   "add_mcp_server",
   "remove_mcp_server",

@@ -46,6 +46,11 @@ function listRow(id: string, familyId: string, createdAt = "2026-09-01T00:00:00.
   };
 }
 
+/** No media jobs: none of the listed files was generated. */
+function noJobs() {
+  return { findMany: vi.fn(async () => []) };
+}
+
 function cursor(input: { createdAt: string; id: string; botId: string | null; asOf?: string }) {
   return `v1.${Buffer.from(
     JSON.stringify({
@@ -82,10 +87,11 @@ describe("listSpaceArtifacts", () => {
         ]);
       const page = await listSpaceArtifacts(
         {
-          prisma: { artifact: { findFirst: vi.fn() }, $queryRaw: queryRaw } as unknown as Pick<
-            PrismaClient,
-            "artifact" | "$queryRaw"
-          >,
+          prisma: {
+            artifact: { findFirst: vi.fn() },
+            externalEffect: noJobs(),
+            $queryRaw: queryRaw,
+          } as unknown as Pick<PrismaClient, "artifact" | "externalEffect" | "$queryRaw">,
         },
         actor,
         { limit: 2 },
@@ -113,6 +119,71 @@ describe("listSpaceArtifacts", () => {
     }
   });
 
+  it("marks the files a media tool made with what made them", async () => {
+    const queryRaw = vi
+      .fn()
+      .mockResolvedValue([
+        listRow("generated-image", "generated-image"),
+        listRow("notes", "notes"),
+      ]);
+    const findMany = vi.fn(async () => [
+      {
+        id: "job-1",
+        request: {
+          tool: "generate_image",
+          prompt: "a red fox",
+          executionId: "call-1",
+          route: {
+            provider: "provider-a",
+            providerName: "Provider A",
+            source: "key",
+            credentialId: "credential-1",
+            model: "model-a",
+          },
+        },
+        result: { provider: "provider-a", artifactId: "generated-image" },
+      },
+    ]);
+    const page = await listSpaceArtifacts(
+      {
+        prisma: {
+          artifact: { findFirst: vi.fn() },
+          externalEffect: { findMany },
+          $queryRaw: queryRaw,
+        } as unknown as Pick<PrismaClient, "artifact" | "externalEffect" | "$queryRaw">,
+      },
+      actor,
+      { botId: "bot-1", madeByBots: true },
+    );
+    expect(page.items.map((item) => [item.id, item.generated])).toEqual([
+      [
+        "generated-image",
+        {
+          kind: "image",
+          prompt: "a red fox",
+          provider: "provider-a",
+          providerName: "Provider A",
+          model: "model-a",
+        },
+      ],
+      ["notes", undefined],
+    ]);
+    // Only finished jobs in this Space, for the listed families.
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          spaceId: "space-1",
+          kind: "media_generation_job",
+          status: "media_completed",
+          OR: [
+            { result: { path: ["artifactId"], equals: "generated-image" } },
+            { result: { path: ["artifactId"], equals: "notes" } },
+          ],
+        }),
+      }),
+    );
+  });
+
   it("keeps an unseen family on a later page when it gains a version after page one", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-20T12:00:00.000Z"));
@@ -126,10 +197,11 @@ describe("listSpaceArtifacts", () => {
         ])
         .mockResolvedValueOnce([listRow("version-c", "family-c", "2026-09-01T00:00:00.000Z")]);
       const deps = {
-        prisma: { artifact: { findFirst: vi.fn() }, $queryRaw: queryRaw } as unknown as Pick<
-          PrismaClient,
-          "artifact" | "$queryRaw"
-        >,
+        prisma: {
+          artifact: { findFirst: vi.fn() },
+          externalEffect: noJobs(),
+          $queryRaw: queryRaw,
+        } as unknown as Pick<PrismaClient, "artifact" | "externalEffect" | "$queryRaw">,
       };
       const first = await listSpaceArtifacts(deps, actor, { limit: 2 });
       vi.setSystemTime(new Date("2026-09-21T12:00:00.000Z"));
@@ -162,10 +234,11 @@ describe("listSpaceArtifacts", () => {
     await expect(
       listSpaceArtifacts(
         {
-          prisma: { artifact: { findFirst: vi.fn() }, $queryRaw: queryRaw } as unknown as Pick<
-            PrismaClient,
-            "artifact" | "$queryRaw"
-          >,
+          prisma: {
+            artifact: { findFirst: vi.fn() },
+            externalEffect: noJobs(),
+            $queryRaw: queryRaw,
+          } as unknown as Pick<PrismaClient, "artifact" | "externalEffect" | "$queryRaw">,
         },
         actor,
         { cursor: legacy, limit: 2 },
@@ -184,10 +257,11 @@ describe("listSpaceArtifacts", () => {
     const queryRaw = vi.fn().mockResolvedValue([]);
     await listSpaceArtifacts(
       {
-        prisma: { artifact: { findFirst }, $queryRaw: queryRaw } as unknown as Pick<
-          PrismaClient,
-          "artifact" | "$queryRaw"
-        >,
+        prisma: {
+          artifact: { findFirst },
+          externalEffect: noJobs(),
+          $queryRaw: queryRaw,
+        } as unknown as Pick<PrismaClient, "artifact" | "externalEffect" | "$queryRaw">,
       },
       actor,
       { cursor: pageCursor, limit: 2 },
@@ -207,10 +281,11 @@ describe("listSpaceArtifacts", () => {
     await expect(
       listSpaceArtifacts(
         {
-          prisma: { artifact: { findFirst: vi.fn() }, $queryRaw: queryRaw } as unknown as Pick<
-            PrismaClient,
-            "artifact" | "$queryRaw"
-          >,
+          prisma: {
+            artifact: { findFirst: vi.fn() },
+            externalEffect: noJobs(),
+            $queryRaw: queryRaw,
+          } as unknown as Pick<PrismaClient, "artifact" | "externalEffect" | "$queryRaw">,
         },
         actor,
         {
@@ -238,10 +313,11 @@ describe("listSpaceArtifacts", () => {
     ).toString("base64url")}`;
     const queryRaw = vi.fn().mockResolvedValue([]);
     const deps = {
-      prisma: { artifact: { findFirst: vi.fn() }, $queryRaw: queryRaw } as unknown as Pick<
-        PrismaClient,
-        "artifact" | "$queryRaw"
-      >,
+      prisma: {
+        artifact: { findFirst: vi.fn() },
+        externalEffect: noJobs(),
+        $queryRaw: queryRaw,
+      } as unknown as Pick<PrismaClient, "artifact" | "externalEffect" | "$queryRaw">,
     };
     await listSpaceArtifacts(deps, actor, { cursor: issuedBefore });
     expect(queryRaw.mock.calls[0]?.[0].values).toContain("version-b");
@@ -260,10 +336,11 @@ describe("listSpaceArtifacts", () => {
     });
     await listSpaceArtifacts(
       {
-        prisma: { artifact: { findFirst: vi.fn() }, $queryRaw: queryRaw } as unknown as Pick<
-          PrismaClient,
-          "artifact" | "$queryRaw"
-        >,
+        prisma: {
+          artifact: { findFirst: vi.fn() },
+          externalEffect: noJobs(),
+          $queryRaw: queryRaw,
+        } as unknown as Pick<PrismaClient, "artifact" | "externalEffect" | "$queryRaw">,
       },
       actor,
       { botId: "bot-1", cursor: pageCursor, limit: 2 },

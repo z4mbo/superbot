@@ -4,8 +4,10 @@ import { toolRequiresApproval } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
 import { selectBuiltinToolsForRun } from "../runs/tools/run-tool-selection.js";
-import { FakeMediaGenerationProvider } from "./media-generation-provider.js";
+import type { MediaToolRoute } from "./media-generation-tools.js";
 import { generateMediaFromTool } from "./media-generation-tools.js";
+import { SERVER_MEDIA_ROUTE } from "./media-router.js";
+import { ScriptedMediaProvider } from "./scripted-media-provider.js";
 
 const run = { id: "run", threadId: "thread", botId: "bot", spaceId: "space", userId: "owner" };
 const context: AdapterContext = {
@@ -15,17 +17,17 @@ const context: AdapterContext = {
   signal: new AbortController().signal,
 };
 function setup() {
-  const provider = new FakeMediaGenerationProvider();
+  const provider = new ScriptedMediaProvider();
   const row = {
     id: "local-job",
     status: "media_pending",
-    result: { provider: "fake", jobId: "remote-job" },
+    result: { provider: "scripted", jobId: "scripted:remote-job" },
   };
   const externalEffect = {
     findFirst: vi.fn().mockResolvedValue(null),
     create: vi
       .fn()
-      .mockResolvedValue({ ...row, status: "media_submitting", result: { provider: "fake" } }),
+      .mockResolvedValue({ ...row, status: "media_submitting", result: { provider: "scripted" } }),
     update: vi.fn().mockResolvedValue(row),
     updateMany: vi.fn().mockResolvedValue({ count: 1 }),
   };
@@ -38,7 +40,14 @@ function setup() {
     name: "generate_image" as const,
     args: { prompt: "draw" } as Record<string, unknown>,
     executionId: "execution",
-    provider,
+    route: {
+      prepare: vi.fn(async () => ({
+        provider,
+        route: SERVER_MEDIA_ROUTE,
+        input: { prompt: "draw" },
+      })),
+      reopen: vi.fn(async () => provider),
+    } as MediaToolRoute,
     prisma: {
       externalEffect,
       artifact: { findFirst: vi.fn().mockResolvedValue(null) },
@@ -151,7 +160,10 @@ describe("bot media tools", () => {
     });
     expect(externalEffect.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { status: "media_pending", result: { provider: "fake", jobId: "fake-video" } },
+        data: {
+          status: "media_pending",
+          result: { provider: "scripted", jobId: "scripted:scripted-video" },
+        },
       }),
     );
     expect(publish).not.toHaveBeenCalled();
@@ -183,7 +195,7 @@ describe("bot media tools", () => {
     expect(
       await generateMediaFromTool({ ...options, name: "generate_video", args: { jobId: row.id } }),
     ).toMatchObject({ status: "completed", artifactId: "artifact" });
-    expect(poll).toHaveBeenCalledWith("remote-job", context);
+    expect(poll).toHaveBeenCalledWith("scripted:remote-job", context);
     expect(attach).toHaveBeenCalledWith(
       expect.objectContaining({ mimeType: "video/mp4" }),
       "generated-local-job.mp4",
@@ -192,7 +204,7 @@ describe("bot media tools", () => {
     expect(publish).toHaveBeenCalledTimes(1);
     externalEffect.findFirst.mockResolvedValue({
       ...row,
-      result: { provider: "fake", artifactId: "artifact" },
+      result: { provider: "scripted", artifactId: "artifact" },
     });
     await generateMediaFromTool({ ...options, name: "generate_video", args: { jobId: row.id } });
     expect(poll).toHaveBeenCalledTimes(1);
@@ -237,6 +249,7 @@ describe("bot media tools", () => {
         expect.objectContaining({ artifactId: artifact.id }),
         row.id,
         artifact.id,
+        "scripted",
       );
     },
   );

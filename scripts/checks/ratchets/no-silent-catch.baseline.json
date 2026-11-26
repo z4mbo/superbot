@@ -55,7 +55,6 @@
   "packages/adapters/src/mcp/mcp-package-installer.ts": 6,
   "packages/adapters/src/mcp/mcp-response-limit.ts": 1,
   "packages/adapters/src/mcp/remote-mcp.ts": 9,
-  "packages/adapters/src/media/media-generation-provider.ts": 1,
   "packages/adapters/src/media/media-video-poll.ts": 1,
   "packages/adapters/src/messaging/chat-sdk-surface.ts": 6,
   "packages/adapters/src/messaging/messaging-delivery.ts": 2,

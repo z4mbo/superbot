@@ -863,6 +863,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     });
 
   const router = createRouter({
+    mediaGeneration,
     meetings,
     meetingCalendar,
     meetingAnswers: createMeetingAnswers({

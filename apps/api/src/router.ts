@@ -2,6 +2,7 @@ import type {
   AgentHomeStore,
   ArtifactStore,
   JobPublisher,
+  MediaGenerationProvider,
   MemoryStore,
   NotificationProvider,
   PaymentWalletProvider,
@@ -19,6 +20,7 @@ import type {
   IntegrationProviderSettings,
   McpConnector,
   McpOAuthBroker,
+  MediaProviderRegistry,
   MeetingCalendarService,
   MeetingService,
   MemoryProviderResolver,
@@ -60,6 +62,7 @@ import { contentRoutes } from "./routes/content.js";
 import { createRouterContext } from "./routes/context.js";
 import { conversationContentRoutes } from "./routes/conversation-content.js";
 import { mcpRoutes } from "./routes/mcp.js";
+import { mediaRoutes } from "./routes/media.js";
 import { memoryRoutes } from "./routes/memory.js";
 import { messagingRoutes } from "./routes/messaging.js";
 import { modelsRoutes } from "./routes/models.js";
@@ -106,6 +109,10 @@ export interface RouterDeps {
   memoryProviders: MemoryProviderResolver;
   home: AgentHomeStore;
   secrets: SecretStore;
+  /** The server's own image and video provider, for people who connected none. */
+  mediaGeneration?: MediaGenerationProvider;
+  /** Media providers people can connect; tests pass their own. */
+  mediaProviders?: MediaProviderRegistry;
   oauthLogins: PiOAuthLogins<ModelCredential>;
   /** Live Codex catalog seam; defaults to the shared per-process cache. */
   codexCatalog?: CodexLiveCatalog;
@@ -197,6 +204,7 @@ export function createRouter(deps: RouterDeps) {
     ...spacesRoutes(ctx),
     ...organizationsRoutes(ctx),
     ...modelsRoutes(ctx),
+    ...mediaRoutes(ctx),
     ...botsRoutes(ctx),
     ...communityTemplatesRoutes(ctx),
     ...threadsRoutes(ctx),

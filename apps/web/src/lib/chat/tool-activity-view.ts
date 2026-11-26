@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { isRetiredImportSetup, isToolActivityBlock } from "@rakazo/core";
+import { isRetiredImportSetup, isToolActivityBlock, isUndrawnMediaCard } from "@rakazo/core";
 
 /** Number of tool calls behind a steps block: the sum of each row's count. */
 export function toolStepCount(steps: readonly { count: number }[]): number {
@@ -23,7 +23,7 @@ export function renderableMessageBlocks(
 }
 
 function isShown(block: MessageBlock, showToolActivity: boolean): boolean {
-  if (isRetiredImportSetup(block)) return false;
+  if (isRetiredImportSetup(block) || isUndrawnMediaCard(block)) return false;
   return !isToolActivityBlock(block) || shouldRenderToolCard(block, showToolActivity);
 }
 

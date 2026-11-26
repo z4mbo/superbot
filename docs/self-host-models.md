@@ -279,7 +279,15 @@ reconciler to flag. Every call appears in Usage under the `services` provider.
 
 ## Image and video generation
 
-Bot media tools are disabled by default. Configure the worker (and API for inline
+Each person can connect their own image and video providers in Settings: a ChatGPT sign-in or
+an OpenAI, xAI or Google key they already connected for models is used as is, and keys for
+OpenAI, xAI, Google, fal, Replicate, Higgsfield and BytePlus ModelArk can be added there. Keys
+are sealed like model keys and never shown again. A run offers `generate_image`, `edit_image`
+and `generate_video` only for what that person's connections can do; without a connection
+it uses the server's own provider below, if one is configured. A key is not checked when it is
+saved, so a wrong one fails on its first generation.
+
+The server's own provider is disabled by default. Configure the worker (and API for inline
 execution) with a provider and its generic HTTP connection:
 
 ```dotenv
@@ -296,7 +304,7 @@ For images only, `openai` uses the Images API (`POST /images/generations`) inste
 MEDIA_GENERATION_PROVIDER=openai
 MEDIA_GENERATION_BASE_URL=https://api.openai.com/v1
 MEDIA_GENERATION_API_KEY=replace-with-media-api-key
-MEDIA_GENERATION_IMAGE_MODEL=gpt-image-1
+MEDIA_GENERATION_IMAGE_MODEL=gpt-image-2.6-sunburst
 ```
 
 `MEDIA_GENERATION_PROVIDER` accepts `disabled` (the default), `fal`, `openai`, or `fake`

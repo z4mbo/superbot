@@ -11,7 +11,6 @@
   "packages/adapters/src/computers/computer-lifecycle.ts": 2,
   "packages/adapters/src/mcp/mcp-oauth.ts": 1,
   "packages/adapters/src/mcp/remote-mcp.ts": 1,
-  "packages/adapters/src/media/media-generation-provider.ts": 1,
   "packages/adapters/src/messaging/messaging-delivery.ts": 1,
   "packages/adapters/src/models/model-credential-refresh.ts": 1,
   "packages/adapters/src/notifications/expo-push.ts": 1,
