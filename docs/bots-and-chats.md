@@ -37,8 +37,8 @@ any part of it, and pick a category, a one-line summary and an example message b
 
 A shared template waits for a deployment admin to review it. Once approved it appears under
 **Community** in the Store's Agents section, next to Superbot's own templates, with your account
-name (never your email). Others see its full instructions before they create a bot from it, and
-its routines start paused, like any template.
+name (never your email), which the share dialog shows you first. Others see its full instructions
+before they create a bot from it, and its routines start paused, like any template.
 
 - The name claims the template: submitting the same name again sends a new version, which replaces
   the listed one only once it is approved. A name another author or Superbot already uses is taken.
@@ -46,6 +46,8 @@ its routines start paused, like any template.
   section shows where each one stands and why one was not approved; withdraw one that waits or
   unlist one that is listed there.
 - Bots people made from your template keep working after you unlist it.
+- The mobile app lists Community agents and makes bots from them. Sharing and review happen in the
+  web and desktop apps, where the whole recipe fits on screen to edit or check.
 - If you delete your account, a listed template stays without your name, and the ones waiting are
   dropped from review.
 

@@ -263,3 +263,36 @@ it.each([
   expectNothingOpened();
   expect(mocks.alert).not.toHaveBeenCalled();
 });
+
+it("shows a community template with its author and instructions, and creates its bot", async () => {
+  let finish!: (outcome: unknown) => void;
+  mocks.rpc.mockImplementation((proc: string) =>
+    proc === "bots/templates"
+      ? Promise.resolve([])
+      : proc === "communityTemplates/list"
+        ? Promise.resolve([{ ...template, author: "Ana Author" }])
+        : proc === "bots/createFromTemplate"
+          ? new Promise((resolve) => {
+              finish = resolve;
+            })
+          : Promise.reject(new Error(`Unexpected ${proc}`)),
+  );
+  await render();
+  expect(container.textContent).toContain("Shared by Ana Author");
+  // Someone else wrote it, so its instructions are open before anything is created.
+  expect(container.textContent).toContain("Ask each person.");
+
+  await act(async () => action().click());
+  expect(
+    mocks.rpc.mock.calls.find(([proc]) => proc === "bots/createFromTemplate")?.slice(0, 2),
+  ).toEqual(["bots/createFromTemplate", { templateId: "standup", version: 3, name: "Standup" }]);
+  await act(async () => finish({ bot, created: true }));
+  await settle();
+  expectOpened();
+});
+
+it("reads shared templates only for an id Superbot's catalog doesn't have", async () => {
+  hold("bots/createFromTemplate");
+  await render();
+  expect(mocks.rpc.mock.calls.some(([proc]) => proc === "communityTemplates/list")).toBe(false);
+});
