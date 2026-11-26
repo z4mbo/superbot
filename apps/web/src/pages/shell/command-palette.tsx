@@ -163,6 +163,7 @@ export function CommandPalette({
         ) : (
           chatHits.map((hit) => {
             const key = searchHitListKey(hit);
+            const chat = hit.groupName ?? hit.botName;
             return (
               <CommandItem
                 key={key}
@@ -184,9 +185,12 @@ export function CommandPalette({
                     className="mt-0.5 flex min-w-0 gap-2 text-body-sm text-muted-foreground"
                     dir="auto"
                   >
-                    <span className="max-w-[40%] shrink-0 truncate text-foreground/75">
-                      {hit.groupName ?? hit.botName}
-                    </span>
+                    {/* A message's title is already its chat's name. */}
+                    {chat && chat !== hit.title ? (
+                      <span className="max-w-[40%] shrink-0 truncate text-foreground/75">
+                        {chat}
+                      </span>
+                    ) : null}
                     <span className="truncate">{hit.snippet}</span>
                   </span>
                 </span>
