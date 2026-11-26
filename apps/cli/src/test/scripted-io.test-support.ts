@@ -14,6 +14,7 @@ export function scriptedIo(
     piped?: string;
     stdinIsTerminal?: boolean;
     stdoutIsTerminal?: boolean;
+    stderrIsTerminal?: boolean;
   } = {},
 ) {
   const lines = [...(options.lines ?? [])];
@@ -28,6 +29,7 @@ export function scriptedIo(
     },
     stdinIsTerminal: options.stdinIsTerminal ?? false,
     stdoutIsTerminal: options.stdoutIsTerminal ?? false,
+    stderrIsTerminal: options.stderrIsTerminal ?? false,
     async prompt(label) {
       stdout += label;
       return lines.length > 0 ? (lines.shift() ?? null) : null;

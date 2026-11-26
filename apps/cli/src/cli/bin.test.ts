@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import packageJson from "../../package.json" with { type: "json" };
 
 const run = promisify(execFile);
 const cliPackage = fileURLToPath(new URL("../../", import.meta.url));
@@ -31,7 +32,7 @@ describe("the built superbot command", { timeout: 120_000 }, () => {
     });
 
   it("prints its version and help, and saves the default server", async () => {
-    expect((await superbot(["--version"])).stdout).toBe("superbot-cli 0.1.0\n");
+    expect((await superbot(["--version"])).stdout).toBe(`superbot-cli ${packageJson.version}\n`);
     expect((await superbot(["--help"])).stdout).toContain(
       "Usage: superbot [OPTIONS] [AGENT] [COMMAND]",
     );

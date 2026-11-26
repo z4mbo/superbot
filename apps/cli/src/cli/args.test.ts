@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import packageJson from "../../package.json" with { type: "json" };
 import { parseArgs } from "./args.js";
 
 const run = (argv: string[], env: Record<string, string> = {}) => {
@@ -142,7 +143,10 @@ describe("parseArgs", () => {
     expect(help.kind === "print" && help.text).toContain(
       "Usage: superbot [OPTIONS] [AGENT] [COMMAND]",
     );
-    expect(parseArgs(["-V"], {})).toEqual({ kind: "print", text: "superbot-cli 0.1.0\n" });
+    expect(parseArgs(["-V"], {})).toEqual({
+      kind: "version",
+      text: `superbot-cli ${packageJson.version}\n`,
+    });
     const sendHelp = parseArgs(["help", "send"], {});
     expect(sendHelp.kind === "print" && sendHelp.text).toContain(
       "Usage: superbot send [OPTIONS] <AGENT> [MESSAGE]...",

@@ -177,6 +177,12 @@ export const ROOT: CommandSpec = {
       options: [{ long: "dry-run" }],
     },
     {
+      name: "update",
+      about: "Check for a newer release and print how to install it",
+      args: [],
+      options: [],
+    },
+    {
       name: "chat",
       about: "Open a chat with any agent, including agents named after commands",
       args: [{ name: "AGENT", required: true }],
