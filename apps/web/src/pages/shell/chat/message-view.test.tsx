@@ -524,7 +524,8 @@ it("draws a generated image in a card with what made it", () => {
   ]);
   const card = container.querySelector('[data-testid="generated-image-card"]');
   expect(card?.textContent).toContain("A lighthouse at dusk");
-  expect(card?.textContent).toContain("Provider Name · model-1");
+  expect(card?.textContent).toContain("Provider Name");
+  expect(card?.textContent).toContain("model-1");
 });
 
 it("keeps an image a person sent as a plain image", () => {

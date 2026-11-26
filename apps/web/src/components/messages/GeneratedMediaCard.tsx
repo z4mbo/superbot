@@ -12,8 +12,9 @@ export function GeneratedMediaDetails({ media }: { media: GeneratedMediaInfo }) 
       <p dir="auto" className="line-clamp-3 text-body-sm text-foreground">
         {media.prompt}
       </p>
-      <p className="mt-0.5 truncate text-body-sm text-muted-foreground">
-        {media.model ? `${media.providerName} · ${media.model}` : media.providerName}
+      <p className="mt-0.5 flex min-w-0 gap-2 text-body-sm text-muted-foreground">
+        <span className="shrink-0">{media.providerName}</span>
+        {media.model ? <span className="min-w-0 truncate">{media.model}</span> : null}
       </p>
     </div>
   );

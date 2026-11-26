@@ -52,7 +52,7 @@ async function render(node: ReactNode) {
 
 it("shows a generated item's prompt with the provider's display name and model", async () => {
   await render(<GeneratedMediaDetails media={media} />);
-  expect(host.textContent).toBe("Waves on the shoreProvider Name · video-model");
+  expect(host.textContent).toBe("Waves on the shoreProvider Namevideo-model");
 });
 
 it("leaves the model out when the provider chose its own", async () => {
@@ -74,7 +74,7 @@ it("says plainly that a video could not be made", async () => {
   const alert = host.querySelector('[role="alert"]');
   expect(alert?.textContent).toBe("Couldn't make the video");
   expect(host.textContent).not.toContain("Making the video");
-  expect(host.textContent).toContain("Provider Name · video-model");
+  expect(host.textContent).toContain("Provider Namevideo-model");
 });
 
 it("draws nothing once the video is done, since it arrives as its own message", async () => {

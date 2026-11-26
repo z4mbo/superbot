@@ -101,12 +101,18 @@ function MediaProviderRow({
   open: boolean;
   onOpen: () => void;
 }) {
-  const hints = Object.values(entry.hints).join(" · ");
+  const hints = Object.entries(entry.hints);
   const borrowed = entry.source === "model_connection" ? entry.modelConnections[0] : undefined;
   const detail = borrowed ? (
     <Trans>Via {modelProviderName(borrowed)}</Trans>
-  ) : hints ? (
-    <span dir="auto">{hints}</span>
+  ) : hints.length ? (
+    <span className="flex gap-2">
+      {hints.map(([name, value]) => (
+        <span key={name} dir="auto" className="truncate">
+          {value}
+        </span>
+      ))}
+    </span>
   ) : null;
   // A borrowed connection has nothing to paste.
   if (borrowed || !entry.fields.length) {
@@ -149,7 +155,7 @@ function MediaChooser({ catalog, kind }: { catalog: MediaCatalog; kind: MediaKin
     if (option.unavailable === "not_connected") return t`${name} (not connected)`;
     if (option.unavailable === "cannot_make")
       return kind === "video" ? t`${name} (no video)` : t`${name} (no images)`;
-    return `${name} · ${option.modelName}`;
+    return `${name}: ${option.modelName}`;
   };
   const options = mediaChoiceOptions(catalog, kind).map((option, index, all) => ({
     value: option.value,

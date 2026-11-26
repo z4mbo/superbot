@@ -59,13 +59,13 @@ test("connects an offline media provider and shows what it makes", async ({ page
   const images = media.getByTestId("media-choice-image");
   await expect(images).toHaveText("Automatic");
   await images.click();
-  await expect(page.getByRole("option", { name: "Scripted · Scripted image" })).toBeEnabled();
+  await expect(page.getByRole("option", { name: "Scripted: Scripted image" })).toBeEnabled();
   await expect(page.getByRole("option", { name: "OpenAI (not connected)" })).toHaveAttribute(
     "aria-disabled",
     "true",
   );
   await captureScreenshot(page, testInfo, "media-settings-image-choices");
-  await page.getByRole("option", { name: "Scripted · Scripted image" }).click();
+  await page.getByRole("option", { name: "Scripted: Scripted image" }).click();
   await expect
     .poll(async () => (await rpc<MediaCatalog>(page, "media/catalog", {})).preference.image)
     .toEqual({ provider: "scripted", model: "scripted-image" });
@@ -76,7 +76,8 @@ test("connects an offline media provider and shows what it makes", async ({ page
   await callTool(page, "generate_image", "A lighthouse at dusk");
   const image = page.getByTestId("generated-image-card");
   await expect(image).toContainText("A lighthouse at dusk");
-  await expect(image).toContainText("Scripted · scripted-image");
+  await expect(image).toContainText("Scripted");
+  await expect(image).toContainText("scripted-image");
   await expect(image.locator("img")).toBeVisible();
   await captureScreenshot(page, testInfo, "media-chat-generated-image");
 
