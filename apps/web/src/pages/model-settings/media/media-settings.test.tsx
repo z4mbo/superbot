@@ -135,7 +135,7 @@ async function click(element: HTMLElement) {
 it("says plainly when nothing can make images or video, and offers no chooser", async () => {
   await render(catalog([provider({})]));
   expect(host.querySelector('[data-testid="media-unavailable"]')?.textContent).toBe(
-    "Images and video are unavailable. Add a provider to make them.",
+    "Unavailable until you add a provider.",
   );
   expect(host.querySelector('[data-testid="media-choice-image"]')).toBeNull();
 });

@@ -55,7 +55,7 @@ export function MediaSettings({
         </FieldGroup>
       ) : (
         <p className="mb-3 text-body text-muted-foreground" data-testid="media-unavailable">
-          <Trans>Images and video are unavailable. Add a provider to make them.</Trans>
+          <Trans>Unavailable until you add a provider.</Trans>
         </p>
       )}
       <ul className="divide-y divide-border rounded-xl border border-border">

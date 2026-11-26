@@ -7,6 +7,7 @@ import { fileSizeParts } from "@rakazo/core";
 import {
   Button,
   CopyTextFallback,
+  cn,
   Dialog,
   DialogClose,
   DialogContent,
@@ -107,7 +108,13 @@ export function ArtifactFileCard(props: ArtifactFileCardProps) {
   return (
     <>
       <div>
-        <BuiCard className="min-w-[280px] overflow-hidden text-left text-foreground">
+        <BuiCard
+          className={cn(
+            "min-w-[280px] overflow-hidden text-left text-foreground",
+            // As wide as an image card with the same details.
+            props.details && "w-[320px] max-w-full",
+          )}
+        >
           <div className="flex">
             <button
               ref={previewButton}
