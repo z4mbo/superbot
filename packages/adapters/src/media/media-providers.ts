@@ -1,3 +1,11 @@
+import { byteplusMedia } from "../providers/media/byteplus/byteplus-media.js";
+import { falMedia } from "../providers/media/fal/fal-media.js";
+import { googleMedia } from "../providers/media/google/google-media.js";
+import { higgsfieldMedia } from "../providers/media/higgsfield/higgsfield-media.js";
+import { openaiMedia } from "../providers/media/openai/openai-media.js";
+import { openaiCodexMedia } from "../providers/media/openai-codex/openai-codex-media.js";
+import { replicateMedia } from "../providers/media/replicate/replicate-media.js";
+import { xaiMedia } from "../providers/media/xai/xai-media.js";
 import type { MediaProviderDefinition } from "./media-provider-descriptor.js";
 import { scriptedMedia } from "./scripted-media-provider.js";
 
@@ -7,6 +15,15 @@ import { scriptedMedia } from "./scripted-media-provider.js";
  * Adding a provider is one import and one line; nothing else names it.
  */
 export const mediaProviders = {
+  "openai-codex": openaiCodexMedia,
+  openai: openaiMedia,
+  xai: xaiMedia,
+  google: googleMedia,
+  fal: falMedia,
+  replicate: replicateMedia,
+  higgsfield: higgsfieldMedia,
+  byteplus: byteplusMedia,
+  // Offered only on a server set up for offline runs; see its `available`.
   scripted: scriptedMedia,
 } satisfies Record<string, MediaProviderDefinition>;
 

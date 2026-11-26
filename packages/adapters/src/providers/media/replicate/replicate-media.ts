@@ -34,7 +34,6 @@ import {
   clampDuration,
   mediaCredentialSecret,
   nearestAspectRatio,
-  nearestDuration,
   nearestResolution,
   resolveMediaModel,
 } from "../../../media/media-provider-input.js";
@@ -64,21 +63,10 @@ const MODELS: readonly MediaModelDescriptor[] = [
     aspectRatios: ["1:1", "4:3", "3:4", "4:5", "5:4", "16:9", "9:16", "3:2", "2:3", "21:9", "9:21"],
   },
   {
-    id: "google/veo-3.1-fast",
-    name: "Veo 3.1 Fast",
-    kind: "video",
-    default: true,
-    startFrame: true,
-    endFrame: true,
-    audio: true,
-    durationSeconds: { min: 4, max: 8 },
-    aspectRatios: ["16:9", "9:16"],
-    resolutions: ["720p", "1080p"],
-  },
-  {
     id: "kwaivgi/kling-v3-video",
     name: "Kling 3",
     kind: "video",
+    default: true,
     startFrame: true,
     endFrame: true,
     audio: true,
@@ -165,18 +153,6 @@ export class ReplicateMediaGenerationProvider implements MediaGenerationProvider
           max_images: 1,
           ...(images.length ? { image_input: images } : {}),
           ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
-        };
-      case "google/veo-3.1-fast":
-        return {
-          prompt: call.prompt,
-          ...(start ? { image: start } : {}),
-          ...(end ? { last_frame: end } : {}),
-          ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
-          ...(resolution ? { resolution } : {}),
-          ...(call.durationSeconds !== undefined
-            ? { duration: nearestDuration(call.durationSeconds, [4, 6, 8]) }
-            : {}),
-          ...audio,
         };
       case "kwaivgi/kling-v3-video": {
         const duration = clampDuration(call.durationSeconds, model.durationSeconds);

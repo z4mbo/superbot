@@ -103,14 +103,14 @@ export class ScriptedMediaProvider implements MediaGenerationProvider {
     return { id: `scripted:${model}${fails ? ":fail" : ""}`, status: "queued", progress: 0 };
   }
 
-  private polls = 0;
+  private checks = 0;
 
   async pollVideo(id: string, context: AdapterContext): Promise<MediaVideoJob> {
     this.authenticate(context);
     this.calls.push({ operation: "poll", jobId: id });
     if (!id.startsWith("scripted:")) throw new MediaGenerationError("invalid_input");
     if (id.endsWith(":fail")) return { id, status: "failed" };
-    if (this.polls++ < (this.options.pollsUntilDone ?? 0)) {
+    if (this.checks++ < (this.options.pollsUntilDone ?? 0)) {
       return { id, status: "running", progress: 50 };
     }
     return {
@@ -121,7 +121,19 @@ export class ScriptedMediaProvider implements MediaGenerationProvider {
   }
 }
 
-/** Offered only where the agent runtime is scripted: local fixtures and end-to-end tests. */
+/**
+ * Whether this server was set up for offline runs: the scripted agent runtime (tests and
+ * end-to-end fixtures) or the offline media provider as its own media setup. A production
+ * server sets neither, so the scripted provider is never offered there.
+ */
+export function scriptedMediaOffered(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (
+    env.AGENT_RUNTIME === "scripted" ||
+    env.MEDIA_GENERATION_PROVIDER?.trim().toLowerCase() === "fake"
+  );
+}
+
+/** Offered only on a server set up for offline runs: local fixtures and end-to-end tests. */
 export const scriptedMedia: MediaProviderDefinition = {
   catalog: {
     name: "Scripted",
@@ -130,7 +142,7 @@ export const scriptedMedia: MediaProviderDefinition = {
       { name: "apiKey", label: "API key", secret: true },
     ],
   },
-  available: () => process.env.AGENT_RUNTIME === "scripted",
+  available: () => scriptedMediaOffered(),
   models: SCRIPTED_MEDIA_MODELS,
   create: (credential) => new ScriptedMediaProvider({ credential }),
 };

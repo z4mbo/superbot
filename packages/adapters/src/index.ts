@@ -106,7 +106,6 @@ export * from "./mcp/mcp-server-tool.js";
 export * from "./mcp/mcp-transport.js";
 export * from "./mcp/remote-mcp.js";
 export * from "./media/media-generation-factory.js";
-export * from "./media/media-generation-provider.js";
 export * from "./media/media-provider-descriptor.js";
 export * from "./media/media-providers.js";
 export * from "./media/media-router.js";

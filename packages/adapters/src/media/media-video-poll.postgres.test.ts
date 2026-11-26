@@ -14,7 +14,6 @@ import type { PrismaClient } from "@rakazo/db";
 import { asSystem, clearThread, createDb, runAsSystem, runAsTenant } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createArtifactStore } from "../storage/artifact-store-factory.js";
-import { FakeMediaGenerationProvider } from "./media-generation-provider.js";
 import { generateMediaFromTool } from "./media-generation-tools.js";
 import { SERVER_MEDIA_ROUTE } from "./media-router.js";
 import {
@@ -23,12 +22,13 @@ import {
   pollMediaVideo,
   reconcileMediaVideos,
 } from "./media-video-poll.js";
+import { ScriptedMediaProvider } from "./scripted-media-provider.js";
 
 const describePostgres =
   process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;
 
 /** A provider whose remote job finishes, fails or errors when the test says so. */
-class ScriptedVideoProvider extends FakeMediaGenerationProvider {
+class ScriptedVideoProvider extends ScriptedMediaProvider {
   remote: "running" | "completed" | "failed" | "error" = "running";
   submissions = 0;
   polls = 0;
@@ -36,7 +36,7 @@ class ScriptedVideoProvider extends FakeMediaGenerationProvider {
   duringPoll?: () => Promise<void>;
   override async generateVideo(): Promise<MediaVideoJob> {
     this.submissions++;
-    return { id: `remote-${this.submissions}`, status: "queued", progress: 0 };
+    return { id: `scripted:remote-${this.submissions}`, status: "queued", progress: 0 };
   }
   override async pollVideo(id: string, context: AdapterContext): Promise<MediaVideoJob> {
     this.polls++;
@@ -325,7 +325,9 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     await runAsSystem("test fixture", () =>
       prisma.externalEffect.update({
         where: { id: jobId },
-        data: { result: { provider: h.media.id, jobId: "remote-1", artifactId: "not-posted" } },
+        data: {
+          result: { provider: h.media.id, jobId: "scripted:remote-1", artifactId: "not-posted" },
+        },
       }),
     );
     await h.age(jobId, MEDIA_POLL_DEADLINE_MS + 60_000);

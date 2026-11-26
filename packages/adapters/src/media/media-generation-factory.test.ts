@@ -1,7 +1,7 @@
 import type { AdapterContext } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
 import { createMediaGenerationProvider } from "./media-generation-factory.js";
-import { FakeMediaGenerationProvider } from "./media-generation-provider.js";
+import { ScriptedMediaProvider } from "./scripted-media-provider.js";
 
 const context: AdapterContext = {
   spaceId: "space",
@@ -69,7 +69,7 @@ describe("media generation connection", () => {
     );
   });
   it("has an offline image and async video implementation", async () => {
-    const provider = new FakeMediaGenerationProvider();
+    const provider = new ScriptedMediaProvider();
     expect((await provider.generateImage({ prompt: "draw" }, context)).mimeType).toBe("image/png");
     const job = await provider.generateVideo({ prompt: "move" }, context);
     expect(job.status).toBe("queued");

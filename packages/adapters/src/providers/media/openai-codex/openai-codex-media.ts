@@ -21,8 +21,7 @@ import {
   imageDataUrl,
   MEDIA_IMAGE_DEADLINE_MS,
   MEDIA_INLINE_RESPONSE_BYTES,
-  mediaRequestJson,
-  parseMediaResponse,
+  mediaRequestBytes,
 } from "../../../media/media-provider-http.js";
 import {
   checkMediaInput,
@@ -31,30 +30,39 @@ import {
   nearestSize,
   resolveMediaModel,
 } from "../../../media/media-provider-input.js";
+import { modelProviders } from "../../../models/model-provider-registry.js";
 
-/** The image endpoints the Codex client itself calls with a ChatGPT sign-in. */
-const API = "https://chatgpt.com/backend-api/codex/images";
-const AUTH_CLAIMS = "https://api.openai.com/auth";
-/** The Codex client sends at most five images to an edit. */
-const EDIT_IMAGES = 5;
+/** The Responses endpoint the Codex client calls with a ChatGPT sign-in. */
+const API = "https://chatgpt.com/backend-api/codex/responses";
+/** The chat model that hosts the image tool: the one a new ChatGPT connection preselects. */
+const HOST_MODEL = modelProviders["openai-codex"].recommendedModel;
+/** Images one request carries: an edited image and its references together. */
+const INPUT_IMAGES = 5;
+/**
+ * The stream repeats the finished image in its closing event, so it holds the image's base64
+ * twice, plus the events around it.
+ */
+const STREAM_BYTES = MEDIA_INLINE_RESPONSE_BYTES * 2 + 256 * 1024;
 
-// The sign-in's image endpoints take only the model the Codex client sends.
-const MODELS: readonly MediaModelDescriptor[] = [
-  {
-    id: "gpt-image-2",
-    name: "GPT Image 2",
+const gptImage = (id: string, name: string, extra: Partial<MediaModelDescriptor> = {}) =>
+  ({
+    id,
+    name,
     kind: "image",
-    default: true,
     edit: true,
-    referenceImages: EDIT_IMAGES,
+    referenceImages: INPUT_IMAGES,
     sizes: ["1024x1024", "1536x1024", "1024x1536"],
     qualities: ["low", "medium", "high"],
-  },
+    ...extra,
+  }) satisfies MediaModelDescriptor;
+
+// The image tool's models; the sign-in makes no video (the video API it would need shut down).
+const MODELS: readonly MediaModelDescriptor[] = [
+  gptImage("gpt-image-2.5-sunburst", "GPT Image 2.5 Sunburst", { default: true }),
+  gptImage("gpt-image-2.5-flare", "GPT Image 2.5 Flare"),
+  gptImage("gpt-image-2", "GPT Image 2"),
 ];
 
-const imagesResponse = z.object({
-  data: z.array(z.object({ b64_json: z.string().min(1) })).min(1),
-});
 const errorCode = z.object({ error: z.object({ code: z.string().nullish() }) });
 const REFUSALS = new Set([
   "moderation_blocked",
@@ -70,21 +78,54 @@ function isRefusal(status: number, body: unknown) {
   return status === 400 && parsed.success && REFUSALS.has(parsed.data.error.code ?? "");
 }
 
-/** The ChatGPT account the sign-in belongs to: given with it, or read from its access token. */
-export function chatgptAccountId(token: string, accountId?: string): string | undefined {
-  if (accountId?.trim()) return accountId.trim();
-  try {
-    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString());
-    const id = payload?.[AUTH_CLAIMS]?.chatgpt_account_id ?? payload?.chatgpt_account_id;
-    return typeof id === "string" && id.trim() ? id.trim() : undefined;
-  } catch {
-    return undefined;
+const streamEvent = z.object({
+  type: z.string(),
+  item: z.object({ type: z.string(), result: z.string().nullish() }).nullish(),
+  response: z.object({ error: z.object({ code: z.string().nullish() }).nullish() }).nullish(),
+  error: z.object({ code: z.string().nullish() }).nullish(),
+});
+
+/**
+ * The finished image from a Responses event stream: the `image_generation_call` item's base64
+ * result. A failed response is a refusal when its code says so, a provider failure otherwise.
+ */
+export function imageFromResponseStream(body: string): GeneratedMedia {
+  for (const line of body.split(/\r?\n/)) {
+    if (!line.startsWith("data:")) continue;
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") continue;
+    let parsed: z.infer<typeof streamEvent>;
+    try {
+      const event = streamEvent.safeParse(JSON.parse(data));
+      if (!event.success) continue;
+      parsed = event.data;
+    } catch {
+      continue;
+    }
+    if (parsed.type === "response.failed" || parsed.type === "error") {
+      const code = parsed.response?.error?.code ?? parsed.error?.code ?? "";
+      throw new MediaGenerationError(REFUSALS.has(code) ? "content_policy" : "provider_failure");
+    }
+    if (
+      parsed.type === "response.output_item.done" &&
+      parsed.item?.type === "image_generation_call" &&
+      parsed.item.result
+    ) {
+      return decodeBase64Image(parsed.item.result);
+    }
   }
+  throw new MediaGenerationError("provider_failure");
 }
 
-const image = (input: MediaInputImage) => ({ image_url: imageDataUrl(input) });
+const inputImage = (image: MediaInputImage) => ({
+  type: "input_image",
+  image_url: imageDataUrl(image),
+});
 
-/** GPT Image for people signed in with ChatGPT, through the Codex backend; images only. */
+/**
+ * GPT Image for people signed in with ChatGPT: the Codex Responses endpoint with the
+ * `image_generation` tool, answered as an event stream. Images and edits only.
+ */
 export class OpenAICodexMediaGenerationProvider implements MediaGenerationProvider {
   readonly id = "openai-codex";
   readonly capabilities = { images: true, imageEdit: true, video: false, offline: false };
@@ -101,9 +142,15 @@ export class OpenAICodexMediaGenerationProvider implements MediaGenerationProvid
     const model = resolveMediaModel(MODELS, "image", input.model);
     const prompt = checkMediaInput(model, input, "image");
     const references = input.referenceImages ?? [];
-    return references.length
-      ? this.request("edits", model, input, { prompt, images: references.map(image) }, context)
-      : this.request("generations", model, input, { prompt }, context);
+    // References steer a new image; with none, the tool is told to make one rather than edit.
+    return this.request(
+      model,
+      input,
+      prompt,
+      references,
+      references.length ? "auto" : "generate",
+      context,
+    );
   }
 
   async editImage(input: MediaImageEditInput, context: AdapterContext): Promise<GeneratedMedia> {
@@ -113,47 +160,63 @@ export class OpenAICodexMediaGenerationProvider implements MediaGenerationProvid
       input,
       "edit",
     );
-    const images = [input.image, ...(input.referenceImages ?? [])].map(image);
-    return this.request("edits", model, input, { prompt, images }, context);
+    const images = [input.image, ...(input.referenceImages ?? [])];
+    return this.request(model, input, prompt, images, "edit", context);
   }
 
   private async request(
-    endpoint: "generations" | "edits",
     model: MediaModelDescriptor,
     input: MediaGenerationInput,
-    body: Record<string, unknown>,
+    prompt: string,
+    images: readonly MediaInputImage[],
+    action: "generate" | "edit" | "auto",
     context: AdapterContext,
   ): Promise<GeneratedMedia> {
     const size = nearestSize(input, model.sizes ?? []);
     const quality = nearestQuality(input.quality, model.qualities ?? []);
-    const result = parseMediaResponse(
-      imagesResponse,
-      await mediaRequestJson(
-        `${API}/${endpoint}`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.token}`,
-            "chatgpt-account-id": this.accountId,
-            originator: "rakazo",
-            accept: "application/json",
-            "x-codex-image-turn-id": randomUUID(),
-          },
-          json: {
-            ...body,
-            model: model.id,
-            n: 1,
-            ...(size ? { size } : {}),
-            ...(quality ? { quality } : {}),
-          },
-          signal: deadlineSignal(MEDIA_IMAGE_DEADLINE_MS, context.signal),
-          maxBytes: MEDIA_INLINE_RESPONSE_BYTES,
-          isPolicyRefusal: isRefusal,
+    const session = randomUUID();
+    const bytes = await mediaRequestBytes(
+      API,
+      {
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          "chatgpt-account-id": this.accountId,
+          "OpenAI-Beta": "responses=experimental",
+          originator: "rakazo",
+          accept: "text/event-stream",
+          "session-id": session,
+          "x-client-request-id": session,
         },
-        this.http,
-        context,
-      ),
+        json: {
+          model: HOST_MODEL,
+          store: false,
+          stream: true,
+          input: [
+            {
+              type: "message",
+              role: "user",
+              content: [{ type: "input_text", text: prompt }, ...images.map(inputImage)],
+            },
+          ],
+          tools: [
+            {
+              type: "image_generation",
+              model: model.id,
+              action,
+              ...(size ? { size } : {}),
+              ...(quality ? { quality } : {}),
+            },
+          ],
+          tool_choice: { type: "image_generation" },
+        },
+        signal: deadlineSignal(MEDIA_IMAGE_DEADLINE_MS, context.signal),
+        maxBytes: STREAM_BYTES,
+        isPolicyRefusal: isRefusal,
+      },
+      this.http,
+      context,
     );
-    return decodeBase64Image(result.data[0]!.b64_json);
+    return imageFromResponseStream(new TextDecoder().decode(bytes));
   }
 
   async generateVideo(): Promise<MediaVideoJob> {
@@ -171,10 +234,8 @@ export const openaiCodexMedia: MediaProviderDefinition = {
   models: MODELS,
   create: (credential, options) => {
     const token = mediaCredentialSecret(credential, "", openaiCodexMedia.modelConnections);
-    const accountId = chatgptAccountId(
-      token,
-      credential.kind === "model_connection" ? credential.accountId : undefined,
-    );
+    // The borrowed sign-in names its account, read the same way a model run reads it.
+    const accountId = credential.kind === "model_connection" ? credential.accountId?.trim() : "";
     if (!accountId) throw new MediaGenerationError("authentication");
     return new OpenAICodexMediaGenerationProvider(token, accountId, options);
   },

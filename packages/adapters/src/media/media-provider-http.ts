@@ -6,12 +6,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { MediaGenerationError } from "@rakazo/adapter-kit";
 import { ATTACHMENT_MAX_BASE64_LENGTH, ATTACHMENT_MAX_BYTES } from "@rakazo/contracts";
-import {
-  cancelResponseBody,
-  deadlineSignal,
-  pollUntil,
-  ResponseTooLargeError,
-} from "@rakazo/core";
+import { cancelResponseBody, deadlineSignal, pollUntil, ResponseTooLargeError } from "@rakazo/core";
 import { z } from "zod";
 import type { ResolveHostname } from "../web/web-ssrf.js";
 import { fetchSafeWebBytes, readBodyCapped } from "../web/web-ssrf.js";
@@ -221,6 +216,37 @@ export async function downloadMediaOutput(
   } catch (error) {
     throw mediaFailure(error, context);
   }
+}
+
+/**
+ * Downloads a generated file from the provider's own API, which takes the credential. A redirect
+ * (to the provider's storage) is followed as an untrusted output URL, without the credential.
+ */
+export async function downloadProviderMedia(
+  url: string,
+  headers: Record<string, string>,
+  kind: "image" | "video",
+  http: MediaHttpOptions,
+  context: AdapterContext,
+): Promise<GeneratedMedia> {
+  context.signal.throwIfAborted();
+  const signal = deadlineSignal(DOWNLOAD_TIMEOUT_MS, context.signal);
+  let location: string | undefined;
+  try {
+    const response = await (http.fetch ?? fetch)(url, { headers, signal, redirect: "manual" });
+    const redirect = response.headers.get("location");
+    if (response.status >= 300 && response.status < 400 && redirect) {
+      cancelResponseBody(response);
+      location = new URL(redirect, url).href;
+    } else {
+      if (!response.ok) throw await refusal(response, {}, signal);
+      const bytes = await readBodyCapped(response, ATTACHMENT_MAX_BYTES, signal);
+      return kind === "image" ? imageFromBytes(bytes) : videoFromBytes(bytes);
+    }
+  } catch (error) {
+    throw mediaFailure(error, context);
+  }
+  return downloadMediaOutput(location, kind, http, context, signal);
 }
 
 /** An input image, checked to be what it says it is and within the attachment limit. */

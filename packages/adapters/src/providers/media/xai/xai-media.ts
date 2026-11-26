@@ -86,15 +86,6 @@ const MODELS: readonly MediaModelDescriptor[] = [
     aspectRatios: VIDEO_ASPECT_RATIOS,
     resolutions: ["480p", "720p", "1080p"],
   },
-  {
-    id: "grok-imagine-video-1.5-lite",
-    name: "Grok Imagine Video 1.5 Lite",
-    kind: "video",
-    startFrame: true,
-    durationSeconds: { min: 1, max: 15 },
-    aspectRatios: VIDEO_ASPECT_RATIOS,
-    resolutions: ["480p", "720p", "1080p"],
-  },
 ];
 
 const imagesResponse = z.object({

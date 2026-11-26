@@ -16,7 +16,7 @@ import { bestEffort } from "@rakazo/logging";
 import { z } from "zod";
 import type { MediaToolName } from "./media-generation.tool-definition.js";
 import { MediaInputError } from "./media-generation-input.js";
-import { mediaPromptSchema, validateGeneratedMedia } from "./media-generation-provider.js";
+import { mediaPromptSchema, validateGeneratedMedia } from "./media-provider-http.js";
 import type { MediaRoute } from "./media-router.js";
 import { MediaConnectionError, MediaRouteSchema, SERVER_MEDIA_ROUTE } from "./media-router.js";
 

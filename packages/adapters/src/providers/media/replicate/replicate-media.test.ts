@@ -122,15 +122,17 @@ describe("Replicate media", () => {
         context,
       ),
     ).toEqual({ id: jobId, status: "queued" });
-    expect(call(0).url).toBe("https://api.replicate.com/v1/models/google/veo-3.1-fast/predictions");
+    expect(call(0).url).toBe(
+      "https://api.replicate.com/v1/models/kwaivgi/kling-v3-video/predictions",
+    );
     expect(call(0).headers.has("prefer")).toBe(false);
     expect(call(0).json()).toEqual({
       input: {
         prompt: "move",
-        image: pngDataUrl,
-        last_frame: pngDataUrl,
-        resolution: "1080p",
-        duration: 4,
+        start_image: pngDataUrl,
+        end_image: pngDataUrl,
+        mode: "pro",
+        duration: 5,
         generate_audio: true,
       },
     });

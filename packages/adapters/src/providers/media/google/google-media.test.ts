@@ -3,6 +3,7 @@ import {
   mediaContext as context,
   inputPng,
   json,
+  MP4,
   mediaFetch,
   PNG,
   pngBase64,
@@ -87,12 +88,8 @@ describe("Gemini media", () => {
     ).rejects.toMatchObject({ code: "provider_failure" });
   });
 
-  it("refuses video, masks, Imagen and Veo", async () => {
+  it("refuses masks, Imagen and Veo", async () => {
     const { provider, fetch } = build();
-    expect(provider.capabilities.video).toBe(false);
-    await expect(provider.generateVideo({ prompt: "x" }, context)).rejects.toMatchObject({
-      code: "unsupported",
-    });
     await expect(
       provider.editImage?.({ prompt: "x", image: inputPng, mask: inputPng }, context),
     ).rejects.toMatchObject({ code: "unsupported" });
@@ -100,7 +97,98 @@ describe("Gemini media", () => {
       await expect(provider.generateImage({ prompt: "x", model }, context)).rejects.toMatchObject({
         code: "unsupported",
       });
+    await expect(
+      provider.generateVideo({ prompt: "x", model: "veo-3.1-generate-preview" }, context),
+    ).rejects.toMatchObject({ code: "unsupported" });
+    // Omni always makes sound, and interpolates only from a first frame.
+    await expect(
+      provider.generateVideo({ prompt: "x", audio: false }, context),
+    ).rejects.toMatchObject({ code: "unsupported" });
+    await expect(
+      provider.generateVideo({ prompt: "x", endFrame: inputPng }, context),
+    ).rejects.toMatchObject({ code: "unsupported" });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("makes a video through an interaction and polls its file", async () => {
+    const fileUri =
+      "https://generativelanguage.googleapis.com/v1beta/files/abc-123:download?alt=media";
+    const { provider, call } = build(
+      json({
+        id: "v1_1",
+        status: "completed",
+        steps: [
+          { type: "user_input", content: [{ type: "text", text: "move" }] },
+          {
+            type: "model_output",
+            content: [{ type: "video", mime_type: "video/mp4", uri: fileUri }],
+          },
+        ],
+      }),
+      json({ name: "files/abc-123", state: "PROCESSING" }),
+      json({ name: "files/abc-123", state: "ACTIVE" }),
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://storage.example.test/v.mp4" },
+      }),
+      new Response(MP4),
+    );
+    const job = await provider.generateVideo(
+      {
+        prompt: "move",
+        startFrame: inputPng,
+        endFrame: inputPng,
+        durationSeconds: 14,
+        aspectRatio: "9:16",
+        resolution: "4k",
+      },
+      context,
+    );
+    expect(job).toEqual({ id: JSON.stringify({ file: "abc-123" }), status: "queued" });
+    expect(call(0).url).toBe("https://generativelanguage.googleapis.com/v1beta/interactions");
+    expect(call(0).headers.get("x-goog-api-key")).toBe("fake-key");
+    expect(call(0).json()).toEqual({
+      model: "gemini-omni-1.2-flash",
+      input: [
+        { type: "image", data: pngBase64, mime_type: "image/png" },
+        { type: "image", data: pngBase64, mime_type: "image/png" },
+        { type: "text", text: "move" },
+      ],
+      // Two frames make at most ten seconds.
+      response_format: {
+        type: "video",
+        delivery: "uri",
+        aspect_ratio: "9:16",
+        resolution: "1080p",
+        duration: "10s",
+      },
+    });
+    expect(await provider.pollVideo(job.id, context)).toEqual({ id: job.id, status: "running" });
+    expect(call(1).url).toBe("https://generativelanguage.googleapis.com/v1beta/files/abc-123");
+    expect(await provider.pollVideo(job.id, context)).toEqual({
+      id: job.id,
+      status: "completed",
+      output: { mimeType: "video/mp4", bytes: MP4 },
+    });
+    expect(call(3).url).toBe(
+      "https://generativelanguage.googleapis.com/v1beta/files/abc-123:download?alt=media",
+    );
+    // The storage link it redirects to is fetched without the key.
+    expect(call(4).url).toBe("https://storage.example.test/v.mp4");
+    expect(call(4).headers.get("x-goog-api-key")).toBeNull();
+  });
+
+  it("fails a video whose file failed, and an answer with no video", async () => {
+    const id = JSON.stringify({ file: "abc-123" });
+    const failed = build(json({ state: "FAILED" }));
+    expect(await failed.provider.pollVideo(id, context)).toEqual({ id, status: "failed" });
+    const empty = build(json({ status: "completed", steps: [] }));
+    await expect(empty.provider.generateVideo({ prompt: "x" }, context)).rejects.toMatchObject({
+      code: "provider_failure",
+    });
+    await expect(failed.provider.pollVideo("not-json", context)).rejects.toMatchObject({
+      code: "invalid_input",
+    });
   });
 
   it.each([

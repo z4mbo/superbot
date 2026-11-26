@@ -1,28 +1,45 @@
 import { describe, expect, it, vi } from "vitest";
-import { byteplusMedia } from "../providers/media/byteplus/byteplus-media.js";
-import { falMedia } from "../providers/media/fal/fal-media.js";
-import { googleMedia } from "../providers/media/google/google-media.js";
-import { higgsfieldMedia } from "../providers/media/higgsfield/higgsfield-media.js";
-import { openaiMedia } from "../providers/media/openai/openai-media.js";
-import { openaiCodexMedia } from "../providers/media/openai-codex/openai-codex-media.js";
-import { replicateMedia } from "../providers/media/replicate/replicate-media.js";
-import { xaiMedia } from "../providers/media/xai/xai-media.js";
 import type {
   MediaProviderCredential,
   MediaProviderDefinition,
 } from "./media-provider-descriptor.js";
+import { mediaProviders, offeredMediaProviders } from "./media-providers.js";
+import { scriptedMediaOffered } from "./scripted-media-provider.js";
 
-/** Every media provider, by the id the registry keys it under, in the registry's order. */
-const definitions: [string, MediaProviderDefinition][] = [
-  ["openai-codex", openaiCodexMedia],
-  ["openai", openaiMedia],
-  ["xai", xaiMedia],
-  ["google", googleMedia],
-  ["fal", falMedia],
-  ["replicate", replicateMedia],
-  ["higgsfield", higgsfieldMedia],
-  ["byteplus", byteplusMedia],
-];
+/** Every real media provider, by its registry id, in the registry's order. */
+const definitions: [string, MediaProviderDefinition][] = Object.entries(mediaProviders).filter(
+  ([id]) => id !== "scripted",
+);
+
+describe("media provider registry", () => {
+  it("lists the providers in their default precedence", () => {
+    expect(definitions.map(([id]) => id)).toEqual([
+      "openai-codex",
+      "openai",
+      "xai",
+      "google",
+      "fal",
+      "replicate",
+      "higgsfield",
+      "byteplus",
+    ]);
+  });
+
+  it("offers the scripted provider only on a server set up for offline runs", () => {
+    expect(scriptedMediaOffered({})).toBe(false);
+    expect(scriptedMediaOffered({ AGENT_RUNTIME: "pi", MEDIA_GENERATION_PROVIDER: "openai" })).toBe(
+      false,
+    );
+    expect(scriptedMediaOffered({ AGENT_RUNTIME: "scripted" })).toBe(true);
+    expect(scriptedMediaOffered({ MEDIA_GENERATION_PROVIDER: "fake" })).toBe(true);
+    // Tests run with the scripted runtime, so it is offered here, after every real provider.
+    expect(
+      offeredMediaProviders()
+        .map(([id]) => id)
+        .at(-1),
+    ).toBe("scripted");
+  });
+});
 
 /** Every credential a definition says it can use, with placeholder values. */
 function credentials(definition: MediaProviderDefinition): MediaProviderCredential[] {

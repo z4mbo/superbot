@@ -53,7 +53,7 @@ const gptImage = (id: string, name: string, extra: Partial<MediaModelDescriptor>
     ...extra,
   }) satisfies MediaModelDescriptor;
 
-// gpt-image-1 shut down on 2026-10-23. gpt-image-2 is deprecated and shuts down 2027-02-10.
+// gpt-image-1 shut down on 2026-10-23 and is not offered.
 const MODELS: readonly MediaModelDescriptor[] = [
   gptImage("gpt-image-2.6-sunburst", "GPT Image 2.6 Sunburst", { default: true }),
   gptImage("gpt-image-2.6-flare", "GPT Image 2.6 Flare"),
