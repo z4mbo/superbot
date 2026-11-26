@@ -32,6 +32,7 @@ import type { MemoryProviderResolver } from "../../memory/memory-provider-factor
 import type { MessagingDelivery } from "../../messaging/messaging-delivery.js";
 import type { CodexLiveCatalog } from "../../runtime/pi/models/pi-codex-catalog.js";
 import type { TicketChangeNotifier } from "../../tasks/ticket-changes.js";
+import type { ResearchCallOptions } from "../../web/research/research-provider.js";
 
 export interface ExecutorDeps {
   /** The present moment the agent is told; evals move it to a follow-up's due time. */
@@ -84,6 +85,8 @@ export interface ExecutorDeps {
   ) => Promise<{ slugs: string[]; refs?: string[]; refsFailed?: boolean }>;
   /** Builtin web_search / web_fetch. Defaults to keyless HTTP when omitted. */
   web?: WebProvider;
+  /** Test seams for the research tools a person turns on with their own key. */
+  research?: Omit<ResearchCallOptions, "signal">;
   mediaGeneration?: MediaGenerationProvider;
   /** Media providers a person can connect; tests pass their own, production the registry. */
   mediaProviders?: MediaProviderRegistry;

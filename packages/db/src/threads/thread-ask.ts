@@ -9,6 +9,7 @@ import {
   BOT_INSTRUCTIONS_MAX_LENGTH,
   BOT_SECRET_VALUE_MAX_LENGTH,
   encodeLoginSecret,
+  KEYED_PAGE_READ_TOOL_NAMES,
   loginAnswerValue,
   MessageBlock as MessageBlockSchema,
   normalizeOneTimeCode,
@@ -455,7 +456,7 @@ async function commitAnswerRunInput(
     // reach, and on a batch allows each action in it, never every action the batch tool can run.
     const site = alwaysAllowedSite(approvalEffect!);
     const tools = storedBatchActions(approvalEffect!.batchActions) ?? [approvalEffect!.kind];
-    if (input.answer === "always" && (site || approvalEffect!.kind !== "web_fetch")) {
+    if (input.answer === "always" && (site || !SITE_READING_TOOLS.has(approvalEffect!.kind))) {
       // Saved where the member's confirmations apply in this Space: the account or its override.
       for (const tool of site ? [site] : tools) {
         await saveApprovalRule(
@@ -906,6 +907,12 @@ export async function pauseRunForInput(
   await publishSpaceChange(realtime, input.spaceId, "runs");
   return { continuationRunId: committed.continuationRunId };
 }
+
+/** Page readers whose "Always" without a readable site allows nothing, never the whole tool. */
+const SITE_READING_TOOLS: ReadonlySet<string> = new Set([
+  "web_fetch",
+  ...KEYED_PAGE_READ_TOOL_NAMES,
+]);
 
 function alwaysAllowedSite(effect: {
   kind: string;

@@ -1,4 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
+import { KEYED_PAGE_READ_TOOL_NAMES, KEYED_SEARCH_TOOL_NAMES } from "@rakazo/contracts";
 import { isToolActivityBlock } from "../runs/tool-activity.js";
 
 /** A fenced block becomes a mention of itself, with its language if known. */
@@ -299,6 +300,14 @@ export function narrateTool(toolName: string): string | null {
     [/^(grep|search|glob|find)$/, "searching"],
     [/^(web_?search|websearch)$/, "searching the web"],
     [/^(web_?fetch|fetch)$/, "reading a page"],
+    ...KEYED_SEARCH_TOOL_NAMES.map((tool): [RegExp, string] => [
+      exactName(tool),
+      "searching the web",
+    ]),
+    ...KEYED_PAGE_READ_TOOL_NAMES.map((tool): [RegExp, string] => [
+      exactName(tool),
+      "reading a page",
+    ]),
     [/^(screenshot|computer_observe)$/, "looking at the screen"],
     [/^(browser_navigate|browser_snapshot|browser_act)$/, "using the page"],
     [/^(click|type_text|press_key|scroll|computer_batch|computer_act)$/, "using the computer"],
@@ -380,4 +389,9 @@ export function spokenDecision(transcript: string): "yes" | "no" | null {
   if (YES.test(text)) return NO_ANYWHERE.test(text) ? null : "yes";
   if (NO.test(text)) return "no";
   return null;
+}
+
+/** Matches exactly one tool name; the names are plain identifiers. */
+function exactName(name: string): RegExp {
+  return new RegExp(`^${name}$`);
 }

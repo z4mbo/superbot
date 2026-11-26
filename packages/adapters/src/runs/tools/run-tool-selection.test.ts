@@ -237,3 +237,64 @@ describe("task thread selection", () => {
     }
   });
 });
+
+describe("keyed research tool selection", () => {
+  const names = (researchTools?: ReadonlySet<string>, disabledBuiltinTools?: string[]) =>
+    selectBuiltinToolsForRun({
+      graphicalToolsAllowed: false,
+      groupId: null,
+      trigger: "user",
+      semanticMemoryEnabled: false,
+      messagingChannelRun: false,
+      researchTools,
+      disabledBuiltinTools,
+    }).map((tool) => tool.name);
+
+  it("offers web_search and web_fetch, but no keyed tool, without a saved key", () => {
+    const offered = names();
+    expect(offered).toEqual(expect.arrayContaining(["web_search", "web_fetch"]));
+    expect(offered).not.toContain("exa_search");
+    expect(offered).not.toContain("firecrawl_scrape");
+  });
+
+  it("offers only the tool whose provider has a saved key", () => {
+    expect(names(new Set(["exa_search"]))).toContain("exa_search");
+    expect(names(new Set(["exa_search"]))).not.toContain("firecrawl_scrape");
+    const both = names(new Set(["exa_search", "firecrawl_scrape"]));
+    expect(both).toEqual(
+      expect.arrayContaining(["web_search", "web_fetch", "exa_search", "firecrawl_scrape"]),
+    );
+  });
+
+  it("never offers a keyed tool to a chat app's messages, which spend its owner's key", () => {
+    const offered = selectBuiltinToolsForRun({
+      graphicalToolsAllowed: false,
+      groupId: null,
+      trigger: "messaging",
+      semanticMemoryEnabled: false,
+      messagingChannelRun: true,
+      researchTools: new Set(["exa_search", "firecrawl_scrape"]),
+    }).map((tool) => tool.name);
+    expect(offered).toContain("web_search");
+    expect(offered).not.toContain("exa_search");
+    expect(offered).not.toContain("firecrawl_scrape");
+  });
+
+  it("keeps a keyed tool the bot turned off off", () => {
+    expect(names(new Set(["exa_search"]), ["exa_search"])).not.toContain("exa_search");
+  });
+
+  it("explains a keyed tool without a key, and a turned-off one as turned off", () => {
+    const reasons = unavailableBuiltinToolReasons(
+      { groupId: null, trigger: "user", disabledBuiltinTools: ["firecrawl_scrape"] },
+      none,
+    );
+    expect(reasons.exa_search).toContain("web_search and web_fetch");
+    expect(reasons.firecrawl_scrape).toBe("firecrawl_scrape is turned off for this bot.");
+    const withKey = unavailableBuiltinToolReasons(
+      { groupId: null, trigger: "user", researchTools: new Set(["exa_search"]) },
+      [{ name: "exa_search" }],
+    );
+    expect(withKey.exa_search).toBeUndefined();
+  });
+});

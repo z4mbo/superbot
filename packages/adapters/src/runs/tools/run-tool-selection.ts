@@ -3,6 +3,7 @@ import {
   disabledBuiltinToolSet,
   FLEET_TOOL_NAMES,
   FLEET_WRITE_TOOL_NAMES,
+  KEYED_RESEARCH_TOOL_NAMES,
 } from "@rakazo/contracts";
 import {
   BACKGROUND_HELPER_TRIGGER,
@@ -23,6 +24,7 @@ import {
   SCHEDULE_TOOL_NAMES,
 } from "../../tools/schedule-tools.js";
 import { SKILL_TOOL_NAMES } from "../../tools/skill-tools.js";
+import { researchKeyMissingReason } from "../../web/research/research.prompt.js";
 import {
   backgroundRunToolUnavailableReason,
   createdRunToolUnavailableReason,
@@ -59,6 +61,7 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
   "skill_read",
   "web_search",
   "web_fetch",
+  ...KEYED_RESEARCH_TOOL_NAMES,
   "service_search",
   "browser_snapshot",
   "list_secrets",
@@ -69,6 +72,8 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
 /** The bot's own inbox, offered only in its owner's runs outside groups and channels. */
 const EMAIL_INBOX_TOOL_NAMES = new Set(["read_email", "delete_email"]);
 const PAID_SERVICE_TOOL_NAMES = new Set(["service_search", "service_call"]);
+/** Offered only to a user who saved a key for the tool's provider. */
+const KEYED_RESEARCH_TOOL_NAMES_SET: ReadonlySet<string> = new Set(KEYED_RESEARCH_TOOL_NAMES);
 
 /** Offered only to a user who connected a wallet. */
 const PURCHASE_TOOL_NAMES = new Set(["request_purchase", "purchase_status", "paid_request"]);
@@ -174,6 +179,8 @@ export function selectBuiltinToolsForRun(options: {
   mediaChoices?: Partial<Record<string, string>>;
   /** The deployment configured paid data services. */
   paidServicesEnabled?: boolean;
+  /** Research tools whose provider the run's user saved a key for. */
+  researchTools?: ReadonlySet<string>;
   messagingChannelRun: boolean;
   /** Hanging up is only offered to a turn the caller spoke on a live call. */
   voiceCall?: boolean;
@@ -261,6 +268,9 @@ export function selectBuiltinToolsForRun(options: {
         (options.mediaImageEditEnabled || tool.name !== "edit_image") &&
         (options.mediaVideoEnabled || tool.name !== "generate_video") &&
         (options.paidServicesEnabled || !PAID_SERVICE_TOOL_NAMES.has(tool.name)) &&
+        // The key spends its owner's account, so people messaging from a chat app never use it.
+        (!KEYED_RESEARCH_TOOL_NAMES_SET.has(tool.name) ||
+          (Boolean(options.researchTools?.has(tool.name)) && !options.messagingChannelRun)) &&
         // Alone in its Space a bot has nobody to message. A bot it creates gets its first task
         // from spawn_bot, and its reply starts a run that offers message_bot.
         (options.hasTeammates !== false || tool.name !== "message_bot") &&
@@ -324,6 +334,8 @@ export function unavailableBuiltinToolReasons(
     groupId: string | null;
     trigger: string;
     disabledBuiltinTools?: readonly string[];
+    /** Research tools whose provider the run's user saved a key for. */
+    researchTools?: ReadonlySet<string>;
   },
   offered: readonly { name: string }[],
 ): Record<string, string> {
@@ -340,6 +352,8 @@ export function unavailableBuiltinToolReasons(
       reasons[name] = groupMessageBotUnavailableReason(offeredNames.has("handoff_to_bot"));
     } else if (isBackgroundRunTrigger(options.trigger) && BACKGROUND_DROPPED_TOOL_NAMES.has(name)) {
       reasons[name] = backgroundRunToolUnavailableReason(name);
+    } else if (KEYED_RESEARCH_TOOL_NAMES_SET.has(name) && !options.researchTools?.has(name)) {
+      reasons[name] = researchKeyMissingReason(name);
     }
   }
   return reasons;

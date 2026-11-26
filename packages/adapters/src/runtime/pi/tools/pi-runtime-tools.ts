@@ -11,7 +11,11 @@ import type {
   ModelCallObserver,
 } from "@rakazo/adapter-kit";
 import { DEFAULT_CONTEXT_STRATEGY } from "@rakazo/adapter-kit";
-import { FLEET_TOOL_NAMES } from "@rakazo/contracts";
+import {
+  FLEET_TOOL_NAMES,
+  KEYED_PAGE_READ_TOOL_NAMES,
+  KEYED_SEARCH_TOOL_NAMES,
+} from "@rakazo/contracts";
 import { batchActions, humanizeToolName, redactSecrets } from "@rakazo/core";
 import { MAX_APPROVAL_DETAIL_LENGTH } from "../../../approvals/approval-ask.js";
 import {
@@ -230,6 +234,9 @@ function batchStepActions(tool: ConnectorTool | undefined, args: unknown): strin
   return actions.map(humanizeToolName);
 }
 
+const KEYED_SEARCH_TOOLS: ReadonlySet<string> = new Set(KEYED_SEARCH_TOOL_NAMES);
+const KEYED_PAGE_READ_TOOLS: ReadonlySet<string> = new Set(KEYED_PAGE_READ_TOOL_NAMES);
+
 /** One human-readable line describing a tool call, shown live in the thread. */
 export function describeToolActivity(
   toolName: string,
@@ -301,8 +308,10 @@ export function describeToolActivity(
   if (toolName === "remember") return "Saving a note to memory";
   if (toolName === "save_shared_memory") return `Saving shared memory: ${detail(record.path)}`;
   if (toolName === "delete_shared_memory") return `Deleting shared memory: ${detail(record.path)}`;
-  if (toolName === "web_search") return `Searching the web: ${detail(record.query)}`;
-  if (toolName === "web_fetch") return `Reading page: ${detail(redactActivityUrl(record.url))}`;
+  if (toolName === "web_search" || KEYED_SEARCH_TOOLS.has(toolName))
+    return `Searching the web: ${detail(record.query)}`;
+  if (toolName === "web_fetch" || KEYED_PAGE_READ_TOOLS.has(toolName))
+    return `Reading page: ${detail(redactActivityUrl(record.url))}`;
   if (toolName === "service_search") return `Finding a service: ${detail(record.query)}`;
   if (toolName === "service_call") return `Using service: ${detail(record.service)}`;
   if (toolName === "skill_read")

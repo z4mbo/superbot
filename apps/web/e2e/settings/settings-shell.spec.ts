@@ -148,6 +148,25 @@ test("settings shell is two-pane and deep-links Models Memory Voice Usage", asyn
   await expect
     .poll(() => page.evaluate(() => window.localStorage.getItem("rakazo.responseStreaming")))
     .toBe("on");
+  // A research key is saved and removed without contacting its provider.
+  const research = settings.getByTestId("research-key-settings");
+  await research.scrollIntoViewIfNeeded();
+  await expect(research.getByRole("heading", { name: "Web research" })).toBeVisible();
+  await expect(research.getByRole("button", { name: "Add Firecrawl API key" })).toBeVisible();
+  await captureScreenshot(page, testInfo, "settings-general-web-research");
+  await research.getByRole("button", { name: "Add Exa API key" }).click();
+  const searchKey = research.getByLabel("Exa API key", { exact: true });
+  await expect(searchKey).toHaveAttribute("type", "password");
+  await searchKey.fill("fake-e2e-research-key");
+  await captureScreenshot(page, testInfo, "settings-general-web-research-add");
+  await research.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(research.getByRole("button", { name: "Replace Exa API key" })).toBeVisible();
+  await expect(research).toContainText("Saved");
+  await expect(research).not.toContainText("fake-e2e-research-key");
+  await captureScreenshot(page, testInfo, "settings-general-web-research-saved");
+  await research.getByRole("button", { name: "Replace Exa API key" }).click();
+  await research.getByRole("button", { name: "Remove Exa API key" }).click();
+  await expect(research.getByRole("button", { name: "Add Exa API key" })).toBeVisible();
   const deleteAccount = settings.getByTestId("delete-account");
   await deleteAccount.scrollIntoViewIfNeeded();
   await expect(deleteAccount).toBeVisible();

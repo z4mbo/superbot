@@ -27,6 +27,12 @@ servers. Anonymous access is rate limited per IP address; set `KEENABLE_API_KEY`
 worker to send a key and lift those limits. Errors, per-bot disabled tools and the way back to
 the default work as described for Parallel.
 
+People can also save their own Exa or Firecrawl key under **Settings → General → Web research**.
+That adds the `exa_search` or `firecrawl_scrape` tool to their own runs beside the tools above; it
+needs no server configuration and does not change `WEB_PROVIDER`. Those requests go from the API
+and worker to `api.exa.ai` and `api.firecrawl.dev`, so allow both hosts on a network that limits
+outbound traffic. See [Connect apps](./integrations.md#web-research-with-your-own-key).
+
 ## Self-hosted memory
 
 Supermemory, Honcho and Hindsight can run on your own network. In **Settings → Memory**, open **Advanced**, choose **Self-hosted**

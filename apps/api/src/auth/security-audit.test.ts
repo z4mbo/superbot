@@ -1,4 +1,4 @@
-import { BotSecretPutInput } from "@rakazo/contracts";
+import { BotSecretPutInput, ResearchKeySaveSchema } from "@rakazo/contracts";
 import type * as Db from "@rakazo/db";
 import { recordSecurityEvent } from "@rakazo/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,6 +26,28 @@ describe("procedureSecurityEvent", () => {
       spaceId: "space-1",
       metadata: { procedure: "models.connect", kind: "model", provider: "openrouter" },
     });
+  });
+
+  it("records a saved or removed research key by provider, never the key", () => {
+    const saved = procedureSecurityEvent(
+      ["researchKeys", "save"],
+      ResearchKeySaveSchema.parse({ provider: "search-provider", key: "fake-research-key" }),
+      actor,
+    );
+    expect(saved).toEqual({
+      type: "credential.changed",
+      userId: "user-1",
+      spaceId: "space-1",
+      metadata: {
+        procedure: "researchKeys.save",
+        kind: "research_key",
+        provider: "search-provider",
+      },
+    });
+    expect(JSON.stringify(saved)).not.toContain("fake-research-key");
+    expect(
+      procedureSecurityEvent(["researchKeys", "remove"], { provider: "search-provider" }, actor),
+    ).toMatchObject({ type: "credential.deleted", metadata: { kind: "research_key" } });
   });
 
   it("records an MCP server added by connecting it, with the bot it is for", () => {

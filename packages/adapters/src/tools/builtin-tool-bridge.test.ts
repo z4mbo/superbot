@@ -83,6 +83,22 @@ describe("built-in tool bridge", () => {
     );
   });
 
+  it("lists keyed research tools in full once a saved key offers them", () => {
+    const withKeys = selectBuiltinToolsForRun({
+      graphicalToolsAllowed: false,
+      groupId: null,
+      trigger: "user",
+      semanticMemoryEnabled: false,
+      messagingChannelRun: false,
+      researchTools: new Set(["exa_search", "firecrawl_scrape"]),
+    });
+    const { listed } = partitionTools(withKeys);
+    expect(listed.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(["exa_search", "firecrawl_scrape"]),
+    );
+    expect(describeToolActivity("exa_search", { query: "rust" })).toBe("Searching the web: rust");
+  });
+
   it("names only real built-ins as core", () => {
     for (const name of CORE_BUILTIN_TOOL_NAMES) expect(BUILTIN_AGENT_TOOL_NAMES).toContain(name);
   });

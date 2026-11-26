@@ -31,6 +31,7 @@ import {
 } from "../../components/computers/ComputersUnavailableHint";
 import { DesktopUpdateSection } from "../../components/DesktopUpdates";
 import { AccountDataSettings } from "../../components/settings/AccountDataSettings";
+import { ResearchKeySettings } from "../../components/settings/ResearchKeySettings";
 import {
   SETTINGS_SELECT_CLASS,
   SettingsGroup,
@@ -560,6 +561,8 @@ export function GeneralSettingsPanels({
           }
         />
       </SettingsGroup>
+
+      <ResearchKeySettings />
 
       <TrustedLinkSitesSettings />
 

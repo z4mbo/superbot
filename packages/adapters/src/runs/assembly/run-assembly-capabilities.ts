@@ -58,6 +58,7 @@ import {
 import { backgroundHelpersAllowed } from "../../tasks/background-helpers.js";
 import { TASK_CATALOG_GUIDANCE } from "../../tasks/task-catalog.prompt.js";
 import { agentConnectionTools, builtinAgentTools } from "../../tools/builtin.tool-definition.js";
+import { savedResearchTools } from "../../web/research/research-keys.js";
 import type { RunExecutorServices, RunHold } from "../lifecycle/run-attempt.js";
 import {
   APPROVED_EFFECT_REPLAY_ORDER,
@@ -694,6 +695,7 @@ export async function selectRunTools(
     select: { id: true },
     take: 1,
   });
+  const researchTools = await savedResearchTools(deps.prisma, run.userId);
   const builtins = [
     ...selectBuiltinToolsForRun({
       ticketBoardEnabled,
@@ -720,6 +722,7 @@ export async function selectRunTools(
       semanticMemoryReflects: Boolean(semanticMemory?.reflect),
       ...(await runMediaToolOptions(deps, run, mediaGeneration)),
       paidServicesEnabled: Boolean(paidServices),
+      researchTools,
       cloudAgentEnabled: Boolean(cloudAgent),
       cloudAgentCleanupEnabled,
       paymentWalletEnabled,
@@ -825,6 +828,7 @@ export async function selectRunTools(
       groupId: conversationThread.groupId,
       trigger: run.trigger,
       disabledBuiltinTools: bot.disabledBuiltinTools,
+      researchTools,
     },
     tools,
   );

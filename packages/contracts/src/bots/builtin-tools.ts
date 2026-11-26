@@ -19,6 +19,15 @@ export const FLEET_WRITE_TOOL_NAMES = FLEET_TOOL_NAMES.filter(
 export const FEEDBACK_KINDS = ["bug", "feedback"] as const;
 export const FEEDBACK_DESCRIPTION_MAX_LENGTH = 2_000;
 
+/** Web search offered only to a person who saved a key for its provider in Settings. */
+export const KEYED_SEARCH_TOOL_NAMES = ["exa_search"] as const;
+/** Page reading offered only to a person who saved a key for its provider in Settings. */
+export const KEYED_PAGE_READ_TOOL_NAMES = ["firecrawl_scrape"] as const;
+export const KEYED_RESEARCH_TOOL_NAMES = [
+  ...KEYED_SEARCH_TOOL_NAMES,
+  ...KEYED_PAGE_READ_TOOL_NAMES,
+] as const;
+
 /** Built-in tool names a bot may disable. Kept aligned with the adapter tool list. */
 export const BUILTIN_TOOL_NAMES = [
   "computer_observe",
@@ -66,6 +75,7 @@ export const BUILTIN_TOOL_NAMES = [
   "delete_shared_memory",
   "web_search",
   "web_fetch",
+  ...KEYED_RESEARCH_TOOL_NAMES,
   "service_search",
   "service_call",
   "cloud_agent_launch",

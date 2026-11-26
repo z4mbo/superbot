@@ -114,6 +114,9 @@ const VENDORS = [
   "alibaba",
   "darabonba",
   "keenable",
+  // Short enough to start ordinary identifiers (EXAMPLE_...), so only the whole word counts.
+  "exa(?![A-Za-z])",
+  "firecrawl",
   "boatdev",
   "insforge",
 ];
