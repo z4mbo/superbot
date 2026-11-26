@@ -152,21 +152,35 @@ export function scheduleCreateBranch(
   };
 }
 
+/** A field's type and limits without its words, for a schema that refers to them elsewhere. */
+function undescribed({ description: _description, ...spec }: { description?: string }) {
+  return spec;
+}
+
+/** The timing a check-in offer takes: no branch takes delaySeconds, so it is not listed. */
+const CHECK_IN_TIMING_FIELDS = ["cron", "every", "unit", "runAt", "delayMinutes"] as const;
+
 /**
  * One way to time a check-in offer: schedule_create's one-time and repeating timing, without
- * watches or events. The offer names what to check instead of a routine name.
+ * watches or events. The offer names what to check instead of a routine name. Its description
+ * points at schedule_create, which is always offered beside it, so the timing fields carry no
+ * words of their own: four branches would repeat them.
  */
 export function checkInOfferBranch(
-  active: readonly ("cron" | "every" | "unit" | "runAt" | "delayMinutes")[],
+  active: readonly (typeof CHECK_IN_TIMING_FIELDS)[number][],
   properties: Record<string, unknown>,
 ) {
   const activeNames = new Set<string>(active);
-  const timing: Record<string, unknown> = { timezone: scheduleCreateProperties.timezone };
-  for (const name of SCHEDULE_TIMING_FIELDS) {
-    timing[name] = activeNames.has(name) ? scheduleTimingSpecs[name] : blankScheduleTiming;
+  const timing: Record<string, unknown> = {
+    timezone: undescribed(scheduleCreateProperties.timezone),
+  };
+  for (const name of CHECK_IN_TIMING_FIELDS) {
+    timing[name] = activeNames.has(name)
+      ? undescribed(scheduleTimingSpecs[name])
+      : blankScheduleTiming;
   }
   const repeats = activeNames.has("cron") || activeNames.has("every");
-  timing.startAt = repeats ? startAtSpec : blankScheduleTiming;
+  timing.startAt = repeats ? undescribed(startAtSpec) : blankScheduleTiming;
   return {
     type: "object",
     properties: { ...properties, ...timing },

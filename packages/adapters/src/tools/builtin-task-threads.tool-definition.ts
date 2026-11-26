@@ -1,25 +1,12 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { checkInOfferBranch } from "./builtin-work.tool-definition.js";
 
-const taskThreadId = {
-  type: "string",
-  description: "The task's threadId, as delegate or link_to_thread gave it.",
-};
+const taskThreadId = { type: "string", description: "From delegate or link_to_thread." };
 
+/** Described once, in offer_check_in's description, since each timing branch repeats them. */
 const checkInProperties = {
-  subject: {
-    type: "string",
-    minLength: 1,
-    maxLength: 80,
-    description:
-      'What to check, in a few words the person reads on the offer and in Routines, e.g. "Launch brief in Notion".',
-  },
-  prompt: {
-    type: "string",
-    minLength: 1,
-    description:
-      "What each check-in looks for and how it reports, in full, written so it makes sense without this chat.",
-  },
+  subject: { type: "string", minLength: 1, maxLength: 80 },
+  prompt: { type: "string", minLength: 1 },
 };
 
 /** Exactly one timing method, as schedule_create takes it. */
@@ -40,19 +27,15 @@ export const taskThreadTools: ConnectorTool[] = [
   {
     name: "delegate",
     description:
-      "Hand work the person asked for into a task thread of your own, a conversation they can open, and keep answering here. Returns at once with its threadId and link; its result comes back to this conversation. Write the brief so it stands on its own: every figure, name, link and constraint the work needs. Do not also do the work yourself.",
+      "Hand work the person asked for into a task thread, a conversation they can open, and keep answering here. Returns at once with its threadId and link; its result comes back here. The brief must stand on its own, with every figure, name, link and constraint. Do not also do the work yourself.",
     inputSchema: {
       type: "object",
       properties: {
-        brief: {
-          type: "string",
-          minLength: 1,
-          description: "The whole task, as the work needs it.",
-        },
+        brief: { type: "string", minLength: 1 },
         title: {
           type: "string",
           maxLength: 80,
-          description: "Optional short title for the thread, e.g. Venue shortlist.",
+          description: "Optional, e.g. Venue shortlist.",
         },
       },
       required: ["brief"],
@@ -62,15 +45,12 @@ export const taskThreadTools: ConnectorTool[] = [
   {
     name: "follow_up",
     description:
-      "Read where a task this conversation started with delegate stands (its status and latest report), or, with message, change or add to its work once its last run has finished; that result comes back here. A new piece of work is a new delegate, not a follow-up.",
+      "Read a delegated task's status and latest report or, with message, change or add to its work once its last run finished; that result comes back here. New work is a new delegate.",
     inputSchema: {
       type: "object",
       properties: {
         threadId: taskThreadId,
-        message: {
-          type: "string",
-          description: "What the task should do now. Leave it out to only read where it stands.",
-        },
+        message: { type: "string", description: "What it should do now; omit to only read." },
       },
       required: ["threadId"],
       additionalProperties: false,
@@ -79,7 +59,7 @@ export const taskThreadTools: ConnectorTool[] = [
   {
     name: "stop_task",
     description:
-      "Stop the work in one task thread this conversation started with delegate. Stop only the task the person means; if none of this conversation's tasks matches, stop nothing and say so.",
+      "Stop one task thread this conversation delegated, only the one the person means; if none matches, stop nothing and say so.",
     inputSchema: {
       type: "object",
       properties: { threadId: taskThreadId },
@@ -90,19 +70,17 @@ export const taskThreadTools: ConnectorTool[] = [
   {
     name: "link_to_thread",
     description:
-      "List the task threads this conversation started, newest first, with their threadId, title, status (running, finished, stopped or failed) and link. query narrows them by title or brief. Give the person a link as a Markdown link, exactly as it comes back.",
+      "List this conversation's task threads, newest first, with threadId, title, status and link; query filters by title or brief. Give a link as a Markdown link, exactly as returned.",
     inputSchema: {
       type: "object",
-      properties: {
-        query: { type: "string", description: "Optional words from the task's title or brief." },
-      },
+      properties: { query: { type: "string" } },
       additionalProperties: false,
     },
   },
   {
     name: "offer_check_in",
     description:
-      "Offer the person a check-in on something you just discussed: a card they can accept or turn down. It creates nothing unless they accept, which sets up the routine. Offer it at most once per subject; when they turn it down, do not offer it again. Timing as in schedule_create: cron or every/unit to repeat, runAt or delayMinutes for once.",
+      'Offer the person a check-in on something you just discussed, as a card they accept or turn down; nothing is created unless they accept. subject: what to check in a few words, e.g. "Launch brief in Notion". prompt: what each check-in looks for and reports, in full, so it makes sense without this chat. Offer it once per subject, never again once turned down. Timing as in schedule_create: cron or every/unit to repeat, runAt or delayMinutes for once.',
     inputSchema: offerCheckInInputSchema,
   },
 ];
