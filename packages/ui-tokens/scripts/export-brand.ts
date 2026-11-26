@@ -76,8 +76,7 @@ const opaque = await sharp(mark).flatten({ background: "black" }).png().toBuffer
 await copyFile(logo, path("apps/web/public/superbot-mark.svg"));
 await webIcons("web", mark, opaque);
 await png(mark, "apps/desktop/assets/icon.png", 1024);
-await ico(mark, "native/desktop/assets/superbot.ico", [16, 20, 24, 32, 40, 48, 64, 128, 256]);
-await copyFile(path("native/desktop/assets/superbot.ico"), path("apps/desktop/assets/icon.ico"));
+await ico(mark, "apps/desktop/assets/icon.ico", [16, 20, 24, 32, 40, 48, 64, 128, 256]);
 
 async function padded(input: Buffer, size: number) {
   const margin = (1024 - size) / 2;
@@ -87,8 +86,7 @@ async function padded(input: Buffer, size: number) {
     .png()
     .toBuffer();
 }
-await writeFile(path("native/desktop/macos/icon.png"), await padded(mark, 824));
-await copyFile(path("native/desktop/macos/icon.png"), path("apps/desktop/assets/icon-macos.png"));
+await writeFile(path("apps/desktop/assets/icon-macos.png"), await padded(mark, 824));
 await mkdir(path("packages/ui-tokens/assets/Superbot.icon/Assets"), { recursive: true });
 await writeFile(path("packages/ui-tokens/assets/Superbot.icon/Assets/face.png"), opaque);
 await writeFile(path("apps/mobile/assets/icon.png"), opaque);

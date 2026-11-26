@@ -1,4 +1,4 @@
-# Superbot desktop design (GPUI)
+# Superbot desktop design
 
 Owner: design. Status: v1, 2026-11-19; presence and motion (§3.2, §3.5, §3.6, §6) 2026-11-20. Implementing agents follow this file; if a rule
 blocks the right thing, change the rule here first and say why in the same change.
@@ -6,20 +6,18 @@ blocks the right thing, change the rule here first and say why in the same chang
 The visual source of truth is the OpenMausBot fork `z4mbo/bot`, branch `simple-only`,
 revision `49b44777d`: its `DESIGN.md`, the Midnight/Daylight tokens in `src/styles.css`,
 the Simple-mode components in `src/components/`, and its app icon `public/app-icon.svg`.
-Superbot is a native port of that look to GPUI, not a new look. OpenMausBot is Apache-2.0
+Superbot carries that look over, not a new look. OpenMausBot is Apache-2.0
 (Copyright 2026 Milind Soni and OpenMausBot contributors); `NOTICE.txt` in this folder
 carries the notices for everything adapted from it and from Lucide.
 
-The desktop crate is `native/desktop` on `gpui-kit 0.10.0`. GPUI API names in this file
-(`uniform_list`, `with_animation`, `TitlebarOptions`, `actions!`, `KeyBinding`) are the
-upstream GPUI names; check each against what `gpui-kit 0.10.0` re-exports before use.
+The desktop is the Electron app in `apps/desktop` on Windows, macOS and Linux. It shows the
+web UI, so these rules apply to the web components it renders.
 
 ---
 
 ## 0. What is live and what is not
 
-Two columns matter: whether the **server and CLIs** do it today, and whether the
-**desktop app** has the screen. Nothing marked **Planned** may appear in the shipped app
+The table says whether the **server and CLIs** do it today. Nothing marked **Planned** may appear in the shipped app
 as a teaser, a disabled button or "coming soon" copy; it is designed now so the layout
 leaves room for it.
 
@@ -29,33 +27,32 @@ leaves room for it.
 | **To build** | The backing operation exists and the desktop control is pending.                           |
 | **Planned**  | No server contract. Design only.                                                           |
 
-| Surface                                                   | Server / CLI                                    | Desktop                                                                                                    | Backed by                                                                                 |
-| --------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Sign in (password or email code), saved session           | Live (`superbot login`)                         | Password, signup, email-code entry and saved-session screens implemented. Windows saved sessions verified. | `superbot-client`: `sign_in`, email OTP, `CredentialStore`                                |
-| Space switcher                                            | Live                                            | Live                                                                                                       | `spaces/list`                                                                             |
-| Bot list, history, send, live replies                     | Live (`superbot <agentname>`)                   | Live. The Windows build reads the same conversation and reply as the CLI.                                  | `bots/list`, `threads/{messages,send,subscribe}`                                          |
-| Group conversations (several bots), stop, mark read       | Live                                            | Chat, stop and read controls implemented. Group conversation verified on Windows.                          | `groups/*`, `threads/{send,stop,markRead}`                                                |
-| Space members and invites (multiplayer)                   | Live, cross-account verified                    | People lists members, creates invites and accepts links. Two-account roster verified on Windows.           | `spaces/members/{list,add,remove,leave}`, `spaces/invites/{create,preview,accept,cancel}` |
-| Marketplace: discover, install, per-bot grants, uninstall | Live, full lifecycle verified locally           | Live. Review, discovery, installation and independent grants verified on Windows.                          | `pluginRegistry.*`                                                                        |
-| Remote tools from plugins, approved per call              | Live                                            | Generic action cards supported. The specialized presentation in §9.2 is a design target.                   | marketplace runtime and `threads/answer`                                                  |
-| Installed record apps | Live. People and granted bots can read records. Adding a record from a hosted bot requires approval. | Calorie diary verified in the Windows Store with entries, day totals and removal. | `pluginRegistry/{appRecords,addAppRecord,removeAppRecord}` |
-| Plugin authoring and submission                           | Live (`superbot-plugin`)                        | Live (§10), store form, plugin.json open and save, review status                                           | `pluginRegistry.submit/mine`; `docs/superbot/plugin-toolkit.md`                           |
-| Review queue (deployment admins)                          | Live (`superbot-plugin review`)                 | Live. A verified deployment reviewer approved a different publisher's version in the native queue.         | `pluginRegistry.submissions/review`, admins via `SUPERBOT_ADMIN_EMAILS`                     |
-| Presence ("who is here") and typing                       | Planned                                         | Planned                                                                                                    | no contract                                                                               |
-| Bot colour, avatar, preview line in the sidebar           | The navigation response includes bot summaries. | Live. The sidebar shows a face, identity colour, preview line and unread state.                            | `spaces/list`                                                                             |
-| Routines, approval rules, run activity                    | Live (native service)                           | Available in the workspace management panel with Bots, Groups, People and Files.                           | `routines/*`, `approvalRules/*`, `runs/list`                                              |
-| Board: tickets by status, edit, move, comments            | Live (Labs feature per account)                 | Live in the workspace panel's Board section, following `boards/subscribe`. Verified on Windows (§4.2).     | `boards/{get,subscribe}`, `tickets/{list,create,update,move,comment,comments}`            |
-| Agent computer | Live on hosts with computer provisioning | The Computer tab starts, stops and shows the computer. Watch and Take control use the server's signed screen. The Windows panel was tested against a fixture. | `computer/*` |
-| Voice and calls | Available in the web client on configured hosts | The web workspace handles media. See §4.1 for platform support. | retained app/API |
+| Surface                                                   | Server / CLI                                    | Backed by                                                                                 |
+| --------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Sign in (password or email code), saved session           | Live (`superbot login`)                         | `sign_in`, email OTP, the system credential store                                |
+| Space switcher                                            | Live                                            | `spaces/list`                                                                             |
+| Bot list, history, send, live replies                     | Live (`superbot <agentname>`)                   | `bots/list`, `threads/{messages,send,subscribe}`                                          |
+| Group conversations (several bots), stop, mark read       | Live                                            | `groups/*`, `threads/{send,stop,markRead}`                                                |
+| Space members and invites (multiplayer)                   | Live, cross-account verified                    | `spaces/members/{list,add,remove,leave}`, `spaces/invites/{create,preview,accept,cancel}` |
+| Marketplace: discover, install, per-bot grants, uninstall | Live, full lifecycle verified locally           | `pluginRegistry.*`                                                                        |
+| Remote tools from plugins, approved per call              | Live                                            | marketplace runtime and `threads/answer`                                                  |
+| Installed record apps | Live. People and granted bots can read records. Adding a record from a hosted bot requires approval. | `pluginRegistry/{appRecords,addAppRecord,removeAppRecord}` |
+| Plugin authoring and submission                           | Live (`superbot-plugin`)                        | `pluginRegistry.submit/mine`; `docs/superbot/plugin-toolkit.md`                           |
+| Review queue (deployment admins)                          | Live (`superbot-plugin review`)                 | `pluginRegistry.submissions/review`, admins via `SUPERBOT_ADMIN_EMAILS`                     |
+| Presence ("who is here") and typing                       | Planned                                         | no contract                                                                               |
+| Bot colour, avatar, preview line in the sidebar           | The navigation response includes bot summaries. | `spaces/list`                                                                             |
+| Routines, approval rules, run activity                    | Live (server)                                   | `routines/*`, `approvalRules/*`, `runs/list`                                              |
+| Board: tickets by status, edit, move, comments            | Live (Labs feature per account)                 | `boards/{get,subscribe}`, `tickets/{list,create,update,move,comment,comments}`            |
+| Agent computer | Live on hosts with computer provisioning | `computer/*` |
+| Voice and calls | Available in the web client on configured hosts | retained app/API |
 
 Asks from design to the client/runtime owners (UI code must not invent these):
 
-1. `Agent { color, avatar_url, last_message_preview, last_activity_at, unread }` in
-   `superbot-client`, or a documented `superbot-features` call that returns them.
+1. `Agent { color, avatar_url, last_message_preview, last_activity_at, unread }` in the
+   client API, or a documented call that returns them.
 2. A typed `ThreadEvent.kind` catalogue (message created/completed, run started/finished/
    failed, approval requested/answered, member joined/left).
-3. The registry client that `superbot-plugin` uses, moved into `superbot-features` so the
-   desktop store and the CLI share one implementation.
+3. One registry client that the store and `superbot-plugin` share.
 4. Presence and typing events, if multiplayer presence is wanted.
 
 ## 1. Provenance rules (security and licensing)
@@ -98,9 +95,8 @@ Asks from design to the client/runtime owners (UI code must not invent these):
 
 ## 3. Tokens
 
-Implement one `Theme` struct (a GPUI `Global`) with these fields; components read
-`cx.global::<Theme>()` and never hard-code a colour. Values are sRGB hex with alpha last
-(`0xRRGGBBAA`, pass to `gpui::rgba`).
+Keep one theme with these fields; components read it and never hard-code a colour. Values are
+sRGB hex with alpha last (`0xRRGGBBAA`).
 
 ### 3.1 Colour
 
@@ -145,7 +141,7 @@ Allow once button on its approval cards. The person's own bubbles stay neutral
 (`bubble_user`), as in OpenMausBot's default Simple mode.
 
 **Built-in bot face**: a lit sphere in the identity colour with the app icon's two vertical
-eyes. It fills its slot; there is no plate. Code: `native/avatars/src/face.rs`. Fractions of the
+eyes. It fills its slot; there is no plate. Fractions of the
 diameter `d`, origin at the slot's top start:
 
 - Body: circle, `linear_gradient(150°, mix(C, white, 0.16), mix(C, black, 0.22))`, light at the
@@ -178,7 +174,7 @@ The application icon has a horizontally centred white circle that fills the bott
 eyes sit at the same height on either side of the centre. Platform launchers, the web
 app and the site share the artwork in `assets/logo.svg`.
 
-**Local avatar pack** (`native/avatars/README.md`): when the appearance folder holds
+**Local avatar pack**: when the appearance folder holds
 `avatars/pack.json`, every bot avatar is the pack's mark instead of the face, matched by
 bot name, then by server colour, then by id. The mark is drawn in a square 1.55 × the slot
 (56 for the 42 row slot), centred and allowed past the slot, so slot sizes and layout do
@@ -237,10 +233,7 @@ Windows and `~/Library/Application Support/Superbot/appearance` on macOS):
 OpenType, relative to that folder; the first family name this computer's text system knows
 wins, and a role whose file or family does not load falls back to Geist. DirectWrite names
 the faces of a variable font with an optical-size axis after its cut (`Name Text`,
-`Name Display`), CoreText by its typographic family, so a pack lists both. GPUI draws
-variable fonts through their named instances and never applies optical sizing, while
-browsers set `opsz` to the font size; a pack pins its instances to one `opsz` (14 for the
-13–15px body sizes, within 0.2px of the browser over a 22-character line). The pack and its
+`Name Display`), CoreText by its typographic family, so a pack lists both. The pack and its
 setup script live only in that folder, never in this repository or a build.
 
 | Use                                      | Size / line height              | Weight           | Ink                                 |
@@ -288,7 +281,7 @@ Counters, timers and versions use tabular figures (`font_features: tnum`).
 
 ### 3.5 Motion
 
-Two curves, one `bezier(x1, y1, x2, y2)` function in `native/desktop/src/ui/motion.rs`:
+Two curves, each a `bezier(x1, y1, x2, y2)`:
 **standard** `(0.4, 0, 0.2, 1)` for colour and opacity that go and come back, **emphasis**
 `(0.22, 1, 0.36, 1)` for things that enter or move. `Tint` (reversible, "faster reversing")
 lives there too.
@@ -301,7 +294,7 @@ lives there too.
 | `hover`        | 120       | standard | buttons, pill halves, composer ring, tabs, file cards, switch track, empty → ready Send    |
 | `fade`         | 120       | standard | tooltips in (2px), conversation switch (transcript 60% → 100%), working row, model label  |
 | `grow`         | 100       | emphasis | composer height                                                                            |
-| `pop`          | 160       | emphasis | menus and popovers in: fade + 4px from the trigger's side (GPUI does not scale a `div`)  |
+| `pop`          | 160       | emphasis | menus and popovers in: fade + 4px from the trigger's side                                  |
 | `slide`        | 160       | emphasis | tab indicator, switch knob, chevron turning 180° while its menu is open                  |
 | `msg`          | 180       | emphasis | a live message at the bottom: 6px rise + fade (4px for the person's own)                  |
 | `panel`        | 200 / 180 | emphasis | side panel width in / out; the chat column narrows with it, the panel's content does not reflow |
@@ -316,7 +309,7 @@ bot's face and the working row's shimmer. Never animated: streaming text, a row 
 selected, list reordering, unread dots, focus rings, the caret, scrolling (left to the
 platform; "Jump to latest" jumps), window resizing, skin changes, errors, closing.
 If the OS asks for reduced motion, every duration becomes 0 and no loop runs; tooltip delays
-stay. Use GPUI `with_animation(id, Animation::new(duration).with_easing(...), ...)`.
+stay.
 
 ### 3.6 States and focus
 
@@ -359,9 +352,7 @@ focused row shows its `⋯`.
 
 - Default window 1280×820, centred in the display's visible area and never larger than it;
   minimum 760×520. Remembering size and position per display is To build.
-- **Title bar**: transparent on every platform (`TitlebarOptions { appears_transparent: true,
-  traffic_light_position: Some(point(px(18.), px(19.))) }`, `app_owns_titlebar_drag: true`).
-  On macOS the traffic lights centre 26px from the top, like the Windows caption glyphs, and
+- **Title bar**: transparent on every platform, and the app owns the drag region. On macOS the traffic lights centre 26px from the top, like the Windows caption glyphs, and
   84px at the sidebar's start stay clear for them (also at the chat header's start while the
   sidebar is hidden); in full screen nothing is reserved. When the skin is chosen rather than
   following the system, the window appearance follows the skin so the lights and window edge
@@ -381,25 +372,6 @@ focused row shows its `⋯`.
 - **Pages** (Marketplace, Plugin creator, Review queue): fill the chat area, content max
   1240 wide, 32px side padding, 56px top padding, with a back chevron before the title.
   Opening a bot or conversation closes the page.
-
-### 4.1 Workspace window (Windows)
-
-The server's own web client, for the surfaces this app does not draw (meetings, boards, the
-bot's computer, voice). **Open web workspace** in the account menu, and a transcript card
-this app does not draw, open it on the conversation on screen. **Open in browser** sits
-beside it in the menu.
-
-- A separate window, 1240×840 by default, minimum 640×480, transparent title bar with our
-  caption buttons. A 52px toolbar in `app` fill above a 0.5px `hairline`: the page title
-  (`name`), then **Reload** and **Open in browser** (16px glyph and label, `ink_secondary`,
-  hover `ink` 6%). The rest is the web page in WebView2. It is never presented as GPUI.
-- On another site during a sign-in, the toolbar shows a globe and that host in `meta`, and a
-  quiet **Back to workspace** pill.
-- Without the WebView2 Runtime, the page area shows one line saying so and a primary
-  **Open in browser** pill. On macOS and Linux the menu item opens the browser.
-- One WebView2 profile per desktop account per server. Signing out of desktop closes that
-  account's workspace windows.
-- Profile, cookie and link rules: `docs/superbot/desktop.md`, _Open the web workspace_.
 
 ### 4.2 Board (workspace panel)
 
@@ -477,14 +449,13 @@ Cmd/Ctrl+Shift+N starts another conversation with it.
 - **Bot rows**: 54px tall, radius 8, 8px inline padding, 10px gap. Avatar 42 with a −3px
   margin, so it takes 36px and names start 66px from the sidebar's edge. Name 14/20/500
   `ink`, 3px above the last-message preview 13/18/400 `ink_secondary`, one line each, the
-  pair centred (GPUI rounds that half pixel down; the text column starts 1px lower to land on
-  the browser's pixel rows). Selected row `raised`; hover `raised` at 50%, in at once and out
+  pair centred. Selected row `raised`; hover `raised` at 50%, in at once and out
   in `quick`; pressed and focus in §3.6. A 24px `ellipsis`
   button appears at the row's end on hover, keyboard focus
   and touch: Rename…, New conversation, Open details, Remove. Right-click opens the same
   menu. Status marks sit on the avatar's bottom-end corner: working (8px `success` dot, still;
   the face carries the motion), needs you (8px `warning` dot).
-- Render the list with `uniform_list` (fixed 54px rows); 2,000 bots must scroll at 120fps.
+- Render the list virtualized with fixed 54px rows; 2,000 bots must scroll at 120fps.
 - **Footer** (60px: 8px top, 16px bottom and sides): profile button (36px avatar + the
   person's name 14/20/500, 8px apart) at the start; at the end two 36px elevated controls 8px
   apart: **Plugins** (`apps` 16px), opening the Marketplace page, and **Workspace**
@@ -536,8 +507,8 @@ clear of the caption buttons; macOS has none.
   `ink_tertiary` line, never as a bubble.
 - Scrolling: stick to the bottom while the person is at the bottom; otherwise show a 32px
   round "Jump to latest" button (`arrow-down`) 12px above the composer.
-- Use GPUI `list` (variable heights) with `ListState`; never re-layout the whole
-  transcript on a streaming event.
+- Use a virtualized list with variable heights; never re-layout the whole transcript on a
+  streaming event.
 
 ### 7.3 Working row
 
@@ -552,7 +523,7 @@ under reduced motion). It replaces no content and reserves its slot so nothing j
 - Floating pill, column width, 44px tall on one line, `composer` fill, 1px ring of `ink`
   at 10%, radius 22 (18 once it wraps to two lines), padding 7px top / 9px sides and bottom
   inside the ring, shadows `0 2 8 −1 rgba(0,0,0,0.05)`, `0 1 2 rgba(0,0,0,0.03)` and
-  `0 0 0 1 rgba(228,228,228,0.04)` (GPUI's `blur_radius` is the CSS blur halved). Ring goes
+  `0 0 0 1 rgba(228,228,228,0.04)`. Ring goes
   to `ink` 22% when the pointer is over the composer or the text field has focus.
 - Contents: `+` (28px round, `ink` 4% fill and ring, a 20px plus of stroke 2 in
   `ink_tertiary`; opens Attach file… [`artifacts/create` is Live; screen To build]);
@@ -582,7 +553,7 @@ already shown: key rows by `id`, order by `seq`.
 
 ### 7.6 Question cards (Live)
 
-A run that waits on the person puts a card in the transcript (`native/desktop/src/cards`).
+A run that waits on the person puts a card in the transcript.
 Start-aligned, `composer` fill, radius 18, 440px wide. Answered with `threads/answer`.
 
 - Typed question: the text, any detail, a field "Your answer" and **Send** (Enter sends).
@@ -730,9 +701,8 @@ answered with `threads/answer`.
 
 ## 10. Plugin creator page
 
-The desktop store opens a native form for skills, connectors and apps. It submits a version
-and displays the result in Yours. The CLI operates on a local `plugin.json` with the
-same schema, and the form opens and saves that file ("File round trip", Live). The
+The store opens a form for skills, connectors and apps. It submits a version and displays the
+result in Yours. The CLI operates on a local `plugin.json` with the same schema. The
 preview column, footer bar and slug availability check below are planned.
 The registry checks MCP endpoint safety during approval.
 
@@ -775,10 +745,10 @@ Inline validation, each message under its field, in `danger` 12px:
 12/18, `inset` fill, radius 12, with Copy. It updates as the form changes. Under it an
 "Open plugin.json…" text button that fills the form from a file (validated the same way).
 
-**File round trip** (Live). The header carries two quiet pills before Submit for review:
-"Open file…" and "Save file…", both through the system file dialogs. Validation is the
-shared `superbot_features::plugin_manifest` module that `superbot-plugin` also uses, so
-limits, trimming and endpoint rules match the registry, and saved bytes match the CLI.
+**File round trip** (To build). The header carries two quiet pills before Submit for review:
+"Open file…" and "Save file…", both through the system file dialogs. Validation follows the
+same manifest rules as `superbot-plugin`, so limits, trimming and endpoint rules match the
+registry, and saved bytes match the CLI.
 
 - Open reads the whole file before touching the form. Another schema version, a part
   kind other than skill, mcp or app, a field type other than text, number or date,
@@ -890,8 +860,7 @@ Escape, type-ahead.
 | Close page, panel or menu | Esc       | Esc            |
 | Settings                  | ⌘,        | Ctrl+,         |
 
-Define them with GPUI `actions!` and `KeyBinding::new` in a single keymap module so the
-palette can list them.
+Define them in a single keymap module so the palette can list them.
 
 ## 14. Settings (dialog)
 
@@ -901,18 +870,15 @@ licences: the OpenMausBot Apache-2.0 notice for the icon and tokens, Lucide ISC,
 Geist OFL 1.1, bundled with the app as in `NOTICE.txt`). Rows 44px, value-first ("Theme · System").
 No new toggles.
 
-## 15. Accessibility (GPUI)
+## 15. Accessibility
 
-- Focus: every interactive element has a `FocusHandle`, a visible 2px `focus` ring after
+- Focus: every interactive element is focusable, has a visible 2px `focus` ring after
   keyboard input (outside with a 2px gap, or inside in lists and containers, §3.6; menu rows
   show focus as their hover fill; text fields as their ring and caret), and is reachable with
   Tab in reading order. Never trap Tab except in dialogs; Escape returns focus to the opener.
 - Hover-only controls (row `⋯`, bubble actions, Copy) also show on keyboard focus.
 - Contrast: text 4.5:1, focus ring and control edges 3:1 on every surface, both skins.
 - Right-to-left: mirror the shell (sidebar on the end side) and directional icons.
-- **Open risk**: GPUI's screen-reader support is limited; verify what the pinned GPUI
-  version exposes to the OS accessibility tree before claiming screen-reader support,
-  and track the gap.
 
 ## 16. Acceptance checklist per screen
 

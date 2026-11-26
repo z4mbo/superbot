@@ -65,8 +65,7 @@ sign in.
 The settings directory is `SUPERBOT_CONFIG_DIR` when it is set. Otherwise it is
 `$XDG_CONFIG_HOME/superbot` (or `~/.config/superbot`) on Linux,
 `~/Library/Application Support/Superbot` on macOS, and `%LOCALAPPDATA%\Superbot` on Windows. It
-also holds the saved server (`server.txt`) and the local model settings, shared with the desktop
-app.
+also holds the saved server (`server.txt`) and the local model settings.
 
 ## Chat
 

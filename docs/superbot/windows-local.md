@@ -14,8 +14,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File infra/superbot/windows-l
 ```
 
 `-ExecutionPolicy Bypass` applies to this PowerShell invocation. Open
-`http://127.0.0.1:5173` in the browser or enter the same URL in the native
-client. Create your local account on the sign-up screen.
+`http://127.0.0.1:5173` in the browser or enter the same URL as an **Existing
+instance** in the desktop app. Create your local account on the sign-up screen.
 
 The web, API and database listen on `127.0.0.1` on ports `5173`, `3173`,
 and `55439`. If a port is busy on first start, choose a free port with

@@ -2,9 +2,7 @@
 
 Use Superbot to collect coding requests and start the ones you approve in T3 Code.
 The [marketplace manifest](manifest.json) provides a Requests app, a Dispatches app,
-and a skill for drafting requests. To review and start requests without a
-terminal, use the [Superbot desktop app](../../../docs/superbot/t3-code-inbox-desktop.md).
-The command-line companion below is the terminal alternative. It starts a
+and a skill for drafting requests. The command-line companion below starts a
 Supervised thread using T3's official external MCP tool `t3_thread_launch`.
 The receipt includes the thread link, thread ID, run ID, and status at dispatch.
 Open the link in T3 to follow the run and handle approvals.

@@ -1,57 +1,45 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { copyFile, mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
+import { randomBytes, randomUUID } from "node:crypto";
+import { access, mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
 import { startModelEmulator } from "../../scripts/superbot-test-support.mjs";
 import { readFixtureEvents } from "./fixture-events.mjs";
-
+import { prepareIssueWatcher } from "./issue-watcher.test-support.mjs";
 import { checkBotConversations, conversationSteps } from "./verify-bot-conversations.mjs";
 import { checkConversationContent } from "./verify-conversation-content.mjs";
-import { prepareIssueWatcher } from "./issue-watcher.test-support.mjs";
-import { checkLocalAppRecords } from "./verify-local-app-records.mjs";
 import { prepareMarketplaceApp } from "./verify-marketplace-app.mjs";
 import { checkSearch } from "./verify-search.mjs";
-import { prepareT3Inbox } from "./verify-t3-inbox-desktop.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const exec = promisify(execFile);
 const {
-  positionals: [postgresBin, executable, desktopExecutable],
-  values: {
-    "notifications-probe": notificationProbe,
-    marketplace,
-    "marketplace-app": marketplaceApp,
-    roster,
-    "local-cli": localCli,
-    "issue-watcher": issueWatcher,
-    "local-app-records": localAppRecords,
-    "t3-inbox": t3Inbox,
-  },
+  positionals: [postgresBin],
+  values: { marketplace, "marketplace-app": marketplaceApp, roster, "issue-watcher": issueWatcher },
 } = parseArgs({
   allowPositionals: true,
   options: {
-    "notifications-probe": { type: "string" },
     marketplace: { type: "boolean" },
     "marketplace-app": { type: "boolean" },
     roster: { type: "boolean" },
-    "local-cli": { type: "boolean" },
     "issue-watcher": { type: "boolean" },
-    "local-app-records": { type: "boolean" },
-    "t3-inbox": { type: "boolean" },
   },
 });
 assert(
-  process.platform === "win32" && postgresBin && executable && (!t3Inbox || desktopExecutable),
-  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR SUPERBOT_EXE [SUPERBOT_DESKTOP_EXE] [--notifications-probe EXE] [--marketplace] [--marketplace-app] [--issue-watcher] [--roster] [--local-cli] [--local-app-records] [--t3-inbox, with SUPERBOT_DESKTOP_EXE]",
+  process.platform === "win32" && postgresBin,
+  "Usage: node --import tsx infra/superbot/verify-chat.mjs POSTGRES_BIN_DIR [--marketplace] [--marketplace-app] [--issue-watcher] [--roster]",
 );
-const cli = resolve(executable);
+// The `superbot` command from this checkout, built with `pnpm --filter superbot-cli build`.
+const cli = join(root, "apps/cli/bin/superbot.js");
+await access(join(root, "apps/cli/dist/superbot.js")).catch(() => {
+  throw new Error("Build the superbot command first with pnpm --filter superbot-cli build");
+});
+const superbot = (args) => [cli, ...args];
 const pg = (file) => resolve(postgresBin, `${file}.exe`);
 const prompt = "What is the fixture response?";
 const reply = "The fixture response is blue.";
@@ -74,9 +62,7 @@ async function loopbackPort() {
 const [apiPort, dbPort] = await Promise.all([loopbackPort(), loopbackPort()]);
 const origin = `http://127.0.0.1:${apiPort}`;
 const reviewerEmail =
-  desktopExecutable || marketplace || marketplaceApp || localAppRecords
-    ? `reviewer-${randomUUID()}@example.test`
-    : undefined;
+  marketplace || marketplaceApp ? `reviewer-${randomUUID()}@example.test` : undefined;
 const credentialTarget = `${origin}/.com.superbot.rakazo.session`;
 const directory = await mkdtemp(join(tmpdir(), "superbot-chat-"));
 const db = join(directory, "pg");
@@ -146,31 +132,6 @@ async function controlPostgres(args, label) {
 
 const children = [];
 let logs;
-
-function observeNotifications({ token, space }) {
-  const child = spawn(resolve(notificationProbe), [origin, space], {
-    cwd: root,
-    env,
-    windowsHide: true,
-    timeout: 90_000,
-    stdio: ["pipe", "pipe", "inherit"],
-  });
-  const done = new Promise((resolve) => {
-    child.once("error", () => resolve(null)).once("close", resolve);
-  });
-  children.push({ child, done });
-  child.stdin.end(`${token}\n`);
-  const lines = createInterface({ input: child.stdout })[Symbol.asyncIterator]();
-  return {
-    async expect(marker) {
-      const line = await lines.next();
-      assert.equal(line.value, marker, "Expected Rust observer notification checkpoint");
-    },
-    async complete() {
-      assert.equal(await done, 0, "Rust notification verifier exited successfully");
-    },
-  };
-}
 
 async function server(entry) {
   const child = spawn(process.execPath, ["--import", "tsx", entry], {
@@ -264,7 +225,7 @@ async function checkCliChat({
   if (threadId) args.push("chat", agent.name, "--conversation", threadId);
   else if (newConversation) args.push("chat", agent.name, "--new-conversation");
   else if (!picker) args.push(agent.name);
-  const child = spawn(cli, args, {
+  const child = spawn(process.execPath, superbot(args), {
     cwd: root,
     env: childEnv,
     windowsHide: true,
@@ -284,179 +245,6 @@ async function checkCliChat({
   );
   assert.equal(errors.join(""), "");
   return chunks.join("");
-}
-
-async function checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedObserver, source }) {
-  const agent = await rpc("bots/duplicate", { botId: source.id }, scopedOwner);
-  const config = join(directory, "local-cli");
-  const bin = join(directory, "fake-bin");
-  const scope = createHash("sha256");
-  for (const value of [new URL(origin).href, owner.id, scopedOwner.space]) {
-    const size = Buffer.alloc(8);
-    size.writeBigUInt64BE(BigInt(Buffer.byteLength(value)));
-    scope.update(size).update(value);
-  }
-  const modelDir = join(config, "local-models", scope.digest("hex"));
-  const botHash = createHash("sha256").update(agent.id).digest("hex");
-  const profile = join(modelDir, "claude");
-  await mkdir(profile, { recursive: true });
-  await mkdir(bin);
-  await command(
-    "rustc.exe",
-    ["native/features/tests/fixtures/local_cli.rs", "-o", join(bin, "claude.exe")],
-    "Build synthetic local CLI",
-  );
-  await writeFile(join(profile, "fake-signed-in"), "");
-  const modelFile = join(modelDir, `bot-${botHash}.json`);
-  await writeFile(
-    modelFile,
-    JSON.stringify({
-      provider: "claude",
-      id: "fixture-chat",
-      label: "Local fixture model",
-    }),
-  );
-  const { PATH: path, Path: mixedPath, ...childEnv } = env;
-  Object.assign(childEnv, {
-    PATH: `${bin};${path ?? mixedPath ?? ""}`,
-    SUPERBOT_CONFIG_DIR: config,
-  });
-  const { stdout } = await command(
-    cli,
-    ["--server", origin, "--space", spaceName, "list"],
-    "List fixture agents",
-    childEnv,
-  );
-  const picker =
-    stdout
-      .split(/\r?\n/)
-      .filter((line) => line.startsWith("  "))
-      .findIndex((line) => line.trim() === agent.name) + 1;
-  assert(picker > 0);
-  const run = (prompt, reply, choice) =>
-    checkCliChat({ spaceName, agent, prompt, reply, picker: choice, childEnv });
-  await run("First local fixture prompt", "First local fixture reply");
-  await run("Follow up locally", "Second local fixture reply", picker);
-
-  const target = { botId: agent.id };
-  const read = () => rpc("threads/get", target, scopedObserver);
-  const first = await read();
-  assert.deepEqual(
-    first.messages.map(({ role, origin, author, blocks }) => [
-      role,
-      origin,
-      author.id,
-      blocks[0].text,
-    ]),
-    [
-      ["user", "First local fixture prompt"],
-      ["bot", "First local fixture reply"],
-      ["user", "Follow up locally"],
-      ["bot", "Second local fixture reply"],
-    ].map(([role, text]) => [role, "local_cli", owner.id, text]),
-  );
-
-  const pending = { id: randomUUID(), text: "Retry fixture prompt", reply: "Retry fixture reply" };
-  const pendingFile = join(modelDir, `pending-${botHash}.json`);
-  await writeFile(pendingFile, JSON.stringify(pending));
-  const committed = await rpc(
-    "threads/appendLocalHistory",
-    {
-      ...target,
-      operationId: pending.id,
-      text: pending.text,
-      reply: pending.reply,
-    },
-    scopedOwner,
-  );
-  await run("/retry", pending.reply);
-  await assert.rejects(readFile(pendingFile), { code: "ENOENT" });
-  assert.deepEqual(
-    (await read()).messages.map(({ id }) => id),
-    [...first.messages.map(({ id }) => id), ...committed.messageIds],
-  );
-  const createLocalConversation = async () => {
-    const output = await checkCliChat({
-      spaceName,
-      agent,
-      childEnv,
-      newConversation: true,
-      prompt: "First local fixture prompt",
-      reply: "First local fixture reply",
-    });
-    return output.match(/^Conversation (\S+)$/m)?.[1];
-  };
-  const left = await createLocalConversation();
-  const right = await createLocalConversation();
-  assert(left && right && left !== right);
-  const retryKey = createHash("sha256").update(`thread:${left}`).digest("hex");
-  const retryFile = join(modelDir, `pending-${retryKey}.json`);
-  await writeFile(retryFile, JSON.stringify(pending));
-  await checkCliChat({
-    spaceName,
-    agent,
-    childEnv,
-    threadId: right,
-    prompt: "Follow up locally",
-    reply: "Second local fixture reply",
-  });
-  assert.deepEqual(JSON.parse(await readFile(retryFile, "utf8")), pending);
-  await checkCliChat({
-    spaceName,
-    agent,
-    childEnv,
-    threadId: left,
-    prompt: "/retry",
-    reply: pending.reply,
-  });
-  await assert.rejects(readFile(retryFile), { code: "ENOENT" });
-  const load = (threadId) => rpc("threads/get", { ...target, threadId }, scopedObserver);
-  const messages = (snapshot) =>
-    snapshot.messages.map(({ origin, blocks }) => {
-      assert.equal(origin, "local_cli");
-      return blocks[0].text;
-    });
-  const initial = ["First local fixture prompt", "First local fixture reply"];
-  assert.deepEqual(messages(await load(left)), [...initial, pending.text, pending.reply]);
-  assert.deepEqual(messages(await load(right)), [
-    ...initial,
-    "Follow up locally",
-    "Second local fixture reply",
-  ]);
-  console.log(
-    "PASS named and picker chats ran the selected local CLI and retried shared history without duplication",
-  );
-  await rpc(
-    "bots/update",
-    { botId: agent.id, instructions: "Report new issues and wait for my assignment." },
-    scopedOwner,
-  );
-  await checkCliChat({
-    spaceName,
-    agent,
-    childEnv,
-    threadId: right,
-    prompt: "Check the current issue watcher instructions",
-    reply: "Issue watcher instructions received",
-  });
-  assert.deepEqual(messages(await load(right)).slice(-2), [
-    "Check the current issue watcher instructions",
-    "Issue watcher instructions received",
-  ]);
-  if (localAppRecords) {
-    await checkLocalAppRecords({
-      rpc,
-      owner: scopedOwner,
-      observer: scopedObserver,
-      botId: agent.id,
-      modelFile,
-      fakeBin: bin,
-      cli,
-      args: ["--server", origin, "--space", spaceName, agent.name],
-      env: childEnv,
-      cwd: root,
-    });
-  }
 }
 
 const modelKey = secret();
@@ -527,15 +315,8 @@ try {
   assert.equal(invite.origin, origin);
   await rpc("spaces/invites/accept", { token: invite.pathname.split("/").at(-1) }, observer);
 
-  const notifications = notificationProbe ? observeNotifications(scopedObserver) : undefined;
-  await notifications?.expect("READY");
   const first = await rpc("bots/create", { name: "Fixture agent" }, scopedOwner);
-  await notifications?.expect("AGENT_CREATED");
   const second = await rpc("bots/create", { name: "Support agent" }, scopedOwner);
-  if (notifications) {
-    await rpc("bots/update", { botId: second.id, name: "Renamed fixture support" }, scopedOwner);
-    await notifications.expect("AGENT_RENAMED");
-  }
   const steps = [
     [prompt, reply],
     [groupPrompt, groupReply],
@@ -650,17 +431,7 @@ try {
         otherBot: second,
       })
     : undefined;
-  const t3 = t3Inbox
-    ? await prepareT3Inbox({
-        rpc,
-        followThread,
-        owner: scopedOwner,
-        ownerId: owner.id,
-        origin,
-        grantedBot: first,
-      })
-    : undefined;
-  steps.push(...(app?.steps ?? []), ...(t3?.steps ?? []), ...conversationSteps);
+  steps.push(...(app?.steps ?? []), ...conversationSteps);
   const watcher = issueWatcher ? await prepareIssueWatcher(rpc, scopedOwner, second) : undefined;
   if (watcher) steps.push(...watcher.steps);
   model = await startModelEmulator({ apiKey: modelKey, steps });
@@ -719,11 +490,6 @@ try {
     scopedOwner,
   );
   const target = { groupId: group.id };
-  if (notifications) {
-    await notifications.expect("GROUP_CREATED");
-    await rpc("groups/update", { ...target, name: "Renamed fixture discussion" }, scopedOwner);
-    await notifications.expect("GROUP_RENAMED");
-  }
   const snapshot = await rpc("threads/get", target, scopedObserver);
   const { nextEvent, close } = await followThread(target, scopedObserver, snapshot.cursor);
   try {
@@ -863,10 +629,6 @@ try {
       throw error;
     }
   }
-  await t3?.propose();
-  if (localCli || localAppRecords) {
-    await checkInstalledLocalChat({ spaceName, owner, scopedOwner, scopedObserver, source: first });
-  }
   await checkBotConversations({
     rpc,
     post,
@@ -894,56 +656,9 @@ try {
       "PASS a published and granted marketplace skill returned its instructions to the model through the CLI chat",
     );
   }
-  if (notifications) {
-    await notifications.expect("GROUP_PREVIEW");
-    await notifications.complete();
-    console.log(
-      "PASS the Rust observer refreshed the shared Space after each roster or chat signal",
-    );
-  }
   console.log(
     "PASS a second signed-in Space member streamed the human and agent messages with matching author IDs",
   );
-  if (desktopExecutable) {
-    await rpc(
-      "pluginRegistry/submit",
-      {
-        slug: "release-notes",
-        version: 1,
-        manifest: {
-          schemaVersion: 1,
-          name: "Release notes",
-          description: "Draft release notes from completed issues.",
-          parts: [
-            {
-              id: "summarize",
-              kind: "skill",
-              instructions:
-                "Group completed issues by feature and fix. Use only information in the supplied notes.",
-            },
-          ],
-        },
-      },
-      scopedObserver,
-    );
-    const fixtureDesktop = join(directory, "superbot-desktop.exe");
-    await copyFile(resolve(desktopExecutable), fixtureDesktop);
-    const desktop = spawn(fixtureDesktop, [], {
-      cwd: root,
-      env: {
-        ...env,
-        SUPERBOT_CONFIG_DIR: directory,
-        SUPERBOT_SERVER: origin,
-        SUPERBOT_SKIN: "midnight",
-      },
-      stdio: "ignore",
-      windowsHide: false,
-    });
-    console.log(`Desktop comparison fixture PID ${desktop.pid}. Close its window to finish.`);
-    const code = await new Promise((done, fail) => desktop.once("error", fail).once("close", done));
-    assert.equal(code, 0, "Fixture desktop exited successfully");
-    await t3?.check();
-  }
   if (roster) {
     const existing = await rpc("bots/create", { name: "Roster One" }, scopedOwner);
     const archived = await rpc("bots/create", { name: "Roster Archived" }, scopedOwner);
@@ -954,15 +669,19 @@ try {
       JSON.stringify({ names: ["roster one", "Roster Two", " Roster Two ", "Roster Archived"] }),
     );
     const args = ["--server", origin, "--space", space, "import-bots", rosterFile];
-    const preview = await command(cli, [...args, "--dry-run"], "Preview roster");
+    const preview = await command(
+      process.execPath,
+      superbot([...args, "--dry-run"]),
+      "Preview roster",
+    );
     assert.match(preview.stdout, /2 existing, 1 to import/);
     const active = () => rpc("bots/list", {}, scopedObserver);
     assert.ok(!(await active()).some((bot) => bot.name === "Roster Two"));
     await Promise.all([
-      command(cli, args, "First roster import"),
-      command(cli, args, "Concurrent roster import"),
+      command(process.execPath, superbot(args), "First roster import"),
+      command(process.execPath, superbot(args), "Concurrent roster import"),
     ]);
-    const replay = await command(cli, args, "Repeat roster import");
+    const replay = await command(process.execPath, superbot(args), "Repeat roster import");
     assert.match(replay.stdout, /3 existing, 0 to import/);
     const visible = await active();
     assert.equal(visible.filter((bot) => bot.name === "Roster Two").length, 1);
@@ -974,7 +693,11 @@ try {
       "PASS two concurrent imports and a retry produced one shared bot and preserved the archived bot",
     );
   }
-  const logout = await command(cli, ["--server", origin, "logout"], "Fixture CLI logout");
+  const logout = await command(
+    process.execPath,
+    superbot(["--server", origin, "logout"]),
+    "Fixture CLI logout",
+  );
   assert.equal(logout.stdout.trim(), "Signed out.");
   credentialSaved = false;
 } finally {

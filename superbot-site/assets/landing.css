@@ -40,7 +40,7 @@
   flex-wrap: wrap;
 }
 
-/* Product mock: a drawing of the GPUI shell from DESKTOP-DESIGN.md §4, with invented data. */
+/* Product mock: a drawing of the desktop shell from DESKTOP-DESIGN.md §4, with invented data. */
 .mock {
   margin: 56px auto 0;
   max-width: 1080px;

@@ -1,6 +1,6 @@
 # Superbot
 
-Superbot is a native Rust desktop and command-line client for shared agent workspaces. Teammates connect to the same server with separate accounts. A workspace holds its bots, conversations, files, and memberships. Community publishers can submit versioned plugins and workspace members can grant approved capabilities to individual agents.
+Superbot is a desktop, web and command-line client for shared agent workspaces. Teammates connect to the same server with separate accounts. A workspace holds its bots, conversations, files, and memberships. Community publishers can submit versioned plugins and workspace members can grant approved capabilities to individual agents.
 
 ## Run a workspace
 
@@ -18,31 +18,31 @@ On Windows, you can also run the services directly with Node.js and PostgreSQL. 
 
 ## Desktop and terminal
 
-Install Rust with rustup. On Windows, install the Visual Studio C++ desktop workload, Windows SDK and CMake tools. Run the desktop from the checkout:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/native.ps1
-```
-
-For a Windows Start menu entry and both terminal commands, use the [per-user installer](docs/superbot/windows-install.md).
-
-Install the CLI for your user and put Cargo's `bin` directory on your PATH:
+The desktop is the Electron app in `apps/desktop` for Windows, macOS and Linux. From the checkout, with Node.js 24.15 or newer and pnpm:
 
 ```sh
-cargo install --locked --path native/cli
+pnpm install
+pnpm --filter @rakazo/desktop dev
+```
+
+The `superbot` command chats with your agents from a terminal, with a full-screen view in `superbot tui`. Build it and link it for your user:
+
+```sh
+pnpm --filter superbot-cli build
+(cd apps/cli && pnpm link --global)
 superbot signup
 superbot list
 superbot
 superbot <agentname>
 ```
 
-Use `superbot login` with an existing account. Set `SUPERBOT_SERVER` to your server's web origin to connect to a different deployment. The CLI keeps sessions in the operating system's credential store. [CLI commands](native/cli/README.md)
+Use `superbot login` with an existing account. Set `SUPERBOT_SERVER` to your server's web origin to connect to a different deployment. The CLI keeps sessions in the operating system's credential store. [CLI commands](apps/cli/README.md)
 
-The [desktop guide](docs/superbot/desktop.md) covers the Space switcher, conversations, the community store and local UI development.
+The [desktop guide](docs/superbot/desktop.md) covers installing the desktop and terminal tools and connecting to a server. On Windows, see the [Windows install guide](docs/superbot/windows-install.md).
 
 ## Build a plugin
 
-A plugin contains named skills or remote MCP tools. Each server hosts its own community registry. A publisher submits an immutable version. A deployment reviewer approves it for discovery. A member installs that version in a Space and grants individual parts to their bots. On desktop open **Plugins** in the sidebar. In the hosted web app open the account menu and choose **Integrations → Community**.
+A plugin contains named skills or remote MCP tools. Each server hosts its own community registry. A publisher submits an immutable version. A deployment reviewer approves it for discovery. A member installs that version in a Space and grants individual parts to their bots. In the web and desktop apps, open the account menu and choose **Integrations → Community**.
 
 - [Build and test a marketplace plugin](docs/superbot/build-a-marketplace-plugin.md)
 - [Author, review, install and grant plugins with the CLI](docs/superbot/plugin-toolkit.md)
@@ -70,6 +70,6 @@ another git worktree, it moves to the next free block and prints the URL. Set `W
 
 ## Project structure
 
-The Rust workspace under `native/` contains the GPUI desktop, command line and API clients. The server API, worker, database, provider adapters, web client and mobile apps share the same workspace contracts. [Feature coverage](docs/superbot/parity.md) · [License](LICENSE) · [Notices](NOTICE)
+The pnpm workspace holds the server API, worker, database, provider adapters, web client, Electron desktop (`apps/desktop`), mobile apps, the `superbot` command (`apps/cli`) and the `superbot-plugin` tool (`apps/plugin-kit`), which share the same workspace contracts. [Feature coverage](docs/superbot/parity.md) · [License](LICENSE) · [Notices](NOTICE)
 
 Superbot is based on [Rakazo](https://github.com/elie222/rakazo), used under the Apache License, Version 2.0.

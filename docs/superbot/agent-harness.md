@@ -8,7 +8,7 @@ The worker selects tools for the bot, the account and the run's origin. Dependin
 
 On a self-hosted server with one active account and no model usage billing, the operator can use a model CLI installed and signed in on the server as the deployment model. An MCP server lists the worker's tools without executing them. The CLI returns tool calls to Superbot, and the worker handles them, including agent computer calls, with the same authorization and approvals.
 
-For a model CLI selected on this desktop, Superbot builds a prompt with the current bot instructions and recent text from the open conversation. The CLI returns text and Superbot saves the exchange to the server. A local chat has no shell, browser or MCP tools. The separate `/apps` flow can show the owner a granted record app and ask them to confirm a proposed addition. A server worker runs background watches while the desktop is closed. [Hosted and local chat runs](desktop-chat-runs.md)
+For a model CLI selected for `superbot` on this device, the command builds a prompt with the current bot instructions and recent text from the open conversation. The CLI returns text and Superbot saves the exchange to the server. A local chat has no shell, browser or MCP tools. The separate `/apps` flow can show the owner a granted record app and ask them to confirm a proposed addition. A server worker runs background watches while the command is closed. [Hosted and local chat runs](desktop-chat-runs.md)
 
 ## Watch GitHub issues and choose an agent
 

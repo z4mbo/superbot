@@ -103,7 +103,6 @@ superbot-plugin set-grants INSTALLATION_ID BOT_ID drinks</code></pre>
       <p>Switching keeps the installation and clears its grants, so grant again after each switch. Record apps keep separate entries per version: switching back shows the earlier version's entries.</p>
       <ul>
         <li><code>validate</code> catches every manifest error without the server. Run it first.</li>
-        <li>On desktop, <b>Create plugin → Open file…</b> loads the manifest into a form and <b>Save file…</b> writes it back in the same format.</li>
         <li>For tool servers, run your server on loopback and call it with <code>curl</code> as in <a href="tools.html#test">Test locally</a>. The registry only accepts public HTTPS endpoints, so a published tool part needs your deployed address.</li>
       </ul>
 
@@ -113,16 +112,14 @@ superbot-plugin set-grants INSTALLATION_ID BOT_ID drinks</code></pre>
         <table>
           <thead><tr><th scope="col">What</th><th scope="col">Command</th></tr></thead>
           <tbody>
-            <tr><td>Manifest rules and starters</td><td class="muted"><code>cargo test -p superbot-plugin-kit --locked</code></td></tr>
-            <tr><td>The <code>mcp-app</code> starter over loopback, with Node.js 24</td><td class="muted"><code>cargo test -p superbot-plugin-kit --locked --test scaffold binary_mcp_app_calculates_over_loopback -- --ignored</code></td></tr>
+            <tr><td>Manifest rules, starters and the <code>mcp-app</code> starter over loopback</td><td class="muted"><code>pnpm --filter superbot-plugin-kit test</code></td></tr>
             <tr><td>A tool call through discovery, approval, replay and denial</td><td class="muted"><code>pnpm exec vitest run packages/adapters/src/runs/executor/executor-readonly-approval.test.ts -t 'marketplace plugin dispatch'</code></td></tr>
-            <tr><td>Record apps through a bot, grants and revocation, end to end</td><td class="muted"><code>node --import tsx infra/superbot/verify-chat.mjs PG_BIN SUPERBOT_EXE --marketplace-app</code></td></tr>
-            <tr><td>Record apps with a local model</td><td class="muted"><code>node --import tsx infra/superbot/verify-chat.mjs PG_BIN SUPERBOT_EXE --local-app-records</code></td></tr>
+            <tr><td>Record apps through a bot, grants and revocation, end to end</td><td class="muted"><code>node --import tsx infra/superbot/verify-chat.mjs PG_BIN --marketplace-app</code></td></tr>
             <tr><td>The T3 Code inbox companion</td><td class="muted"><code>node --test examples/plugins/t3-coding/companion.test.mjs</code></td></tr>
           </tbody>
         </table>
       </div>
-      <p><code>verify-chat.mjs</code> needs a local PostgreSQL <code>bin</code> directory and a built <code>superbot</code> executable. Run <code>pnpm db:generate</code> and <code>pnpm --filter @rakazo/api build</code> first. Add the desktop executable as a third argument to open the desktop app against the same disposable server.</p>
+      <p><code>verify-chat.mjs</code> runs on Windows and needs a local PostgreSQL <code>bin</code> directory. Run <code>pnpm db:generate</code>, <code>pnpm --filter @rakazo/api build</code> and <code>pnpm --filter superbot-cli build</code> first.</p>
 
       <h2 id="reset">Reset and clean up</h2>
       <ul>
