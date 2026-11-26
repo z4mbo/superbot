@@ -6,13 +6,14 @@ import type { Command } from "../cli/commands.js";
 import { CommandError } from "../cli/errors.js";
 import { quoted } from "../cli/escape.js";
 import { checkSlug, readManifestFile, trimText } from "../manifest/manifest-file.js";
+import { appSubmission } from "../scaffold/app-scaffold.js";
 
 const SIGN_IN_AGAIN = "Session expired or rejected. Run superbot login for the same server";
 
 /** A command that talks to the registry, ready to run in one Space. */
 export type RegistryRequest = (client: Client, spaceId: string) => Promise<unknown>;
 
-type RegistryCommand = Exclude<Command, { kind: "init" | "validate" }>;
+type RegistryCommand = Exclude<Command, { kind: "init" | "validate" | "app-init" | "app-check" }>;
 
 /** A rejected session says how to sign in again; every other failure passes through unchanged. */
 export function authError(error: unknown): unknown {
@@ -47,6 +48,10 @@ export async function registryRequest(
         manifest: await readManifestFile(command.manifest, cwd),
       };
       return (client, space) => authorized(client.rpc("pluginRegistry/submit", space, input));
+    }
+    case "app-publish": {
+      const input = await appSubmission(command.folder, cwd);
+      return (client, space) => authorized(client.rpc("apps/submit", space, input));
     }
     case "list":
       return listRequest(command);
