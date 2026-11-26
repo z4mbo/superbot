@@ -49,4 +49,4 @@ The tag starts two workflows:
 
 Every signing credential must be configured first, or the build fails closed and nothing is published; [desktop releases](../../../docs/desktop-release.md) lists them by name and covers the first-time Linux update key. Check what is set with `gh secret list -R z4mbo/superbot` and `gh variable list -R z4mbo/superbot`.
 
-The command-line client is not part of a release yet. It will publish to npm as `superbot-cli` (command `superbot`), from a job that lands with the TypeScript CLI.
+The command-line client is not part of a release yet. It lives in `apps/cli` as the package `superbot-cli` (command `superbot`), still marked private; the job that publishes it to npm comes in a separate pull request.
