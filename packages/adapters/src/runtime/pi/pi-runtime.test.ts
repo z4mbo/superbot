@@ -87,6 +87,7 @@ describe("describeToolActivity", () => {
     expect(describeToolActivity("browser_dialog", { action: "dismiss" })).toBe(
       "Dismissing a page dialog",
     );
+    expect(describeToolActivity("execute_code", { code: "print(1)" })).toBe("Running code");
     expect(describeToolActivity("list_fleet", {})).toBe("Checking your bots");
     expect(describeToolActivity("delegate", { brief: "Shortlist venues\nfor 40" })).toBe(
       "Starting a task: Shortlist venues",

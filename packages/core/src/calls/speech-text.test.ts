@@ -393,6 +393,7 @@ describe("narrateTool", () => {
     expect(narrateTool("search_files")).toBe("searching");
     expect(narrateTool("glob")).toBe("searching");
     expect(narrateTool("process_manage")).toBe("running a command");
+    expect(narrateTool("execute_code")).toBe("running code");
     expect(narrateTool("run_subagent")).toBe("starting a subagent");
     expect(narrateTool("delegate")).toBe("starting a task");
     expect(narrateTool("follow_up")).toBe("following up on a task");

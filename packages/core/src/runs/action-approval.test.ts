@@ -1378,6 +1378,24 @@ describe("workspace tools", () => {
   });
 });
 
+describe("execute_code", () => {
+  it("is gated, reviewed and taints the run exactly as shell", async () => {
+    for (const trigger of ["webhook", "user", "messaging"])
+      expect(outsideRunToolRequiresApproval(trigger, "execute_code")).toBe(
+        outsideRunToolRequiresApproval(trigger, "shell"),
+      );
+    expect(toolRequiresApproval("execute_code", false)).toBe(toolRequiresApproval("shell", false));
+    expect(toolResultTaintsRun("execute_code")).toBe(toolResultTaintsRun("shell"));
+    expect(builtinCallRequiresApproval("execute_code", { code: "x" })).toBe(false);
+    for (const tainted of [true, false]) {
+      const checks = { tainted: async () => tainted, pageSiteGiven: async () => true };
+      expect(await ownComputerActionNeedsReview("execute_code", { code: "x" }, checks)).toBe(
+        await ownComputerActionNeedsReview("shell", { command: "x" }, checks),
+      );
+    }
+  });
+});
+
 describe("page control tools", () => {
   it("never ask by tool alone, as browser_act does, and are gated in a run a webhook started", () => {
     for (const name of ["browser_cdp", "browser_dialog"]) {

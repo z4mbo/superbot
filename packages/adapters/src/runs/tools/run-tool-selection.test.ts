@@ -125,7 +125,7 @@ describe("unavailableBuiltinToolReasons", () => {
 });
 
 describe("workspace tool selection", () => {
-  const WORKSPACE_TOOLS = ["edit_file", "search_files", "glob", "process_manage"];
+  const WORKSPACE_TOOLS = ["edit_file", "search_files", "glob", "process_manage", "execute_code"];
   const names = (options: { trigger?: string; disabledBuiltinTools?: string[] } = {}) =>
     selectBuiltinToolsForRun({
       graphicalToolsAllowed: false,
@@ -153,7 +153,7 @@ describe("workspace tool selection", () => {
       ["write_file", ["edit_file"]],
       ["read_file", ["search_files"]],
       ["list_files", ["glob"]],
-      ["shell", ["process_manage"]],
+      ["shell", ["process_manage", "execute_code"]],
     ];
     for (const [parent, followers] of cases) {
       const offered = names({ disabledBuiltinTools: [parent] });
