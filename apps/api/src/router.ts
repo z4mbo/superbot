@@ -8,6 +8,7 @@ import type {
   ProductAnalytics,
   SandboxProvider,
   SecretStore,
+  SignInSourceProvider,
   TransactionalEmailProvider,
 } from "@rakazo/adapter-kit";
 import type {
@@ -67,6 +68,7 @@ import { organizationsRoutes } from "./routes/organizations.js";
 import { pagesRoutes } from "./routes/pages.js";
 import { paymentWalletRoutes } from "./routes/payment-wallet.js";
 import { routinesRoutes } from "./routes/routines.js";
+import { signInSourceRoutes } from "./routes/sign-in-source.js";
 import { spacesRoutes } from "./routes/spaces.js";
 import { spendingLimitRoutes } from "./routes/spending-limit.js";
 import { threadsRoutes } from "./routes/threads.js";
@@ -91,6 +93,8 @@ export interface RouterDeps {
   userCloudAgents?: UserCloudAgents;
   /** The deployment's wallet provider; absent hides purchases. */
   paymentWallet?: PaymentWalletProvider | null;
+  /** The deployment's sign-in source; absent hides signing in with a password manager. */
+  signInSource?: SignInSourceProvider | null;
   prisma: PrismaClient;
   events: ThreadEvents;
   boardEvents: BoardEvents;
@@ -214,6 +218,7 @@ export function createRouter(deps: RouterDeps) {
     ...conversationContentRoutes(ctx),
     ...pagesRoutes(ctx),
     ...paymentWalletRoutes(ctx),
+    ...signInSourceRoutes(ctx),
     ...spendingLimitRoutes(ctx),
   });
 }

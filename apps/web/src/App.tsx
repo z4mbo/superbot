@@ -48,6 +48,10 @@ import { rpc } from "./lib/query/rpc";
 import { IntegrationCallbackPage } from "./pages/integrations/IntegrationCallback";
 import { IntegrationSetupPage } from "./pages/integrations/IntegrationSetup";
 import { McpOAuthCallbackPage } from "./pages/integrations/McpOAuthCallback";
+import {
+  SIGN_IN_SOURCE_CALLBACK_PATH,
+  SignInSourceCallbackPage,
+} from "./pages/integrations/SignInSourceCallback";
 import { SlackInstallCallbackPage } from "./pages/integrations/SlackInstallCallback";
 import { SharedPagePage } from "./pages/SharedPage";
 import { ShellPage } from "./pages/Shell";
@@ -267,6 +271,11 @@ function SessionApp() {
                     />
                   )
                 }
+              />
+              {/* Not sent through sign-in: that would drop the one-time fragment it carries. */}
+              <Route
+                path={SIGN_IN_SOURCE_CALLBACK_PATH}
+                element={<SignInSourceCallbackPage signedIn={Boolean(user)} />}
               />
               <Route
                 path="/integrations/setup"

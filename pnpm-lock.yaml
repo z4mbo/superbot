@@ -969,6 +969,9 @@ importers:
 
   packages/adapters:
     dependencies:
+      '@1password/sdk':
+        specifier: 0.0.0-credential-broker-dev-preview.4
+        version: 0.0.0-credential-broker-dev-preview.4
       '@alicloud/appstream-center20210218':
         specifier: 1.1.3
         version: 1.1.3(supports-color@8.1.1)
@@ -1761,6 +1764,12 @@ packages:
     peerDependenciesMeta:
       graphql:
         optional: true
+
+  '@1password/sdk-core@0.0.0-credential-broker-dev-preview.4':
+    resolution: {integrity: sha512-vVVX8CO2qPSf4UN+2Bz3XWXYDrBqGfo1tX6wvjOO91X1sy1RzDZs0QjjY7m0m6xjY0LEM9ddh6DwztiUMvskhA==}
+
+  '@1password/sdk@0.0.0-credential-broker-dev-preview.4':
+    resolution: {integrity: sha512-Uz1wEs5BWgbXNwXTvr3UIPMUv0yKce7wx9GDVKM7Nb4gbPn4iMDMVTZEPblplog86+KGbmbzdNKCLQ0oSb2oyQ==}
 
   '@adraffy/ens-normalize@1.11.1':
     resolution: {integrity: sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ==}
@@ -14109,6 +14118,12 @@ snapshots:
   '@0no-co/graphql.web@1.3.4(graphql@16.8.1)':
     optionalDependencies:
       graphql: 16.8.1
+
+  '@1password/sdk-core@0.0.0-credential-broker-dev-preview.4': {}
+
+  '@1password/sdk@0.0.0-credential-broker-dev-preview.4':
+    dependencies:
+      '@1password/sdk-core': 0.0.0-credential-broker-dev-preview.4
 
   '@adraffy/ens-normalize@1.11.1': {}
 

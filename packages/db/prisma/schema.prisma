@@ -95,6 +95,8 @@ model User {
   modelCredentials            UserModelCredential[]
   voiceCredentials            UserVoiceCredential[]
   paymentWallet               PaymentWallet?
+  signInSource                SignInSource?
+  signInRequests              SignInRequest[]
   spendingLimit               SpendingLimit?
   payments                    Payment[]
   secrets                     Secret[]
@@ -836,6 +838,7 @@ model Space {
   mcpOAuthSessions            McpOAuthSession[]
   modelOAuthSessions          ModelOAuthSession[]
   purchases                   Purchase[]
+  signInRequests              SignInRequest[]
   feedbackReports             FeedbackReport[]
   botMcpServers              BotMcpServer[]
   messagingIdentities         MessagingIdentity[]
@@ -1661,6 +1664,56 @@ model PaymentWallet {
   updatedAt  DateTime  @updatedAt
 
   @@map("payment_wallets")
+}
+
+/// A person's connection to a sign-in source (a password manager a bot signs in with). Its tokens
+/// and keys sit sealed in the `secrets` row `secretId` names, never here.
+model SignInSource {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider         String
+  /// connecting | connected | needs_reconnect
+  status           String
+  secretId         String
+  refreshAt        DateTime?
+  connectExpiresAt DateTime?
+  connectedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("sign_in_sources")
+}
+
+/// A bot's request to sign in to one site with a login from its person's sign-in source. Holds
+/// no secret value: the approval link opens the provider's app, and the grant reference names the
+/// approved login for the provider's own fill.
+model SignInRequest {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spaceId        String
+  space          Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  botId          String
+  threadId       String
+  runId          String?
+  messageId      String?
+  provider       String
+  site           String
+  remoteId       String
+  entryId        String
+  approvalLink   String
+  /// pending | approved | denied | expired | failed
+  status         String
+  reference      String?
+  openedAt       DateTime?
+  resolvedAt     DateTime?
+  grantExpiresAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId, provider, site, status])
+  @@map("sign_in_requests")
 }
 
 model Purchase {

@@ -62,6 +62,7 @@ export * from "./integrations/messaging.js";
 export * from "./integrations/outgoing-draft.js";
 export * from "./integrations/plugin-registry.js";
 export * from "./integrations/plugins.js";
+export * from "./integrations/sign-in-sources.js";
 export * from "./integrations/tool-question.js";
 export * from "./integrations/vault-import.js";
 export * from "./integrations/vault-items.js";

@@ -743,6 +743,8 @@ export async function selectRunTools(
       cloudAgentEnabled: Boolean(cloudAgent),
       cloudAgentCleanupEnabled,
       paymentWalletEnabled,
+      // Only the run's own person can approve a login, from a card in their own chat.
+      signInSourceEnabled: Boolean(deps.signInSource) && ownerStartedRun && !nonOwnerChatRun,
       messagingChannelRun: nonOwnerChatRun,
       voiceCall,
       // Every member already got a message that names nobody, so a handoff only repeats it.

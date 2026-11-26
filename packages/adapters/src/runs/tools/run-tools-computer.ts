@@ -155,7 +155,7 @@ function formatObservation(
  * once it has lapsed. Looking (a screenshot or snapshot) is how the bot catches up after a person
  * used the screen.
  */
-async function screenBlocked(ctx: RunContext, look = false): Promise<string | undefined> {
+export async function screenBlocked(ctx: RunContext, look = false): Promise<string | undefined> {
   if (ctx.computer.heldForTakeover) return DESKTOP_HELD_FOR_TAKEOVER_MESSAGE;
   if (await getActiveTeachingSession(ctx.deps.prisma, ctx.run.spaceId, ctx.run.botId)) {
     return "Teaching is in progress. Stop teaching before using the computer.";

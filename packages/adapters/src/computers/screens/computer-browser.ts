@@ -15,6 +15,7 @@ import type {
   PageBrowserCommand,
   PageBrowserResult,
   SandboxProvider,
+  SignInFillCall,
 } from "@rakazo/adapter-kit";
 import { SandboxRequestRejectedError } from "@rakazo/adapter-kit";
 import { getLogger } from "@rakazo/logging";
@@ -301,6 +302,23 @@ export class ComputerBrowserProvider implements BrowserProvider {
         ...(Array.isArray(found.items) ? { items: found.items.filter(isPurchaseItem) } : {}),
       },
     };
+  }
+
+  /**
+   * Only an in-process browser fills a sign-in source's login today: the bot computer's Chrome
+   * carries no password manager extension, so sign-ins there are refused before anyone is asked.
+   */
+  canSignInFill(computer: ComputerRef): boolean {
+    return this.canUseInProcess(computer);
+  }
+
+  async signInFill(
+    computer: ComputerRef,
+    request: { origin: string; call: SignInFillCall },
+    context: AdapterContext,
+  ): Promise<unknown> {
+    if (!this.canUseInProcess(computer)) return { status: "failed" };
+    return this.fake.signInFill(computer, request, context);
   }
 
   private purchaseCheckWarned = false;

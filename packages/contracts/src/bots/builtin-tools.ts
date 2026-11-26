@@ -68,6 +68,7 @@ export const BUILTIN_TOOL_NAMES = [
   "request_purchase",
   "purchase_status",
   "paid_request",
+  "sign_in",
   "search_history",
   "read_history",
   "read_meeting_transcript",

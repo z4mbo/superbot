@@ -106,6 +106,8 @@ async function main() {
       process.env.INBOUND_EMAIL_SECRET = "test-inbound-email-secret-test-32chars";
       // The offline wallet, so Settings shows Wallet and sign-in completes without a provider.
       process.env.PAYMENT_WALLET_PROVIDER = "emulator";
+      // The offline password manager, so a bot's sign-in card can be approved without a provider.
+      process.env.SIGN_IN_SOURCE_PROVIDER = "emulator";
       process.env.RAKAZO_NAV_LINKS = JSON.stringify([
         { id: "clients", label: "Clients", path: "/ext/clients/" },
       ]);
