@@ -120,6 +120,8 @@ describeIntegration("community agent templates", () => {
     expect(draft).toMatchObject({
       name: name("Weekly digest"),
       category: null,
+      // Others see the account name, so the author is shown it before sharing.
+      author: "Ana Author",
       instructions: "You write a weekly digest. Use @Weekly report on Fridays.",
       skills: [
         {
@@ -397,7 +399,7 @@ describeIntegration("community agent templates", () => {
   }
 });
 
-function shareable(draft: CommunityTemplateDraft): CommunityTemplateRecipe {
+function shareable({ author: _author, ...draft }: CommunityTemplateDraft): CommunityTemplateRecipe {
   return {
     ...draft,
     category: "research",

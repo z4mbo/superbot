@@ -30,6 +30,8 @@ export const CommunityTemplateDraftSchema = z.object({
   skills: z.array(z.object({ name: z.string(), description: z.string(), body: z.string() })),
   routines: z.array(z.object({ name: z.string(), prompt: z.string(), crons: z.array(z.string()) })),
   apps: z.array(z.string()),
+  /** The name others would see it shared by; null when it is listed without one. Not submitted. */
+  author: z.string().nullable(),
 });
 export type CommunityTemplateDraft = z.infer<typeof CommunityTemplateDraftSchema>;
 

@@ -41,6 +41,7 @@ test("a bot is shared as a template, approved, listed under Community and made i
   await expect(share.getByLabel("Name", { exact: true })).toHaveValue(name);
   await expect(share.getByLabel("Instructions", { exact: true })).toHaveValue(INSTRUCTIONS);
   await expect(share.getByLabel("Routine name")).toHaveValue("Friday digest");
+  await expect(share).toContainText("shared by Community Author");
   const submit = share.getByRole("button", { name: "Submit for review", exact: true });
   await expect(submit).toBeDisabled();
   await share.getByLabel("Category", { exact: true }).click();

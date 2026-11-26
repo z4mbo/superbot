@@ -89,7 +89,9 @@ const draft: CommunityTemplateDraft = {
   ],
   routines: [{ name: "Friday digest", prompt: "Send it.", crons: ["0 9 * * 5"] }],
   apps: ["gmail"],
+  author: "Ana Author",
 };
+const { author: _author, ...drafted } = draft;
 
 let container: HTMLDivElement;
 let root: Root;
@@ -147,7 +149,10 @@ it("shows the whole draft read from the bot, ready to edit", async () => {
   }
   // Apps show by name once the catalog is read.
   await vi.waitFor(() => expect(container.textContent).toContain("Gmail"));
-  expect(container.textContent).toContain("Keys, memory, chats and settings aren't included.");
+  // The owner sees the name others will see it shared by.
+  expect(container.textContent).toContain(
+    "Listed after review, shared by Ana Author. Keys, memory, chats and settings aren't",
+  );
 });
 
 it("submits only once everything a template needs is filled, with the edits and removals made", async () => {
@@ -172,8 +177,9 @@ it("submits only once everything a template needs is filled, with the edits and 
   await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce());
   expect(api.communityTemplates.submit).toHaveBeenCalledExactlyOnceWith({
     botId: "bot-1",
+    // The author's name is shown, never submitted.
     recipe: {
-      ...draft,
+      ...drafted,
       category: "research",
       summary: "A weekly digest of what changed",
       sample: "**This week**",

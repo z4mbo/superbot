@@ -165,6 +165,10 @@ export async function communityTemplateDraft(
   botId: string,
 ): Promise<CommunityTemplateDraft> {
   const bot = await ownedBot(deps.prisma, actor, botId);
+  const user = await deps.prisma.user.findUnique({
+    where: { id: actor.userId },
+    select: { name: true, email: true },
+  });
   const routines = await deps.prisma.routine.findMany({
     where: { botId: bot.id, spaceId: actor.spaceId, userId: actor.userId },
     select: { name: true, prompt: true, crons: true },
@@ -217,6 +221,7 @@ export async function communityTemplateDraft(
       crons: routine.crons.slice(0, 5),
     })),
     apps: apps.slice(0, APP_LIMIT),
+    author: publicAuthorName(user),
   };
 }
 

@@ -46,6 +46,8 @@ export function ShareTemplateDialog({ botId, onClose }: { botId: string; onClose
     staleTime: 0,
     gcTime: 0,
   });
+  // Others see the account name, so the owner sees it before sharing.
+  const author = draft.data?.author;
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent size="lg" data-testid="share-template-dialog">
@@ -54,7 +56,14 @@ export function ShareTemplateDialog({ botId, onClose }: { botId: string; onClose
             <Trans>Share as template</Trans>
           </DialogTitle>
           <DialogDescription>
-            <Trans>Listed after review. Keys, memory, chats and settings aren't included.</Trans>
+            {author ? (
+              <Trans>
+                Listed after review, shared by {author}. Keys, memory, chats and settings aren't
+                included.
+              </Trans>
+            ) : (
+              <Trans>Listed after review. Keys, memory, chats and settings aren't included.</Trans>
+            )}
           </DialogDescription>
         </DialogHeader>
         {draft.data ? (
@@ -86,7 +95,9 @@ function ShareForm({
   const queries = useSpaceQueries();
   const id = useId();
   const categoryLabel = useBotTemplateCategoryLabel();
-  const [recipe, setRecipe] = useState(draft);
+  // The author's name is shown, not submitted.
+  const { author: _author, ...initial } = draft;
+  const [recipe, setRecipe] = useState(initial);
   const catalog = useQuery({
     ...queries.connections.catalog.queryOptions({ input: {} }),
     enabled: draft.apps.length > 0,
@@ -101,7 +112,7 @@ function ShareForm({
       onClose();
     },
   });
-  const set = (change: Partial<CommunityTemplateDraft>) =>
+  const set = (change: Partial<typeof initial>) =>
     setRecipe((current) => ({ ...current, ...change }));
   // Only what passes the same checks as the server's is offered for submitting.
   const parsed = CommunityTemplateRecipeSchema.safeParse(recipe);
