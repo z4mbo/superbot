@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Spinner } from "@rakazo/ui-web";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { FileCode, FileImage, FileText } from "lucide-react";
+import { FileCode, FileImage, FileText, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PAGES_PREVIEW_COUNT, PagesList } from "../../../components/pages/PagesList";
@@ -77,11 +77,15 @@ function BotFiles({ botId }: { botId: string }) {
     <div>
       <ul className="flex flex-col">
         {shown.map((file) => {
-          const Icon = file.mimeType.startsWith("image/")
-            ? FileImage
-            : file.mimeType === "text/html"
-              ? FileCode
-              : FileText;
+          // A media tool's output keeps what made it.
+          const generated = file.generated;
+          const Icon = generated
+            ? Sparkles
+            : file.mimeType.startsWith("image/")
+              ? FileImage
+              : file.mimeType === "text/html"
+                ? FileCode
+                : FileText;
           return (
             <li key={file.id}>
               <button
@@ -95,6 +99,17 @@ function BotFiles({ botId }: { botId: string }) {
                 <span className="min-w-0 flex-1 truncate text-body text-foreground" dir="auto">
                   {file.name}
                 </span>
+                {generated ? (
+                  <span
+                    className="max-w-[45%] shrink-0 truncate text-body-sm text-muted-foreground"
+                    title={generated.prompt}
+                  >
+                    <span className="sr-only">
+                      <Trans>Generated with</Trans>{" "}
+                    </span>
+                    {generated.providerName}
+                  </span>
+                ) : null}
               </button>
             </li>
           );
