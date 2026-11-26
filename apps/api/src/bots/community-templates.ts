@@ -30,7 +30,9 @@ import {
   extractRoutineSkillMentions,
   findBotTemplate,
   findSkillByName,
+  isOneShotRoutineCrons,
   looksLikeCredential,
+  nextCronDate,
   parseSkillMd,
 } from "@rakazo/core";
 import type { CommunityTemplateVersion, Prisma, PrismaClient } from "@rakazo/db";
@@ -267,10 +269,24 @@ export function assertShareable(recipe: CommunityTemplateRecipe) {
       timezone: "UTC",
       active: false,
     });
-    if (!parsed.success) {
+    if (!parsed.success || !installableSchedule(routine.crons)) {
       throw new ClientError("BAD_REQUEST", `The routine "${routine.name}" can't be shared as is.`);
     }
   }
+}
+
+/** A one-off routine, or schedules that each have a next run; anything else would not install. */
+function installableSchedule(crons: string[]): boolean {
+  if (isOneShotRoutineCrons(crons)) return true;
+  return crons.every((cron) => {
+    try {
+      nextCronDate(cron, new Date());
+      return true;
+    } catch {
+      // Not a schedule: a malformed field, a one-off mixed in, or no future run.
+      return false;
+    }
+  });
 }
 
 export function communityTemplates(deps: CommunityTemplateDeps) {

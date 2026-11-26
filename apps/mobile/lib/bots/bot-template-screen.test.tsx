@@ -278,7 +278,11 @@ it("shows a community template with its author and instructions, and creates its
           : Promise.reject(new Error(`Unexpected ${proc}`)),
   );
   await render();
-  expect(container.textContent).toContain("Shared by Ana Author");
+  // The shared list is read once Superbot's catalog shows the id isn't one of its own.
+  await vi.waitFor(async () => {
+    await settle();
+    expect(container.textContent).toContain("Shared by Ana Author");
+  });
   // Someone else wrote it, so its instructions are open before anything is created.
   expect(container.textContent).toContain("Ask each person.");
 

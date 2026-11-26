@@ -52,9 +52,10 @@ describe("assertShareable", () => {
     expect(refusal({ skills: [recipe.skills[0]!, { ...recipe.skills[0]! }] })).toMatch(
       /its own name/,
     );
-    expect(refusal({ routines: [{ ...recipe.routines[0]!, crons: ["not a cron"] }] })).toMatch(
-      /can't be shared/,
-    );
+    for (const crons of [["not a cron"], ["61 9 * * 5"], ["@once", "0 9 * * 5"]]) {
+      expect(refusal({ routines: [{ ...recipe.routines[0]!, crons }] })).toMatch(/can't be shared/);
+    }
+    expect(refusal({ routines: [{ ...recipe.routines[0]!, crons: ["@once"] }] })).toBeNull();
   });
 });
 
