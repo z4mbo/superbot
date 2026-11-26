@@ -7,6 +7,7 @@ import {
 } from "@rakazo/core";
 import type { Artifact, Prisma } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { sandboxKindCapabilities } from "../../computers/sandbox/sandbox-kind-capabilities.js";
 import { resolveBotWorkspacePath } from "../../computers/screens/computer-support.js";
 import type { MediaToolName } from "../../media/media-generation.tool-definition.js";
 import { MEDIA_TOOL_NAMES } from "../../media/media-generation.tool-definition.js";
@@ -26,6 +27,8 @@ import {
 } from "../../providers/computer/desktop/desktop-command-guard.js";
 import { protectedActivateScriptWriteRefusal } from "../../providers/computer/desktop/desktop-guard-words.js";
 import { attachWorkspaceFileToThread } from "../../storage/thread-artifacts.js";
+import { editFileFromTool } from "../../tools/workspace/workspace-edit.js";
+import { globFromTool, searchFilesFromTool } from "../../tools/workspace/workspace-search.js";
 import type { RunWorkspace } from "../../tools/workspace-file-tools.js";
 import {
   listFilesFromTool,
@@ -206,6 +209,43 @@ export const fileTools: ToolHandlers = {
     }
     await recordComputerAction(ctx, call, "write_file", filePath, { bytes: content.byteLength });
     return call.finish({ ok: true, path: filePath });
+  },
+  async edit_file(ctx, call) {
+    const filePath = String(call.args.path ?? "");
+    if (desktopGuardApplies(ctx.computer)) {
+      const activateRefusal = protectedActivateScriptWriteRefusal(filePath);
+      if (activateRefusal) {
+        return call.finish({ error: desktopProtectionGuardMessage(activateRefusal, filePath) });
+      }
+    }
+    let result: Awaited<ReturnType<typeof editFileFromTool>>;
+    try {
+      result = await editFileFromTool(ctx.deps.sandbox, runWorkspace(ctx, call), call.args);
+    } catch (error) {
+      await recordComputerAction(ctx, call, "write_file", filePath, {
+        error: error instanceof Error ? error.message : "could not edit file",
+      });
+      throw error;
+    }
+    // A refused edit wrote nothing, so only a written file shows in the terminal's Activity view.
+    if ("ok" in result) {
+      await recordComputerAction(ctx, call, "write_file", filePath, { bytes: result.bytes });
+    }
+    return call.finish(result);
+  },
+  async search_files(ctx, call) {
+    const workspace = runWorkspace(ctx, call);
+    const { kind } = await workspace.computer();
+    return searchFilesFromTool(ctx.deps.sandbox, workspace, call.args, {
+      nativeShell: sandboxKindCapabilities(kind).nativeShell,
+    });
+  },
+  async glob(ctx, call) {
+    const workspace = runWorkspace(ctx, call);
+    const { kind } = await workspace.computer();
+    return globFromTool(ctx.deps.sandbox, workspace, call.args, {
+      nativeShell: sandboxKindCapabilities(kind).nativeShell,
+    });
   },
   generate_image: generateMedia,
   edit_image: generateMedia,

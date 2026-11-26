@@ -64,6 +64,8 @@ import {
   vaultCardUseOf,
   vaultLoginUseOf,
 } from "../../secrets/vault/vault-card-use.js";
+import type { ProcessLaunch } from "../../tools/workspace/background-processes.js";
+import { processManageFromTool } from "../../tools/workspace/background-processes.js";
 import type { RunContext } from "../assembly/run-context.js";
 import { addRunSecrets, recordOneTimeFill, recordVaultUse } from "../assembly/run-context.js";
 import { builtinOffered } from "../assembly/run-instructions.prompt.js";
@@ -716,6 +718,96 @@ export const computerTools: ToolHandlers = {
       await recordFailure(error);
       throw error;
     }
+  },
+  async process_manage(ctx, call) {
+    const { deps, run, runId, bot, context } = ctx;
+    const { name, args, executionId } = call;
+    const start = args.action === "start";
+    const command = typeof args.command === "string" ? args.command : "";
+    const refusal = start ? protectedComputerLifecycleRefusal(command) : undefined;
+    if (desktopGuardApplies(ctx.computer) && refusal) {
+      return call.finish({ error: desktopProtectionGuardMessage(refusal, command) });
+    }
+    const computer = await ctx.computer.get("tool", name);
+    const hostShell =
+      ctx.computer.hostEnvironment ??
+      (sandboxKindCapabilities(computer.kind).nativeShell
+        ? await deps.sandbox.environment?.(computer, context)
+        : undefined);
+    // A native shell runs the command as shell would; Windows has no POSIX tools to manage it.
+    // Elsewhere the launcher shell uses keeps the computer awake while the process runs and
+    // lets cancelling this run stop it.
+    const launch: ProcessLaunch | undefined = hostShell
+      ? hostShell.platform === "win32"
+        ? undefined
+        : { kind: "native", shell: hostShell.shell }
+      : {
+          kind: "launcher",
+          argv: [
+            "bash",
+            "-c",
+            BACKGROUND_WORK_LAUNCH,
+            "rakazo-background-launch",
+            ctx.computer.stored.id,
+            runId,
+            randomUUID(),
+          ],
+        };
+    const cwd = resolveBotWorkspaceCwd(
+      ctx.computer.mode,
+      bot.id,
+      args.cwd ? String(args.cwd) : undefined,
+    );
+    // The same variables shell gives a command, registered for redaction first. Loaded for every
+    // action, so output a process started in an earlier run printed is redacted here too; only
+    // start hands them to the computer.
+    const commandEnvironment = launch
+      ? await shellCommandEnvironment({
+          prisma: deps.prisma,
+          secretStore: deps.secretStore,
+          scope: run,
+          registerRedactions: (values) => addRunSecrets(ctx, values),
+          keyOutage: "unset",
+        })
+      : undefined;
+    const startEnvironment = start ? commandEnvironment : undefined;
+    const result = await processManageFromTool(
+      deps.sandbox,
+      {
+        botId: bot.id,
+        computerMode: ctx.computer.mode,
+        computer: async () => computer,
+        markDirty: () => ctx.computer.checkpoint.markDirty(),
+        context,
+        runSecrets: ctx.secrets,
+      },
+      args,
+      {
+        launch,
+        cwd,
+        ...(startEnvironment && {
+          env: {
+            env: Object.keys(startEnvironment.env).length > 0 ? startEnvironment.env : undefined,
+            unsetEnv: startEnvironment.unsetEnv,
+          },
+          onStarted: async () => {
+            for (const item of startEnvironment.used) await recordVaultUse(ctx, name, item);
+          },
+        }),
+      },
+    );
+    if (start && "id" in result && !("error" in result)) {
+      await appendComputerCommand(ctx, {
+        executionId,
+        kind: "shell",
+        command: redactSecrets(command, ctx.secrets),
+        cwd: redactSecrets(cwd ?? ".", ctx.secrets),
+        status: "done",
+        exitCode: 0,
+        output: "",
+      });
+    }
+    return call.finish(result);
   },
   async open_path(ctx, call) {
     const { deps, bot, context } = ctx;

@@ -1,6 +1,6 @@
 import type { ConnectorCall, ConnectorTool } from "@rakazo/adapter-kit";
 import { BOT_INSTRUCTIONS_MAX_LENGTH, BotSecretAuth, OneTimeCodeTarget } from "@rakazo/contracts";
-import { redactSecrets } from "@rakazo/core";
+import { builtinCallRequiresApproval, redactSecrets } from "@rakazo/core";
 import { runLoginKind } from "@rakazo/db";
 import type { FleetCardSummary } from "../../approvals/approval-ask.js";
 import { MAX_APPROVAL_DETAIL_LENGTH } from "../../approvals/approval-ask.js";
@@ -521,6 +521,9 @@ export async function prepareToolRequest(
     }
   }
   if (name === "update_preferences") request.settingsChange = true;
+  // Stopping a background process asks, as starting one is gated as shell is. An approved
+  // replay stays held so it claims the approval it was given.
+  if (builtinCallRequiresApproval(name, args)) request.heldForApproval = true;
   if (name === "save_page") {
     const refused = await holdSharedPageSave(ctx, request);
     if (refused) return refused;

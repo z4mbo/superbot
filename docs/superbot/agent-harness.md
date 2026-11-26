@@ -47,6 +47,9 @@ Built-in tools come from the catalog in `packages/contracts/src/bots/builtin-too
 | `list_files` | Lists files and folders in the bot's home on its computer. |
 | `read_file` | Reads a text file from the bot's home, in line ranges for long files. |
 | `write_file` | Writes a text file into the bot's home. |
+| `edit_file` | Changes part of a text file in the bot's home: replaces an exact string, or applies a unified diff. Refuses binary files and paths outside the home. |
+| `search_files` | Searches file contents in the bot's home with a regular expression and returns file, line and the matching line. Uses ripgrep when the computer has it, else grep. |
+| `glob` | Finds files in the bot's home whose path matches a pattern such as `**/*.ts`. |
 | `attach_file` | Attaches a file from the bot's home to the chat. |
 
 ### Terminal
@@ -54,6 +57,7 @@ Built-in tools come from the catalog in `packages/contracts/src/bots/builtin-too
 | Tool | What it does |
 | --- | --- |
 | `shell` | Runs a command on the bot's computer. |
+| `process_manage` | Starts a long-running command, such as a dev server, in the background, then lists, checks and stops it, also from later runs. Starting is gated as `shell` is; stopping asks first. Only processes it started can be checked or stopped. |
 
 ### Code and plots
 

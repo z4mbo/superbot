@@ -383,6 +383,10 @@ describe("narrateTool", () => {
     expect(narrateTool("computer_observe")).toBe("looking at the screen");
     expect(narrateTool("browser_snapshot")).toBe("using the page");
     expect(narrateTool("write_file")).toBe("writing a file");
+    expect(narrateTool("edit_file")).toBe("editing a file");
+    expect(narrateTool("search_files")).toBe("searching");
+    expect(narrateTool("glob")).toBe("searching");
+    expect(narrateTool("process_manage")).toBe("running a command");
     expect(narrateTool("run_subagent")).toBe("starting a subagent");
     expect(narrateTool("list_fleet")).toBe("checking your bots");
     expect(narrateTool("create_group")).toBe("creating a group");

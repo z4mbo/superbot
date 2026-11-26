@@ -251,12 +251,22 @@ export function describeToolActivity(
     return clipToolResultText(text, ACTIVITY_DETAIL_LIMIT);
   };
   if (toolName === "shell") return `Running: ${detail(record.command)}`;
+  if (toolName === "process_manage") {
+    return record.action === "start"
+      ? `Starting in the background: ${detail(record.command)}`
+      : record.action === "kill"
+        ? "Stopping a background process"
+        : "Checking background processes";
+  }
   if (toolName === "user_computer_shell")
     return `Running on your computer: ${detail(record.command)}`;
   if (toolName === "user_computer_observe") return `Looking at ${detail(record.app)}`;
   if (toolName === "user_computer_act") return `Using ${detail(record.app)}`;
   if (toolName === "read_file") return `Reading ${detail(record.path)}`;
   if (toolName === "write_file") return `Writing ${detail(record.path)}`;
+  if (toolName === "edit_file") return `Editing ${detail(record.path)}`;
+  if (toolName === "search_files") return `Searching files: ${detail(record.pattern)}`;
+  if (toolName === "glob") return `Finding files: ${detail(record.pattern)}`;
   if (toolName === "list_files") return `Listing ${detail(record.path ?? ".")}`;
   if (toolName === "attach_file") return `Attaching ${detail(record.path)}`;
   if (toolName === "open_path") return `Opening ${detail(record.path)}`;

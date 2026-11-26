@@ -17,7 +17,11 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "read_history",
   "search_history",
   "write_file",
+  "edit_file",
+  "search_files",
+  "glob",
   "shell",
+  "process_manage",
   "open_path",
   "launch_app",
   "remember",
@@ -48,6 +52,7 @@ const OUTSIDE_RUN_SAFE_BUILTIN_TOOLS = new Set([
   "browser_snapshot",
   "cloud_agent_status",
   "computer_observe",
+  "glob",
   "list_files",
   "user_computer_list",
   "list_fleet",
@@ -64,6 +69,7 @@ const OUTSIDE_RUN_SAFE_BUILTIN_TOOLS = new Set([
   "run_subagent",
   "schedule_list",
   "scratchpad_list",
+  "search_files",
   "search_history",
   "service_search",
   "skill_read",
@@ -227,6 +233,17 @@ function innerToolSlugs(args: unknown): string[] {
   });
 }
 
+/**
+ * A built-in call held for approval although its tool alone is not: stopping a background process
+ * with process_manage. Starting one is a command, gated as shell is; list and check only look.
+ */
+export function builtinCallRequiresApproval(
+  toolName: string,
+  args: Record<string, unknown>,
+): boolean {
+  return toolName === "process_manage" && args.action === "kill";
+}
+
 /** Security-boundary changes cannot be auto-reviewed or permanently allowed. */
 export function toolRequiresExplicitApproval(toolName: string): boolean {
   return EXPLICIT_APPROVAL_BUILTIN_TOOLS.has(toolName);
@@ -299,6 +316,7 @@ const OWN_STATE_RESULT_TOOLS = new Set([
   // Only confirms the bot's own address.
   "claim_email_address",
   "delete_email",
+  "edit_file",
   "end_call",
   "feedback",
   "generate_secret",
@@ -452,6 +470,9 @@ function whatCouldSend(
   switch (toolName) {
     case "shell":
       return "other";
+    // Only start runs a command; list, check and kill touch processes already started.
+    case "process_manage":
+      return args.action === "start" ? "other" : undefined;
     case "browser_navigate":
       return "page";
     case "open_path":

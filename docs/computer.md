@@ -42,6 +42,12 @@ has sent is also under **Artifacts** in the account menu.
 
 To have a bot react to files changing, use a [routine](./routines.md) that watches a folder.
 
+## Background work
+
+A bot can leave a long-running command, such as a dev server or a file watcher, running on its
+computer, then check its output or stop it in a later message. It asks you before it stops one. A
+process stops when its computer goes to sleep or is rebuilt, and the bot sees that it stopped.
+
 ## Fix a computer
 
 On web and desktop, open the bot's computer. If the screen cannot connect, try **Retry screen**.
