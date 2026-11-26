@@ -1,4 +1,4 @@
-import { pageAppView, runPageAppAction } from "../content/page-apps.js";
+import { pageAppQuery, pageAppView, runPageAppAction } from "../content/page-apps.js";
 import {
   getPage,
   listPages,
@@ -15,6 +15,12 @@ export function pagesRoutes(ctx: RouterContext) {
     prisma: deps.prisma,
     secrets: deps.secrets,
     webOrigin: deps.env.webOrigin,
+  });
+  const appDeps = () => ({
+    prisma: deps.prisma,
+    publishSpaceChange: async (spaceId: string, kind: "apps") => {
+      await deps.events?.publishSpaceChange?.(spaceId, kind);
+    },
   });
   return {
     pages: {
@@ -45,16 +51,10 @@ export function pagesRoutes(ctx: RouterContext) {
         pageAppView(deps.prisma, context.actor, input.pageId),
       ),
       runAction: authed.pages.runAction.handler(({ context, input }) =>
-        runPageAppAction(
-          {
-            prisma: deps.prisma,
-            publishSpaceChange: async (spaceId, kind) => {
-              await deps.events?.publishSpaceChange?.(spaceId, kind);
-            },
-          },
-          context.actor,
-          input,
-        ),
+        runPageAppAction(appDeps(), context.actor, input, context.signal),
+      ),
+      appQuery: authed.pages.appQuery.handler(({ context, input }) =>
+        pageAppQuery(appDeps(), context.actor, input, context.signal),
       ),
     },
   };

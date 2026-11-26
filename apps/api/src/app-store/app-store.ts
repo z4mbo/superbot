@@ -2,8 +2,10 @@ import type { TransactionalEmail } from "@rakazo/adapter-kit";
 import {
   APP_INSTALL_KIND,
   AppChangedError,
+  appAccess,
   appInstallSource,
   appReleaseDigest,
+  appServerProblems,
   checkAppBundle,
   grantWithin,
 } from "@rakazo/adapters";
@@ -25,13 +27,18 @@ import {
   readJsonColumn,
   reportJsonColumnOnce,
 } from "@rakazo/db";
-import { checkPageSource } from "@rakazo/page-kit/validate";
+import { bestEffort } from "@rakazo/logging";
+import { checkApp } from "@rakazo/plugin-sdk";
 import { lockOwner } from "../spaces/name-claims.js";
+import { ensureFirstPartyApps } from "./first-party-apps.js";
 
 /** Versions one author may have waiting for review at once. */
 const PENDING_PER_AUTHOR = 10;
 const CATALOG_LIMIT = 500;
-const APPROVED = { submissions: { some: { status: "approved" } } } as const;
+/** A version anyone may install: approved by an admin, or a first-party app the deployment ships. */
+export const LISTED = {
+  OR: [{ firstParty: true }, { submissions: { some: { status: "approved" } } }],
+} satisfies Prisma.AppReleaseWhereInput;
 
 export class AppBundleError extends ClientError {
   constructor(readonly problems: string[]) {
@@ -65,7 +72,9 @@ export async function submitApp(
 ) {
   const checked = checkAppBundle(input);
   if (!checked.ok) throw new AppBundleError(checked.errors);
-  const { manifest, source, code, icon, digest } = checked.bundle;
+  const { manifest, source, code, server, icon, digest } = checked.bundle;
+  const problems = await appServerProblems(manifest, server);
+  if (problems.length) throw new AppBundleError(problems);
   const author = await deps.prisma.user.findUniqueOrThrow({
     where: { id: actor.userId },
     select: { email: true },
@@ -74,7 +83,11 @@ export async function submitApp(
     const submission = await deps.prisma.$transaction(async (tx) => {
       await lockOwner(tx, manifest.id, "app-id");
       const owned = await tx.appRelease.findFirst({
-        where: { appId: manifest.id, authorUserId: { not: actor.userId } },
+        // A first-party app has no author: its id is the deployment's.
+        where: {
+          appId: manifest.id,
+          OR: [{ authorUserId: null }, { authorUserId: { not: actor.userId } }],
+        },
         select: { id: true },
       });
       if (owned)
@@ -102,6 +115,7 @@ export async function submitApp(
           manifest: manifest as Prisma.InputJsonValue,
           source,
           code,
+          server,
           icon,
           digest,
         },
@@ -149,8 +163,11 @@ export async function assertAppReleaseListable(prisma: PrismaClient, releaseId: 
     throw new AppChangedError();
   }
   if (appReleaseDigest(release) !== release.digest) throw new AppChangedError();
-  const check = checkPageSource(release.source);
+  const manifest = manifestOf(release);
+  const check = checkApp({ manifest, source: release.source, server: release.server ?? undefined });
   if (!check.ok) throw new AppBundleError(check.errors);
+  const problems = await appServerProblems(manifest, release.server);
+  if (problems.length) throw new AppBundleError(problems);
 }
 
 function matches(listing: AppListing, query: string): boolean {
@@ -163,10 +180,12 @@ function matches(listing: AppListing, query: string): boolean {
   );
 }
 
-/** Approved apps, the newest approved version of each, matching the query. */
+/** Listed apps, the newest listed version of each, matching the query. */
 export async function appCatalog(prisma: PrismaClient, query: string): Promise<AppListing[]> {
+  // A deployment whose first-party apps cannot be stored still lists every submitted one.
+  await bestEffort("first-party apps", ensureFirstPartyApps(prisma));
   const rows = await prisma.appRelease.findMany({
-    where: APPROVED,
+    where: LISTED,
     orderBy: { createdAt: "desc" },
     take: CATALOG_LIMIT,
     select: {
@@ -202,6 +221,7 @@ export async function appCatalog(prisma: PrismaClient, query: string): Promise<A
       icon: row.icon,
       permissions: manifest.permissions,
       digest: row.digest,
+      ...appAccess(manifest),
     };
     if (matches(listing, query)) listings.push(listing);
   }
@@ -219,7 +239,7 @@ export async function installApp(
   input: { releaseId: string; digest: string; grant: readonly string[] },
 ): Promise<AppInstall> {
   const release = await prisma.appRelease.findFirst({
-    where: { id: input.releaseId, ...APPROVED },
+    where: { id: input.releaseId, ...LISTED },
   });
   if (!release) throw new ClientError("NOT_FOUND", "App not found", "APP_NOT_FOUND");
   if (release.digest !== input.digest) throw new AppChangedError();
@@ -280,6 +300,7 @@ export async function installApp(
     icon: release.icon,
     granted: [...manifest.permissions],
     createdAt: row.createdAt.toISOString(),
+    ...appAccess(manifest),
   };
 }
 
