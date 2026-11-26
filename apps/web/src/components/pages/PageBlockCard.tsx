@@ -4,13 +4,23 @@ import type { PageBlock } from "../../lib/pages/page-cards";
 import { useOpenPage, usePageDocument } from "../../lib/pages/pages";
 import { useSpaceQueries } from "../../lib/query/query";
 import { errorCode } from "../../lib/query/user-error";
+import { AppCardBlock } from "./AppCardBlock";
 import { PageCard } from "./PageCard";
 
 /**
- * A page saved in this chat. The newest card for a page draws its current version and title;
- * an older one keeps the version it was saved with and opens the latest.
+ * A page saved in this chat, or one of an installed app's cards a bot showed. An app card always
+ * draws the app as it is now, so a newer one further down does not supersede it.
  */
-export function PageBlockCard({
+export function PageBlockCard(props: { block: PageBlock; updated: boolean; onOpen?: () => void }) {
+  const { card } = props.block;
+  return card ? <AppCardBlock block={props.block} card={card} /> : <SavedPageCard {...props} />;
+}
+
+/**
+ * The newest card for a page draws its current version and title; an older one keeps the
+ * version it was saved with and opens the latest.
+ */
+function SavedPageCard({
   block,
   updated,
   onOpen,

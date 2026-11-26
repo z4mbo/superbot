@@ -185,7 +185,7 @@ export const MessageView = memo(function MessageView({
     <div className="mt-3 flex flex-col gap-3">
       {pages.map((page) => (
         <PageBlockCard
-          key={`${page.pageId}:${page.version}`}
+          key={`${page.pageId}:${page.version}:${page.card ? JSON.stringify(page.card) : ""}`}
           block={page}
           updated={isPageSuperseded?.(message.id, page) ?? false}
         />

@@ -52,6 +52,9 @@ test("Apps lists a reviewed app, asks for consent to add it, and opens it sandbo
     icon: null,
     permissions: ["clipboard", "links"],
     digest: `sha256:${"a".repeat(64)}`,
+    hosts: [],
+    collections: [],
+    server: false,
   };
   let listed = false;
   let installs: AppInstall[] = [];
@@ -73,6 +76,9 @@ test("Apps lists a reviewed app, asks for consent to add it, and opens it sandbo
         icon: null,
         granted: listing.permissions,
         createdAt: "2026-11-23T09:00:00.000Z",
+        hosts: [],
+        collections: [],
+        server: false,
       },
     ];
     await route.fulfill({ json: { json: installs[0] } });

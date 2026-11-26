@@ -178,7 +178,7 @@ export function AppDetail({ listing, onBack }: { listing: AppListing; onBack: ()
           <Trans>Permissions</Trans>
         </h3>
         <div className="px-1">
-          <AppPermissionList permissions={permissions} />
+          <AppPermissionList permissions={permissions} hosts={install?.hosts ?? listing.hosts} />
         </div>
       </section>
 
@@ -193,7 +193,7 @@ export function AppDetail({ listing, onBack }: { listing: AppListing; onBack: ()
               )}
             </AlertDialogTitle>
           </AlertDialogHeader>
-          <AppPermissionList permissions={listing.permissions} />
+          <AppPermissionList permissions={listing.permissions} hosts={listing.hosts} />
           {add.error ? (
             <ErrorNotice error={errorDetails(add.error, t`Could not add this app`)} />
           ) : null}
