@@ -21,13 +21,17 @@ function given(value: unknown): value is string {
 /** Which edit the arguments ask for: exactly one of old_string/new_string or patch. */
 function editMode(
   args: Record<string, unknown>,
-): { mode: "replace"; oldString: string; newString: string } | { mode: "patch"; patch: string } | { error: string } {
+):
+  | { mode: "replace"; oldString: string; newString: string }
+  | { mode: "patch"; patch: string }
+  | { error: string } {
   const replace = given(args.old_string);
   const patch = given(args.patch);
   if (replace && patch) return { error: "send old_string and new_string, or patch, not both" };
   if (patch) return { mode: "patch", patch: args.patch as string };
   if (!replace) return { error: "send old_string and new_string, or patch" };
-  if (typeof args.new_string !== "string") return { error: "new_string is required with old_string" };
+  if (typeof args.new_string !== "string")
+    return { error: "new_string is required with old_string" };
   return { mode: "replace", oldString: args.old_string as string, newString: args.new_string };
 }
 

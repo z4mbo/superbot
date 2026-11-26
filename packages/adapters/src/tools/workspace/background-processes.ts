@@ -30,10 +30,12 @@ const REGISTRY_SCRIPT = 'mkdir -p -- "$1" && cd -- "$1" && pwd -P';
 
 // Runs in the command's working folder. Everything after the four fixed arguments is the
 // launcher, which receives the command as its last argument. Ignoring hangups lets the process
-// outlive the call; its output goes to the log, and the exit code is written when it ends.
+// outlive the call; its output goes to the log, and the exit code is written when it ends. The
+// background subshell lets go of this script's own output too, or the call would wait for the
+// process to end.
 const START_SCRIPT = [
   "set -eu",
-  'registry=$1; id=$2; started=$3; command=$4; shift 4',
+  "registry=$1; id=$2; started=$3; command=$4; shift 4",
   'dir="$registry/$id"',
   'mkdir -p -- "$dir"',
   // Finished processes older than a week are forgotten, logs and all.
@@ -42,7 +44,7 @@ const START_SCRIPT = [
   'printf "%s" "$command" > "$dir/command"',
   'printf "%s" "$started" > "$dir/started"',
   'pwd > "$dir/cwd"',
-  '( set +e; trap "" HUP; "$@" "$command" < /dev/null > "$dir/output.log" 2>&1; printf "%s\\n" "$?" > "$dir/exit" ) &',
+  '( set +e; trap "" HUP; "$@" "$command" < /dev/null > "$dir/output.log" 2>&1; printf "%s\\n" "$?" > "$dir/exit" ) < /dev/null > /dev/null 2>&1 &',
   'printf "%s\\n" "$!" > "$dir/pid"',
   'printf "%s\\n" "$!"',
 ].join("\n");
@@ -59,7 +61,7 @@ const OURS = [
 // With one id the output tail follows the record.
 const STATUS_SCRIPT = [
   OURS,
-  'registry=$1; tail_bytes=$2; shift 2',
+  "registry=$1; tail_bytes=$2; shift 2",
   // Process ids are hex, so the listing splits safely.
   '[ "$#" -gt 0 ] || set -- $(ls -1 -- "$registry" 2>/dev/null)',
   'for id in "$@"; do',
@@ -89,7 +91,7 @@ const KILL_SCRIPT = [
   'pid=$(cat "$dir/pid" 2>/dev/null || true)',
   'ours "$pid" "$id" || { echo not-running; exit 0; }',
   "tree() {",
-  "  ps -A -o pid= -o ppid= | awk -v root=\"$1\" '",
+  '  ps -A -o pid= -o ppid= | awk -v root="$1" \'',
   "    { parent[$1] = $2 }",
   "    END {",
   "      keep[root] = 1; grew = 1",
@@ -125,8 +127,7 @@ export function startProcessArgv(input: {
   command: string;
   launch: ProcessLaunch;
 }): string[] {
-  const launcher =
-    input.launch.kind === "native" ? [input.launch.shell, "-lc"] : input.launch.argv;
+  const launcher = input.launch.kind === "native" ? [input.launch.shell, "-lc"] : input.launch.argv;
   return [
     "sh",
     "-c",
@@ -167,7 +168,9 @@ export function parseProcessRecords(stdout: string, withOutput: boolean): Proces
     if (!id || !PROCESS_ID.test(id)) break;
     const record: ProcessRecord = {
       id,
-      status: (["running", "exited", "killed"].includes(status ?? "") ? status : "stopped") as ProcessStatus,
+      status: (["running", "exited", "killed"].includes(status ?? "")
+        ? status
+        : "stopped") as ProcessStatus,
       command: command ?? "",
       ...(code && /^\d+$/.test(code.trim()) ? { exitCode: Number(code.trim()) } : {}),
       ...(pid && /^\d+$/.test(pid.trim()) ? { pid: Number(pid.trim()) } : {}),
@@ -199,6 +202,16 @@ function displayCommand(command: string, secrets: string[]): string {
   return redacted.length > COMMAND_DISPLAY_MAX_CHARS
     ? `${redacted.slice(0, COMMAND_DISPLAY_MAX_CHARS)}…`
     : redacted;
+}
+
+/**
+ * A tail cut from a longer log without its first, partial line: a secret split at the cut would
+ * not be recognised, and only part of it redacted.
+ */
+function wholeLines(tail: string): string {
+  if (Buffer.byteLength(tail) < PROCESS_OUTPUT_TAIL_BYTES) return tail;
+  const firstBreak = tail.indexOf("\n");
+  return firstBreak === -1 ? "" : tail.slice(firstBreak + 1);
 }
 
 /** start, list, check and kill for processes started through this tool. */
@@ -238,7 +251,8 @@ export async function processManageFromTool(
     // The command runs in its own folder, so it needs the registry's absolute path.
     const located = await run(["sh", "-c", REGISTRY_SCRIPT, "rakazo-process-registry", registry]);
     const absolute = located.stdout.trim();
-    if (located.code !== 0 || !absolute) throw failed(located, "could not prepare the process registry");
+    if (located.code !== 0 || !absolute)
+      throw failed(located, "could not prepare the process registry");
     const id = randomUUID().replaceAll("-", "").slice(0, 12);
     const startedAt = new Date().toISOString();
     workspace.markDirty();
@@ -248,7 +262,8 @@ export async function processManageFromTool(
     );
     await options.onStarted?.(id);
     const pid = Number(started.stdout.trim());
-    if (started.code !== 0 || !Number.isSafeInteger(pid)) throw failed(started, "could not start the process");
+    if (started.code !== 0 || !Number.isSafeInteger(pid))
+      throw failed(started, "could not start the process");
     return {
       id,
       status: "running" as const,
@@ -297,7 +312,6 @@ export async function processManageFromTool(
   return {
     ...record,
     command: displayCommand(record.command, runSecrets),
-    output: redactSecrets(record.output ?? "", runSecrets),
+    output: redactSecrets(wholeLines(record.output ?? ""), runSecrets),
   };
 }
-

@@ -1,4 +1,9 @@
-import type { AdapterContext, CommandRequest, ComputerRef, SandboxProvider } from "@rakazo/adapter-kit";
+import type {
+  AdapterContext,
+  CommandRequest,
+  ComputerRef,
+  SandboxProvider,
+} from "@rakazo/adapter-kit";
 import { deadlineSignal } from "@rakazo/core";
 
 /** How long past a command's own timeout its transport is waited for before giving up on it. */

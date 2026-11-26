@@ -65,18 +65,28 @@ describe("search command", () => {
     } as unknown as SandboxProvider;
     const computer = { id: "c", botId: "bot-1", kind: "docker", providerRef: "c" } as ComputerRef;
     await expect(
-      searchFilesFromTool(sandbox, workspaceFor(computer), { pattern: "(a+)+$" }, {
-        nativeShell: false,
-      }),
+      searchFilesFromTool(
+        sandbox,
+        workspaceFor(computer),
+        { pattern: "(a+)+$" },
+        {
+          nativeShell: false,
+        },
+      ),
     ).resolves.toEqual({ error: expect.stringContaining("search stopped"), path: "" });
   });
 
   it("is refused on a computer with its own native shell", async () => {
     const computer = { id: "c", botId: "bot-1", kind: "desktop", providerRef: "c" } as ComputerRef;
     await expect(
-      searchFilesFromTool({} as SandboxProvider, workspaceFor(computer), { pattern: "x" }, {
-        nativeShell: true,
-      }),
+      searchFilesFromTool(
+        {} as SandboxProvider,
+        workspaceFor(computer),
+        { pattern: "x" },
+        {
+          nativeShell: true,
+        },
+      ),
     ).resolves.toEqual({ error: expect.stringContaining("unavailable on this computer") });
   });
 });

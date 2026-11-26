@@ -1,3 +1,4 @@
+// biome-ignore-all lint/suspicious/noTemplateCurlyInString: the scripts below use shell parameter expansion
 import path from "node:path";
 import type { ComputerFileEntry, SandboxProvider } from "@rakazo/adapter-kit";
 import { redactSecrets } from "@rakazo/core";
@@ -29,7 +30,7 @@ const GLOB_WALK_MAX_FOLDERS = 2_000;
 const SKIPPED_FOLDERS = new Set([".git", "node_modules"]);
 
 const SEARCH_SCRIPT = [
-  'pattern=$1; target=$2; lines=$(($3 + 1)); ignore_case=$4; shift 4',
+  "pattern=$1; target=$2; lines=$(($3 + 1)); ignore_case=$4; shift 4",
   // The path must stay in the workspace once links are resolved.
   "root=$(pwd -P) || exit 3",
   'real=$(realpath -e -- "$target" 2>/dev/null) || exit 3',
@@ -54,7 +55,7 @@ const SEARCH_SCRIPT = [
   "fi",
   "names=()",
   'for name in "$@"; do',
-  '  [ ${#names[@]} -gt 0 ] && names+=(-o)',
+  "  [ ${#names[@]} -gt 0 ] && names+=(-o)",
   '  names+=(-name "$name")',
   "done",
   '[ ${#names[@]} -gt 0 ] && names=("(" "${names[@]}" ")")',
@@ -63,7 +64,7 @@ const SEARCH_SCRIPT = [
 ].join("\n");
 
 const GLOB_SCRIPT = [
-  'target=$1; lines=$(($2 + 1)); hidden=$3',
+  "target=$1; lines=$(($2 + 1)); hidden=$3",
   "root=$(pwd -P) || exit 3",
   'real=$(realpath -e -- "$target" 2>/dev/null) || exit 3',
   'case "$real" in "$root" | "$root"/*) ;; *) exit 4 ;; esac',
@@ -168,15 +169,18 @@ export async function searchFilesFromTool(
   if (!pattern) return { error: "pattern is required" };
   if (options.nativeShell) {
     return {
-      error:
-        "search_files is unavailable on this computer; search with shell using its own tools",
+      error: "search_files is unavailable on this computer; search with shell using its own tools",
     };
   }
   const glob = typeof args.glob === "string" && args.glob.trim() ? args.glob.trim() : undefined;
   if (glob?.includes("/")) {
     return { error: "glob matches file names only, such as *.ts; put folders in path" };
   }
-  const limit = clampedLimit(args.max_matches, SEARCH_FILES_DEFAULT_MATCHES, SEARCH_FILES_MAX_MATCHES);
+  const limit = clampedLimit(
+    args.max_matches,
+    SEARCH_FILES_DEFAULT_MATCHES,
+    SEARCH_FILES_MAX_MATCHES,
+  );
   let target: string;
   try {
     target = searchTarget(workspace, requested);
@@ -307,7 +311,10 @@ export async function globFromTool(
     const result = await runWorkspaceCommand(
       sandbox,
       await workspace.computer(),
-      { argv: globCommandArgv({ target, limit: GLOB_SCAN_MAX_FILES, hidden }), timeoutMs: SEARCH_TIMEOUT_MS },
+      {
+        argv: globCommandArgv({ target, limit: GLOB_SCAN_MAX_FILES, hidden }),
+        timeoutMs: SEARCH_TIMEOUT_MS,
+      },
       workspace.context,
     );
     if (result.timedOut) {
