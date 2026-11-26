@@ -1,3 +1,4 @@
+import { deferred } from "@rakazo/core/test-async";
 import { describe, expect, it, vi } from "vitest";
 import type { MediaAnalyzer, MediaSourceReaders } from "./media-analysis.js";
 import {
@@ -102,6 +103,8 @@ describe("vision_analyze", () => {
     const result = await run({ args: { attachment: "attachments/art_123.png" }, readers });
     expect(result).toMatchObject({ analysis: expect.stringContaining("red square") });
     expect(readers.attachment).toHaveBeenCalledWith("art_123", MEDIA_MAX_BYTES.image);
+    await run({ args: { attachment: "bots/bot-1/attachments/art_456.jpg" }, readers });
+    expect(readers.attachment).toHaveBeenLastCalledWith("art_456", MEDIA_MAX_BYTES.image);
   });
 
   it("refuses an attachment the conversation does not carry", async () => {
@@ -218,6 +221,25 @@ describe("vision_analyze", () => {
     });
     expect(result).toMatchObject({ truncated: true });
     expect("analysis" in result && result.analysis.length).toBe(MEDIA_ANALYSIS_MAX_CHARS);
+  });
+
+  it("gives up at its deadline, even when the model call ignores the signal", async () => {
+    const deadline = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+    try {
+      const pending = deferred<string>();
+      const analyzer = { analyze: vi.fn(() => pending.promise) };
+      const result = run({ args: { path: "photo.png" }, analyzer });
+      await vi.waitFor(() => expect(analyzer.analyze).toHaveBeenCalled());
+      expect(timeout).toHaveBeenCalledWith(60_000);
+      deadline.abort(new Error("deadline"));
+      await expect(result).resolves.toEqual({
+        error: "The image could not be analyzed. Try again later.",
+        source: "path photo.png",
+      });
+    } finally {
+      timeout.mockRestore();
+    }
   });
 
   it("never returns a provider error body or a credential", async () => {

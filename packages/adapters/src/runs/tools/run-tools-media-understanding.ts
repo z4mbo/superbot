@@ -40,13 +40,16 @@ export function runMediaReaders(ctx: RunContext, call: ToolCall): MediaSourceRea
         where: { id, spaceId: run.spaceId },
         select: { name: true, size: true, storageKey: true },
       });
-      // Only a file some message of this conversation carries, never any id in the Space.
+      // Only an image or file some message of this conversation carries, never any id in the
+      // Space and never an artifact behind another kind of block.
       const shown =
         row &&
         (await deps.prisma.message.findFirst({
           where: {
             threadId: ctx.source.conversationThreadId ?? ctx.thread.id,
-            blocks: { array_contains: [{ artifactId: id }] },
+            OR: ["image", "file"].map((kind) => ({
+              blocks: { array_contains: [{ kind, artifactId: id }] },
+            })),
           },
           select: { id: true },
         }));

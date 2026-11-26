@@ -1,4 +1,4 @@
-import { deadlineSignal, ResponseTooLargeError, redactSecrets } from "@rakazo/core";
+import { deadlineSignal, ResponseTooLargeError, redactSecrets, withAbort } from "@rakazo/core";
 import type { ResolveHostname } from "../../network/network-address.js";
 import { fetchSafeWebBytes } from "../../web/web-ssrf.js";
 import { mediaUnavailableMessage } from "./media-analysis.prompt.js";
@@ -72,9 +72,11 @@ function sourceOf(args: Record<string, unknown>): Source | { error: string } {
   return given[0]!;
 }
 
-/** `attachments/<id>.png` as listed to the model, or the bare id. */
+/** `attachments/<id>.png` as listed to the model (under `bots/<id>/` on a shared computer), or the bare id. */
 function attachmentId(value: string): string | undefined {
-  const id = value.replace(/^attachments\//, "").replace(/\.[a-z0-9]{1,8}$/i, "");
+  const id = value
+    .replace(/^(?:bots\/[A-Za-z0-9_-]{1,64}\/)?attachments\//, "")
+    .replace(/\.[a-z0-9]{1,8}$/i, "");
   return /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : undefined;
 }
 
@@ -164,9 +166,11 @@ export async function analyzeMediaFromTool(options: {
     };
   let text: string;
   try {
-    text = await analyzer.analyze(
-      { ...sniffed, name: read.name, data: read.data, question },
-      deadlineSignal(TIMEOUT_MS[modality], signal),
+    // The deadline holds even when the model call ignores its signal.
+    const deadline = deadlineSignal(TIMEOUT_MS[modality], signal);
+    text = await withAbort(
+      analyzer.analyze({ ...sniffed, name: read.name, data: read.data, question }, deadline),
+      deadline,
     );
   } catch {
     // The provider's own error can carry request details; the model gets a fixed message.

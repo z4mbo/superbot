@@ -325,6 +325,24 @@ describe("media understanding selection", () => {
     expect(names({ videoUnderstandingAvailable: true })).not.toContain("vision_analyze");
   });
 
+  it("tells a stale call that no connected model reads that kind", () => {
+    const offered = names({ imageUnderstandingAvailable: true }).map((name) => ({ name }));
+    const reasons = unavailableBuiltinToolReasons({ groupId: null, trigger: "user" }, offered);
+    expect(reasons.vision_analyze).toBeUndefined();
+    expect(reasons.video_analyze).toMatch(/^No connected model can read video/);
+    const none = unavailableBuiltinToolReasons(
+      { groupId: null, trigger: "user" },
+      names({}).map((name) => ({ name })),
+    );
+    expect(none.vision_analyze).toMatch(/^No connected model can read images/);
+    // A bot that turned the tool off is told that instead.
+    const off = unavailableBuiltinToolReasons(
+      { groupId: null, trigger: "user", disabledBuiltinTools: ["vision_analyze"] },
+      [],
+    );
+    expect(off.vision_analyze).not.toMatch(/^No connected model/);
+  });
+
   it("keeps them deferred, read-only and grouped with media", () => {
     for (const name of ["vision_analyze", "video_analyze"]) {
       expect(BUILTIN_AGENT_TOOL_NAMES.has(name)).toBe(true);

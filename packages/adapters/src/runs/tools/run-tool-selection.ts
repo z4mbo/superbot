@@ -14,6 +14,7 @@ import {
 } from "@rakazo/core";
 import { selectCloudAgentTools } from "../../cloud-agents/cloud-agent-tools-select.js";
 import { withMediaChoices } from "../../media/media-generation.tool-definition.js";
+import { mediaUnavailableMessage } from "../../media/understanding/media-analysis.prompt.js";
 import { READ_MEETING_TRANSCRIPT } from "../../meetings/meeting-chat.tool-definition.js";
 import { selectMemoryTools } from "../../memory/memory-tools.js";
 import { filterImageReturningComputerTools } from "../../models/model-vision.js";
@@ -362,6 +363,9 @@ export function unavailableBuiltinToolReasons(
       reasons[name] = backgroundRunToolUnavailableReason(name);
     } else if (KEYED_RESEARCH_TOOL_NAMES_SET.has(name) && !options.researchTools?.has(name)) {
       reasons[name] = researchKeyMissingReason(name);
+    } else if (name === "vision_analyze" || name === "video_analyze") {
+      // Offered only when a connected model reads that kind, so that is the one reason left.
+      reasons[name] = mediaUnavailableMessage(name === "video_analyze" ? "video" : "image");
     }
   }
   return reasons;

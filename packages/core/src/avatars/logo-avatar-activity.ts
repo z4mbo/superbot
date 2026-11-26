@@ -73,6 +73,8 @@ const READING_TOOLS = new Set([
   "read_file",
   "web_fetch",
   ...KEYED_PAGE_READ_TOOL_NAMES,
+  "vision_analyze",
+  "video_analyze",
   "read_history",
   "skill_read",
 ]);

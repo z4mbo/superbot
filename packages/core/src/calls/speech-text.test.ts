@@ -383,6 +383,8 @@ describe("narrateTool", () => {
     expect(narrateTool("firecrawl_scrape")).toBe("reading a page");
     expect(narrateTool("screenshot")).toBe("looking at the screen");
     expect(narrateTool("computer_observe")).toBe("looking at the screen");
+    expect(narrateTool("vision_analyze")).toBe("looking at an image");
+    expect(narrateTool("video_analyze")).toBe("watching a video");
     expect(narrateTool("browser_snapshot")).toBe("using the page");
     expect(narrateTool("write_file")).toBe("writing a file");
     expect(narrateTool("edit_file")).toBe("editing a file");
