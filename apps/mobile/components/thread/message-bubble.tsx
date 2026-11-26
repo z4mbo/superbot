@@ -1,4 +1,4 @@
-import { ph, t } from "@lingui/core/macro";
+import { ph } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { ChatMarkdown, MarkdownLongPressContext, withBlockMentions } from "@rakazo/chat-ui/native";
 import type { LoginFieldInput, MessageBlock } from "@rakazo/contracts";
@@ -11,7 +11,6 @@ import {
   isQuestionAskBlock,
   messagingProviderLabel,
   resolveAskChoice,
-  selectedAskActionLabel,
 } from "@rakazo/core";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import type { ComponentProps } from "react";
@@ -24,7 +23,7 @@ import { errorText } from "../../lib/api/user-error";
 import { mobileTokens } from "../../lib/appearance/appearance";
 import type { MobileArtifactTarget } from "../../lib/artifacts/artifact-open";
 import { openMobileArtifact } from "../../lib/artifacts/artifact-open";
-import { allowsSpace } from "../../lib/cards/ask-action-label";
+import { approvalAnswerLabel } from "../../lib/cards/ask-action-label";
 import { plainAskTitle } from "../../lib/cards/ask-title";
 import { isInlineImageBlock } from "../../lib/messages/inline-image";
 import {
@@ -70,25 +69,6 @@ import { McpAppCard } from "./mcp-app-card";
 import type { MessageRowActions } from "./message-row";
 import { PeerReceiptLine } from "./peer-receipt-line";
 import { SpecialMessageCard } from "./special-message-card";
-
-type AskAction = NonNullable<Extract<MessageBlock, { kind: "ask" }>["actions"]>[number];
-
-function formatApprovalAnswer(
-  answer: string | undefined,
-  actions: AskAction[] | undefined,
-  approval: boolean,
-): string {
-  if (!answer) return t`Answered`;
-  const selectedAction = actions?.find((action) => action.id === answer);
-  const outcome = selectedAction?.outcome;
-  if (approval && outcome === "created") return t`Created`;
-  if (approval && outcome === "cancelled") return t`Cancelled`;
-  if (approval && answer === "allow")
-    return allowsSpace(actions) ? t`Allowed in this space` : t`Allowed once`;
-  if (approval && answer === "always") return t`Always allowed`;
-  if (approval && answer === "deny") return t`Denied`;
-  return t`Answered: ${ph({ answer: selectedAskActionLabel(answer, actions) })}`;
-}
 
 export type MessageActionProps = Pick<
   TextProps,
@@ -547,15 +527,10 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
                       ? askBlock.answer === "deny"
                         ? t`Dismissed`
                         : t`Allowed once`
-                      : askBlock.checkInOffer
-                        ? askBlock.answer === "deny"
-                          ? t`Dismissed`
-                          : t`Set up`
-                        : formatApprovalAnswer(
-                            askBlock.answer,
-                            askBlock.actions,
-                            isApprovalAskBlock(askBlock),
-                          )}
+                      : approvalAnswerLabel(askBlock.answer, askBlock.actions, {
+                          approval: isApprovalAskBlock(askBlock),
+                          checkInOffer: askBlock.checkInOffer,
+                        })}
                 </Text>
               ) : question && canAnswer ? null : canAnswer && onAnswer ? (
                 <AskActions

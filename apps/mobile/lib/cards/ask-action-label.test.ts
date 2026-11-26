@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { resetI18nForTests } from "../i18n/i18n";
-import { askActionLabel } from "./ask-action-label";
+import { approvalAnswerLabel, askActionLabel } from "./ask-action-label";
 
 describe("askActionLabel", () => {
   afterEach(() => resetI18nForTests());
@@ -68,5 +68,25 @@ describe("askActionLabel", () => {
         { approval: true, site: "example.test" },
       ),
     ).toBe("example.test immer erlauben");
+  });
+});
+
+describe("approvalAnswerLabel", () => {
+  afterEach(() => resetI18nForTests());
+  const actions = [
+    { id: "allow", label: "Allow once" },
+    { id: "deny", label: "Deny" },
+  ];
+
+  it("says a check-in offer was set up or dismissed", () => {
+    const offer = { approval: true, checkInOffer: true };
+    expect(approvalAnswerLabel("allow", actions, offer)).toBe("Set up");
+    expect(approvalAnswerLabel("deny", actions, offer)).toBe("Dismissed");
+  });
+
+  it("keeps the plain approval answers", () => {
+    expect(approvalAnswerLabel("allow", actions, { approval: true })).toBe("Allowed once");
+    expect(approvalAnswerLabel("deny", actions, { approval: true })).toBe("Denied");
+    expect(approvalAnswerLabel(undefined, actions, { approval: true })).toBe("Answered");
   });
 });

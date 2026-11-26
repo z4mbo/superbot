@@ -10,7 +10,7 @@ import {
   expireComputerExecutionLeases,
   transientRunEventsWhere,
 } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { bestEffort, getLogger } from "@rakazo/logging";
 import { cancelComputerRunWork } from "../../computers/computer-idle.js";
 import { screenLeaseIdForRun } from "../../computers/computer-lifecycle.js";
 import { toComputerRef } from "../../computers/screens/computer-support.js";
@@ -229,7 +229,10 @@ export async function finishThreadStop(
       };
       const ref = toComputerRef(computer);
       await cancelComputerRunWork(deps.sandbox, ref, computer.id, runId, context);
-      await deps.sandbox.releaseScreen?.(ref, context).catch(() => undefined);
+      await bestEffort(
+        "release a stopped run's screen",
+        deps.sandbox.releaseScreen?.(ref, context),
+      );
     }),
   );
   await expireComputerExecutionLeases(deps.prisma, { runId: { in: runIds } });
