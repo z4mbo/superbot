@@ -510,6 +510,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["skills/remove", { skillId: "missing-skill" }],
       ["skills/appendEvent"],
       ["agentSkills/list"],
+      ["agentSkills/library"],
       ["agentSkills/get", { skillId: "missing-skill" }],
       ["agentSkills/create", { name: "Unauthenticated", description: "Nope", body: "Steps" }],
       ["agentSkills/update", { skillId: "missing-skill", description: "Nope" }],
