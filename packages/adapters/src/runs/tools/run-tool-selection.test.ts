@@ -24,6 +24,24 @@ describe("spawn_bot selection", () => {
   });
 });
 
+describe("messaging channel selection", () => {
+  it("drops shared memory and MCP server removal where shared memory saves are dropped", () => {
+    const names = (messagingChannelRun: boolean) =>
+      selectBuiltinToolsForRun({
+        graphicalToolsAllowed: false,
+        groupId: null,
+        trigger: "user",
+        semanticMemoryEnabled: false,
+        messagingChannelRun,
+      }).map((tool) => tool.name);
+
+    for (const name of ["save_shared_memory", "delete_shared_memory", "remove_mcp_server"]) {
+      expect(names(false)).toContain(name);
+      expect(names(true)).not.toContain(name);
+    }
+  });
+});
+
 describe("unavailableBuiltinToolReasons", () => {
   it("explains a group thread's missing message_bot and points to handoff_to_bot", () => {
     const reasons = unavailableBuiltinToolReasons({ groupId: "g", trigger: "user" }, [

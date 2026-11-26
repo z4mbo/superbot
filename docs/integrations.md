@@ -52,6 +52,10 @@ Choose an authentication method (**No auth**, **Bearer token** or **API key head
 **Manage MCP servers** lists every server you've added, with **Test connection**, OAuth sign-in, and
 which bots can use each one.
 
+You can also ask a bot to add or remove a remote MCP server in the chat. Removing one asks you to
+approve first, then deletes the server and its saved credentials. Local (stdio) servers are removed
+in **Manage MCP servers**.
+
 A tool call can take a few minutes; it stops after six minutes with no answer or progress
 from the server.
 

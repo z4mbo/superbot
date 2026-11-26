@@ -26,6 +26,9 @@ keeps them up to date.
 
 Find it in **Settings → Memory**, on the web, desktop and mobile apps.
 
+You can also ask a bot to delete a shared memory document. It asks you to approve first, and
+`MEMORY.md` is always kept; edit it instead.
+
 ## Memory providers
 
 Optionally, connect a memory service so bots can also recall facts by meaning, not just by reading

@@ -36,6 +36,117 @@ For a server with a public webhook endpoint, an inbound alternative avoids polli
 
 The Store's Agents catalog contains reviewed built-in templates. A community author can share an agent document directly. People import it into their own Space, inspect its instructions and choose connections and plugin grants. The plugin registry publishes skills, tools and record apps. Publishing an agent to the built-in Agents catalog is currently a source change.
 
+## Built-in tools
+
+Built-in tools come from the catalog in `packages/contracts/src/bots/builtin-tools.ts`. A small core set is always listed to the model; the rest are found during the turn with `find_tool` and called with `use_tool`. Which tools a run is offered depends on the bot, the account and where the run started. Tools marked *asks first* wait for the person's approval in the chat before they change or delete anything.
+
+### Files
+
+| Tool | What it does |
+| --- | --- |
+| `list_files` | Lists files and folders in the bot's home on its computer. |
+| `read_file` | Reads a text file from the bot's home, in line ranges for long files. |
+| `write_file` | Writes a text file into the bot's home. |
+| `attach_file` | Attaches a file from the bot's home to the chat. |
+
+### Terminal
+
+| Tool | What it does |
+| --- | --- |
+| `shell` | Runs a command on the bot's computer. |
+
+### Code and plots
+
+| Tool | What it does |
+| --- | --- |
+| `render_plot` | Renders a chart from tabular data as an image in the chat. |
+
+### Browser and screen
+
+| Tool | What it does |
+| --- | --- |
+| `browser_navigate` | Opens a URL in the page browser on the bot's computer. |
+| `browser_snapshot` | Reads the current page as numbered elements. |
+| `browser_act` | Clicks or fills page elements from a snapshot. |
+| `computer_observe` | Captures the bot computer's screen. |
+| `computer_act` | Runs a short batch of mouse and keyboard actions on the bot's computer. |
+| `sign_in` | Fills a login in the page browser from the person's password manager, which approves each login itself. |
+
+### Web
+
+| Tool | What it does |
+| --- | --- |
+| `web_search` | Searches the public web. |
+| `web_fetch` | Reads a public page as text. |
+| `service_search` | Finds a paid data service and its price per call. |
+| `service_call` | Calls a paid data service. Asks first. |
+
+### Media
+
+| Tool | What it does |
+| --- | --- |
+| `generate_image` | Generates an image and attaches it to the chat. Asks first. |
+| `generate_video` | Generates a short video and attaches it when ready. Asks first. |
+
+### Memory
+
+| Tool | What it does |
+| --- | --- |
+| `remember` | Saves a short fact to the bot's own memory, a person's profile or today's note. |
+| `save_shared_memory` | Saves a Space shared memory document every bot reads. |
+| `delete_shared_memory` | Deletes a Space shared memory document. `MEMORY.md` is kept. Asks first. |
+| `save_memory` | Stores a fact in the connected memory provider. |
+| `recall_memory` | Searches the memory provider by meaning. |
+| `forget_memory` | Forgets one fact in the memory provider. Asks first. |
+| `reflect_memory` | Answers a question from the memory provider. |
+| `search_history` | Searches earlier messages by keyword. |
+| `read_history` | Reads around an earlier message. |
+
+### Connections
+
+| Tool | What it does |
+| --- | --- |
+| `connect_app` | Shows a card in the chat to connect an app. |
+| `add_mcp_server` | Adds a remote MCP server the person described; its tools arrive once they approve the card. |
+| `remove_mcp_server` | Removes one of the person's remote MCP servers and its saved credentials. Local servers stay in Settings. Asks first. |
+
+### Bots and task threads
+
+| Tool | What it does |
+| --- | --- |
+| `run_subagent` | Hands a task to a helper whose result comes back later. |
+| `message_bot` | Sends a message to another bot in the Space. |
+| `handoff_to_bot` | Passes the next stage of the work to another group member. |
+| `post_to_group` | Posts in one of the bot's groups without waking anyone. |
+| `spawn_bot` | Creates a regular bot with its own thread, computer and memory. |
+
+### Schedules
+
+| Tool | What it does |
+| --- | --- |
+| `schedule_create` | Creates a reminder or recurring job for the bot. |
+| `schedule_list` | Lists the bot's routines. |
+| `schedule_update` | Changes one routine in place. |
+| `schedule_cancel` | Cancels a routine. |
+
+### Other areas
+
+| Area | What it does |
+| --- | --- |
+| Secrets | `request_secret`, `generate_secret`, `list_secrets`, `secret_request`, `forget_secret`: collect, create and use saved credentials the bot never sees; using or removing one asks first. |
+| Email | `read_email`, `send_email`, `delete_email`, `claim_email_address`: the bot's own inbox and address; sending, deleting and claiming ask first. |
+| Calendar and reminders | `list_calendars`, `list_calendar_events`, `create_calendar_event`, `list_reminders`, `create_reminder`, `complete_reminder`, `read_meeting_transcript`: calendars, phone reminders and meeting transcripts; changes ask first. |
+| Tasks and tickets | `task_catalog`, `scratchpad_list`, `scratchpad_add`, `scratchpad_update`, `scratchpad_complete`, `scratchpad_remove`, `board_tickets`, `ticket_get`, `ticket_create`, `ticket_update`, `ticket_comment`: the bot's open work and the ticket board. |
+| Skills | `skill_read`, `skill_create`, `skill_update`, `skill_delete`: reusable how-to recipes. |
+| Apps and pages | `save_page`, `read_app_state`, `run_app_action`, `find_apps`, `open_app`: pages and installed apps the person opens from the chat. |
+| Purchases | `request_purchase`, `purchase_status`, `paid_request`: buying with the person's wallet, which approves each purchase itself. |
+| Calls | `call_user`, `end_call`: voice calls with the person. |
+| Fleet | `update_bot`, `list_fleet`, `create_group`, `update_group`, `organize_bot`, `set_child_instructions`, `set_child_bot_model`, `create_child_routine`, `archive_bot`, `create_space`: the bot's own settings and the person's other bots, groups and spaces; instruction and model changes, archiving and new spaces ask first. |
+| Cloud agents | `cloud_agent_launch`, `cloud_agent_status`, `cloud_agent_reply`, `cloud_agent_cancel`: remote coding agents on a connected repository; all but status ask first. |
+| The person's computer | `user_computer_list`, `user_computer_shell`, `user_computer_observe`, `user_computer_act`, `open_path`, `launch_app`, `request_takeover`: the person's own computer, which asks first, and graphical apps on the bot's computer. |
+| Preferences and feedback | `ask_user`, `message_user`, `update_preferences`, `feedback`: questions and updates to the person, their account preferences, and reports to the server's operators; feedback asks first. |
+| Agent connections | `connect_agent`, `respond_agent_connection`, `message_agent`: standing connections to another person's agent; answering a request asks first. |
+
 ## Other chat harnesses
 
 | Product | Execution and tools |

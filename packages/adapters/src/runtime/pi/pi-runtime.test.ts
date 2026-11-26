@@ -75,6 +75,12 @@ describe("describeToolActivity", () => {
     expect(describeToolActivity("add_mcp_server", { name: "Linear" })).toBe(
       "Connecting MCP server: Linear",
     );
+    expect(describeToolActivity("remove_mcp_server", { name: "Linear" })).toBe(
+      "Removing MCP server: Linear",
+    );
+    expect(describeToolActivity("delete_shared_memory", { path: "team.md" })).toBe(
+      "Deleting shared memory: team.md",
+    );
     expect(describeToolActivity("run_subagent", { name: "scout", task: "…" })).toBe(
       "Delegating to helper: scout",
     );
