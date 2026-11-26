@@ -645,6 +645,8 @@ export const MessageView = memo(function MessageView({
                   name={block.name}
                   mimeType={block.mimeType}
                   size={block.size}
+                  // A generated file's own name is made up; its prompt shows under it.
+                  label={block.generated ? t`Video` : undefined}
                   details={
                     block.generated ? <GeneratedMediaDetails media={block.generated} /> : undefined
                   }

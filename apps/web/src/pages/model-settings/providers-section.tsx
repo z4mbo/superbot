@@ -251,6 +251,7 @@ export function SettingsListRow({
   labelTestId,
   disabled,
   onClick,
+  expanded,
   className,
   children,
 }: {
@@ -258,6 +259,8 @@ export function SettingsListRow({
   labelTestId?: string;
   disabled?: boolean;
   onClick: () => void;
+  /** Set when the row opens its content under it instead of a page. */
+  expanded?: boolean;
   className?: string;
   children?: ReactNode;
 }) {
@@ -266,6 +269,7 @@ export function SettingsListRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
+      aria-expanded={expanded}
       className={cn(
         "flex min-h-[52px] w-full items-center gap-2.5 py-2 ps-3 pe-3 text-start outline-none first:rounded-t-xl hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring",
         className,
@@ -278,7 +282,13 @@ export function SettingsListRow({
         {label}
       </span>
       {children}
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground rtl:rotate-180" aria-hidden />
+      <ChevronRight
+        className={cn(
+          "size-4 shrink-0 text-muted-foreground",
+          expanded ? "rotate-90" : "rtl:rotate-180",
+        )}
+        aria-hidden
+      />
     </button>
   );
 }

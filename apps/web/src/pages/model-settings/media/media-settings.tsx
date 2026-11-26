@@ -64,8 +64,13 @@ export function MediaSettings({
             <MediaProviderRow
               entry={entry}
               modelProviderName={modelProviderName}
+              open={editing?.id === entry.id}
               onOpen={() => setOpen(open === entry.id ? null : entry.id)}
             />
+            {/* Under its own row the row is the heading, so the form sits there unframed. */}
+            {editing?.id === entry.id ? (
+              <MediaKeyForm entry={editing} framed={false} onClose={() => setOpen(null)} />
+            ) : null}
           </li>
         ))}
         {addable.length ? (
@@ -77,8 +82,8 @@ export function MediaSettings({
           </li>
         ) : null}
       </ul>
-      {editing ? (
-        <MediaKeyForm key={editing.id} entry={editing} onClose={() => setOpen(null)} />
+      {editing && !editing.connected ? (
+        <MediaKeyForm key={editing.id} entry={editing} framed onClose={() => setOpen(null)} />
       ) : null}
     </section>
   );
@@ -87,10 +92,13 @@ export function MediaSettings({
 function MediaProviderRow({
   entry,
   modelProviderName,
+  open,
   onOpen,
 }: {
   entry: MediaProviderEntry;
   modelProviderName: (id: string) => string;
+  /** Its key form is open under it. */
+  open: boolean;
   onOpen: () => void;
 }) {
   const hints = Object.values(entry.hints).join(" · ");
@@ -110,7 +118,7 @@ function MediaProviderRow({
     );
   }
   return (
-    <SettingsListRow label={entry.name} onClick={onOpen}>
+    <SettingsListRow label={entry.name} onClick={onOpen} expanded={open}>
       {detail ? (
         <span className="max-w-[45%] shrink-0 truncate text-body-sm text-muted-foreground">
           {detail}
@@ -173,7 +181,16 @@ function MediaChooser({ catalog, kind }: { catalog: MediaCatalog; kind: MediaKin
 }
 
 /** Adds, replaces or removes a provider's key. A saved secret is never shown again. */
-function MediaKeyForm({ entry, onClose }: { entry: MediaProviderEntry; onClose: () => void }) {
+function MediaKeyForm({
+  entry,
+  framed,
+  onClose,
+}: {
+  entry: MediaProviderEntry;
+  /** A new connection's form, framed under the list with its own title; else under its row. */
+  framed: boolean;
+  onClose: () => void;
+}) {
   const { t } = useLingui();
   const queries = useSpaceQueries();
   const saved = entry.source === "key";
@@ -204,28 +221,30 @@ function MediaKeyForm({ entry, onClose }: { entry: MediaProviderEntry; onClose: 
   const error = connect.error ?? remove.error;
   return (
     <form
-      className="mt-3 rounded-xl border border-border px-4 py-4"
+      className={framed ? "mt-3 rounded-xl border border-border px-4 py-4" : "px-3 pt-1 pb-4"}
       data-testid="media-key-form"
       onSubmit={(event) => {
         event.preventDefault();
         if (ready && !busy) connect.run(values);
       }}
     >
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h4 className="min-w-0 truncate text-body-lg font-medium text-foreground">
-          {saved ? entry.name : <Trans>Connect {entry.name}</Trans>}
-        </h4>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="-me-1.5 shrink-0 text-muted-foreground"
-          aria-label={t`Close`}
-          onClick={onClose}
-        >
-          <X />
-        </Button>
-      </div>
+      {framed ? (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h4 className="min-w-0 truncate text-body-lg font-medium text-foreground">
+            <Trans>Connect {entry.name}</Trans>
+          </h4>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="-me-1.5 shrink-0 text-muted-foreground"
+            aria-label={t`Close`}
+            onClick={onClose}
+          >
+            <X />
+          </Button>
+        </div>
+      ) : null}
       <fieldset className="contents" disabled={busy}>
         <FieldGroup className="gap-4">
           {entry.fields.map((field) => {

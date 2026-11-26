@@ -535,7 +535,7 @@ it("keeps an image a person sent as a plain image", () => {
   expect(container.querySelector('[data-testid="generated-media-details"]')).toBeNull();
 });
 
-it("puts what made a finished video under its file card", () => {
+it("puts what made a finished video under its file card, named as a video", () => {
   renderView("bot", [
     {
       kind: "file",
@@ -548,7 +548,9 @@ it("puts what made a finished video under its file card", () => {
   ]);
   const details = container.querySelector('[data-testid="generated-media-details"]');
   expect(details?.textContent).toContain("Waves on the shore");
-  expect(container.textContent).toContain("waves.mp4");
+  // Its made-up file name stays out of sight; the download keeps it.
+  expect(container.textContent).toContain("Video");
+  expect(container.textContent).not.toContain("waves.mp4");
 });
 
 it("draws a video's progress card while it is being made", () => {

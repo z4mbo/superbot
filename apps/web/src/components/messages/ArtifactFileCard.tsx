@@ -36,6 +36,8 @@ type ArtifactFileCardProps = {
   name: string;
   mimeType: string;
   size: number;
+  /** The name to show when the file's own is made up; downloads keep the file's name. */
+  label?: string;
   /** Shown under the file, inside its card. */
   details?: ReactNode;
 };
@@ -110,7 +112,7 @@ export function ArtifactFileCard(props: ArtifactFileCardProps) {
             <button
               ref={previewButton}
               type="button"
-              aria-label={t`Preview ${props.name}`}
+              aria-label={t`Preview ${props.label ?? props.name}`}
               onClick={() => setPreviewOpen(true)}
               className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-accent"
             >
@@ -122,16 +124,18 @@ export function ArtifactFileCard(props: ArtifactFileCardProps) {
                 )}
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-body font-medium">{props.name}</span>
+                <span className="block truncate text-body font-medium">
+                  {props.label ?? props.name}
+                </span>
                 <span className="mt-0.5 block text-body-sm text-muted-foreground">
                   {formatSize(props.size)}
                 </span>
               </span>
             </button>
-            <IconTooltip label={t`Download ${props.name}`}>
+            <IconTooltip label={t`Download ${props.label ?? props.name}`}>
               <button
                 type="button"
-                aria-label={t`Download ${props.name}`}
+                aria-label={t`Download ${props.label ?? props.name}`}
                 onClick={() => void startDownload()}
                 className="grid w-14 shrink-0 place-items-center border-l border-border text-muted-foreground hover:bg-accent hover:text-foreground"
               >
@@ -167,6 +171,7 @@ function FilePreview({
   target,
   artifactId,
   name,
+  label,
   mimeType,
   closeButtonRef,
 }: ArtifactFileCardProps & { closeButtonRef: RefObject<HTMLButtonElement | null> }) {
@@ -216,7 +221,7 @@ function FilePreview({
     <>
       <header className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-5">
         <DialogTitle className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
-          {name}
+          {label ?? name}
         </DialogTitle>
         {state.status === "ready" &&
         state.text !== undefined &&
@@ -239,12 +244,12 @@ function FilePreview({
           text={copyFailedText}
           label={t`Copy ${name}`}
         />
-        <IconTooltip label={t`Download ${name}`}>
+        <IconTooltip label={t`Download ${label ?? name}`}>
           <Button
             variant="ghost"
             size="icon-lg"
             className="rounded-full text-muted-foreground"
-            aria-label={t`Download ${name}`}
+            aria-label={t`Download ${label ?? name}`}
             onClick={() =>
               void (async () => {
                 setDownloadError(null);
@@ -287,7 +292,7 @@ function FilePreview({
         ) : kind === "html" && state.text !== undefined ? (
           <SandboxedHtmlViewer html={state.text} title={name} />
         ) : kind === "video" ? (
-          <VideoPreview bytes={state.bytes} name={name} />
+          <VideoPreview bytes={state.bytes} name={label ?? name} />
         ) : kind === "pdf" ? (
           <PdfViewer bytes={state.bytes} title={name} />
         ) : state.text !== undefined && kind === "text" ? (
