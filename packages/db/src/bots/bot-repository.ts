@@ -457,6 +457,9 @@ export function createRepos(
         /** Copy a pin as is (duplicates); otherwise a set other than the default pins the bot. */
         avatarSetPinned?: boolean;
         avatarFamily?: number;
+        /** The shape and ink the bot wears, by the names avatar packs use. */
+        lookShape?: string;
+        lookColor?: string;
         parentBotId?: string | null;
         computerMode?: ComputerMode;
         spawnKey?: string;
@@ -565,6 +568,8 @@ export function createRepos(
               color: avatar.color,
               avatarSet,
               avatarSetPinned: input.avatarSetPinned ?? avatarSet !== defaultSet,
+              lookShape: input.lookShape,
+              lookColor: input.lookColor,
               position: (positions._max.position ?? -1) + 1,
               parentBotId: input.parentBotId ?? null,
               computerId: computer.id,

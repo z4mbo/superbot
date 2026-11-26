@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, signup } from "../helpers/helpers";
+import { captureScreenshot, completeOnboarding, createNamedBot, signup } from "../helpers/helpers";
 
 test("sidebar search opens from its icon and closes without moving chats mid-click", async ({
   page,
@@ -18,7 +18,7 @@ test("sidebar search opens from its icon and closes without moving chats mid-cli
   await captureScreenshot(page, testInfo, "sidebar-search-open");
 
   // Leaving an empty field keeps the roster still, so a chat click lands.
-  const chief = sidebar.getByRole("button", { name: /^Chief/ }).first();
+  const chief = sidebar.getByRole("button", { name: /^Superbot/ }).first();
   const before = await chief.boundingBox();
   await chief.click();
   await expect(search).toBeVisible();
@@ -93,12 +93,14 @@ test("a failed space search says so instead of No results", async ({ page }, tes
 test("a bot found by search can be pinned from its result", async ({ page }, testInfo) => {
   await signup(page, `sidebar-search-pin-${Date.now()}@rakazo.test`, "password12", "Search Pin");
   await completeOnboarding(page);
+  // The main bot is already pinned for good, so a bot of the person's own is pinned.
+  await createNamedBot(page, "Scout");
   const sidebar = page.locator("aside").first();
   await sidebar.getByTestId("sidebar-search-trigger").click();
   const search = sidebar.getByRole("textbox", { name: "Search", exact: true });
-  await search.fill("Chief");
+  await search.fill("Scout");
 
-  const result = sidebar.getByRole("button", { name: /^Chief.*Bot/ }).first();
+  const result = sidebar.getByRole("button", { name: /^Scout/ }).first();
   await result.click({ button: "right" });
   const pin = page.getByRole("menuitem", { name: "Pin", exact: true });
   await expect(pin).toBeVisible();
@@ -106,5 +108,5 @@ test("a bot found by search can be pinned from its result", async ({ page }, tes
   await pin.click();
 
   await search.press("Escape");
-  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).toContainText("Chief");
+  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).toContainText("Scout");
 });

@@ -81,19 +81,25 @@ export type BotMarkGazeHold = BotMarkGaze & { to: readonly [number, number]; hel
 export const BOT_MARK_GAZE_REST: BotMarkGazeHold = { x: 0, y: 0, hold: 0, to: [0, 0], held: false };
 
 /**
- * Where the pointer over an avatar's box holds its face: the pointer's offset from the mark's
- * middle in half-widths of the mark, x right and y up, each clamped to ±1.
+ * Where the pointer over an avatar's box holds its face: the direction from the mark's middle to
+ * the pointer, x right and y up, in half-widths of the mark. Past that reach only the direction
+ * counts, so the face turns its full way toward any angle (up, down, aside or a diagonal) and a
+ * wide box never pushes it further along one axis than the other.
  */
 export function botMarkPointerGaze(
   mark: { left: number; top: number; width: number; height: number },
   pointer: readonly [number, number],
 ): [number, number] {
   const reach = Math.max(mark.width, 1) * 0.5;
-  const clamp = (value: number) => Math.max(-1, Math.min(1, value));
-  return [
-    clamp((pointer[0] - (mark.left + mark.width / 2)) / reach),
-    clamp(-(pointer[1] - (mark.top + mark.height / 2)) / reach),
-  ];
+  const x = (pointer[0] - (mark.left + mark.width / 2)) / reach;
+  const y = -(pointer[1] - (mark.top + mark.height / 2)) / reach;
+  const length = Math.hypot(x, y);
+  return length > 1 ? [x / length, y / length] : [x, y];
+}
+
+/** Whether a mark in `state` turns to the pointer: a sleeping or waking one does not. */
+export function botMarkFollowsPointer(state: BotMarkState): boolean {
+  return state !== "asleep" && state !== "waking";
 }
 
 /**

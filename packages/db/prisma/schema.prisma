@@ -721,6 +721,9 @@ model Space {
   /// The attempt holding the claim: every account deletion attempt shares one `deletionClaimId`,
   /// so its rollback and handover touch only rows still carrying its own attempt id.
   deletionAttemptId           String?
+  /// When the Space was given its main bot, or found to have had one. A main bot its members
+  /// archive or delete later is not made again.
+  chiefBotAt                  DateTime?
   memberships                 SpaceMember[]
   invites                     SpaceInvite[]
   bots                        Bot[]

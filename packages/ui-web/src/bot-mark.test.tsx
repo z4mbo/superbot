@@ -84,11 +84,9 @@ function held(shape: "cloud" | "egg", x: number, y: number) {
   return { body: drawing.body, eyes: drawing.eyes };
 }
 
-function pointer(type: "pointermove" | "pointerleave", target: Element, x = 0, y = 0) {
+function pointer(type: "pointermove", target: Element, x = 0, y = 0) {
   act(() => {
-    target.dispatchEvent(
-      new MouseEvent(type, { clientX: x, clientY: y, bubbles: type === "pointermove" }),
-    );
+    target.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }));
   });
 }
 
@@ -127,14 +125,17 @@ it("follows the pointer only inside the avatar's own box, and rests again when i
   pointer("pointermove", document.body, 400, 10);
 
   // Inside the row, its own mark turns toward the pointer and settles there; the other bots rest.
-  // A test document lays nothing out, so the mark's box is a point at the origin.
+  // A test document lays nothing out, so the mark's box is a point at the origin, and the face
+  // turns its full way along the pointer's direction: right, and a third as far up.
   const row = container.querySelector('[data-testid="row"]')!;
   pointer("pointermove", row, 30, -10);
-  await vi.waitFor(() => expect(shown("ada")).toEqual(held("cloud", 1, 1)), { timeout: 3000 });
+  const [x, y] = [3 / Math.sqrt(10), 1 / Math.sqrt(10)];
+  await vi.waitFor(() => expect(shown("ada")).toEqual(held("cloud", x, y)), { timeout: 3000 });
   expect(shown("bo")).toEqual(resting(rest.egg));
   expect(shown("header-dee")).toEqual(resting(rest.cloud));
 
-  pointer("pointerleave", row);
+  // Leaving the row for the page around it lets the face go back to rest.
+  pointer("pointermove", document.body, 400, 10);
   await vi.waitFor(() => expect(shown("ada")).toEqual(resting(rest.cloud)), { timeout: 3000 });
 });
 

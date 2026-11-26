@@ -162,7 +162,7 @@ test("choose your own key or monthly credits, then add a one-time top-up", async
     await route.fulfill({ json: { json: { url: new URL("/app", page.url()).href } } });
   });
   await page.getByRole("button", { name: "Subscribe to credits", exact: true }).click();
-  await expect(page.getByText("Chief").first()).toBeVisible();
+  await expect(page.getByText("Superbot", { exact: true }).first()).toBeVisible();
   expect(purchase).toEqual({ amountCents: 3000, monthly: true });
   const settings = await openUserSettings(page, "billing");
   await expect(settings.getByText("$30.00", { exact: true })).toBeVisible();
@@ -198,7 +198,7 @@ test("choose your own key or monthly credits, then add a one-time top-up", async
     page.waitForEvent("load"),
     dialog.getByRole("button", { name: "Continue to checkout" }).click(),
   ]);
-  await expect(page.getByText("Chief").first()).toBeVisible();
+  await expect(page.getByText("Superbot", { exact: true }).first()).toBeVisible();
   expect(purchase).toEqual({ amountCents: 5000, monthly: false });
 
   status = billingStatus({
@@ -219,7 +219,7 @@ test("choose your own key or monthly credits, then add a one-time top-up", async
     await route.fulfill({ json: { json: { ok: true } } });
   });
   await page.getByRole("button", { name: "Connect my own", exact: true }).click();
-  await expect(page.getByText("Chief").first()).toBeVisible();
+  await expect(page.getByText("Superbot", { exact: true }).first()).toBeVisible();
 
   status = billingStatus({
     access: true,
@@ -246,7 +246,7 @@ test("choose your own key or monthly credits, then add a one-time top-up", async
   await page.keyboard.press("Escape");
   await expect(plans).toHaveCount(0);
   await expect(page).not.toHaveURL(/[?&]plans/);
-  await expect(page.getByText("Chief").first()).toBeVisible();
+  await expect(page.getByText("Superbot", { exact: true }).first()).toBeVisible();
 
   await page.goto("/app?plans");
   // The bare route redirects to the first chat and keeps the link's `plans` param.
@@ -266,7 +266,7 @@ test("choose your own key or monthly credits, then add a one-time top-up", async
   ]);
   expect(selectedFunding).toBe(false);
   await page.unroute("**/rpc/billing/selectFunding");
-  await expect(page.getByText("Chief").first()).toBeVisible();
+  await expect(page.getByText("Superbot", { exact: true }).first()).toBeVisible();
   const freePlan = await openUserSettings(page, "billing");
   await expect(
     freePlan.getByText("Using your API key. Free plan ends Jan 15, 2030.", { exact: true }),
@@ -335,7 +335,7 @@ test("delete an unpaid organization from the plan choice", async ({ page }, test
   await confirm.getByLabel("Type Work to confirm").fill("Work");
   await captureScreenshot(page, testInfo, "billing-delete-organization");
   await confirm.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByText("Chief").first()).toBeVisible();
+  await expect(page.getByText("Superbot", { exact: true }).first()).toBeVisible();
   const { organizations } = await rpc<{ organizations: Array<{ name: string }> }>(
     page,
     "organizations/list",

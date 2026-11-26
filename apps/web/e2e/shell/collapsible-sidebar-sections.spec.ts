@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, signup } from "../helpers/helpers";
+import { captureScreenshot, completeOnboarding, createNamedBot, signup } from "../helpers/helpers";
 
 test("titled sidebar section expands and collapses", async ({ page }, testInfo) => {
   const stamp = Date.now();
@@ -7,9 +7,11 @@ test("titled sidebar section expands and collapses", async ({ page }, testInfo) 
   await completeOnboarding(page);
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
+  // The main bot is always pinned first, so a bot of the person's own is organized.
+  await createNamedBot(page, "Scout");
 
   const sidebar = page.locator("aside").first();
-  const bot = sidebar.getByRole("button", { name: /^Chief/ });
+  const bot = sidebar.getByRole("button", { name: /^Scout/ });
 
   await bot.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Move to", exact: true }).hover();
@@ -20,7 +22,7 @@ test("titled sidebar section expands and collapses", async ({ page }, testInfo) 
 
   const projects = sidebar.locator('[data-sidebar-group^="section:"]');
   await expect(projects).toContainText("Projects");
-  await expect(projects).toContainText("Chief");
+  await expect(projects).toContainText("Scout");
 
   const toggle = projects.getByRole("button", { name: /Collapse Projects|Expand Projects/ });
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -28,7 +30,7 @@ test("titled sidebar section expands and collapses", async ({ page }, testInfo) 
   await page.mouse.move(1, 1);
   await captureScreenshot(page, testInfo, "sidebar-section-expanded");
 
-  // Hover header with Chief selected underneath — outer edges must match.
+  // Hover header with Scout selected underneath — outer edges must match.
   await bot.click();
   await toggle.hover();
   const headerBox = await toggle.boundingBox();
@@ -41,11 +43,11 @@ test("titled sidebar section expands and collapses", async ({ page }, testInfo) 
 
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await expect(projects.getByRole("button", { name: /^Chief/ })).toHaveCount(0);
+  await expect(projects.getByRole("button", { name: /^Scout/ })).toHaveCount(0);
   await page.mouse.move(1, 1);
   await captureScreenshot(page, testInfo, "sidebar-section-collapsed");
 
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(projects.getByRole("button", { name: /^Chief/ })).toHaveCount(1);
+  await expect(projects.getByRole("button", { name: /^Scout/ })).toHaveCount(1);
 });

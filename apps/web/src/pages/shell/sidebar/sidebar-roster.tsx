@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { Bot, BotSection, Group, Me, Space, ThreadSnapshot } from "@rakazo/contracts";
+import { isChiefBot } from "@rakazo/contracts";
 import type { AvatarCutoutHole } from "@rakazo/ui-web";
 import {
   avatarCutoutStyle,
@@ -122,6 +123,8 @@ export function SidebarRoster({
               chatMenu={chatMenu}
               ownSpaceId={bootstrapMe?.spaceId}
               openSpaceChat={openSpaceChat}
+              spaceMenuAnchor={spaceMenuAnchor}
+              setSpaceMenu={setSpaceMenu}
             />
           );
         }
@@ -526,8 +529,10 @@ type RosterGroup = ReturnType<
   typeof sidebarGroupsForSpaces<Space["bots"][number], Space["groups"][number]>
 >[number];
 
-/** Pinned chats sit above the sections as tiles; the first bot the account made wears a star. */
-/** A pinned tile's avatar, and the corner marks cut out of it with a gap, as the reference does. */
+/**
+ * Pinned chats sit above the sections as tiles, the Space's main bot first with a star. A tile's
+ * avatar has the corner marks cut out of it with a gap, as the reference does.
+ */
 const PINNED_AVATAR = 60;
 const PINNED_GAP = 2.7;
 const PINNED_BADGE: AvatarCutoutHole = { x: 44, y: 44, width: 16, height: 16 };
@@ -542,6 +547,8 @@ function PinnedTiles({
   chatMenu,
   ownSpaceId,
   openSpaceChat,
+  spaceMenuAnchor,
+  setSpaceMenu,
 }: {
   group: RosterGroup;
   inGroup: boolean;
@@ -551,10 +558,66 @@ function PinnedTiles({
   chatMenu: ChatMenuState;
   ownSpaceId: string | undefined;
   openSpaceChat: (spaceId: string, path: string) => void;
+  spaceMenuAnchor: RefObject<HTMLElement | null>;
+  setSpaceMenu: (menu: { id: string; position: { x: number; y: number } }) => void;
 }) {
   const { t } = useLingui();
+  // The first group of a Space carries its heading and actions; with the main bot always pinned,
+  // that is these tiles. Several Spaces listed also name each one above its tiles.
+  const heading = group.canOpenSpaceSettings || group.showLock;
   return (
     <div data-sidebar-group={group.key} className="flex flex-wrap justify-center gap-1 pt-2.5 pb-2">
+      {heading ? (
+        <div
+          data-pinned-space-heading
+          className="flex basis-full items-center justify-between gap-2 ps-2 pb-1"
+          onContextMenu={
+            group.canOpenSpaceSettings
+              ? (event) => {
+                  event.preventDefault();
+                  spaceMenuAnchor.current = event.currentTarget;
+                  setSpaceMenu({
+                    id: group.spaceId,
+                    position: { x: event.clientX, y: event.clientY },
+                  });
+                }
+              : undefined
+          }
+        >
+          <span
+            data-pinned-space
+            className="flex min-w-0 items-center gap-1.5 text-body-sm text-muted-foreground"
+          >
+            {group.hasGuests ? (
+              <Globe size={11} strokeWidth={2} aria-hidden="true" />
+            ) : group.showLock ? (
+              group.shared ? (
+                <Users size={11} strokeWidth={2} aria-hidden="true" />
+              ) : (
+                <Lock size={11} strokeWidth={2} aria-hidden="true" />
+              )
+            ) : null}
+            <span dir="auto" className="truncate">
+              {group.spaceName}
+            </span>
+            {group.hasGuests ? <span className="sr-only">{t`Shared with guests`}</span> : null}
+          </span>
+          {group.canOpenSpaceSettings ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t`Actions for ${group.spaceName}`}
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                spaceMenuAnchor.current = event.currentTarget;
+                setSpaceMenu({ id: group.spaceId, position: { x: rect.left, y: rect.bottom } });
+              }}
+            >
+              <MoreHorizontal size={14} aria-hidden="true" />
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {group.bots.map((item) => {
         const selected =
           (item.kind === "bot" && !inGroup && active?.id === item.chat.id) ||
@@ -565,7 +628,7 @@ function PinnedTiles({
               ? (activeSnapshot.members ?? item.chat.members)
               : item.chat.members
             : [];
-        const main = item.kind === "bot" && item.chat.spawnKey === "onboarding:first";
+        const main = item.kind === "bot" && isChiefBot(item.chat);
         return (
           <ChatMenu
             key={`${item.kind}:${item.chat.id}`}
@@ -629,7 +692,11 @@ function PinnedTiles({
                   />
                 ) : null}
               </span>
-              <span dir="auto" className="max-w-full truncate text-label text-foreground">
+              <span
+                dir="auto"
+                data-roster-bot-name={item.kind === "bot" ? "" : undefined}
+                className="max-w-full truncate text-label text-foreground"
+              >
                 {item.chat.name}
               </span>
             </ContextMenuTrigger>

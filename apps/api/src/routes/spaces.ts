@@ -27,6 +27,8 @@ import {
   setSpaceSettingOverride,
   spaceSettingOverrides,
 } from "@rakazo/db";
+import { bestEffort } from "@rakazo/logging";
+import { ensureChiefBot } from "../account/chief-bot.js";
 import { hasChatHistory } from "../account/first-bot.js";
 import { otherSpaceOfBot, otherSpaceOfGroup } from "../bots/bot-space.js";
 import type { InvitationEmailOutcome } from "../email/invitation-email.js";
@@ -340,13 +342,26 @@ export function spacesRoutes(ctx: RouterContext) {
 }
 
 // Lists every Space the member belongs to, with each one's bots and threads, so it
-// reads across Spaces. Every query below is limited to the member's Spaces.
-function spaceNavigationDto(
+// reads across Spaces. Every query below is limited to the member's Spaces. The current Space
+// is first given its main bot if it never had one, so the list already shows it.
+async function spaceNavigationDto(
   deps: RouterDeps,
   actor: Actor,
   repos: ReturnType<typeof createRepos>,
   groupRepos: ReturnType<typeof createGroupRepos>,
 ): Promise<SpaceNavigation> {
+  // A failure leaves the roster as it is; the next read tries again.
+  await bestEffort(
+    "main bot for the Space",
+    ensureChiefBot(
+      {
+        prisma: deps.prisma,
+        createBot: repos.createBot,
+        publishRosterChange: deps.events?.publishRosterChange?.bind(deps.events),
+      },
+      actor,
+    ),
+  );
   return runAsSystem("space navigation across the member's Spaces", () =>
     memberSpaceNavigation(deps, actor, repos, groupRepos),
   );

@@ -7,7 +7,7 @@ import {
   signup,
 } from "../helpers/helpers";
 
-test("a new space starts empty, is renamed in its settings, and is deleted with its bots", async ({
+test("a new space opens with its own main bot, is renamed in its settings, and is deleted with its bots", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
@@ -33,15 +33,12 @@ test("a new space starts empty, is renamed in its settings, and is deleted with 
   }
   await name.press("Enter");
 
-  // The account already has Chief, so the new space starts empty with a way to add a bot.
+  // The new space opens with a main bot of its own, pinned first beside the first space's.
   await page.waitForURL(/\/app/);
   await expect(sidebar.getByText("Typo space", { exact: true })).toBeVisible();
-  await expect(
-    page.locator("main").getByRole("button", { name: "New bot", exact: true }),
-  ).toBeVisible();
-  await expect(sidebar.getByRole("button", { name: /^Chief/ })).toHaveCount(1);
+  await expect(sidebar.getByRole("button", { name: /^Superbot/ })).toHaveCount(2);
   await captureScreenshot(page, testInfo, "new-space-empty");
-  // One bot of its own, so deleting the space names what goes with it.
+  // One more bot of its own, so deleting the space names what goes with it.
   const { spaces } = await rpc<{ spaces: Array<{ id: string; name: string }> }>(
     page,
     "spaces/list",
@@ -71,20 +68,21 @@ test("a new space starts empty, is renamed in its settings, and is deleted with 
   await captureScreenshot(page, testInfo, "space-settings-rename");
   await spaceName.press("Enter");
   await expect(settings.getByRole("heading", { name: "Temporary" })).toBeVisible();
-  await expect(sidebar.getByText("Temporary", { exact: true })).toBeVisible();
+  // Named above its pinned main bot and again on its section.
+  await expect(sidebar.getByText("Temporary", { exact: true }).first()).toBeVisible();
   await expect(sidebar.getByText("Typo space", { exact: true })).toHaveCount(0);
 
   // An occupied space is deleted with its bots after one confirmation naming them.
   await settings.getByRole("button", { name: "Delete space" }).click();
   const deleteSpaceDialog = page.getByRole("alertdialog", {
-    name: "Delete Temporary and its 1 bot?",
+    name: "Delete Temporary and its 2 bots?",
   });
   await expect(deleteSpaceDialog).toBeVisible();
   await captureScreenshot(page, testInfo, "delete-space-dialog");
   await deleteSpaceDialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(sidebar.getByText("Temporary", { exact: true })).toHaveCount(0);
   await expect(page).not.toHaveURL(/\/onboarding/);
-  await expect(sidebar.getByRole("button", { name: /^Chief/ })).toHaveCount(1);
+  await expect(sidebar.getByRole("button", { name: /^Superbot/ })).toHaveCount(1);
   await page.reload();
   await expect(sidebar.getByText("Temporary", { exact: true })).toHaveCount(0);
 
@@ -92,10 +90,10 @@ test("a new space starts empty, is renamed in its settings, and is deleted with 
   await page.goto("/onboarding");
   await page.waitForURL(/\/app/);
   await expect(page).not.toHaveURL(/\/onboarding/);
-  await expect(sidebar.getByRole("button", { name: /^Chief/ })).toHaveCount(1);
+  await expect(sidebar.getByRole("button", { name: /^Superbot/ })).toHaveCount(1);
 });
 
-test("deleting the last bot in a space stays in the app after first use", {
+test("deleting a bot from a new space stays in the app after first use", {
   tag: "@nightly",
 }, async ({ page }) => {
   const stamp = Date.now();
@@ -115,7 +113,7 @@ test("deleting the last bot in a space stays in the app after first use", {
   await page.waitForURL(/\/app/);
   await expect(sidebar.getByText("Side", { exact: true })).toBeVisible();
 
-  // Give the new space one bot, then delete it: the app must stay put instead of
+  // Give the new space a bot of its own, then delete it: the app must stay put instead of
   // forcing onboarding again.
   const { spaces } = await rpc<{ spaces: Array<{ id: string; name: string }> }>(
     page,
@@ -142,23 +140,22 @@ test("deleting the last bot in a space stays in the app after first use", {
   await expect(page).not.toHaveURL(/\/onboarding/);
   await page.reload();
   await expect(page).not.toHaveURL(/\/onboarding/);
-  await expect(sidebar.getByRole("button", { name: "Open Side" })).toBeVisible();
-  await expect(
-    page.locator("main").getByRole("button", { name: "New bot", exact: true }),
-  ).toBeVisible();
+  // The space keeps the main bot it was given when it opened.
+  const sideTiles = sidebar.locator('[data-sidebar-group$="pinned"]').filter({ hasText: "Side" });
+  await expect(sideTiles.locator("[data-roster-bot-name]")).toHaveText(["Superbot"]);
 
   await sidebar.getByRole("button", { name: "Actions for Side" }).click();
   await page.getByRole("menuitem", { name: "Delete space" }).click();
   await page
-    .getByRole("alertdialog", { name: "Delete Side?" })
+    .getByRole("alertdialog", { name: /^Delete Side/ })
     .getByRole("button", { name: "Delete", exact: true })
     .click();
   await expect(sidebar.getByText("Side", { exact: true })).toHaveCount(0);
   await sidebar.getByRole("button", { name: /^Archived/ }).click();
-  await expect(sidebar.getByText("Chief", { exact: true })).toBeVisible();
+  await expect(sidebar.getByText("Superbot", { exact: true })).toBeVisible();
 });
 
-test("deleting every bot leaves an empty space instead of a new Chief", async ({ page }) => {
+test("deleting every bot leaves an empty space instead of a new main bot", async ({ page }) => {
   await signup(page, `spaces-cleared-${Date.now()}@rakazo.test`, "password12", "Space Owner");
   await completeOnboarding(page);
   const [chief] = await rpc<Array<{ id: string }>>(page, "bots/list", {});

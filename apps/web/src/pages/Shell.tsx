@@ -6,6 +6,7 @@ import type {
   ThreadMessage,
   VoiceStatus,
 } from "@rakazo/contracts";
+import { isChiefBot } from "@rakazo/contracts";
 import {
   activeThreadRuns,
   answerableAskMessageIds,
@@ -352,7 +353,9 @@ function SpaceShell({ threadId }: { threadId?: string }) {
   const cycleBots = useMemo(
     () =>
       groupBotsForSidebar(
-        bots.filter((bot) => !chatSnoozed(bot, snoozeNow)),
+        bots
+          .filter((bot) => !chatSnoozed(bot, snoozeNow))
+          .map((bot) => ({ ...bot, main: isChiefBot(bot) })),
         botSections,
       ).flatMap((group) => group.bots),
     [bots, botSections, snoozeNow],

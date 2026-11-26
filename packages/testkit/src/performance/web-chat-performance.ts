@@ -7,6 +7,7 @@ import { serve } from "@hono/node-server";
 import type { Browser, BrowserContext, CDPSession, Page } from "@playwright/test";
 import { chromium } from "@playwright/test";
 import type { createApp } from "@rakazo/api/app";
+import { CHIEF_BOT } from "@rakazo/contracts";
 import { abortableDelay, RESPONSE_STREAMING_STORAGE_KEY } from "@rakazo/core";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
@@ -283,7 +284,7 @@ async function prepareAccount(bench: Bench, sizes: number[]): Promise<Account> {
     if (!response.ok()) throw new Error(`sign-up ${response.status()}: ${await response.text()}`);
     await page.goto("/onboarding");
     const skip = page.getByRole("button", { name: "Skip", exact: true });
-    const composer = page.getByRole("combobox", { name: "Message Chief" });
+    const composer = page.getByRole("combobox", { name: "Message Superbot" });
     await skip.or(composer).first().waitFor({ timeout: 30_000 });
     if (await skip.isVisible()) await skip.click();
     await composer.waitFor({ timeout: 30_000 });
@@ -314,7 +315,7 @@ async function prepareAccount(bench: Bench, sizes: number[]): Promise<Account> {
     return {
       storageState: await context.storageState(),
       userId: user.id,
-      homeBotName: "Chief",
+      homeBotName: CHIEF_BOT.name,
       threads,
       unopened,
       elsewhere,

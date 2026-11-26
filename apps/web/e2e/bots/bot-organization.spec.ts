@@ -3,6 +3,7 @@ import {
   activeBotId,
   captureScreenshot,
   completeOnboarding,
+  createNamedBot,
   rpc,
   signup,
 } from "../helpers/helpers";
@@ -13,18 +14,21 @@ test("pinned bots and sidebar sections persist", async ({ page }, testInfo) => {
   await completeOnboarding(page);
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
+  // The main bot is always pinned first, so a bot of the person's own is organized.
+  await createNamedBot(page, "Scout");
 
   const sidebar = page.locator("aside").first();
-  const bot = sidebar.getByRole("button", { name: /^Chief/ });
+  const bot = sidebar.getByRole("button", { name: /^Scout/ });
 
   await bot.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
-  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).toContainText("Chief");
+  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).toContainText("Scout");
   await captureScreenshot(page, testInfo, "pinned-bots");
 
   await bot.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Unpin", exact: true }).click();
-  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).toHaveCount(0);
+  // The main bot stays pinned; only the person's own pin comes off.
+  await expect(sidebar.locator('[data-sidebar-group="pinned"]')).not.toContainText("Scout");
 
   await bot.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Move to", exact: true }).hover();
@@ -38,12 +42,12 @@ test("pinned bots and sidebar sections persist", async ({ page }, testInfo) => {
 
   const projects = sidebar.locator('[data-sidebar-group^="section:"]');
   await expect(projects).toContainText("Projects");
-  await expect(projects).toContainText("Chief");
+  await expect(projects).toContainText("Scout");
   await captureScreenshot(page, testInfo, "bot-sections");
 
   await page.reload();
   await expect(projects).toContainText("Projects");
-  await expect(projects).toContainText("Chief");
+  await expect(projects).toContainText("Scout");
 
   await bot.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Move to", exact: true }).hover();
@@ -64,7 +68,7 @@ test("pinned bots and sidebar sections persist", async ({ page }, testInfo) => {
     .getByRole("menu", { name: "Move to", exact: true })
     .getByRole("menuitem", { name: "Unassigned", exact: true })
     .click();
-  await expect(sidebar.locator('[data-sidebar-group="unassigned"]')).toContainText("Chief");
+  await expect(sidebar.locator('[data-sidebar-group="unassigned"]')).toContainText("Scout");
 });
 
 test("deleting a section keeps its bots and groups", async ({ page }, testInfo) => {
@@ -115,7 +119,14 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
 
-  const chiefId = activeBotId(page);
+  // The main bot is pinned first for good, so three bots of the person's own are reordered.
+  const { id: gammaId } = await rpc<{ id: string }>(page, "bots/create", {
+    name: "Gamma",
+    description: "",
+    instructions: "",
+    notifyOnFinish: true,
+    computerMode: "team",
+  });
   const alpha = await rpc<{ id: string }>(page, "bots/create", {
     name: "Alpha",
     description: "",
@@ -133,10 +144,10 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   await page.reload();
 
   const sidebar = page.locator("aside").first();
-  const rows = sidebar.locator("[data-roster-bot-id]");
+  const rows = sidebar.locator('[data-sidebar-group="unassigned"] [data-roster-bot-id]');
   const order = () =>
     rows.evaluateAll((items) => items.map((item) => item.getAttribute("data-roster-bot-id")));
-  await expect.poll(order).toEqual([chiefId, alpha.id, beta.id]);
+  await expect.poll(order).toEqual([gammaId, alpha.id, beta.id]);
 
   let releaseStaleList!: () => void;
   let markStaleListReady!: () => void;
@@ -171,20 +182,20 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   );
   await sidebar
     .locator(`[data-roster-bot-id="${beta.id}"]`)
-    .dragTo(sidebar.locator(`[data-roster-bot-id="${chiefId}"]`));
+    .dragTo(sidebar.locator(`[data-roster-bot-id="${gammaId}"]`));
   await reorderSaved;
   releaseStaleList();
   await staleListDelivered;
-  await expect.poll(order).toEqual([beta.id, chiefId, alpha.id]);
+  await expect.poll(order).toEqual([beta.id, gammaId, alpha.id]);
   await page.reload();
-  await expect.poll(order).toEqual([beta.id, chiefId, alpha.id]);
+  await expect.poll(order).toEqual([beta.id, gammaId, alpha.id]);
 
   const betaRow = sidebar.locator(`[data-roster-bot-id="${beta.id}"]`);
   await betaRow.focus();
   await page.keyboard.press("Alt+ArrowDown");
-  await expect.poll(order).toEqual([chiefId, beta.id, alpha.id]);
+  await expect.poll(order).toEqual([gammaId, beta.id, alpha.id]);
   await page.reload();
-  await expect.poll(order).toEqual([chiefId, beta.id, alpha.id]);
+  await expect.poll(order).toEqual([gammaId, beta.id, alpha.id]);
 
   let releaseRejectedReorder!: () => void;
   let markRejectedReorderStarted!: () => void;
@@ -205,7 +216,7 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   );
   await sidebar
     .locator(`[data-roster-bot-id="${alpha.id}"]`)
-    .dragTo(sidebar.locator(`[data-roster-bot-id="${chiefId}"]`));
+    .dragTo(sidebar.locator(`[data-roster-bot-id="${gammaId}"]`));
   await rejectedReorderStarted;
 
   const queuedReorderSaved = page.waitForResponse(
@@ -216,9 +227,9 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
     .dragTo(sidebar.locator(`[data-roster-bot-id="${alpha.id}"]`));
   releaseRejectedReorder();
   await queuedReorderSaved;
-  await expect.poll(order).toEqual([beta.id, alpha.id, chiefId]);
+  await expect.poll(order).toEqual([beta.id, alpha.id, gammaId]);
   await page.reload();
-  await expect.poll(order).toEqual([beta.id, alpha.id, chiefId]);
+  await expect.poll(order).toEqual([beta.id, alpha.id, gammaId]);
 });
 
 test("chat composer controls are vertically centered", async ({ page }, testInfo) => {
@@ -227,9 +238,9 @@ test("chat composer controls are vertically centered", async ({ page }, testInfo
   await completeOnboarding(page);
 
   const bar = page.getByTestId("composer-bar");
-  const composer = page.getByRole("combobox", { name: "Message Chief" });
+  const composer = page.getByRole("combobox", { name: "Message Superbot" });
   const centers = await bar.evaluate((composerBar) =>
-    ["Attach file", "Message Chief", "Hold to talk", "Start voice chat"].map((label) => {
+    ["Attach file", "Message Superbot", "Hold to talk", "Start voice chat"].map((label) => {
       const element = composerBar.querySelector<HTMLElement>(`[aria-label="${label}"]`);
       if (!element) throw new Error(`Missing composer control: ${label}`);
       const box = element.getBoundingClientRect();
@@ -407,7 +418,7 @@ test("a snoozed bot leaves the list until it is unsnoozed", async ({ page }, tes
   await page.waitForURL(/\/app\/[^/]+$/);
 
   const sidebar = page.locator("aside").first();
-  const bot = sidebar.getByRole("button", { name: /^Chief/ });
+  const bot = sidebar.getByRole("button", { name: /^Superbot/ });
 
   await bot.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Snooze", exact: true }).hover();
@@ -426,7 +437,7 @@ test("a snoozed bot leaves the list until it is unsnoozed", async ({ page }, tes
   await shelf.click();
   await captureScreenshot(page, testInfo, "snoozed-shelf");
   // Shown on hover or keyboard focus.
-  await sidebar.getByRole("button", { name: "Unsnooze Chief" }).focus();
+  await sidebar.getByRole("button", { name: "Unsnooze Superbot" }).focus();
   await page.keyboard.press("Enter");
   await expect(bot).toBeVisible();
   await expect(shelf).toHaveCount(0);

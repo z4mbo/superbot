@@ -1,3 +1,4 @@
+import { isChiefBot } from "@rakazo/contracts";
 import { chatSnoozed, chatWoke, groupBotsForSidebar } from "@rakazo/core";
 
 type SidebarChat = {
@@ -7,6 +8,7 @@ type SidebarChat = {
   pinned: boolean;
   sectionId: string | null;
   snoozedUntil?: string | null;
+  spawnKey?: string | null;
 };
 
 type SidebarSpace<TBot extends SidebarChat, TGroup extends SidebarChat> = {
@@ -65,6 +67,7 @@ export function sidebarGroupsForSpaces<TBot extends SidebarChat, TGroup extends 
         id: item.chat.id,
         pinned: item.chat.pinned,
         sectionId: item.chat.sectionId,
+        main: item.kind === "bot" && isChiefBot(item.chat),
         woke: chatWoke(item.chat, now),
       })),
       space.botSections,

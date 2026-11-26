@@ -34,8 +34,8 @@ export type BotMarkInstance = {
   /** The bot the avatar shows, which decides the boxes it answers the pointer in. */
   identity: string;
   visible: boolean;
-  /** Where the pointer is while it is inside the avatar's box, in client pixels. */
-  pointer: [number, number] | null;
+  /** The bot's own box the avatar answers the pointer in, once the engine has found it. */
+  host: HTMLElement | null;
   /** Whether the avatar's box is the open bot, which faces straight ahead. */
   selected: boolean;
   /** Whether the pointer is over the line the avatar sits in, which surprises its face. */
@@ -324,7 +324,7 @@ export const BotMark = memo(function BotMark({
       element,
       identity: who,
       visible: true,
-      pointer: null,
+      host: null,
       selected: false,
       emphasized: false,
       size,
