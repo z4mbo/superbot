@@ -1,6 +1,7 @@
 import type * as Core from "@rakazo/core";
 import type * as Db from "@rakazo/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CHECK_IN_TIMING_REQUIRED, checkInOfferRefusal } from "../../tasks/check-in-offer.js";
 import { recordEffect } from "../lifecycle/run-effects.js";
 import { gateToolCall } from "./run-tool-gate.js";
 import type { ToolRequest } from "./run-tool-request.js";
@@ -467,6 +468,17 @@ describe("gateToolCall: task threads", () => {
       expect(prepared, name).toBeUndefined();
       expect(planned, name).not.toContain("ask");
     }
+  });
+
+  it("shows no card for a check-in offer that is refused", async () => {
+    vi.mocked(checkInOfferRefusal).mockResolvedValueOnce({ error: CHECK_IN_TIMING_REQUIRED });
+    const offer = await run("offer_check_in", {
+      subject: "Launch brief",
+      prompt: "Look for comments.",
+    });
+    expect(offer.prepared).toMatchObject({ error: CHECK_IN_TIMING_REQUIRED });
+    expect(offer.plans).toEqual([]);
+    expect(offer.request.fleetSummary).toBeUndefined();
   });
 
   it("never accepts a check-in for the person in Never ask", async () => {

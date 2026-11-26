@@ -1,22 +1,18 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
-import { checkInOfferBranch } from "./builtin-work.tool-definition.js";
+import { checkInOfferTimingProperties } from "./builtin-work.tool-definition.js";
 
 const taskThreadId = { type: "string", description: "From delegate or link_to_thread." };
 
-/** Described once, in offer_check_in's description, since each timing branch repeats them. */
-const checkInProperties = {
-  subject: { type: "string", minLength: 1, maxLength: 80 },
-  prompt: { type: "string", minLength: 1 },
-};
-
-/** Exactly one timing method, as schedule_create takes it. */
+/** subject and prompt are described in offer_check_in's description; timing as schedule_create. */
 const offerCheckInInputSchema = {
-  oneOf: [
-    checkInOfferBranch(["cron"], checkInProperties),
-    checkInOfferBranch(["every", "unit"], checkInProperties),
-    checkInOfferBranch(["runAt"], checkInProperties),
-    checkInOfferBranch(["delayMinutes"], checkInProperties),
-  ],
+  type: "object",
+  properties: {
+    subject: { type: "string", minLength: 1, maxLength: 80 },
+    prompt: { type: "string", minLength: 1 },
+    ...checkInOfferTimingProperties,
+  },
+  required: ["subject", "prompt"],
+  additionalProperties: false,
 };
 
 /**
@@ -80,7 +76,7 @@ export const taskThreadTools: ConnectorTool[] = [
   {
     name: "offer_check_in",
     description:
-      'Offer the person a check-in on something you just discussed, as a card they accept or turn down; nothing is created unless they accept. subject: what to check in a few words, e.g. "Launch brief in Notion". prompt: what each check-in looks for and reports, in full, so it makes sense without this chat. Offer it once per subject, never again once turned down. Timing as in schedule_create: cron or every/unit to repeat, runAt or delayMinutes for once.',
+      'Offer the person a check-in on something you just discussed, as a card they accept or turn down; nothing is created unless they accept. subject: what to check in a few words, e.g. "Launch brief in Notion". prompt: what each check-in looks for and reports, in full, so it makes sense without this chat. Offer it once per subject, never again once turned down. Timing as in schedule_create, exactly one of: cron or every/unit to repeat, runAt or delayMinutes for once.',
     inputSchema: offerCheckInInputSchema,
   },
 ];

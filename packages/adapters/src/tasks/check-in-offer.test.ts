@@ -4,12 +4,15 @@ import { buildApprovalAskBlock } from "../approvals/approval-ask.js";
 import type { RunContext } from "../runs/assembly/run-context.js";
 import type { ToolCall } from "../runs/tools/run-tool-gate.js";
 import { taskThreadTools } from "../runs/tools/run-tools-task-threads.js";
+import { taskThreadTools as taskThreadToolDefinitions } from "../tools/builtin-task-threads.tool-definition.js";
 import { createScheduleFromTool, scheduleCreateError } from "../tools/schedule-tools.js";
 import {
+  CHECK_IN_TIMING_REQUIRED,
   checkInOfferRefusal,
   checkInOfferSummary,
   checkInSchedule,
   checkInTiming,
+  checkInTimingError,
 } from "./check-in-offer.js";
 import { CHECK_IN_ALREADY_DISMISSED } from "./task-threads.prompt.js";
 
@@ -162,5 +165,116 @@ describe("offer_check_in", () => {
     [{ runAt: "2026-12-01T09:00" }, "at 2026-12-01T09:00"],
   ])("says when it runs: %o", (timing, words) => {
     expect(checkInTiming(timing)).toBe(words);
+  });
+
+  describe("timing", () => {
+    const base = { subject: OFFER.subject, prompt: OFFER.prompt };
+    const offerCall = (args: Record<string, unknown>) =>
+      ({
+        name: "offer_check_in",
+        args,
+        finish: async (result: unknown) => result,
+      }) as unknown as ToolCall;
+
+    it("takes one plain object, every timing field optional and defined once", () => {
+      const schema = taskThreadToolDefinitions.find((tool) => tool.name === "offer_check_in")!
+        .inputSchema as Record<string, unknown>;
+      expect(schema).not.toHaveProperty("oneOf");
+      expect(schema).toMatchObject({
+        type: "object",
+        required: ["subject", "prompt"],
+        additionalProperties: false,
+      });
+      const properties = schema.properties as Record<string, Record<string, unknown>>;
+      expect(Object.keys(properties).sort()).toEqual(
+        [
+          "cron",
+          "delayMinutes",
+          "every",
+          "prompt",
+          "runAt",
+          "startAt",
+          "subject",
+          "timezone",
+          "unit",
+        ].sort(),
+      );
+      // As in schedule_create, a serializer's null for an unused field is not refused.
+      for (const name of [
+        "cron",
+        "every",
+        "unit",
+        "runAt",
+        "delayMinutes",
+        "startAt",
+        "timezone",
+      ]) {
+        const spec = properties[name]!;
+        const allowsNull =
+          (Array.isArray(spec.type) && spec.type.includes("null")) ||
+          (spec.anyOf as { type?: string }[] | undefined)?.some((branch) => branch.type === "null");
+        expect(allowsNull, name).toBe(true);
+      }
+    });
+
+    it.each([
+      { cron: "0 9 * * 1-5" },
+      { every: 2, unit: "hours" },
+      { runAt: "2026-12-01T09:00" },
+      { delayMinutes: 30 },
+    ])("takes one method: %o", (timing) => {
+      expect(checkInTimingError(timing)).toBeUndefined();
+    });
+
+    it("ignores null or blank fields beside the one method", () => {
+      expect(
+        checkInTimingError({
+          cron: "0 9 * * *",
+          runAt: null,
+          every: "",
+          unit: " ",
+          delayMinutes: null,
+        }),
+      ).toBeUndefined();
+      expect(checkInTimingError({ cron: null, delayMinutes: 30 })).toBeUndefined();
+      expect(
+        checkInSchedule({ ...base, cron: "0 9 * * *", runAt: null, every: "" }).schedule,
+      ).toEqual({
+        cron: "0 9 * * *",
+      });
+    });
+
+    it.each([
+      [{}, CHECK_IN_TIMING_REQUIRED],
+      [{ cron: "", runAt: null }, CHECK_IN_TIMING_REQUIRED],
+      [{ cron: "0 9 * * *", delayMinutes: 30 }, CHECK_IN_TIMING_REQUIRED],
+      [{ runAt: "2026-12-01T09:00", delayMinutes: 30 }, CHECK_IN_TIMING_REQUIRED],
+      [{ cron: "0 9 * * *", every: 1, unit: "days" }, CHECK_IN_TIMING_REQUIRED],
+      [{ delaySeconds: 30 }, CHECK_IN_TIMING_REQUIRED],
+      [{ every: 2 }, `every and unit go together. ${CHECK_IN_TIMING_REQUIRED}`],
+      [
+        { unit: "hours", delayMinutes: 30 },
+        `every and unit go together. ${CHECK_IN_TIMING_REQUIRED}`,
+      ],
+    ])("refuses %o, naming the options", (timing, error) => {
+      expect(checkInTimingError(timing)).toBe(error);
+    });
+
+    it("shows no card and schedules nothing when the timing is refused", async () => {
+      const { ctx, findMany } = harness();
+      for (const timing of [{}, { cron: "0 9 * * *", delayMinutes: 30 }, { every: 2 }]) {
+        await expect(checkInOfferRefusal(ctx, { ...base, ...timing })).resolves.toEqual({
+          error: checkInTimingError(timing),
+        });
+        await expect(
+          taskThreadTools.offer_check_in!(ctx, offerCall({ ...base, ...timing })),
+        ).resolves.toEqual({
+          error: checkInTimingError(timing),
+        });
+      }
+      expect(findMany).not.toHaveBeenCalled();
+      expect(scheduleCreateError).not.toHaveBeenCalled();
+      expect(createScheduleFromTool).not.toHaveBeenCalled();
+    });
   });
 });

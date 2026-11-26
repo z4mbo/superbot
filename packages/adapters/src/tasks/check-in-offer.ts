@@ -26,6 +26,24 @@ function subjectOf(args: Record<string, unknown>): string {
     .trim();
 }
 
+/** The timing methods an offer takes, named in its refusal when it gives none or several. */
+export const CHECK_IN_TIMING_REQUIRED =
+  "Give exactly one timing: cron, or every with unit, to repeat; runAt or delayMinutes for once.";
+
+/**
+ * Why an offer's timing is refused before anything else: its schema leaves every timing field
+ * optional, so exactly one method is checked here. Null or blank fields count as not given.
+ */
+export function checkInTimingError(args: Record<string, unknown>): string | undefined {
+  const given = (name: string) => isScheduleValueProvided(args[name]);
+  if (given("every") !== given("unit"))
+    return `every and unit go together. ${CHECK_IN_TIMING_REQUIRED}`;
+  const methods = [given("cron"), given("every"), given("runAt"), given("delayMinutes")];
+  if (given("delaySeconds") || methods.filter(Boolean).length !== 1)
+    return CHECK_IN_TIMING_REQUIRED;
+  return undefined;
+}
+
 /** The routine an accepted offer creates, as createScheduleFromTool takes it. */
 export function checkInSchedule(args: Record<string, unknown>) {
   const subject = subjectOf(args);
@@ -80,6 +98,8 @@ export async function checkInOfferRefusal(
   const { deps, run, bot, thread } = ctx;
   const subject = subjectOf(args).toLowerCase();
   if (!subject) return { error: "subject is required" };
+  const timingError = checkInTimingError(args);
+  if (timingError) return { error: timingError };
   const turnedDown = await deps.prisma.externalEffect.findMany({
     where: {
       spaceId: run.spaceId,

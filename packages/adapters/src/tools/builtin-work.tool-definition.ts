@@ -157,37 +157,26 @@ function undescribed({ description: _description, ...spec }: { description?: str
   return spec;
 }
 
-/** The timing a check-in offer takes: no branch takes delaySeconds, so it is not listed. */
-const CHECK_IN_TIMING_FIELDS = ["cron", "every", "unit", "runAt", "delayMinutes"] as const;
+/** A field that may also come as a serializer's null or blank for "not given". */
+function orBlank(spec: Record<string, unknown>) {
+  return { anyOf: [spec, ...blankScheduleTiming.anyOf] };
+}
 
 /**
- * One way to time a check-in offer: schedule_create's one-time and repeating timing, without
- * watches or events. The offer names what to check instead of a routine name. Its description
- * points at schedule_create, which is always offered beside it, so the timing fields carry no
- * words of their own: four branches would repeat them.
+ * The timing a check-in offer takes: schedule_create's one-time and repeating timing, without
+ * delaySeconds, watches or events. All optional, each defined once; the handler checks that
+ * exactly one method is given. Its description points at schedule_create, which is always
+ * offered beside it, so the fields carry no words of their own.
  */
-export function checkInOfferBranch(
-  active: readonly (typeof CHECK_IN_TIMING_FIELDS)[number][],
-  properties: Record<string, unknown>,
-) {
-  const activeNames = new Set<string>(active);
-  const timing: Record<string, unknown> = {
-    timezone: undescribed(scheduleCreateProperties.timezone),
-  };
-  for (const name of CHECK_IN_TIMING_FIELDS) {
-    timing[name] = activeNames.has(name)
-      ? undescribed(scheduleTimingSpecs[name])
-      : blankScheduleTiming;
-  }
-  const repeats = activeNames.has("cron") || activeNames.has("every");
-  timing.startAt = repeats ? undescribed(startAtSpec) : blankScheduleTiming;
-  return {
-    type: "object",
-    properties: { ...properties, ...timing },
-    required: ["subject", "prompt", ...active],
-    additionalProperties: false,
-  };
-}
+export const checkInOfferTimingProperties = {
+  cron: { type: ["string", "null"] },
+  every: orBlank(undescribed(scheduleTimingSpecs.every)),
+  unit: orBlank(undescribed(scheduleTimingSpecs.unit)),
+  runAt: { type: ["string", "null"] },
+  delayMinutes: orBlank(undescribed(scheduleTimingSpecs.delayMinutes)),
+  startAt: { type: ["string", "null"] },
+  timezone: { type: ["string", "null"] },
+};
 
 /** Exactly one timing method. Null or blank leftovers stay valid so callers can ignore them. */
 const scheduleCreateInputSchema = {
