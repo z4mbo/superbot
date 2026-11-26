@@ -1,0 +1,144 @@
+---
+import { HOSTED_PLANS, planPrice } from "../hosted-plans";
+import { PLANS_COPY as copy } from "../i18n/download-plans";
+import { SELF_HOST_GUIDE_PATH } from "../site";
+
+type Props = { lang?: string };
+
+const { lang } = Astro.props;
+---
+
+<section id="plans" class="section plans" lang={lang} aria-labelledby="plans-heading">
+  <div class="section-intro">
+    <h2 id="plans-heading" class="section-heading">{copy.heading}</h2>
+    <p class="section-copy">{copy.copy}</p>
+  </div>
+  <ul class="plans__grid">
+    {
+      HOSTED_PLANS.map((plan) => (
+        <li class:list={["plan-card", plan.available && "plan-card--available"]}>
+          <div class="plan-card__head">
+            <h3>{plan.name}</h3>
+            <div class="plan-card__badges">
+              {plan.popular && <span class="plan-badge plan-badge--popular">{copy.popular}</span>}
+              {!plan.available && <span class="plan-badge">{copy.comingSoon}</span>}
+            </div>
+          </div>
+          <div class="plan-card__price">{planPrice(plan)}</div>
+          {plan.detail && <p>{plan.detail}</p>}
+          {plan.available && (
+            <a class="button button--secondary button--small" href={SELF_HOST_GUIDE_PATH}>
+              {copy.selfHostGuide}
+            </a>
+          )}
+        </li>
+      ))
+    }
+  </ul>
+  <p class="plans__footnote">{copy.footnote}</p>
+</section>
+
+<style>
+  .plans__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    margin: 44px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .plan-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+    box-shadow: var(--shadow-soft);
+    padding: 24px 26px;
+  }
+
+  .plan-card--available {
+    border-color: var(--line-2);
+    background: var(--surface-soft);
+  }
+
+  .plan-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .plan-card h3 {
+    margin: 0;
+    color: var(--ink);
+    font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  .plan-card__badges {
+    display: flex;
+    gap: 6px;
+  }
+
+  .plan-badge {
+    padding: 3px 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    color: var(--muted-2);
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .plan-badge--popular {
+    border-color: var(--blue-line);
+    background: var(--blue-soft);
+    color: var(--blue);
+  }
+
+  .plan-card__price {
+    color: var(--ink);
+    font-family: Aeonik, Geist, ui-sans-serif, system-ui, sans-serif;
+    font-size: 30px;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .plan-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .plan-card .button {
+    margin-top: 6px;
+  }
+
+  .plans__footnote {
+    margin: 18px 0 0;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+
+  @media (max-width: 1000px) {
+    .plans__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 620px) {
+    .plans__grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+    }
+  }
+</style>

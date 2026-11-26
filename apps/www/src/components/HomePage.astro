@@ -1,9 +1,11 @@
 ---
 import AppsPlatformSection from "./AppsPlatformSection.astro";
 import Button from "./Button.astro";
+import DownloadSection from "./DownloadSection.astro";
 import Footer from "./Footer.astro";
 import GetStartedActions from "./GetStartedActions.astro";
 import Header from "./Header.astro";
+import HostedPlans from "./HostedPlans.astro";
 import PhoneMockup from "./PhoneMockup.astro";
 import { ProductDemo } from "./ProductDemo";
 import { demoMessages, getDemoBots } from "../i18n/demo";
@@ -34,13 +36,13 @@ import {
   LOCALES,
   LOCALE_HTML_LANG,
   isLocale,
+  localeHashPath,
   localeHomePath,
 } from "../i18n/locales";
 import {
-  DESKTOP_PLATFORMS,
-  desktopDownloadHref,
   fetchRecentChanges,
-  githubStarsLabel,
+  githubStarsCount,
+  starsLabel as formatStars,
 } from "../github";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { homeStructuredData } from "../structured-data";
@@ -58,15 +60,16 @@ const availableLanguages = LOCALES.map((supportedLocale) =>
   getHomeCopy(supportedLocale).availableLanguage
 );
 const homeHref = localeHomePath(locale);
-const [starsLabel, recentChanges] = await Promise.all([
-  githubStarsLabel(),
+const [starsCount, recentChanges] = await Promise.all([
+  githubStarsCount(),
   fetchRecentChanges(5),
 ]);
+const starsLabel = formatStars(starsCount);
+// A star count is only a selling point once there is one.
+const ctaStats = copy.cta.stats.filter((stat) => stat.value !== "stars" || Boolean(starsCount));
 const setupAgentPrompt = `Set up Superbot for me. Follow the self-hosting guide at ${GITHUB_URL}/blob/${GITHUB_BRANCH}/docs/self-host.md`;
 // The Store and Apps platform copy is English only for now; mark it so on translated pages.
 const englishSectionLang = locale === DEFAULT_LOCALE ? undefined : "en";
-const desktopPlatforms = DESKTOP_PLATFORMS;
-const PLATFORM_NAMES = { mac: "macOS", windows: "Windows", linux: "Linux" } as const;
 const PROVIDER_LOGOS: Record<string, string> = {
   Claude: claudeLogo,
   ChatGPT: chatgptLogo,
@@ -270,7 +273,7 @@ const structuredData = homeStructuredData({
         </div>
       </section>
 
-      {/* SUP-12: mount the Download section here. */}
+      <DownloadSection lang={englishSectionLang} />
 
       <section id="platforms" class="section platforms">
         <div class="section-intro">
@@ -296,9 +299,7 @@ const structuredData = homeStructuredData({
               </svg>
               <h3>{copy.platforms.desktop}</h3>
               <div class="platform-card__links">
-                {desktopPlatforms.map((platform) => (
-                  <a href={desktopDownloadHref(platform)}>{PLATFORM_NAMES[platform]}</a>
-                ))}
+                <a href={localeHashPath(locale, "download")}>{copy.footer.links.download}</a>
               </div>
             </article>
             <article class="platform-card">
@@ -335,7 +336,7 @@ const structuredData = homeStructuredData({
         }
       </section>
 
-      {/* SUP-12: mount the Hosted plans (coming soon) section here. */}
+      <HostedPlans lang={englishSectionLang} />
 
       <section id="faq" class="section" aria-labelledby="faq-heading">
         <div class="section-intro">
@@ -366,7 +367,7 @@ const structuredData = homeStructuredData({
         </div>
         <div class="stats-grid">
           {
-            copy.cta.stats.map((stat) => (
+            ctaStats.map((stat) => (
               <div>
                 <div class="stat-value">
                   {stat.value === "stars"

@@ -2,6 +2,7 @@
 import { getHomeCopy } from "../i18n/home";
 import type { HomeCopy } from "../i18n/home";
 import { APPS_PLATFORM_COPY } from "../i18n/apps-platform";
+import { PLANS_COPY } from "../i18n/download-plans";
 import { DEFAULT_LOCALE, localeHashPath, localeHomePath } from "../i18n/locales";
 import type { Locale } from "../i18n/locales";
 import { BUILD_AN_APP_PATH } from "../docs";
@@ -9,7 +10,8 @@ import { APP_URL, GITHUB_URL } from "../site";
 import Logo from "./Logo.astro";
 
 type Props = {
-  starsLabel: string;
+  /** Null when GitHub could not be reached: the pill then shows no count. */
+  starsLabel: string | null;
   locale?: Locale;
   copy?: HomeCopy["nav"];
   homeHref?: string;
@@ -26,7 +28,8 @@ const NAV_LINKS = [
   { href: localeHashPath(locale, "store"), label: APPS_PLATFORM_COPY.nav.store },
   { href: BUILD_AN_APP_PATH, label: APPS_PLATFORM_COPY.nav.buildAnApp },
   { href: "/docs/", label: copy.docs },
-  // Download and Hosted plans (SUP-12): add their landing anchors here.
+  { href: localeHashPath(locale, "download"), label: getHomeCopy(locale).footer.links.download },
+  { href: localeHashPath(locale, "plans"), label: PLANS_COPY.heading },
 ].filter((link) => link.href !== section?.href);
 
 const currentPath = Astro.url.pathname.replace(/\/+$/, "") || "/";
@@ -60,11 +63,11 @@ function isCurrent(href: string): boolean {
       href={GITHUB_URL}
       target="_blank"
       rel="noopener"
-      aria-label={copy.github}
       data-attr="header-github"
     >
       <span aria-hidden="true">★</span>
-      <span>{starsLabel}</span>
+      <span>{copy.github}</span>
+      {starsLabel !== null && <span class="star-pill__count">{starsLabel}</span>}
     </a>
     <div class="site-header__cta">
       <a class="button button--primary button--small" href={APP_URL}>
@@ -116,3 +119,14 @@ function isCurrent(href: string): boolean {
     });
   }
 </script>
+
+<style>
+  /* Reads as a counter beside the label, so a small count looks deliberate. */
+  .star-pill__count {
+    margin-left: 2px;
+    padding-left: 10px;
+    border-left: 1px solid var(--line-2);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

@@ -18,6 +18,7 @@ const include = [
   "apps/api/src/**/*.test.ts",
   "apps/worker/src/**/*.test.ts",
   "apps/cli/src/**/*.test.{ts,tsx}",
+  "apps/www/{src,api}/**/*.test.ts",
 ];
 
 // Files that mock modules, stub globals, or change the environment keep a fresh module graph;
