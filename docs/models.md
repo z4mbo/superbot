@@ -60,8 +60,11 @@ model when it can read images, otherwise your **Computer-use model**. The call i
 under **Usage** like the bot's other model calls. When neither model can read images, the bot is
 not offered the tool, and it says so instead of guessing from a file name.
 
-None of the connected models can read video yet, so bots tell you they can't analyze a video
-rather than describe it from its name.
+None of the models you can connect is marked as reading video yet, so bots tell you they can't
+analyze a video rather than describe it from its name.
+
+This only reads images and videos. Making new ones uses the image and video providers you connect
+separately.
 
 ## Usage
 
