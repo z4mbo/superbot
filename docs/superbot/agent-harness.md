@@ -64,6 +64,7 @@ Built-in tools come from the catalog in `packages/contracts/src/bots/builtin-too
 | Tool | What it does |
 | --- | --- |
 | `render_plot` | Renders a chart from tabular data as an image in the chat. |
+| `execute_code` | Runs a short Python snippet on the bot's computer with `python3`, in the bot's folder, and returns stdout, stderr, the exit code, whether it timed out, and the value of its last line when that is an expression. Stopped after 30 seconds by default and 60 at most, with what it started; up to 2 GB of memory where the computer allows a limit; output is cut past 20,000 characters per stream and code past 20,000 characters. Gated, redacted and recorded exactly as `shell`, also by rules saved for `shell`, and offered only where `shell` is. The code cannot call the bot's other tools. No JavaScript: the standard computer image has no Node. Refused on a Windows computer. |
 
 ### Browser and screen
 

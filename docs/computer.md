@@ -48,6 +48,14 @@ A bot can leave a long-running command, such as a dev server or a file watcher, 
 computer, then check its output or stop it in a later message. It asks you before it stops one. A
 process stops when its computer goes to sleep or is rebuilt, and the bot sees that it stopped.
 
+## Running code
+
+A bot can run a short Python snippet on its computer and read what it printed, its exit code and
+the value of its last line, as in a notebook. It runs with the same files, packages and command
+variables as the bot's terminal, and asks you exactly when a terminal command would. A snippet stops
+after 30 seconds unless the bot asks for up to a minute, and everything it started stops with it;
+longer work goes in the terminal. The snippet cannot use the bot's other tools.
+
 ## Page dialogs and the raw page protocol
 
 When a page opens a JavaScript dialog, the page tools report it instead of waiting on it, and the
