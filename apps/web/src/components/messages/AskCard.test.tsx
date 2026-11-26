@@ -825,7 +825,7 @@ it("reads Sent on a login card answered without saving it, after a reload", asyn
   expect(container.textContent).toContain("Saved");
 });
 
-it("offers Save to Vault only on login cards", async () => {
+it("offers Save to Vault only on login and card forms", async () => {
   await render(secretCard);
   expect(container.querySelector('[role="switch"]')).toBeNull();
   await render({ kind: "ask", text: "Code", input: "secret", purpose: "otp", status: "pending" });

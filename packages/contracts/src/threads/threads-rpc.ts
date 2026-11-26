@@ -208,18 +208,18 @@ export const threadsRpc = {
             fields: z.array(LoginFieldInput).min(1).max(LOGIN_FIELD_LIMIT).optional(),
             /** A login card's answer from apps that predate `fields`; `answer` carries its password. */
             username: z.string().min(1).max(512).optional(),
-            /** Only for a login card: use the login for this run only instead of saving it. */
+            /**
+             * Only for a login or card form: use it for this run only instead of saving it. The
+             * server refuses it for any other card.
+             */
             remember: z.literal(false).optional(),
             /** Turns down a pending secret request; `answer` is then empty. */
             dismiss: z.literal(true).optional(),
           })
-          .refine(
-            (input) => input.remember === undefined || Boolean(input.fields ?? input.username),
-            {
-              message: "Only a website login can be used without saving it",
-              path: ["remember"],
-            },
-          )
+          .refine((input) => input.remember === undefined || !input.dismiss, {
+            message: "A dismissal saves nothing",
+            path: ["remember"],
+          })
           .refine(
             (input) =>
               input.dismiss

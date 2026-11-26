@@ -403,6 +403,23 @@ export function inferScript(
       },
     ];
   }
+  if (lower.includes("show a card form")) {
+    return [
+      {
+        assistant: "i need the card in a secure form.",
+        toolCalls: [
+          {
+            name: "request_secret",
+            args: {
+              label: "Card for checkout",
+              purpose: "password",
+              credential: { name: "checkout_card", auth: { type: "card" } },
+            },
+          },
+        ],
+      },
+    ];
+  }
   if (lower.includes("command variable secret card")) {
     return [
       {

@@ -43,7 +43,11 @@ import { namedAgentTools } from "../../runtime/pi/tools/pi-runtime-tools.js";
 import type { inferScript } from "../../runtime/scripted-runtime.js";
 import type { VaultItemUse } from "../../secrets/bot-secrets.js";
 import { secretPausedToolResult } from "../../secrets/run-secret.js";
-import { recordVaultItemUse } from "../../secrets/vault/vault-activity.js";
+import {
+  recordVaultEvent,
+  recordVaultItemUse,
+  VAULT_AUDIT_ACTIONS,
+} from "../../secrets/vault/vault-activity.js";
 import { partitionTools } from "../../tools/builtin-tool-bridge.js";
 import type { FleetRun } from "../../tools/fleet-tools.js";
 import type { CatalogEntry } from "../../tools/lazy-tool-catalog.js";
@@ -421,6 +425,35 @@ export async function recordVaultUse(
     site,
   });
   if (!recorded) ctx.state.vaultUses.delete(use);
+}
+
+/**
+ * A fill of a value a Secure form sent for this run only, which is no vault item: once per name, site
+ * and outcome per attempt, as a sign-in types several fields.
+ */
+export async function recordOneTimeFill(
+  ctx: RunContext,
+  tool: string,
+  unsaved: { name: string; kind: "login" | "card" },
+  site: string,
+  outcome: "typed" | "refused",
+) {
+  const fill = JSON.stringify(["once", unsaved.name, site, outcome]);
+  if (ctx.state.vaultUses.has(fill)) return;
+  ctx.state.vaultUses.add(fill);
+  const recorded = await recordVaultEvent({
+    action:
+      outcome === "typed" ? VAULT_AUDIT_ACTIONS.fillCompleted : VAULT_AUDIT_ACTIONS.fillFailed,
+    actor: { type: "bot", id: ctx.bot.id, label: ctx.bot.name },
+    spaceId: ctx.run.spaceId,
+    userId: ctx.run.userId,
+    runId: ctx.runId,
+    threadId: ctx.thread.id,
+    unsaved,
+    outcome: outcome === "typed" ? "success" : "failure",
+    metadata: { tool, site },
+  });
+  if (!recorded) ctx.state.vaultUses.delete(fill);
 }
 
 export function pauseForApproval(ctx: RunContext) {

@@ -16,7 +16,7 @@ import type { LoginFieldRow } from "../vault/login-fields-editor";
 import { LoginFieldsEditor } from "../vault/login-fields-editor";
 
 /**
- * A website sign-in, typed or filled from saved passwords. The values live only in this sheet's
+ * A website sign-in in a Secure form, typed or filled from saved passwords. The values live only in this sheet's
  * state and are cleared whether saving succeeds or fails, and before the sheet closes.
  */
 export function SecretAskSheet({
@@ -116,6 +116,7 @@ export function SecretAskSheet({
           // A long title and site at large text sizes can leave the fields under the keyboard.
           automaticallyAdjustKeyboardInsets
         >
+          <Text style={styles.eyebrow}>{t`Secure form`}</Text>
           <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
@@ -162,6 +163,7 @@ function createStyles() {
       paddingBottom: 12,
     },
     content: { paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
+    eyebrow: { color: tokens.mutedForeground, fontSize: 13, fontWeight: "500", marginBottom: -8 },
     title: { color: tokens.foreground, fontSize: 20, fontWeight: "600" },
     destination: { color: tokens.foreground, fontSize: 15, marginBottom: 8 },
     replaced: { color: tokens.mutedForeground, fontSize: 13, marginTop: -8, marginBottom: 8 },

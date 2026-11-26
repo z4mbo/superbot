@@ -251,6 +251,17 @@ describe("secret request dismissal", () => {
     );
   });
 
+  it("passes a card form answered without saving it on, for the run to check its card", async () => {
+    const h = setup(true);
+    const answer = '{"number":"4242424242424242","expMonth":8,"expYear":2030}';
+    const response = await h.send({ answer, remember: false });
+
+    expect(response.status).toBe(200);
+    expect(h.answerRunInput).toHaveBeenCalledWith(
+      expect.objectContaining({ answer, remember: false }),
+    );
+  });
+
   it("reports a dismissal the card no longer accepts as a conflict", async () => {
     const h = setup(false);
     const response = await h.send({ answer: "", dismiss: true });
@@ -277,7 +288,6 @@ describe("secret request dismissal", () => {
     ["fields without hidden", { answer: "", fields: [{ label: "Code", value: "x" }] }],
     ["a dismissal during a call", { answer: "", clientNonce: "call:call-1:x", dismiss: true }],
     ["an empty answer", { answer: "" }],
-    ["not saving an answer that isn't a login", { answer: "123456", remember: false }],
     ["not saving a dismissal", { answer: "", dismiss: true, remember: false }],
     [
       "remember true",

@@ -108,3 +108,48 @@ export function vaultItemSubtitle(
       return `$${commandVariableName(item.name)}`;
   }
 }
+
+/**
+ * What a contact holds that people add and filter by on its own: an address, a phone number or an
+ * email. Each is a contact holding only that part, so no other kind of item is stored for them;
+ * a contact saved with all of them is each.
+ */
+export type ContactPart = "address" | "phone" | "email";
+export const CONTACT_PARTS: readonly ContactPart[] = ["address", "phone", "email"];
+
+const PART_FIELDS: Record<ContactPart, readonly (keyof ContactFields)[]> = {
+  address: ["name", "line1", "line2", "city", "region", "postalCode", "country"],
+  phone: ["phone"],
+  email: ["email"],
+};
+
+/** The parts a saved contact holds; one with only a name holds none. */
+export function contactParts(contact: Partial<ContactFields> | undefined): ContactPart[] {
+  return CONTACT_PARTS.filter((part) =>
+    PART_FIELDS[part].some((field) => field !== "name" && contact?.[field]),
+  );
+}
+
+/** The fields a contact's form shows: one part's for a new one of that part, else all of them. */
+export function contactPartFields(part?: ContactPart): readonly (keyof ContactFields)[] {
+  return part ? PART_FIELDS[part] : [...PART_FIELDS.address, "phone", "email"];
+}
+
+/** What a vault list filters by: a kind, or one part of a contact. */
+export type VaultFilter = Exclude<VaultKind, "contact"> | ContactPart;
+export const VAULT_FILTERS: readonly VaultFilter[] = [
+  "login",
+  "card",
+  "address",
+  "phone",
+  "email",
+  "api_key",
+  "variable",
+];
+
+/** The filters an item is listed under. */
+export function vaultItemFilters(item: Pick<BotSecretMetadata, "auth" | "preview">): VaultFilter[] {
+  if (!item.auth) return [];
+  const kind = vaultKind(item.auth.type);
+  return kind === "contact" ? contactParts(item.preview?.contact) : [kind];
+}

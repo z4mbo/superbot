@@ -171,6 +171,7 @@ describe("finalizeRun", () => {
             { userId: "user-1", spaceId: "space-1", kind: "run-code:run-1" },
             { userId: "user-1", spaceId: "space-1", kind: "run-code-spent:run-1" },
             { userId: "user-1", spaceId: "space-1", kind: { startsWith: "run-login:run-1:" } },
+            { userId: "user-1", spaceId: "space-1", kind: { startsWith: "run-card:run-1:" } },
           ],
         },
       });
@@ -5457,6 +5458,7 @@ describe("clearThread", () => {
           { userId: "user-1", spaceId: "workspace-1", kind: "run-code:run-1" },
           { userId: "user-1", spaceId: "workspace-1", kind: "run-code-spent:run-1" },
           { userId: "user-1", spaceId: "workspace-1", kind: { startsWith: "run-login:run-1:" } },
+          { userId: "user-1", spaceId: "workspace-1", kind: { startsWith: "run-card:run-1:" } },
         ],
       },
     });

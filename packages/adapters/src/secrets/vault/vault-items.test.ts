@@ -513,7 +513,11 @@ describe("an item's uses, for its owner", () => {
     ]);
     expect(events).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { targetType: "vault_credential", targetId: visa.id, action: "credential.used" },
+        where: {
+          targetType: "vault_credential",
+          targetId: visa.id,
+          action: { in: ["credential.used", "vault.form_saved"] },
+        },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         // Twice the uses listed, as a guest's use is two rows.
         take: 40,

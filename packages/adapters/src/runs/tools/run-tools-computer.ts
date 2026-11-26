@@ -65,7 +65,7 @@ import {
   vaultLoginUseOf,
 } from "../../secrets/vault/vault-card-use.js";
 import type { RunContext } from "../assembly/run-context.js";
-import { addRunSecrets, recordVaultUse } from "../assembly/run-context.js";
+import { addRunSecrets, recordOneTimeFill, recordVaultUse } from "../assembly/run-context.js";
 import { builtinOffered } from "../assembly/run-instructions.prompt.js";
 import { computerScreenToolResult } from "../lifecycle/run-lifecycle.js";
 import { awaitScreenTurn } from "../turn/screen-turn.js";
@@ -315,11 +315,19 @@ export async function pageBrowserTool(ctx: RunContext, call: ToolCall) {
               addRunSecrets(ctx, resolved.redactions);
               loginFills.push({ ...resolved, index });
               const { used } = resolved;
+              // Only a saved login is a vault item; one sent for this run only is a one-time fill.
+              const once = { name: step.secret, kind: "login" as const };
               return {
                 text: resolved.text,
                 origin: resolved.origin,
                 hidden: resolved.hidden,
-                ...(used && { typed: () => recordVaultUse(ctx, name, used, resolved.origin) }),
+                typed: () =>
+                  used
+                    ? recordVaultUse(ctx, name, used, resolved.origin)
+                    : recordOneTimeFill(ctx, name, once, resolved.origin, "typed"),
+                ...(!used && {
+                  refused: () => recordOneTimeFill(ctx, name, once, resolved.origin, "refused"),
+                }),
               };
             },
             resolveCardFill: async (step) => {
@@ -332,6 +340,7 @@ export async function pageBrowserTool(ctx: RunContext, call: ToolCall) {
                   prisma: deps.prisma,
                   secretStore: deps.secretStore,
                   scope: run,
+                  runId: run.id,
                   name: step.card,
                   field: step.field,
                   site: step.site,
@@ -341,10 +350,18 @@ export async function pageBrowserTool(ctx: RunContext, call: ToolCall) {
                 addRunSecrets(ctx, resolved.redactions);
                 // No pass for the pay click: approving the card named no amount, so the click
                 // that places the order still asks, showing what the page charges.
+                const { used } = resolved;
+                const once = { name: step.card, kind: "card" as const };
                 return {
                   text: resolved.text,
                   origin: resolved.origin,
-                  typed: () => recordVaultUse(ctx, name, resolved.used, resolved.origin),
+                  typed: () =>
+                    used
+                      ? recordVaultUse(ctx, name, used, resolved.origin)
+                      : recordOneTimeFill(ctx, name, once, resolved.origin, "typed"),
+                  ...(!used && {
+                    refused: () => recordOneTimeFill(ctx, name, once, resolved.origin, "refused"),
+                  }),
                 };
               }
               const paymentWallet = deps.paymentWallet;

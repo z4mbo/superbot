@@ -1,11 +1,17 @@
 import { useLingui } from "@lingui/react/macro";
 import { useLinkFavicon } from "@rakazo/chat-ui/web";
-import type { BotSecretMetadata, VaultKind } from "@rakazo/contracts";
-import { vaultItemSubtitle } from "@rakazo/contracts";
+import type {
+  BotSecretMetadata,
+  ContactFields,
+  ContactPart,
+  VaultFilter,
+  VaultKind,
+} from "@rakazo/contracts";
+import { contactParts, vaultItemSubtitle } from "@rakazo/contracts";
 import { registrableDomain } from "@rakazo/core/egress";
 import { cn } from "@rakazo/ui-web";
 import type { LucideIcon } from "lucide-react";
-import { Braces, CreditCard, KeyRound, MapPin, SquareTerminal } from "lucide-react";
+import { Braces, CreditCard, KeyRound, Mail, MapPin, Phone, SquareTerminal } from "lucide-react";
 
 export type VaultAuth = NonNullable<BotSecretMetadata["auth"]>;
 
@@ -33,7 +39,30 @@ export function useVaultKindLabels() {
     api_key: t`Keys`,
     variable: t`Variables`,
   };
-  return { one, many };
+  // A contact is added and filtered by what it holds: an address, a phone or an email.
+  const part: Record<ContactPart, string> = {
+    address: t`Address`,
+    phone: t`Phone`,
+    email: t`Email`,
+  };
+  const filters: Record<VaultFilter, string> = {
+    login: many.login,
+    card: t`Payments`,
+    address: t`Addresses`,
+    phone: t`Phones`,
+    email: t`Emails`,
+    api_key: many.api_key,
+    variable: many.variable,
+  };
+  return { one, many, part, filters };
+}
+
+const PART_ICONS: Record<ContactPart, LucideIcon> = { address: MapPin, phone: Phone, email: Mail };
+
+/** The icon of a contact holding only a phone or only an email is that part's. */
+function contactIcon(contact: Partial<ContactFields> | undefined): LucideIcon {
+  const parts = contactParts(contact);
+  return parts.length === 1 ? PART_ICONS[parts[0]!] : MapPin;
 }
 
 export function siteHost(origin: string): string {
@@ -62,12 +91,18 @@ export function VaultTile({
   kind,
   title,
   origin,
+  contact,
+  part,
   className,
 }: {
   kind: VaultKind | null;
   title: string;
   /** A login's site, for its icon and letter. */
   origin?: string;
+  /** A saved contact's fields, so one holding only a phone or an email shows that part. */
+  contact?: Partial<ContactFields>;
+  /** The contact part a new item is, for its icon. */
+  part?: ContactPart;
   className?: string;
 }) {
   const login = kind === "login";
@@ -92,7 +127,13 @@ export function VaultTile({
       />
     );
   }
-  const Icon = kind ? KIND_ICONS[kind] : KeyRound;
+  const Icon = part
+    ? PART_ICONS[part]
+    : kind === "contact"
+      ? contactIcon(contact)
+      : kind
+        ? KIND_ICONS[kind]
+        : KeyRound;
   const letter = login ? (siteLetter(origin) ?? initial(title)) : undefined;
   return (
     <span

@@ -1,9 +1,73 @@
-import type { VaultUse } from "@rakazo/contracts";
+import type { VaultActivityEvent, VaultUse } from "@rakazo/contracts";
 import { VAULT_ACTIVITY_LIMIT } from "@rakazo/contracts";
-import type { PrismaClient } from "@rakazo/db";
+import type { AuditEventInput, PrismaClient } from "@rakazo/db";
 import { runAsSystem, tryRecordAuditEvent } from "@rakazo/db";
 import type { BotSecretScope, VaultItemUse } from "../bot-secrets.js";
 import { vaultItemId } from "../bot-secrets.js";
+
+/**
+ * Audit actions about the vault, each written through recordVaultEvent. `credential.used` is a
+ * bot's use of an item; the Secure form ones say what became of a form a person sent in chat.
+ * Other vault events (purchases, sign-in sources) add their own action here.
+ */
+export const VAULT_AUDIT_ACTIONS = {
+  used: "credential.used",
+  /** A Secure form's values were saved to the vault as an item. */
+  formSaved: "vault.form_saved",
+  /** A Secure form was sent for one fill in this run only, never saved. */
+  fillApproved: "vault.fill_approved",
+  /** A value sent for one fill was typed into the page. */
+  fillCompleted: "vault.fill_completed",
+  /** The page clearly refused a value sent for one fill; nothing was typed. */
+  fillFailed: "vault.fill_failed",
+} as const;
+
+/** The actions an item's activity lists, with the event each row shows; a use has none. */
+const ITEM_ACTIVITY: Record<string, VaultActivityEvent | undefined> = {
+  [VAULT_AUDIT_ACTIONS.used]: undefined,
+  [VAULT_AUDIT_ACTIONS.formSaved]: "form_saved",
+};
+
+/**
+ * Record one vault event; never a value. With `item`, the event is about that vault item, and lands
+ * and names it as audit-events.ts decides for vault items; without one it is about a value used
+ * once and never saved, named only by the name the bot asked for it under. Never throws, as the
+ * audit log never does.
+ */
+export function recordVaultEvent(event: {
+  action: string;
+  actor: AuditEventInput["actor"];
+  spaceId: string;
+  /** The person whose vault holds the item, or who sent the form. */
+  userId: string;
+  runId?: string;
+  threadId?: string;
+  item?: VaultItemUse;
+  /** For a value never saved: the name it was asked for under, and its kind. */
+  unsaved?: { name: string; kind: string };
+  outcome?: AuditEventInput["outcome"];
+  metadata?: AuditEventInput["metadata"];
+}): Promise<boolean> {
+  const { item, unsaved } = event;
+  return tryRecordAuditEvent({
+    action: event.action,
+    actor: event.actor,
+    spaceId: event.spaceId,
+    userId: event.userId,
+    target: item
+      ? { type: "vault_credential", id: item.id, label: item.name }
+      : { type: "secure_form", label: unsaved?.name ?? null },
+    outcome: event.outcome,
+    runId: event.runId,
+    threadId: event.threadId,
+    metadata: {
+      ...(item
+        ? { scope: item.spaceId ? "space" : "account", name: item.name, kind: item.kind }
+        : { name: unsaved?.name, kind: unsaved?.kind }),
+      ...event.metadata,
+    },
+  });
+}
 
 /**
  * Record that the vault gave a bot one item's value; never the value. `userId` is the person
@@ -22,22 +86,15 @@ export function recordVaultItemUse(use: {
   item: VaultItemUse;
   site?: string;
 }): Promise<boolean> {
-  const { item } = use;
-  return tryRecordAuditEvent({
-    action: "credential.used",
+  return recordVaultEvent({
+    action: VAULT_AUDIT_ACTIONS.used,
     actor: { type: "bot", id: use.bot.id, label: use.bot.name },
     spaceId: use.spaceId,
     userId: use.userId,
-    target: { type: "vault_credential", id: item.id, label: item.name },
     runId: use.runId,
     threadId: use.threadId,
-    metadata: {
-      tool: use.tool,
-      scope: item.spaceId ? "space" : "account",
-      name: item.name,
-      kind: item.kind,
-      site: use.site,
-    },
+    item: use.item,
+    metadata: { tool: use.tool, site: use.site },
   });
 }
 
@@ -52,11 +109,16 @@ export async function listVaultItemUses(
   if (!id) return undefined;
   return runAsSystem("read a vault item's uses for its owner", async () => {
     const rows = await prisma.auditEvent.findMany({
-      where: { targetType: "vault_credential", targetId: id, action: "credential.used" },
+      where: {
+        targetType: "vault_credential",
+        targetId: id,
+        action: { in: Object.keys(ITEM_ACTIVITY) },
+      },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: VAULT_ACTIVITY_LIMIT * 2,
       select: {
         createdAt: true,
+        action: true,
         actorId: true,
         actorLabel: true,
         targetLabel: true,
@@ -100,11 +162,14 @@ export async function listVaultItemUses(
     );
     return events.map((event) => {
       const site = (event.metadata as { site?: unknown } | null)?.site;
+      const kind = ITEM_ACTIVITY[event.action];
       return {
         at: event.createdAt.toISOString(),
-        botName: event.actorLabel ?? "",
+        // A person's own event is labelled with their email, which the activity never shows.
+        botName: kind ? "" : (event.actorLabel ?? ""),
         site: typeof site === "string" ? site : null,
         chat: (event.threadId && chats.get(event.threadId)) || null,
+        ...(kind ? { event: kind } : {}),
       };
     });
   });

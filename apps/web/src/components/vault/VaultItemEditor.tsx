@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   CardSecretValue,
   ContactFields,
+  ContactPart,
   LoginFieldInput,
   VaultKind,
   VaultPolicy,
@@ -13,6 +14,7 @@ import {
   cardBrand,
   commandVariableName,
   commandVariableProblem,
+  contactPartFields,
   encodeCardSecret,
   encodeContactSecret,
   parseCardExpiry,
@@ -45,7 +47,7 @@ export type VaultEditorResult = {
   value?: string;
   /** A login's fields as typed, which a chat card answers with. */
   fields?: LoginFieldInput[];
-  /** A chat login card the person chose to use once, not save. */
+  /** A Secure form's login or card the person chose to use once, not save. */
   remember?: false;
   title?: string;
   note?: string;
@@ -187,6 +189,8 @@ export function VaultItemEditorPage({
 
 type EditorFormProps = {
   kind: VaultKind;
+  /** A new contact that is one part, which shows only that part's fields. */
+  contactPart?: ContactPart;
   mode: "new" | "edit" | "ask";
   heading: string;
   initial?: VaultEditorInitial;
@@ -203,6 +207,7 @@ type InputExtras = Partial<ComponentProps<typeof Input>> & { "data-testid"?: str
 
 function EditorForm({
   kind,
+  contactPart,
   mode,
   initial,
   contacts,
@@ -241,6 +246,8 @@ function EditorForm({
     ];
   const [login, setLogin] = useState(defaultLogin);
   const [remember, setRemember] = useState(true);
+  // A Secure form's login or card can be sent for this run only, typed once and never saved.
+  const onceAllowed = asking && (kind === "login" || kind === "card");
   const [cardNumber, setCardNumber] = useState(initial?.card?.number ?? "");
   const [expiry, setExpiry] = useState(initial?.card ? expiryText(initial.card) : "");
   const [cvc, setCvc] = useState(initial?.card?.cvc ?? "");
@@ -274,6 +281,8 @@ function EditorForm({
   const [error, setError] = useState<string | null>(null);
 
   const id = (field: string) => `${ids}-${field}`;
+  // A saved contact shows every field, so nothing it holds is hidden from an edit.
+  const shownContact = contactPartFields(mode === "new" ? contactPart : undefined);
 
   function clearProtected() {
     setLogin((fields) => fields.map((field) => ({ ...field, value: "" })));
@@ -355,6 +364,7 @@ function EditorForm({
       return {
         destination: { name, origin: "", auth: { type: "card" } },
         value: card.success ? encodeCardSecret(card.data) : undefined,
+        ...(asking && !remember ? { remember: false as const } : {}),
         ...labels,
       };
     }
@@ -627,19 +637,29 @@ function EditorForm({
       ) : null}
       {kind === "contact" ? (
         <>
-          {contactField("name", t`Full name`)}
-          {contactField("line1", t`Address`)}
-          {contactField("line2", t`Address line 2`)}
-          {contactField("city", t`City`)}
-          <div className="grid grid-cols-2 gap-3">
-            {contactField("region", t`State or region`)}
-            {contactField("postalCode", t`ZIP or postal code`)}
-          </div>
-          {contactField("country", t`Country`)}
-          <div className="grid grid-cols-2 gap-3">
-            {contactField("phone", t`Phone`)}
-            {contactField("email", t`Email`)}
-          </div>
+          {shownContact.includes("line1") ? (
+            <>
+              {contactField("name", t`Full name`)}
+              {contactField("line1", t`Address`)}
+              {contactField("line2", t`Address line 2`)}
+              {contactField("city", t`City`)}
+              <div className="grid grid-cols-2 gap-3">
+                {contactField("region", t`State or region`)}
+                {contactField("postalCode", t`ZIP or postal code`)}
+              </div>
+              {contactField("country", t`Country`)}
+            </>
+          ) : null}
+          {shownContact.includes("phone") && shownContact.includes("email") ? (
+            <div className="grid grid-cols-2 gap-3">
+              {contactField("phone", t`Phone`)}
+              {contactField("email", t`Email`)}
+            </div>
+          ) : shownContact.includes("phone") ? (
+            contactField("phone", t`Phone`)
+          ) : shownContact.includes("email") ? (
+            contactField("email", t`Email`)
+          ) : null}
         </>
       ) : null}
       {kind === "api_key" ? (
@@ -733,7 +753,7 @@ function EditorForm({
         </p>
       ) : null}
       <div className="mt-1 flex items-center gap-2">
-        {asking && kind === "login" ? (
+        {onceAllowed ? (
           <div className="flex items-center gap-2">
             <Switch
               id={id("remember")}
@@ -757,7 +777,7 @@ function EditorForm({
           </Button>
         ) : null}
         <Button type="submit" data-testid="vault-editor-save" disabled={!ready || busy}>
-          {asking && kind === "login" && !remember ? (
+          {onceAllowed && !remember ? (
             busy ? (
               <Trans>Sending…</Trans>
             ) : (

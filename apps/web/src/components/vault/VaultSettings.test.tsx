@@ -1059,7 +1059,7 @@ describe("VaultSettings list", () => {
     queryClient.clear();
     await render();
     expect(byTestId("vault-filter-all").textContent).toBe("All5");
-    expect(byTestId("vault-filter-card").textContent).toBe("Cards1");
+    expect(byTestId("vault-filter-card").textContent).toBe("Payments1");
     await click("vault-filter-card");
     expect(byTestId("vault-filter-card").getAttribute("aria-pressed")).toBe("true");
     expect(document.querySelectorAll('[data-testid="vault-credential-row"]')).toHaveLength(1);
@@ -1081,6 +1081,47 @@ describe("VaultSettings list", () => {
       ),
     ).toEqual(["key-3"]);
   });
+
+  it("lists a contact under each part it holds, behind More", async () => {
+    await render();
+    // Logins and Payments are tabs; the other filters wait under More.
+    expect(find("vault-filter-phone")).toBeNull();
+    await click("vault-filter-more");
+    expect(byTestId("vault-filter-phone").textContent).toBe("Phones1");
+    expect(byTestId("vault-filter-address").textContent).toBe("Addresses1");
+    expect(find("vault-filter-email")).toBeNull();
+    await click("vault-filter-phone");
+    expect(byTestId("vault-filter-more").getAttribute("aria-pressed")).toBe("true");
+    expect(byTestId("vault-filter-more").textContent).toContain("Phones1");
+    expect(
+      [...document.querySelectorAll('[data-testid="vault-credential-row"]')].map((row) =>
+        row.getAttribute("data-name"),
+      ),
+    ).toEqual(["home"]);
+  });
+
+  it.each([
+    ["phone", "New phone", "Phone", "+1 555 0199"],
+    ["email", "New email", "Email", "fixture@example.test"],
+  ] as const)(
+    "adds a %s on its own, as a contact holding only it",
+    async (part, heading, label, value) => {
+      await render();
+      await startNew(part);
+      expect(editor()?.textContent).toContain(heading);
+      // Only that part's field, beside the label.
+      expect([...editor()!.querySelectorAll("label")].map((item) => item.textContent)).toEqual([
+        "Label",
+        label,
+      ]);
+      await type(field(label), value);
+      await click("vault-editor-save");
+      expect(vault.put.mock.lastCall?.[0]).toMatchObject({
+        destination: { origin: "", auth: { type: "contact" } },
+        value: JSON.stringify({ [part]: value }),
+      });
+    },
+  );
 
   it("reads and writes the Space's own vault when scoped to the Space", async () => {
     await render("space");

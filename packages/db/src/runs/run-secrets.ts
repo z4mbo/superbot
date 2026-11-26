@@ -12,6 +12,14 @@ export function runLoginKind(runId: string, name: string): string {
   return `run-login:${runId}:${name}`;
 }
 
+/**
+ * A card a Secure form sent with "Save to Vault" off: kept for this run only under its name, typed
+ * only into a checkout the person approves, and dropped with the run.
+ */
+export function runCardKind(runId: string, name: string): string {
+  return `run-card:${runId}:${name}`;
+}
+
 /** A texted or emailed code answered in chat, kept until it is typed into the page or the run ends. */
 export function runCodeKind(runId: string): string {
   return `run-code:${runId}`;
@@ -49,6 +57,7 @@ function runSecretsWhere(runs: ReadonlyArray<{ id: string; userId: string; space
         spaceId: run.spaceId,
         kind: { startsWith: runLoginKind(run.id, "") },
       },
+      { userId: run.userId, spaceId: run.spaceId, kind: { startsWith: runCardKind(run.id, "") } },
     ]),
   };
 }

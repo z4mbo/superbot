@@ -753,11 +753,19 @@ export type VaultRevealed = z.infer<typeof VaultRevealed>;
 
 export const VAULT_ACTIVITY_LIMIT = 20;
 
+/**
+ * What a row of an item's activity records besides a bot's use: the item was saved from a
+ * Secure form in chat. Absent is a use, as older servers send every row.
+ */
+export const VAULT_ACTIVITY_EVENTS = ["form_saved"] as const;
+export type VaultActivityEvent = (typeof VAULT_ACTIVITY_EVENTS)[number];
+
 export const VaultUse = z.strictObject({
   at: z.string(),
   botName: z.string().max(200),
   site: z.string().max(2048).nullable(),
   chat: z.strictObject({ title: z.string() }).nullable(),
+  event: z.enum(VAULT_ACTIVITY_EVENTS).optional(),
 });
 export type VaultUse = z.infer<typeof VaultUse>;
 

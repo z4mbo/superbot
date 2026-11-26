@@ -33,9 +33,13 @@ export function createSecretMigrationRepository(prisma: PrismaClient): SecretMig
               ref: row.ciphertext,
               recordId:
                 label === "integrationProviderConfig" ? `integration-provider:${row.id}` : row.id,
-              ephemeral: ["run-secret:", "run-login:", "run-code:", "run-code-spent:"].some(
-                (prefix) => row.kind?.startsWith(prefix),
-              ),
+              ephemeral: [
+                "run-secret:",
+                "run-login:",
+                "run-card:",
+                "run-code:",
+                "run-code-spent:",
+              ].some((prefix) => row.kind?.startsWith(prefix)),
               ...(label === "vaultCredential" && row.updatedAt ? { updatedAt: row.updatedAt } : {}),
               ...(label === "vaultCredential" && isCiphertext(row.ciphertext)
                 ? { open: (signal: AbortSignal) => openSealedVaultValue(prisma, row, signal) }

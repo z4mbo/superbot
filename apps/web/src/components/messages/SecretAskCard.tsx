@@ -9,7 +9,7 @@ import {
 } from "@rakazo/contracts";
 import { secretAnswerErrorText } from "@rakazo/i18n/vault";
 import { Button, Input } from "@rakazo/ui-web";
-import { Check } from "lucide-react";
+import { Check, LockKeyhole } from "lucide-react";
 import { useState } from "react";
 import { useEventListener } from "../../lib/use-event-listener";
 import { BuiCard } from "../ai/primitives";
@@ -33,9 +33,11 @@ function CardEditor(props: Parameters<typeof VaultItemEditor>[0]) {
 }
 
 /**
- * A chat card asking for protected input. A login, card or contact is one row whose Add opens the
- * vault's own form; a code, key or variable is one field, typed right in the card. The value lives
- * only in this card's state and is cleared as soon as it is sent.
+ * A chat card asking for protected input: a Secure form. A login, card or contact is one row whose
+ * Add opens the vault's own form; a code, key or variable is one field, typed right in the card.
+ * The value lives only in this card's state and is cleared as soon as it is sent: it goes to the
+ * vault, or for a login or card with Save to Vault off to this run only, and never into the chat.
+ * Once sent the card says only Saved or Sent.
  */
 export function SecretAskCard({ block, canAnswer, canDismiss, onAnswer, onDismiss }: AskCardProps) {
   const { t } = useLingui();
@@ -125,7 +127,7 @@ export function SecretAskCard({ block, canAnswer, canDismiss, onAnswer, onDismis
 
   async function saveForm(result: VaultEditorResult) {
     if (form === "login") await send("", result.fields, result.remember);
-    else await send(result.value ?? "");
+    else await send(result.value ?? "", undefined, result.remember);
   }
 
   const status = shownDismissed
@@ -169,7 +171,20 @@ export function SecretAskCard({ block, canAnswer, canDismiss, onAnswer, onDismis
     : undefined;
 
   return (
-    <BuiCard data-testid="secret-ask-card" className="w-full min-w-0 max-w-xl px-4 py-3">
+    <BuiCard
+      data-testid="secret-ask-card"
+      aria-label={block.credential ? t`Secure form` : undefined}
+      className="w-full min-w-0 max-w-xl px-4 py-3"
+    >
+      {block.credential ? (
+        <div
+          data-testid="secure-form-label"
+          className="mb-2 flex items-center gap-1.5 text-label font-medium text-muted-foreground"
+        >
+          <LockKeyhole aria-hidden className="size-3.5" />
+          <Trans>Secure form</Trans>
+        </div>
+      ) : null}
       <div className="flex items-center gap-3">
         <VaultTile
           kind={block.credential ? vaultKind(block.credential.auth.type) : null}
