@@ -315,6 +315,33 @@ describe("bot management approval cards", () => {
     expect(block.detail).toBe("Socks: $9.00");
   });
 
+  it("draws a purchase as an order card with Pay and Cancel, and never Always allow", () => {
+    // A test card number and code, as a run that typed the card would hold them.
+    const secrets = ["4242424242424242", "4242 4242 4242 4242", "123-fixture-cvc"];
+    const block = buildApprovalAskBlock("effect-1", "browser_act", {}, secrets, {
+      summary: {
+        // Even a summary that forgot to ask every time offers no way to skip the next payment.
+        title: "Pay with Visa ·· 4242 on shop.example.test?",
+        lines: [],
+        payment: {
+          merchant: "shop.example.test 4242 4242 4242 4242",
+          method: "Visa ·· 4242 123-fixture-cvc",
+        },
+      },
+    });
+    if (block.kind !== "ask") throw new Error("expected ask block");
+    expect(block.actions).toEqual([
+      { id: "allow", label: "Pay" },
+      { id: "deny", label: "Cancel" },
+    ]);
+    // The card names its method by reference; a number or code that reached it is redacted.
+    expect(block.payment).toEqual({
+      merchant: "shop.example.test [redacted]",
+      method: "Visa ·· 4242 [redacted]",
+    });
+    for (const secret of secrets) expect(JSON.stringify(block)).not.toContain(secret);
+  });
+
   it("never offers always allow on a tool that needs explicit approval", () => {
     const block = buildApprovalAskBlock(
       "effect-1",

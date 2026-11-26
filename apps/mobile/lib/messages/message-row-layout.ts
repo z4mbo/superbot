@@ -27,6 +27,7 @@ export function messageRowLayout(
       block.kind === "sign_in" ||
       block.kind === "app" ||
       block.kind === "page" ||
+      block.kind === "purchase" ||
       (block.kind === "ask" &&
         block.status !== "answered" &&
         Boolean(block.actions?.length) &&

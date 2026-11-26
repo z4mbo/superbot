@@ -40,10 +40,9 @@ them. Every build job runs in the `desktop-release` environment.
 | `DESKTOP_RELEASE_MAC_ONLY`         | Variable    | All      | No       | `true` builds only macOS (see [fork distribution](fork-desktop-distribution.md)); unset or `false` builds all three |
 | `GITHUB_TOKEN`                     | Automatic   | All      | Yes      | Provided by Actions; the publish job holds `contents: write`, `attestations: write` and `id-token: write`           |
 
-The CLI's npm credential is not set up yet. The CLI is `superbot-cli` in
-`apps/cli`, still private; the job that publishes it, with the credential it
-reads (conventionally a `NPM_TOKEN` secret, or npm trusted publishing with no
-stored token), comes in a separate pull request.
+The same tag publishes the CLI to npm as `superbot-cli` through
+`release-cli`; its credential (the `NPM_TOKEN` secret for the first release,
+then npm trusted publishing) is covered in [CLI releases](cli-release.md).
 
 ### Without credentials
 

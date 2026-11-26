@@ -21,6 +21,7 @@ export function messageHasInlineControls(blocks: readonly MessageBlock[]): boole
       block.kind === "app_connect" ||
       block.kind === "mcp_approval" ||
       block.kind === "tool_question" ||
+      block.kind === "purchase" ||
       block.kind === "sign_in" ||
       block.kind === "import_setup",
   );

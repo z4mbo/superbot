@@ -81,6 +81,29 @@ export const AskReceipt = z.object({
 });
 export type AskReceipt = z.infer<typeof AskReceipt>;
 
+/** Where a purchase stands on its card: waiting on the user, then how it ended. */
+export const PurchaseCardState = z.enum([
+  "pending",
+  "approved",
+  "paid",
+  "canceled",
+  "failed",
+  "expired",
+]);
+export type PurchaseCardState = z.infer<typeof PurchaseCardState>;
+
+/**
+ * On a payment approval, the order card's own fields. `method` names the payment method by
+ * reference only (a saved card's title, or its brand and last four digits), never its number.
+ * `outcome` is set once the approved press ran.
+ */
+export const AskPayment = z.object({
+  merchant: z.string().max(253),
+  method: z.string().max(120).optional(),
+  outcome: z.enum(["paid", "failed"]).optional(),
+});
+export type AskPayment = z.infer<typeof AskPayment>;
+
 export const MessageBlock = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({
@@ -109,6 +132,8 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     detailFormat: z.enum(["text", "code"]).optional(),
     /** On a payment card, the order as the page shows it, drawn as a receipt in place of `detail`. */
     receipt: AskReceipt.optional(),
+    /** On a payment approval, drawn as an order card with Pay and Cancel. */
+    payment: AskPayment.optional(),
     input: z.enum(["text", "secret"]).optional(),
     /** Why the secret is needed; drives field label on the masked card. */
     purpose: SecretAskPurpose.optional(),
@@ -274,6 +299,21 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     branch: z.string().optional(),
     prUrl: z.string().optional(),
     latestRunId: z.string().optional(),
+  }),
+  z.object({
+    /**
+     * A purchase the bot asked the user's wallet to approve. The wallet's owner approves it on the
+     * wallet's own site or app (`approveUrl`); the chat can cancel it. `wallet` is the wallet's
+     * name as its provider gives it, and `method` the card it issued, as brand and last four.
+     */
+    kind: z.literal("purchase"),
+    purchaseId: z.string().max(100),
+    merchant: z.string().max(200),
+    amount: z.string().max(100),
+    state: PurchaseCardState,
+    wallet: z.string().max(80),
+    approveUrl: z.string().max(2048).optional(),
+    method: z.string().max(120).optional(),
   }),
   z.object({
     kind: z.literal("skill_draft"),

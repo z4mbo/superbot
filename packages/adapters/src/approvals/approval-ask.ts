@@ -1,5 +1,5 @@
 import type { ConnectorTool, ToolBatch } from "@rakazo/adapter-kit";
-import type { AskReceipt, MessageBlock } from "@rakazo/contracts";
+import type { AskPayment, AskReceipt, MessageBlock } from "@rakazo/contracts";
 import { BOT_INSTRUCTIONS_MAX_LENGTH, draftBatchEntry, OutgoingDraft } from "@rakazo/contracts";
 import {
   batchActions,
@@ -26,11 +26,13 @@ export const MAX_FETCH_URL_LENGTH = 2_048;
 /** A fleet card built from the resolved request: a title and the lines under it. */
 /** `onceOnly`: the card never offers Always allow, as for a purchase. */
 /** `receipt`: a payment's order, which apps draw in place of the lines. */
+/** `payment`: a purchase, which apps draw as an order card with Pay and Cancel. */
 export type FleetCardSummary = {
   title: string;
   lines: string[];
   onceOnly?: boolean;
   receipt?: AskReceipt;
+  payment?: AskPayment;
 };
 
 /**
@@ -51,6 +53,13 @@ function redactReceipt(receipt: AskReceipt, secrets: string[]): AskReceipt {
     items: receipt.items.map((item) => ({ name: clean(item.name), amount: clean(item.amount) })),
     ...(receipt.amount ? { amount: clean(receipt.amount) } : {}),
     ...(receipt.total ? { total: clean(receipt.total) } : {}),
+  };
+}
+
+function redactPayment(payment: AskPayment, secrets: string[]): AskPayment {
+  return {
+    merchant: redactSecrets(payment.merchant, secrets),
+    ...(payment.method ? { method: redactSecrets(payment.method, secrets) } : {}),
   };
 }
 
@@ -106,9 +115,17 @@ export function buildApprovalAskBlock(
       ...(options.summary.receipt
         ? { receipt: redactReceipt(options.summary.receipt, secrets) }
         : {}),
+      ...(options.summary.payment
+        ? { payment: redactPayment(options.summary.payment, secrets) }
+        : {}),
       status: "pending",
-      actions:
-        onceOnly || options.summary.onceOnly
+      actions: options.summary.payment
+        ? // A purchase asks every time: there is no Always allow to offer.
+          [
+            { id: "allow", label: "Pay" },
+            { id: "deny", label: "Cancel" },
+          ]
+        : onceOnly || options.summary.onceOnly
           ? [
               { id: "allow", label: "Allow once" },
               { id: "deny", label: "Deny" },

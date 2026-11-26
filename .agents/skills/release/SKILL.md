@@ -31,7 +31,7 @@ Pick the version: patch for fixes, minor when users get new capability or self-h
 
 ## 3. Release PR
 
-Bump `apps/desktop/package.json` to the new version in the same branch and open the PR titled `Release vX.Y.Z`. If `pnpm checks` then names compatibility shims that are due, remove them in the same PR. The maintainer reviews the changelog wording there. Right before it merges, rerun the gather against current `main` and add entries for anything merged since, because the tag covers everything up to the release PR's merge commit.
+Bump `apps/desktop/package.json` and `apps/cli/package.json` to the new version in the same branch and open the PR titled `Release vX.Y.Z`. If `pnpm checks` then names compatibility shims that are due, remove them in the same PR. The maintainer reviews the changelog wording there. Right before it merges, rerun the gather against current `main` and add entries for anything merged since, because the tag covers everything up to the release PR's merge commit.
 
 ## 4. Tag
 
@@ -42,11 +42,10 @@ sha="$(gh pr view <release PR> -R z4mbo/superbot --json mergeCommit -q .mergeCom
 git fetch origin main && git tag vX.Y.Z "$sha" && git push origin vX.Y.Z
 ```
 
-The tag starts two workflows:
+The tag starts three workflows:
 
 - `release-desktop`: validates the tag (matches the desktop version, has a changelog section, is on `main`, is newer than the latest release), then builds and signs each platform in the `desktop-release` environment: a notarized universal macOS `.dmg` and `.zip`, a signed x64 Windows NSIS installer, and an x64 Linux `.AppImage` (with its update signature) and `.deb`. The publish job checks every update feed against the uploaded assets, writes `SHA256SUMS`, attests build provenance, uploads everything to a draft GitHub release whose text is the changelog section followed by GitHub's generated list of merged pull requests, and only then publishes it as the latest release. Installed apps pick it up from there.
 - `publish-server-image`: publishes the `app`, `updater` and `computer` self-host images to `ghcr.io/z4mbo/superbot/<image>`, tagged `vX.Y.Z`, `vX.Y` and `latest`.
+- `release-cli`: publishes the command-line client to npm as `superbot-cli` (command `superbot`) once the tag matches `apps/cli/package.json`. Until its first publish has the `NPM_TOKEN` secret, it checks the package and skips publishing; [CLI releases](../../../docs/cli-release.md) covers the credential.
 
 Every signing credential must be configured first, or the build fails closed and nothing is published; [desktop releases](../../../docs/desktop-release.md) lists them by name and covers the first-time Linux update key. Check what is set with `gh secret list -R z4mbo/superbot` and `gh variable list -R z4mbo/superbot`.
-
-The command-line client is not part of a release yet. It lives in `apps/cli` as the package `superbot-cli` (command `superbot`), still marked private; the job that publishes it to npm comes in a separate pull request.

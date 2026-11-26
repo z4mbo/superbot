@@ -7,6 +7,7 @@ import type { ChildBotBlock, PeerExchange } from "@rakazo/core";
 import {
   formatFileSize,
   isApprovalAskBlock,
+  isPurchaseCardBlock,
   isQuestionAskBlock,
   messagingProviderLabel,
   resolveAskChoice,
@@ -54,6 +55,7 @@ import { ChangeUndo, isUndoableChange } from "../cards/change-undo";
 import { ImportSetupCard } from "../cards/ImportSetupCard";
 import { McpApprovalCard } from "../cards/McpApprovalCard";
 import { OutgoingDraftCard } from "../cards/OutgoingDraftCard";
+import { PurchaseCard } from "../cards/PurchaseCard";
 import { SignInCard } from "../cards/SignInCard";
 import { ToolQuestionCard } from "../cards/ToolQuestionCard";
 import { AudioAttachment } from "../media/audio-attachment";
@@ -283,6 +285,14 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
     (block): block is Extract<MessageBlock, { kind: "mcp_approval" }> =>
       block.kind === "mcp_approval",
   );
+  const purchase = message.blocks.find(isPurchaseCardBlock);
+  if (purchase)
+    return (
+      <PurchaseCard
+        {...{ block: purchase, canAnswer, actionProps }}
+        onAnswer={(answer) => onAnswer(message, answer)}
+      />
+    );
   const undoBlock = message.blocks.find(isUndoableChange);
   if (undoBlock?.kind === "ask") return <ChangeUndo block={undoBlock} />;
   const ask = message.blocks.find(

@@ -1,0 +1,162 @@
+name: release-cli
+
+# Publishes the superbot-cli npm package from the same vMAJOR.MINOR.PATCH release tag as the
+# desktop app (release-desktop.yml) and the server images. It is a workflow of its own so npm's
+# publishing rights stay out of the desktop jobs and a failure on one side never holds back the
+# other. A manual run builds, tests and packs the package as a dry run; it publishes only from a
+# release tag with "publish" ticked, which is how a skipped tag run is retried. While the package
+# has never been published and no NPM_TOKEN is set, a tag run checks everything and then skips
+# publishing with a notice. See docs/cli-release.md.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish to npm once every check passes (release tags only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-cli
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Build and verify the package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      dist-tag: ${{ steps.release.outputs.dist-tag }}
+      first: ${{ steps.release.outputs.first }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish only from a release tag on main
+        if: github.event_name == 'push' || inputs.publish
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./apps/cli/package.json').version")"
+          if [[ "$REF_TYPE" != "tag" || "$RELEASE_TAG" != "v$version" ]]; then
+            echo "Publishing runs from the release tag v$version; this run started from $REF_TYPE $RELEASE_TAG." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Releases must point to a commit already on main." >&2
+            exit 1
+          fi
+      - uses: ./.github/actions/setup-workspace
+        with:
+          filter: superbot-cli...
+      - name: Typecheck
+        run: pnpm --filter superbot-cli check
+      - name: Test
+        run: pnpm --filter superbot-cli test
+      - name: Stage and verify the package folder
+        run: pnpm --filter superbot-cli pack:npm
+      - name: Pack, install from the tarball, and run it
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tarball" "$RUNNER_TEMP/prefix" "$RUNNER_TEMP/settings"
+          npm pack ./apps/cli/dist/npm --pack-destination "$RUNNER_TEMP/tarball"
+          tarball="$(ls "$RUNNER_TEMP"/tarball/superbot-cli-*.tgz)"
+          npm install --global --prefix "$RUNNER_TEMP/prefix" --ignore-scripts "$tarball"
+          expected="superbot-cli $(node -p "require('./apps/cli/package.json').version")"
+          actual="$(SUPERBOT_CONFIG_DIR="$RUNNER_TEMP/settings" "$RUNNER_TEMP/prefix/bin/superbot" --version)"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "The installed command printed '$actual', expected '$expected'." >&2
+            exit 1
+          fi
+      - name: Check the version against npm
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only a 404 means "never published"; any other failure stops the release.
+          if npm view superbot-cli versions --json > "$RUNNER_TEMP/published.json" 2> "$RUNNER_TEMP/view.err"; then
+            first=false
+          elif grep -q E404 "$RUNNER_TEMP/view.err"; then
+            first=true
+            : > "$RUNNER_TEMP/published.json"
+          else
+            cat "$RUNNER_TEMP/view.err" >&2
+            exit 1
+          fi
+          dist_tag="$(node apps/cli/release/npm-package.mjs release-tag "$RUNNER_TEMP/published.json")"
+          {
+            echo "version=$(node -p "require('./apps/cli/package.json').version")"
+            echo "dist-tag=$dist_tag"
+            echo "first=$first"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: superbot-cli-npm
+          path: ${{ runner.temp }}/tarball/superbot-cli-*.tgz
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish superbot-cli ${{ needs.package.outputs.version }}
+    needs: package
+    if: github.ref_type == 'tag' && (github.event_name == 'push' || inputs.publish)
+    # Trusted publishing and provenance need a GitHub-hosted runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Signs the provenance statement, and is the credential itself under trusted publishing.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: superbot-cli-npm
+          path: ${{ runner.temp }}/tarball
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - name: Publish
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          FIRST: ${{ needs.package.outputs.first }}
+          DIST_TAG: ${{ needs.package.outputs.dist-tag }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$NPM_TOKEN" ]]; then
+            # npm reads the token from the environment; it is never written to disk.
+            # shellcheck disable=SC2016
+            printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > "$RUNNER_TEMP/.npmrc"
+            export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/.npmrc"
+          elif [[ "$FIRST" == "true" ]]; then
+            message="superbot-cli is not on npm yet, and a trusted publisher can only be added to a package that exists. Add the NPM_TOKEN repository secret for the first release (docs/cli-release.md)."
+            if [[ "$MANUAL" == "true" ]]; then
+              echo "$message" >&2
+              exit 1
+            fi
+            echo "::notice title=superbot-cli not published::$message"
+            exit 0
+          else
+            # Trusted publishing needs npm 11.5.1 or later.
+            npm_version="$(npm --version)"
+            if ! printf '%s\n' 11.5.1 "$npm_version" | sort -V -C; then
+              echo "npm $npm_version cannot use trusted publishing; 11.5.1 or later is needed." >&2
+              exit 1
+            fi
+          fi
+          tarball="$(ls "$RUNNER_TEMP"/tarball/superbot-cli-*.tgz)"
+          npm publish "$tarball" --access public --provenance --tag "$DIST_TAG"

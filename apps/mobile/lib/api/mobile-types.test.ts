@@ -226,6 +226,24 @@ describe("mobile thread event reduction", () => {
     );
   });
 
+  it("reads a purchase card as where and how much, never as a payment method", () => {
+    expect(
+      blockText(
+        mobileMessage("purchase-1", [
+          {
+            kind: "purchase",
+            purchaseId: "purchase-1",
+            merchant: "Fixture Shop",
+            amount: "$23.40",
+            state: "paid",
+            wallet: "Fixture Wallet",
+            method: "Visa ·· 4242",
+          },
+        ]),
+      ),
+    ).toBe("Fixture Shop: $23.40");
+  });
+
   it("formats channel messages with their platform attribution", () => {
     expect(
       blockText(

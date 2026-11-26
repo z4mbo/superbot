@@ -145,5 +145,7 @@ export function cardUseSummary(use: VaultCardUse, purchase?: PurchaseApproval): 
     title: `Pay with ${use.title} on ${host}?`,
     lines: paying?.lines ?? [],
     ...(paying?.receipt ? { receipt: paying.receipt } : {}),
+    // The card by its title, which is its brand and last four digits unless its owner named it.
+    ...(paying?.payment ? { payment: { ...paying.payment, method: use.title } } : {}),
   };
 }

@@ -4,6 +4,19 @@
 server; you need an account in a Space with an agent. Agents can use the server's model
 connection or a supported CLI installed on this device.
 
+## Install from npm
+
+The command will be published to npm as `superbot-cli`; it is not on npm yet, so install it from
+the monorepo below for now. Once it is published:
+
+```shell
+npx superbot-cli --help
+npm install -g superbot-cli
+superbot --version
+```
+
+It needs Node.js 24.15 or newer.
+
 ## Install from the monorepo
 
 The command is a bundled Node.js script (Node 24.15 or newer) that runs the same way on Linux,
@@ -65,7 +78,7 @@ sign in.
 The settings directory is `SUPERBOT_CONFIG_DIR` when it is set. Otherwise it is
 `$XDG_CONFIG_HOME/superbot` (or `~/.config/superbot`) on Linux,
 `~/Library/Application Support/Superbot` on macOS, and `%LOCALAPPDATA%\Superbot` on Windows. It
-also holds the saved server (`server.txt`) and the local model settings.
+also holds the saved server (`server.txt`), the local model settings and the last update check.
 
 ## Chat
 
@@ -147,6 +160,23 @@ The file is UTF-8 JSON such as `{"names":["Ada","Scout"]}`. The import creates t
 does not have yet, ignoring case and surrounding spaces, keeps existing and archived agents, checks
 the whole file first, and can be run again to resume.
 
+## Updates
+
+`superbot update` asks the npm registry for the latest release and prints the command that
+updates this copy, such as `npm install -g superbot-cli@latest` or `pnpm add -g
+superbot-cli@latest`, depending on how it was installed. It prints the command rather than running
+it, since a global install can need permissions you grant yourself. `--json` prints the result as
+JSON.
+
+An installed copy also checks the registry in the background at most once a day and, when a newer
+release is out, says so on standard error after a command finishes. The check runs in a separate
+process, so no command waits for it, and a failed check is silent. It never runs in CI
+(`CI` set), when standard output or standard error is not a terminal, with `--json`, or in a copy
+built from this repository. To turn it off, set `NO_UPDATE_NOTIFIER=1`, the variable other
+command-line tools honor; when `npx` runs it, npm's own `update-notifier=false` setting turns it
+off as well. The last result is kept
+in `update-check.json` in the settings directory.
+
 ## Tests
 
 ```shell
@@ -157,3 +187,5 @@ pnpm test:integration --spec=superbot-cli
 The unit tests run offline against a loopback server with a temporary settings directory and an
 in-memory credential store. The integration test starts the API on a throwaway database and drives
 the built command.
+
+Releasing the npm package is described in [Releasing the command-line tool](../../docs/cli-release.md).

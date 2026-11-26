@@ -13,6 +13,7 @@ import {
 import { getHomeCopy } from "../i18n/home";
 import type { HomeCopy } from "../i18n/home";
 import { APPS_PLATFORM_COPY } from "../i18n/apps-platform";
+import { PLANS_COPY } from "../i18n/download-plans";
 import { BUILD_AN_APP_PATH } from "../docs";
 import { CHANGELOG_URL, GITHUB_URL, SELF_HOST_GUIDE_PATH, UPSTREAM_PROJECT } from "../site";
 import Logo from "./Logo.astro";
@@ -51,7 +52,8 @@ const columns: Array<{ heading: string; links: FooterLink[] }> = [
   {
     heading: linkLabels.product,
     links: [
-      // Download and Hosted plans (SUP-12): add their landing anchors here.
+      { href: localeHashPath(currentLocale, "download"), label: linkLabels.download },
+      { href: localeHashPath(currentLocale, "plans"), label: PLANS_COPY.heading },
       { href: localeHashPath(currentLocale, "store"), label: APPS_PLATFORM_COPY.nav.store },
       { href: "/docs/", label: linkLabels.docs },
       { href: SELF_HOST_GUIDE_PATH, label: localeCopy.selfHost.heading },

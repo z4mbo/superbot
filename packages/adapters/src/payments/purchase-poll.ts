@@ -1,10 +1,11 @@
 import type { AdapterContext, PurchaseSnapshot, PurchaseStatus } from "@rakazo/adapter-kit";
 import { PaymentWalletDisconnected, PaymentWalletRequestRejected } from "@rakazo/adapter-kit";
 import type { Purchase } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { bestEffort, getLogger } from "@rakazo/logging";
 import { releaseUnpaidPurchase } from "../billing/spending-gate.js";
 import { wakeRun } from "../runs/wakeups/wake-run.js";
 import { purchaseWakePrompt } from "../runs/wakeups/wakes.prompt.js";
+import { syncWalletPurchaseCard, walletCardMethod } from "./purchase-card.js";
 import type { PurchaseDeps } from "./purchase-service.js";
 import {
   enqueuePurchasePoll,
@@ -36,11 +37,11 @@ export async function pollPurchase(deps: PurchaseDeps, payload: { purchaseId: st
   });
   if (!purchase?.nextPollAt) return;
   if (!PENDING_PURCHASE_STATUSES.has(purchase.status)) {
-    await settle(deps, purchase, { status: purchase.status as PurchaseStatus });
+    await settlePurchase(deps, purchase, { status: purchase.status as PurchaseStatus });
     return;
   }
   if (Date.now() - purchase.createdAt.getTime() >= PURCHASE_POLL_DEADLINE_MS) {
-    await settle(deps, purchase, { status: "expired" });
+    await settlePurchase(deps, purchase, { status: "expired" });
     return;
   }
   const context: AdapterContext = {
@@ -57,7 +58,7 @@ export async function pollPurchase(deps: PurchaseDeps, payload: { purchaseId: st
   } catch (error) {
     if (error instanceof PaymentWalletRequestRejected) {
       // The provider no longer knows this purchase; asking again cannot succeed.
-      await settle(deps, purchase, { status: "failed" });
+      await settlePurchase(deps, purchase, { status: "failed" });
       return;
     }
     // A disconnected wallet may be reconnected before the deadline; keep trying until then.
@@ -72,16 +73,23 @@ export async function pollPurchase(deps: PurchaseDeps, payload: { purchaseId: st
     if (saved.count) await enqueuePurchasePoll(deps, purchase.id, nextPollAt);
     return;
   }
-  await settle(deps, purchase, {
-    status: snapshot.status,
-    approvalUrl: snapshot.approvalUrl ?? purchase.approvalUrl,
-  });
+  await settlePurchase(
+    deps,
+    purchase,
+    { status: snapshot.status, approvalUrl: snapshot.approvalUrl ?? purchase.approvalUrl },
+    walletCardMethod(snapshot.card),
+  );
 }
 
-async function settle(
+/**
+ * Save a purchase's new status, wake its bot when it has to act on it, and bring its chat card in
+ * line. `method` is the card the wallet issued, by reference only.
+ */
+export async function settlePurchase(
   deps: PurchaseDeps,
   purchase: Purchase,
   next: { status: PurchaseStatus; approvalUrl?: string | null },
+  method?: string,
 ) {
   const committed = await deps.prisma.$transaction(async (tx) => {
     // Same lock order as clearing chat: thread first, then the run it queues.
@@ -163,6 +171,7 @@ async function settle(
     return { nextPollAt, wakeRunId: run.id };
   });
   if (!committed) return;
+  await bestEffort("purchase card", syncWalletPurchaseCard(deps, purchase.id, { method }));
   if (committed.wakeRunId) await wakeRun(deps.jobs, committed.wakeRunId);
   if (committed.nextPollAt) await enqueuePurchasePoll(deps, purchase.id, committed.nextPollAt);
 }

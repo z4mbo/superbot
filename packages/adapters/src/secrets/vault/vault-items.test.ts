@@ -369,6 +369,11 @@ describe("approving a saved card", () => {
       amountSource: "page" as const,
       items: [{ name: "Bananas × 6", amount: "$3.00" }],
     };
+    // The order card names the card by its title, never by its number.
+    expect(cardUseSummary(use, purchase).payment).toEqual({
+      merchant: "shop.example.test",
+      method: "Visa ·· 4242",
+    });
     expect(cardUseSummary(use, purchase).lines).toEqual([
       'Button: "Place order"',
       "Bananas × 6: $3.00",

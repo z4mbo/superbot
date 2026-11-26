@@ -416,6 +416,25 @@ describe("ask history", () => {
     ).toBe("API key");
   });
 
+  it("tells a later turn where a wallet purchase stands, and nothing about its card", () => {
+    const text = blocksToAgentHistoryText([
+      {
+        kind: "purchase",
+        purchaseId: "purchase-1",
+        merchant: "Fixture Shop",
+        amount: "$23.40",
+        state: "paid",
+        wallet: "Fixture Wallet",
+        approveUrl: "https://wallet.example.test/approve/purchase-1",
+        method: "Visa ·· 4242",
+      },
+    ]);
+    expect(text).toBe("[purchase purchase-1 at Fixture Shop for $23.40: paid]");
+    // The approval link is the owner's to open, and the method is theirs to see: neither is the bot's.
+    expect(text).not.toContain("wallet.example.test");
+    expect(text).not.toContain("4242");
+  });
+
   it("keeps a question card's draft in the history, pending and answered", () => {
     const actions = [
       { id: "choice-1", label: "Send it" },

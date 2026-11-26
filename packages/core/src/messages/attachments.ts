@@ -304,6 +304,9 @@ function blockHistoryText(block: MessageBlock): string {
     }[block.status];
     return `[you called the user about: ${block.reason}; ${outcome}]${block.status === "answered" ? `\n${block.opening}` : ""}`;
   }
+  // The bot asked for this purchase and is woken when it changes; its id is how it checks one.
+  if (block.kind === "purchase")
+    return `[purchase ${block.purchaseId} at ${block.merchant} for ${block.amount}: ${block.state}]`;
   // Whether the person answered a tool's question, never what was asked or sent: the question
   // is the server's own text and the answer went to the server.
   if (block.kind === "tool_question") {
