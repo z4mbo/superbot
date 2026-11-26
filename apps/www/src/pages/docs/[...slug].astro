@@ -1,13 +1,15 @@
 ---
 import type { CollectionEntry } from "astro:content";
 import { getCollection, render } from "astro:content";
+import CopyPromptButton from "../../components/CopyPromptButton.astro";
 import DocsNav from "../../components/DocsNav.astro";
 import Footer from "../../components/Footer.astro";
 import Header from "../../components/Header.astro";
-import { DOCS_PAGES, DOCS_PATH, DOCS_SLUGS, docsPath } from "../../docs";
+import { BUILD_AN_APP_SLUG, DOCS_PAGES, DOCS_PATH, DOCS_SLUGS, docsPath } from "../../docs";
+import { APPS_PLATFORM_COPY } from "../../i18n/apps-platform";
 import { githubStarsLabel } from "../../github";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { GITHUB_URL } from "../../site";
+import { GITHUB_BRANCH, GITHUB_URL } from "../../site";
 
 interface Props {
   entry: CollectionEntry<"docs">;
@@ -37,8 +39,8 @@ const markdownPath = currentPath === DOCS_PATH ? "/docs.md" : `${currentPath.sli
 ---
 
 <BaseLayout
-  title={`${title} | Rakazo docs`}
-  description={entry.data.description ?? `${title} in the Rakazo documentation.`}
+  title={`${title} | Superbot docs`}
+  description={entry.data.description ?? `${title} in the Superbot documentation.`}
   markdownAlternate={markdownPath}
 >
   <div class="docs-topbar">
@@ -70,6 +72,15 @@ const markdownPath = currentPath === DOCS_PATH ? "/docs.md" : `${currentPath.sli
           <span>Copy page</span>
         </button>
       </div>
+      {
+        entry.id === BUILD_AN_APP_SLUG && (
+          <aside class="docs-prompt" aria-labelledby="docs-prompt-heading">
+            <h2 id="docs-prompt-heading">{APPS_PLATFORM_COPY.platform.cta.heading}</h2>
+            <p>{APPS_PLATFORM_COPY.platform.cta.copy}</p>
+            <CopyPromptButton placement="docs" />
+          </aside>
+        )
+      }
       <article class="docs-prose" data-pagefind-body>
         <Content />
       </article>
@@ -112,7 +123,7 @@ const markdownPath = currentPath === DOCS_PATH ? "/docs.md" : `${currentPath.sli
       }
       <div class="docs-toc__links">
         <a href={markdownPath}>View as Markdown</a>
-        <a href={`${GITHUB_URL}/edit/main/docs/${entry.id}.md`} target="_blank" rel="noopener">
+        <a href={`${GITHUB_URL}/edit/${GITHUB_BRANCH}/docs/${pages.get(entry.id)?.file ?? entry.id}.md`} target="_blank" rel="noopener">
           Edit on GitHub
         </a>
       </div>
@@ -125,6 +136,30 @@ const markdownPath = currentPath === DOCS_PATH ? "/docs.md" : `${currentPath.sli
     <div id="docs-search"></div>
   </dialog>
 </BaseLayout>
+
+<style>
+  .docs-prompt {
+    margin: 4px 0 32px;
+    border: 1px solid var(--blue-line);
+    border-radius: 16px;
+    padding: 20px 22px;
+    background: var(--blue-soft);
+  }
+
+  .docs-prompt h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .docs-prompt p {
+    margin: 6px 0 16px;
+    color: var(--muted-2);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+</style>
 
 <script>
   const copyIcons = document.querySelector(".docs-copy-page")?.querySelectorAll("svg") ?? [];

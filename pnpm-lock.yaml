@@ -833,12 +833,12 @@ importers:
       '@astrojs/sitemap':
         specifier: 3.7.4
         version: 3.7.4
-      '@rakazo/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
       '@rakazo/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@rakazo/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
       '@rakazo/ui-web':
         specifier: workspace:*
         version: link:../../packages/ui-web

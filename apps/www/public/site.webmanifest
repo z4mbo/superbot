@@ -1,7 +1,7 @@
 {
-  "name": "Rakazo",
-  "short_name": "Rakazo",
-  "description": "An open source Grok Bot alternative for persistent AI teammates that do real work.",
+  "name": "Superbot",
+  "short_name": "Superbot",
+  "description": "Open source AI teammates that do real work, with a Store of agents, skills and apps.",
   "start_url": "/",
   "display": "browser",
   "background_color": "#FDFDFD",

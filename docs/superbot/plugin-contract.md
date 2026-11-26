@@ -1,6 +1,6 @@
-# Superbot plugin registry contract
+# Registry API
 
-The typed Superbot RPC namespace is `pluginRegistry` under `/rpc/pluginRegistry/<procedure>`. Every procedure uses the authenticated session and selected Space. Publisher ownership is tied to the authenticated account. Workspace installations are owned by the installing account and isolated by both account and Space.
+The Store's apps are published, reviewed and installed through the typed Superbot RPC namespace `pluginRegistry` under `/rpc/pluginRegistry/<procedure>`. Every procedure uses the authenticated session and selected Space. Publisher ownership is tied to the authenticated account. Workspace installations are owned by the installing account and isolated by both account and Space.
 
 ## Manifest schema 1
 
@@ -80,7 +80,7 @@ The first submission reserves the slug for its publisher. Rejected versions rema
 
 ## Configure a deployment reviewer
 
-Set `SUPERBOT_ADMIN_EMAILS` in the private Superbot deployment environment file to a comma-separated list of reviewer email addresses and run `node infra/superbot/host.mjs up` to apply it. This grants each named, verified account deployment administrator access, including review of plugin releases. An empty list leaves the review queue restricted. Each reviewer signs in with their own account.
+Set `SUPERBOT_ADMIN_EMAILS` in the private Superbot deployment environment file to a comma-separated list of reviewer email addresses and run `node infra/superbot/host.mjs up` to apply it. This grants each named, verified account deployment administrator access, including review of app releases. An empty list leaves the review queue restricted. Each reviewer signs in with their own account.
 
 With SMTP configured, the reviewer verifies their address using the server's verification email. For a private instance without mail, the operator can provision a verified account with the documented `host.mjs account` command. [Private account bootstrap and SMTP setup](hosting.md)
 

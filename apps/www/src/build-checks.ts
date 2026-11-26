@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
+import { BUILD_APP_PROMPT } from "@rakazo/plugin-sdk/guide";
 import type { AstroIntegration } from "astro";
 import { getMarkdownAlternate } from "./agent-content";
+import { BUILD_AN_APP_PATH, BUILD_APP_PROMPT_PATH, DOCS_REDIRECTS, docsPath } from "./docs";
 import { DEFAULT_LOCALE, isLocale } from "./i18n/locales";
 import { localizedPath, TRANSLATED_PAGES } from "./i18n/translations";
 import { SITE_URL } from "./site";
@@ -51,7 +53,63 @@ function translationMismatches(pathnames: string[]): string[] {
   ];
 }
 
-/** Fails the build on a missing Open Graph image or Markdown twin, or a translation the registry does not match. */
+const PROMPT_TEXT = /<code data-copy-prompt-text[^>]*>([\s\S]*?)<\/code>/g;
+const ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  "#39": "'",
+  "#x27": "'",
+};
+
+function decodeHtml(value: string): string {
+  return value.replace(/&(amp|lt|gt|quot|#39|#x27);/g, (_, name: string) => ENTITIES[name] ?? "");
+}
+
+/** Pages whose copy-prompt block does not hold exactly the exported Build an app prompt. */
+function promptMismatches(dir: URL): string[] {
+  const problems = ["/", BUILD_AN_APP_PATH].flatMap((path) => {
+    const html = new URL(`.${path}index.html`, dir);
+    if (!existsSync(html)) return [`${path} was not built`];
+    const embedded = [...readFileSync(html, "utf8").matchAll(PROMPT_TEXT)].map((match) =>
+      decodeHtml(match[1] ?? ""),
+    );
+    if (embedded.length === 0) return [`${path} has no Build an app prompt`];
+    return embedded.every((text) => text === BUILD_APP_PROMPT)
+      ? []
+      : [`${path} embeds a Build an app prompt that differs from @rakazo/plugin-sdk/guide`];
+  });
+  const text = new URL(`.${BUILD_APP_PROMPT_PATH}`, dir);
+  if (!existsSync(text) || readFileSync(text, "utf8") !== `${BUILD_APP_PROMPT}\n`) {
+    problems.push(`${BUILD_APP_PROMPT_PATH} does not serve the Build an app prompt`);
+  }
+  return problems;
+}
+
+/** Old docs slugs that vercel.json does not redirect to their new page. */
+function missingDocsRedirects(dir: URL): string[] {
+  const config = JSON.parse(readFileSync(new URL("../vercel.json", dir), "utf8")) as {
+    redirects?: { source: string; destination: string }[];
+  };
+  const redirects = new Map(config.redirects?.map((entry) => [entry.source, entry.destination]));
+  return Object.entries(DOCS_REDIRECTS).flatMap(([from, to]) => {
+    const page = docsPath(to);
+    const expected: [string, string][] = [
+      [`/docs/${from}`, page],
+      [`/docs/${from}/`, page],
+      [`/docs/${from}.md`, `${page.slice(0, -1)}.md`],
+    ];
+    return expected
+      .filter(([source, destination]) => redirects.get(source) !== destination)
+      .map(([source, destination]) => `vercel.json must redirect ${source} to ${destination}`);
+  });
+}
+
+/**
+ * Fails the build on a missing Open Graph image or Markdown twin, a translation the registry does
+ * not match, a Build an app prompt that differs from the SDK's, or an old docs slug left unredirected.
+ */
 export function buildChecks(): AstroIntegration {
   return {
     name: "build-checks",
@@ -67,6 +125,8 @@ export function buildChecks(): AstroIntegration {
             (page) => `Missing Markdown twin for ${page}. Add a .md endpoint beside the page.`,
           ),
           ...translationMismatches(pathnames),
+          ...promptMismatches(dir),
+          ...missingDocsRedirects(dir),
         ];
         if (problems.length > 0) throw new Error(problems.join("\n"));
       },

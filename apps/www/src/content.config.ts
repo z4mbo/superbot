@@ -2,7 +2,7 @@ import { defineCollection } from "astro:content";
 import { readFile } from "node:fs/promises";
 import { z } from "astro/zod";
 import type { collections as marketingCollections } from "marketing-content";
-import { DOCS_SLUGS } from "./docs";
+import { DOCS_PAGES } from "./docs";
 import { rewriteDocsLinks } from "./docs-links";
 
 const marketing = import.meta.glob<{ collections: typeof marketingCollections }>(
@@ -28,8 +28,8 @@ const docs = defineCollection({
     name: "repo-docs",
     async load({ store, renderMarkdown, watcher }) {
       store.clear();
-      for (const slug of DOCS_SLUGS) {
-        const url = new URL(`../../../docs/${slug}.md`, import.meta.url);
+      for (const { slug, file } of DOCS_PAGES) {
+        const url = new URL(`../../../docs/${file}.md`, import.meta.url);
         const body = rewriteDocsLinks(await readFile(url, "utf8"), slug);
         store.set({
           id: slug,

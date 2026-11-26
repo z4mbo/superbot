@@ -96,9 +96,18 @@ test.describe("on an iPhone", () => {
   });
 });
 
-test("plugin pages screenshots", async ({ page }, testInfo) => {
-  await page.goto("/plugins/submit/");
-  await captureScreenshot(page, testInfo, "07-marketing-plugin-submit");
-  await page.goto("/docs/build-a-plugin/");
-  await captureScreenshot(page, testInfo, "08-marketing-docs-build-a-plugin");
+test("apps platform screenshots", async ({ page }, testInfo) => {
+  await openHomepage(page);
+  await page.locator("#apps-platform").scrollIntoViewIfNeeded();
+  await page.locator("#apps-platform").screenshot({
+    animations: "disabled",
+    path: testInfo.outputPath("07-marketing-apps-platform.png"),
+  });
+  await testInfo.attach("07-marketing-apps-platform", {
+    contentType: "image/png",
+    path: testInfo.outputPath("07-marketing-apps-platform.png"),
+  });
+  await page.goto("/docs/build-an-app/");
+  await page.locator(".docs-prompt .copy-prompt__button").waitFor();
+  await captureScreenshot(page, testInfo, "08-marketing-docs-build-an-app");
 });

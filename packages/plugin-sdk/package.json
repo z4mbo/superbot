@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./bridge": "./src/bridge/bridge.ts",
+    "./guide": "./src/guide/build-app.prompt.ts",
     "./node": "./src/node/app-folder.ts",
     "./runtime": "./src/runtime/app-runtime.tsx",
     "./runtime-build": "./src/runtime-build.ts",

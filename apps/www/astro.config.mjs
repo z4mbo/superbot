@@ -7,13 +7,14 @@ import { buildChecks } from "./src/build-checks.ts";
 import { docsCallouts } from "./src/docs-callouts.ts";
 import { LOCALE_HREFLANG, LOCALES } from "./src/i18n/locales.ts";
 import { marketing } from "./src/marketing-site.ts";
+import { SITE_URL } from "./src/site.ts";
 import { sitemapEntry } from "./src/sitemap.ts";
 import { resolveWwwPort } from "./www-port.mjs";
 
 const wwwPort = resolveWwwPort();
 
 export default defineConfig({
-  site: "https://rakazo.com",
+  site: SITE_URL,
   output: "static",
   i18n: {
     defaultLocale: "en",

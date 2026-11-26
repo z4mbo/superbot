@@ -1,6 +1,6 @@
-# Superbot plugin toolkit
+# Command-line toolkit
 
-Install both commands from the repository root: [`superbot`](../../apps/cli/README.md#install-from-the-monorepo) and [`superbot-plugin`](../../apps/plugin-kit/README.md#install-from-the-monorepo). Then sign in.
+`superbot-plugin` creates, checks and publishes the apps listed in the Store, and installs them into a Space; `superbot` signs you in. Install both commands from the repository root: [`superbot`](../../apps/cli/README.md#install-from-the-monorepo) and [`superbot-plugin`](../../apps/plugin-kit/README.md#install-from-the-monorepo). Then sign in.
 
 ```sh
 superbot login
@@ -95,14 +95,14 @@ one `app` part, `meals`, with required `date`, `meal` and `kcal` fields and
 16 fields with an `id`, `label`, `type` of `text`, `number` or `date`, and an
 explicit `required`. An optional `summaryField` names a number field.
 `validate` applies the registry's limits locally. The
-[registry contract](plugin-contract.md) lists them.
+[registry API](plugin-contract.md) lists them.
 
 `superbot-plugin` only scaffolds, validates and submits manifests. It has no
 commands to open an app, read, add or remove entries, or show totals. People
 use the app in Superbot, and programs call the `appRecords`, `addAppRecord` and
 `removeAppRecord` procedures.
 
-See the [registry contract](plugin-contract.md) for manifest fields. Local validation checks the manifest schema without contacting the server. The registry checks MCP endpoint safety during approval.
+See the [registry API](plugin-contract.md) for manifest fields. Local validation checks the manifest schema without contacting the server. The registry checks MCP endpoint safety during approval.
 
 Run deterministic tests from the repository root.
 

@@ -1,0 +1,99 @@
+---
+import { APPS_PLATFORM_COPY } from "../i18n/apps-platform";
+
+type Props = {
+  /** Set on translated pages, whose copy here is still English. */
+  lang?: string;
+};
+
+const { lang } = Astro.props;
+const copy = APPS_PLATFORM_COPY.store;
+---
+
+<section id="store" class="section store" aria-labelledby="store-heading" lang={lang}>
+  <div class="section-intro">
+    <div class="eyebrow">{copy.eyebrow}</div>
+    <h2 id="store-heading" class="section-heading">{copy.heading}</h2>
+    <p class="section-copy">{copy.copy}</p>
+  </div>
+  <ul class="store__grid">
+    {
+      copy.sections.map((section) => (
+        <li class="store__card" id={`store-${section.id}`}>
+          <h3>{section.title}</h3>
+          <p>{section.body}</p>
+          <ul class="store__examples">
+            {section.examples.map((example) => (
+              <li>{example}</li>
+            ))}
+          </ul>
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<style>
+  .store__grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin: 44px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .store__card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px;
+    background: var(--surface);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .store__card h3 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  .store__card p {
+    margin: 10px 0 18px;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .store__examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: auto 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .store__examples li {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 10px;
+    background: var(--surface-soft);
+    color: var(--muted-2);
+    font-size: 13px;
+  }
+
+  @media (max-width: 1000px) {
+    .store__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 560px) {
+    .store__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

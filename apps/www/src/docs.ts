@@ -1,10 +1,16 @@
 export const DOCS_PATH = "/docs/";
 
-type DocsSection = {
-  title: string;
-  /** `slug` is the path of `docs/<slug>.md`; the first page of the first section is `/docs/`. */
-  pages: readonly { slug: string; label: string }[];
+type DocsPage = {
+  /** The page lives at `/docs/<slug>/`; the first page of the first section is `/docs/`. */
+  slug: string;
+  label: string;
+  /** The page's source, `docs/<file>.md`, when it differs from the slug. */
+  file?: string;
 };
+
+type DocsSection = { title: string; pages: readonly DocsPage[] };
+
+export const BUILD_AN_APP_SLUG = "build-an-app";
 
 export const DOCS_NAV = [
   {
@@ -17,9 +23,24 @@ export const DOCS_NAV = [
     ],
   },
   {
-    title: "Using Rakazo",
+    title: "Apps platform",
     pages: [
-      { slug: "integrations", label: "Connect apps" },
+      { slug: BUILD_AN_APP_SLUG, label: "Build an app", file: "plugin-sdk" },
+      {
+        slug: "publish-an-app",
+        label: "Publish to the Store",
+        file: "superbot/build-a-marketplace-plugin",
+      },
+      { slug: "app-toolkit", label: "Command-line toolkit", file: "superbot/plugin-toolkit" },
+      { slug: "app-registry-api", label: "Registry API", file: "superbot/plugin-contract" },
+      { slug: "app-runtime", label: "How installed apps run", file: "superbot/plugin-runtime" },
+      { slug: "import-from-github", label: "Import from GitHub", file: "build-a-plugin" },
+    ],
+  },
+  {
+    title: "Using Superbot",
+    pages: [
+      { slug: "integrations", label: "Connections" },
       { slug: "routines", label: "Routines" },
       { slug: "pages", label: "Pages" },
       { slug: "computer", label: "The bot's computer" },
@@ -43,7 +64,7 @@ export const DOCS_NAV = [
     ],
   },
   {
-    title: "Apps",
+    title: "Desktop and mobile",
     pages: [
       { slug: "desktop-app", label: "Desktop app" },
       { slug: "mobile-app", label: "Mobile app" },
@@ -53,8 +74,6 @@ export const DOCS_NAV = [
     title: "Advanced",
     pages: [
       { slug: "fleet-management", label: "Bots that manage bots" },
-      { slug: "build-a-plugin", label: "Build a plugin" },
-      { slug: "plugin-sdk", label: "Build an app" },
       { slug: "board", label: "Ticket board" },
     ],
   },
@@ -90,12 +109,32 @@ export const DOCS_NAV = [
   },
 ] as const satisfies readonly DocsSection[];
 
-export const DOCS_PAGES: { slug: string; label: string; section: string }[] = DOCS_NAV.flatMap(
-  (section) => section.pages.map((page) => ({ ...page, section: section.title })),
-);
+export const DOCS_PAGES: { slug: string; label: string; file: string; section: string }[] =
+  DOCS_NAV.flatMap((section) =>
+    section.pages.map((page: DocsPage) => ({
+      ...page,
+      file: page.file ?? page.slug,
+      section: section.title,
+    })),
+  );
 
 export const DOCS_SLUGS = DOCS_PAGES.map((page) => page.slug);
 
+/** Old docs slugs and the page each one moved to. vercel.json redirects every one (a build check holds this). */
+export const DOCS_REDIRECTS: Readonly<Record<string, string>> = {
+  "plugin-sdk": BUILD_AN_APP_SLUG,
+  "build-a-plugin": "import-from-github",
+};
+
 export function docsPath(slug: string): string {
   return slug === DOCS_SLUGS[0] ? DOCS_PATH : `${DOCS_PATH}${slug}/`;
+}
+
+export const BUILD_AN_APP_PATH = docsPath(BUILD_AN_APP_SLUG);
+/** The Build an app prompt as plain text, for agents and for copying without JavaScript. */
+export const BUILD_APP_PROMPT_PATH = `${BUILD_AN_APP_PATH}prompt.txt`;
+
+/** The published page whose source is `docs/<file>.md`, if any. */
+export function docsSlugForFile(file: string): string | undefined {
+  return DOCS_PAGES.find((page) => page.file === file)?.slug;
 }

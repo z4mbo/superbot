@@ -1,9 +1,20 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "extends": ["//"],
+  "extends": [
+    "//"
+  ],
   "tasks": {
     "build": {
-      "inputs": ["$TURBO_DEFAULT$", "src/marketing/**", "!src/marketing/.git/**"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "src/marketing/**",
+        "!src/marketing/.git/**"
+      ],
+      "env": [
+        "WWW_SITE_URL",
+        "WWW_APP_URL",
+        "VERCEL_PROJECT_PRODUCTION_URL"
+      ]
     }
   }
 }
