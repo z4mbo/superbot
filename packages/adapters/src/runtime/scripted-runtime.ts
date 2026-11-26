@@ -472,6 +472,15 @@ export function inferScript(
       },
     ];
   }
+  // A sign-in the person approves in their password manager, from a card in the chat.
+  if (lower.includes("sign in to the fixture site")) {
+    return [
+      {
+        assistant: "i will ask your password manager for that login.",
+        toolCalls: [{ name: "sign_in", args: { site: "https://login.example.test/" } }],
+      },
+    ];
+  }
   // A wallet purchase: the wallet owner approves it in the wallet, so no card asks here.
   if (lower.includes("buy from the fixture shop")) {
     return [
