@@ -28,6 +28,8 @@ export const READ_ONLY_AGENT_TOOLS = new Set([
   "list_files",
   "list_fleet",
   "read_file",
+  "search_files",
+  "glob",
   "read_history",
   READ_MEETING_TRANSCRIPT,
   "read_email",

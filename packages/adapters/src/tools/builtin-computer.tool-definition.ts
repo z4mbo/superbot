@@ -4,6 +4,13 @@ import { BROWSER_ACT_KINDS } from "../browser/browser-tools.js";
 
 export const READ_FILE_MAX_BYTES = 250_000;
 export const READ_FILE_MAX_KB = READ_FILE_MAX_BYTES / 1000;
+export const EDIT_FILE_MAX_BYTES = 1_000_000;
+export const EDIT_FILE_MAX_KB = EDIT_FILE_MAX_BYTES / 1000;
+export const SEARCH_FILES_DEFAULT_MATCHES = 50;
+export const SEARCH_FILES_MAX_MATCHES = 200;
+export const GLOB_DEFAULT_RESULTS = 100;
+export const GLOB_MAX_RESULTS = 500;
+export const PROCESS_MANAGE_ACTIONS = ["start", "list", "check", "kill"] as const;
 
 /** Media, computer, browser, file and desktop app tools. */
 export const computerTools: ConnectorTool[] = [
@@ -206,6 +213,53 @@ export const computerTools: ConnectorTool[] = [
     },
   },
   {
+    name: "edit_file",
+    description:
+      "Change part of a UTF-8 text file in this bot's home without rewriting it. Either replace old_string with new_string (old_string must match the file exactly and only once unless replace_all is set), or apply patch, a unified diff for this one file whose context lines must match. The file keeps its line endings. Paths resolve as for write_file.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string" },
+        old_string: { type: "string", description: "Exact text to replace, including whitespace." },
+        new_string: { type: "string", description: "Replacement text; empty deletes old_string." },
+        replace_all: { type: "boolean", description: "Replace every match of old_string." },
+        patch: {
+          type: "string",
+          description: "Unified diff with @@ hunks. Use instead of old_string and new_string.",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "search_files",
+    description: `Search file contents in this bot's home with a regular expression. Returns file, line number and the matching line, at most ${SEARCH_FILES_DEFAULT_MATCHES} matches unless max_matches is set (up to ${SEARCH_FILES_MAX_MATCHES}); truncated means there were more. Skips hidden files and node_modules. Paths resolve as for read_file.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        pattern: { type: "string", description: "Regular expression to find." },
+        path: { type: "string", description: "Folder or file to search; defaults to your home." },
+        glob: { type: "string", description: "Only files whose name matches, such as *.ts." },
+        case_sensitive: { type: "boolean", description: "Defaults to true." },
+        max_matches: { type: "integer" },
+      },
+      required: ["pattern"],
+    },
+  },
+  {
+    name: "glob",
+    description: `Find files in this bot's home whose path under path matches a glob pattern, such as **/*.{ts,tsx} or src/*.md; ** matches any depth. Skips .git and node_modules. Returns at most ${GLOB_DEFAULT_RESULTS} paths unless max_results is set (up to ${GLOB_MAX_RESULTS}); truncated means there were more.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        pattern: { type: "string" },
+        path: { type: "string", description: "Folder to search; defaults to your home." },
+        max_results: { type: "integer" },
+      },
+      required: ["pattern"],
+    },
+  },
+  {
     name: "attach_file",
     description:
       "Attach a workspace file from this bot's home to the chat thread as an image or common file. The user sees it; you do not. The file stays in place; users can open it from the message and from the Artifacts tab. For a self-contained HTML page, document, or anything else meant to be viewed on its own — give it name and description: a title and a one-line summary. Skip them for an ordinary attachment like a log file or export. To UPDATE something you already made, call this again with the exact same name — it becomes a new version of that same artifact instead of a separate one; a different name always starts a new artifact.",
@@ -222,7 +276,7 @@ export const computerTools: ConnectorTool[] = [
   {
     name: "shell",
     description:
-      "Run a command inside this bot's computer. cwd defaults to the bot's folder on a Team Computer and the workspace root on a Private Computer. Output can arrive while the command is still running; tell the user any one-time code or sign-in URL in that output. A command is stopped after a few minutes, so on Linux or macOS start longer work, such as a coding agent CLI, as its own statement `nohup <command> < /dev/null > <log> 2>&1 &`, never after `&&`, and read the log to follow it.",
+      "Run a command inside this bot's computer. cwd defaults to the bot's folder on a Team Computer and the workspace root on a Private Computer. Output can arrive while the command is still running; tell the user any one-time code or sign-in URL in that output. A command is stopped after a few minutes, so on Linux or macOS start longer work, such as a coding agent CLI, as its own statement `nohup <command> < /dev/null > <log> 2>&1 &`, never after `&&`, and read the log to follow it. For a server or watcher you will check on or stop later, use process_manage.",
     inputSchema: {
       type: "object",
       properties: {
@@ -230,6 +284,21 @@ export const computerTools: ConnectorTool[] = [
         cwd: { type: "string" },
       },
       required: ["command"],
+    },
+  },
+  {
+    name: "process_manage",
+    description:
+      "Run a long-lived command, such as a dev server or file watcher, in the background on this bot's computer and manage it later, also from later runs. start returns an id; list shows the processes you started; check returns one's status, exit code and the end of its output; kill stops it and everything it started. Only processes started here can be checked or stopped. cwd works as for shell.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: [...PROCESS_MANAGE_ACTIONS] },
+        command: { type: "string", description: "For start." },
+        cwd: { type: "string", description: "For start." },
+        id: { type: "string", description: "For check and kill." },
+      },
+      required: ["action"],
     },
   },
   {

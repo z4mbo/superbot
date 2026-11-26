@@ -290,8 +290,11 @@ export function narrateTool(toolName: string): string | null {
   const bare = name.toLowerCase();
   const verbs: Array<[RegExp, string]> = [
     [/^(bash|shell|terminal|run_command|execute|computer_exec)$/, "running a command"],
+    [/^process_manage$/, "running a command"],
     [/^(read|read_file|view|list_files)$/, "reading a file"],
     [/^(write|write_file|create_file)$/, "writing a file"],
+    [/^edit_file$/, "editing a file"],
+    [/^search_files$/, "searching"],
     [/^(edit|apply_patch|str_replace|multiedit)$/, "editing a file"],
     [/^(grep|search|glob|find)$/, "searching"],
     [/^(web_?search|websearch)$/, "searching the web"],

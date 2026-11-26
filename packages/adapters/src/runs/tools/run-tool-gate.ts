@@ -668,7 +668,13 @@ export async function gateToolCall(
     if (early !== undefined) return { result: early, replayed: true };
   }
   // A desktop action or a command can change the page the page browser last reported.
-  if (name === "open_path" || name === "launch_app" || name === "computer_act" || name === "shell")
+  if (
+    name === "open_path" ||
+    name === "launch_app" ||
+    name === "computer_act" ||
+    name === "shell" ||
+    (name === "process_manage" && args.action === "start")
+  )
     ctx.state.pageUrlUncertain = true;
   // Past the gate: this destination is now one the run was given. A search result's exact
   // URL trusts only that URL, never the rest of its site, and a URL Auto Review passed (judged on
