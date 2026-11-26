@@ -12,7 +12,7 @@ import { useBotsSidebarWidth } from "./sidebar/sidebar-layout";
 
 const STORAGE_KEY = "rakazo:right-panel-width";
 const MIN_WIDTH = 320;
-const DEFAULT_WIDTH = 384;
+const DEFAULT_WIDTH = 320;
 const ABSOLUTE_MAX = 1000;
 const MIN_CHAT_WIDTH = 320;
 const MD_BREAKPOINT = 768;
@@ -132,7 +132,7 @@ export function ResizableSidePanel({
       data-panel={panel}
       data-overlay={overlay || undefined}
       style={panelStyle}
-      className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar focus:outline-none ${overlay ? "md:absolute" : "md:relative"} ${dragging ? "" : "transition-[width] duration-150 ease-out motion-reduce:transition-none"} ${open ? "w-full max-w-[384px] border-s border-sidebar-border md:w-(--panel-width) md:max-w-none" : "pointer-events-none w-0"}`}
+      className={`absolute inset-y-0 end-0 z-20 flex min-h-0 shrink-0 flex-col overflow-hidden bg-background focus:outline-none ${overlay ? "md:absolute" : "md:relative"} ${dragging ? "" : "transition-[width] duration-150 ease-out motion-reduce:transition-none"} ${open ? "w-full max-w-[384px] border-s border-hairline md:w-(--panel-width) md:max-w-none" : "pointer-events-none w-0"}`}
     >
       {open ? (
         <hr

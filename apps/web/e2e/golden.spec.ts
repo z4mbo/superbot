@@ -77,7 +77,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   }
   await openBotPanel(page);
   await expect(sidePanel).toHaveAttribute("data-panel", "settings");
-  await expect(sidePanel).toHaveCSS("width", "384px");
+  await expect(sidePanel).toHaveCSS("width", "320px");
   const [mainBox, panelBox] = await Promise.all([
     page.locator("main").boundingBox(),
     sidePanel.boundingBox(),

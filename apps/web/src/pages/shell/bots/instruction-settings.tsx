@@ -53,11 +53,8 @@ export function InstructionSettings({ bot }: { bot: Bot }) {
   const pending = change.pending;
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between pe-1">
-        <label
-          htmlFor={`${id}-instructions`}
-          className="text-label font-medium text-muted-foreground"
-        >
+      <div className="flex items-center justify-between ps-3 pe-1">
+        <label htmlFor={`${id}-instructions`} className="text-label text-muted-foreground">
           <Trans>Instructions</Trans>
         </label>
         {current.instructionHistory?.length ? (

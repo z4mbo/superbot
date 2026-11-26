@@ -57,6 +57,10 @@
   --shadow-popover:
     0 10px 20px -3px rgb(28 28 28 / 0.1), 0 4px 6px -4px rgb(28 28 28 / 0.1),
     0 0 0 1px rgb(28 28 28 / 0.004);
+  /* Modals lift a step further than popovers. */
+  --shadow-modal: 0 20px 32px -5px rgb(28 28 28 / 0.1), 0 8px 12px -6px rgb(28 28 28 / 0.1);
+  /* Cards in the chat: a half-pixel edge in the border ink and a faint drop. */
+  --shadow-card: 0 0 0 0.5px var(--border), 0 2px 8px rgb(28 28 28 / 0.035);
 }
 /* Tailwind copies the theme value into `.shadow-floating`, so overriding `--shadow-floating`
    never reaches it: dark clears the utility's own shadow layer instead. */

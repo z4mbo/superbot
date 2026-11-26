@@ -108,13 +108,13 @@ export function CommandPalette({
               onOpenChange(false);
               onSelectPage(page);
             }}
-            className="items-center gap-3 rounded-xl! px-2.5 py-2.5"
+            className="items-center gap-3 rounded-xl! px-3 py-2"
           >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-muted">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-sm bg-muted">
               <PageIcon className="h-[17px] w-[13px]" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium text-foreground" dir="auto">
+              <span className="block truncate text-foreground" dir="auto">
                 {page.title}
               </span>
               <span className="mt-0.5 block truncate text-body-sm text-muted-foreground">
@@ -143,20 +143,23 @@ export function CommandPalette({
       onOpenChange={onOpenChange}
       title={t`Command menu`}
       description={t`Search bots, actions, and settings`}
-      className="sm:max-w-xl"
+      className="sm:max-w-[640px]"
     >
       <Command
         shouldFilter={false}
-        className="rounded-xl! bg-popover"
+        className="rounded-[18px]! bg-popover p-0"
         data-testid="command-palette"
       >
         <CommandInput
           value={search}
           onValueChange={setSearch}
           placeholder={t`Search`}
+          size="xl"
+          // off-scale: the palette's search is its title line, larger than any field (reference 20px).
+          className="text-[20px]/7"
           data-testid="command-palette-search"
         />
-        <CommandList className="max-h-80" data-testid="command-palette-list">
+        <CommandList className="max-h-[488px] px-1 pb-1" data-testid="command-palette-list">
           <CommandEmpty>
             <Trans>No results</Trans>
           </CommandEmpty>
@@ -174,17 +177,17 @@ export function CommandPalette({
                     onSelectBot(bot.id);
                     onOpenChange(false);
                   }}
-                  className="items-center gap-3 rounded-xl! px-2.5 py-2.5"
+                  className="items-center gap-3 rounded-xl! px-3 py-2"
                 >
                   <BotAvatar
                     avatarSet={bot.avatarSet}
                     color={bot.color}
                     identity={bot.id}
-                    size={32}
+                    size={28}
                     status={bot.status}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-foreground" dir="auto">
+                    <div className="truncate text-foreground" dir="auto">
                       {bot.name}
                     </div>
                     {subtitle ? (
@@ -218,14 +221,12 @@ export function CommandPalette({
                     onOpenChange(false);
                     action.onSelect();
                   }}
-                  className="items-center gap-3 rounded-xl! px-2.5 py-2.5"
+                  className="items-center gap-3 rounded-xl! px-3 py-2"
                 >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                     <action.icon size={16} strokeWidth={1.8} aria-hidden />
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-                    {action.label}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate text-foreground">{action.label}</span>
                   {action.checked ? (
                     <Check
                       size={16}

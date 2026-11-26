@@ -14,7 +14,7 @@ test("computer rail resizes its preview and remembers width", async ({ page }, t
   const panel = page.getByTestId("side-panel");
   const separator = page.getByRole("separator", { name: "Resize panel" });
   await expect(separator).toBeVisible();
-  await expect(panel).toHaveCSS("width", "384px");
+  await expect(panel).toHaveCSS("width", "320px");
   const before = (await page.getByTestId("computer-preview").boundingBox())!;
   // Wait for the handle to settle and receive pointer events before dragging.
   await separator.hover({ position: { x: 3, y: 100 } });

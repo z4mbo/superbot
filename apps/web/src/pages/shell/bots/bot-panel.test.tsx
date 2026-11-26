@@ -400,7 +400,7 @@ it("keeps every setting behind the gear and comes back from it", async () => {
   expect([...settings.querySelectorAll("button")].map((button) => button.textContent)).toEqual(
     expect.arrayContaining(["Export", "Clear conversation"]),
   );
-  const card = settings.querySelector('button[id$="-model"]')!.closest("div.rounded-xl")!;
+  const card = settings.querySelector('button[id$="-model"]')!.closest("div.rounded-lg")!;
   expect(
     [...card.querySelectorAll('label, button[id$="-model"]')].map(
       (node) => node.firstChild?.textContent,

@@ -44,7 +44,7 @@ export function SidebarHeader({
           <IconTooltip label={t`Search`}>
             <Button
               variant="floating"
-              size="icon"
+              size="icon-lg"
               aria-label={t`Search`}
               aria-pressed={searchOpen}
               data-testid="sidebar-search-trigger"
@@ -58,7 +58,7 @@ export function SidebarHeader({
         <Popover open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
           <IconTooltip label={t`Create`}>
             <PopoverTrigger
-              render={<Button variant="floating" size="icon" className="app-no-drag" />}
+              render={<Button variant="floating" size="icon-lg" className="app-no-drag" />}
               aria-label={t`Create`}
               data-testid="create-menu-trigger"
             >

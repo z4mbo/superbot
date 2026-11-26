@@ -433,7 +433,7 @@ export function PartRow({
           <button
             type="button"
             aria-expanded={expanded}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-sm text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-sm text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={onExpand}
           >
             {body}
