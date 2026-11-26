@@ -500,6 +500,44 @@ it.each([
   expect(mock.exec).not.toHaveBeenCalled();
 });
 
+it.each([
+  { command: "dialog", action: "status" },
+  { command: "dialog", action: "accept", only: ["alert", "beforeunload"] },
+  {
+    command: "dialog",
+    action: "accept",
+    text: "Ada",
+    expect: { type: "prompt", message: "Name?" },
+  },
+  { command: "cdp", method: "DOM.getDocument", params: { depth: 2 } },
+])("forwards a dialog or protocol command over stdin only: %j", async (body) => {
+  expect(await (await browserRequest(body)).json()).toMatchObject({ ok: true });
+  expect(JSON.parse(mock.stdin.join(""))).toEqual(body);
+  const helper = mock.exec.mock.calls.find(([options]) =>
+    options.Cmd.includes("/usr/local/bin/rakazo-page-browser"),
+  )!;
+  // Prompt text and protocol params never sit in argv, which any process on the computer can read.
+  expect(helper[0].Cmd.at(-1)).toBe(body.command);
+});
+
+it.each([
+  { command: "dialog", action: "answer" },
+  { command: "dialog", action: "accept", text: "x".repeat(2001) },
+  { command: "dialog", action: "accept", expect: { type: "window", message: "" } },
+  {
+    command: "dialog",
+    action: "accept",
+    only: ["confirm", "prompt", "alert", "beforeunload", "alert"],
+  },
+  { command: "cdp", method: "dom.getDocument" },
+  { command: "cdp", method: "DOM.getDocument;Browser.close" },
+  { command: "cdp", method: "DOM.getDocument", params: [1] },
+  { command: "cdp", method: "DOM.getDocument", params: { blob: "x".repeat(16_001) } },
+])("rejects a malformed dialog or protocol request before running commands: %j", async (body) => {
+  expect((await browserRequest(body)).status).toBeGreaterThanOrEqual(400);
+  expect(mock.exec).not.toHaveBeenCalled();
+});
+
 it.each([undefined, "5"])("forwards the upload size override only when set: %j", async (limit) => {
   const original = process.env.RAKAZO_BROWSER_UPLOAD_MAX_BYTES;
   try {

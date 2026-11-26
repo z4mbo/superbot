@@ -69,6 +69,7 @@ function gate(options: {
     heldForApproval: false,
     settingsChange: false,
     ignoresAllowRules: false,
+    personEveryTime: false,
     purchase: undefined,
     cardUse: undefined,
     loginUse: options.asks === false ? undefined : loginUse,
@@ -152,6 +153,7 @@ describe("gateToolCall: typing into a page after outside content, in Auto", () =
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: { prisma: {}, autoReview: {} },
@@ -221,6 +223,7 @@ describe("gateToolCall: a nightly memory review", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: {
@@ -281,6 +284,7 @@ describe("gateToolCall: deleting saved state from chat", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: { prisma: {} },
@@ -324,6 +328,7 @@ describe("gateToolCall: background processes", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: { prisma: {} },
@@ -394,6 +399,7 @@ describe("gateToolCall: task threads", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const findFirst = vi.fn(async () =>
       options.owned === false ? null : { id: "task-1", conversationTitle: "Venue shortlist" },
@@ -488,6 +494,7 @@ describe("gateToolCall: media understanding", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: { prisma: {} },

@@ -1378,6 +1378,52 @@ describe("workspace tools", () => {
   });
 });
 
+describe("page control tools", () => {
+  it("never ask by tool alone, as browser_act does, and are gated in a run a webhook started", () => {
+    for (const name of ["browser_cdp", "browser_dialog"]) {
+      expect(toolRequiresApproval(name, false)).toBe(toolRequiresApproval("browser_act", false));
+      expect(outsideRunToolRequiresApproval("webhook", name)).toBe(true);
+      expect(outsideRunToolRequiresApproval("user", name)).toBe(false);
+      expect(toolResultTaintsRun(name)).toBe(true);
+    }
+  });
+
+  it("send a prompt's text to the approval model after outside text, as browser_act typing", async () => {
+    const checks = { tainted: async () => true, pageSiteGiven: async () => false };
+    await expect(
+      ownComputerActionNeedsReview(
+        "browser_dialog",
+        { action: "accept", prompt_text: "Ada" },
+        checks,
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      ownComputerActionNeedsReview(
+        "browser_act",
+        { actions: [{ kind: "type", text: "Ada" }] },
+        checks,
+      ),
+    ).resolves.toBe(true);
+    for (const args of [
+      { action: "accept" },
+      { action: "dismiss" },
+      { action: "accept", prompt_text: " " },
+    ]) {
+      await expect(ownComputerActionNeedsReview("browser_dialog", args, checks)).resolves.toBe(
+        false,
+      );
+    }
+    // A click sends nothing the bot chose, and accepting a dialog is one.
+    await expect(
+      ownComputerActionNeedsReview(
+        "browser_act",
+        { actions: [{ kind: "click", ref: "e1" }] },
+        checks,
+      ),
+    ).resolves.toBe(false);
+  });
+});
+
 describe("keyed research tools", () => {
   it("read like web_search and web_fetch, with the page reader gated by site", () => {
     for (const tool of ["web_search", "web_fetch", "exa_search", "firecrawl_scrape"]) {
