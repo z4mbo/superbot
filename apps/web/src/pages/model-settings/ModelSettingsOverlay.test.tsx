@@ -33,6 +33,7 @@ const models = vi.hoisted(() => ({
 }));
 
 const autoReview = vi.hoisted(() => ({ get: vi.fn() }));
+const media = vi.hoisted(() => ({ catalog: vi.fn() }));
 
 vi.mock("../../lib/query/rpc", () => {
   const rpc = {
@@ -40,6 +41,7 @@ vi.mock("../../lib/query/rpc", () => {
     autoReview,
     bots: { list: vi.fn(async () => []), update: vi.fn() },
     me: vi.fn(),
+    media,
   };
   return {
     selectedSpaceId: () => "space-1",
@@ -322,6 +324,11 @@ async function renderSettings(
 }
 
 beforeEach(() => {
+  media.catalog.mockResolvedValue({
+    providers: [],
+    preference: { image: null, video: null },
+    server: null,
+  });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "ResizeObserver",
@@ -1725,6 +1732,37 @@ it("lists every connection under Providers and adds another for a connected prov
     );
     expect(models.setRole).not.toHaveBeenCalled();
     expect(titles(view.container)).toEqual([]);
+  } finally {
+    await view.unmount();
+  }
+});
+
+it("says what a model connection also makes when a media provider borrows it", async () => {
+  models.credentials.mockResolvedValue([deepseekCredential, workCredential]);
+  media.catalog.mockResolvedValue({
+    providers: [
+      {
+        id: "borrowing",
+        name: "Borrowing",
+        fields: [],
+        modelConnections: ["deepseek"],
+        connected: true,
+        source: "model_connection",
+        hints: {},
+        capabilities: { image: true, imageEdit: false, video: false },
+        models: [],
+        customModels: false,
+      },
+    ],
+    preference: { image: null, video: null },
+    server: null,
+  });
+  const view = await renderSettings();
+  try {
+    await vi.waitFor(() =>
+      expect(providersSection().querySelectorAll("[data-testid=media-included]")).toHaveLength(2),
+    );
+    expect(providersSection().textContent).toContain("Includes images");
   } finally {
     await view.unmount();
   }
