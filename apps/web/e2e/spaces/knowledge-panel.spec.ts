@@ -217,6 +217,8 @@ test("memory and skills are readable and editable in the app", async ({ page }, 
     path: listedShot,
   });
   await closeSkills();
+  // The profile covers the chat; closing it goes back to the panel beside the chat.
+  await settings.getByRole("button", { name: "Close profile", exact: true }).click();
   const composer = page.getByRole("combobox", { name: /^Message/ });
   await composer.fill("/");
   await expect(

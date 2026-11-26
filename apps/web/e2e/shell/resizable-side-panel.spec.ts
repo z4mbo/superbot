@@ -80,8 +80,9 @@ test("phone composer menu and settings panel stay tappable", async ({ page }, te
       .click({ trial: true, timeout: 5_000 });
   }
   await captureScreenshot(page, testInfo, "bot-settings-mobile");
+  // The profile behind the gear takes the whole screen, with its actions at the top.
   await settings.getByRole("button", { name: "Bot settings", exact: true }).click();
-  for (const name of ["Back", "More actions", "Close panel"]) {
+  for (const name of ["More actions", "Private", "Close profile"]) {
     await settings
       .getByRole("button", { name, exact: true })
       .click({ trial: true, timeout: 5_000 });

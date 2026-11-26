@@ -83,6 +83,7 @@ export function BotProfilePage({
           <div data-testid="bot-manage-profile" className="flex flex-col items-start gap-0.5">
             {nameField}
             {labelField}
+            {email}
           </div>
           <p className="mt-1 flex items-center gap-1.5 text-body text-muted-foreground">
             {shared ? (
@@ -96,7 +97,6 @@ export function BotProfilePage({
               <Trans>Private to you</Trans>
             )}
           </p>
-          {email}
         </div>
         <Tabs
           value={tab}

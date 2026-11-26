@@ -808,7 +808,6 @@ export function BotSettings({
                 ) : null}
               </SettingsCard>
               <InstructionSettings key={bot.id} bot={bot} />
-              <InstructionSettings key={bot.id} bot={bot} />
               <DescriptionGroup
                 ids={ids}
                 description={description}

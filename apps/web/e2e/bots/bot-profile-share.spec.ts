@@ -68,9 +68,14 @@ test("the bot's profile takes the chat's place and closes back to it", async ({
   await expect(panel).toHaveAttribute("data-full-page", "true");
   const profile = page.getByTestId("bot-profile-page");
   await expect(profile).toBeVisible();
-  const [sidebar, page_] = await Promise.all([box(page.locator("aside").first()), box(panel)]);
-  expect(page_.x).toBe(sidebar.x + sidebar.width);
-  expect(page_.width).toBe(1280 - sidebar.width);
+  // It widens as it opens; measure once it has settled.
+  const sidebar = await box(page.locator("aside").first());
+  await expect
+    .poll(async () => {
+      const found = await box(panel);
+      return [Math.round(found.x), Math.round(found.width)];
+    })
+    .toEqual([Math.round(sidebar.x + sidebar.width), Math.round(1280 - sidebar.width)]);
   await expect(page.locator("main")).toHaveAttribute("inert", "");
   await expect(profile.getByText("Private to you", { exact: true })).toBeVisible();
   await expect(profile.getByTestId("bot-access-trigger")).toHaveText("Private");

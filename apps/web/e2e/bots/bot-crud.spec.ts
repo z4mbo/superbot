@@ -204,8 +204,9 @@ test("bot creation, editing, and deletion persist", async ({ page }, testInfo) =
     botId: deletedBotPath.split("/").at(-1),
     title: "First fixture task",
   });
-  // Open work shows on the Activity tab.
+  // Open work shows on the Activity tab, read again as the panel reopens.
   await page.getByRole("button", { name: "Close profile" }).click();
+  await page.getByRole("button", { name: "Close panel" }).click();
   await openBotPanel(page);
   await expect(openWork.getByText("First fixture task", { exact: true })).toBeVisible();
   await openWork.getByRole("button", { name: "Add open work" }).click();

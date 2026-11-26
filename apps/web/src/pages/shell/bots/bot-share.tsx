@@ -39,9 +39,12 @@ function readDismissed() {
 export function BotAccessButton({
   bot,
   space,
+  compactOnPhone = false,
 }: {
   bot: Pick<Bot, "id" | "name" | "color" | "avatarSet" | "status">;
   space: BotSpace;
+  /** Just the icon on a phone, where the chat header has no room for the word. */
+  compactOnPhone?: boolean;
 }) {
   const { t } = useLingui();
   const [open, setOpen] = useState(false);
@@ -54,7 +57,7 @@ export function BotAccessButton({
             variant="floating"
             size="lg"
             data-testid="bot-access-trigger"
-            className="app-no-drag px-4 font-normal"
+            className={`app-no-drag font-normal ${compactOnPhone ? "max-md:w-9 max-md:px-0 md:px-4" : "px-4"}`}
           />
         }
       >
@@ -63,7 +66,9 @@ export function BotAccessButton({
         ) : (
           <Lock strokeWidth={1.75} aria-hidden="true" />
         )}
-        {shared ? t`Shared` : t`Private`}
+        <span className={compactOnPhone ? "max-md:sr-only" : undefined}>
+          {shared ? t`Shared` : t`Private`}
+        </span>
       </PopoverTrigger>
       {open ? (
         <PopoverContent

@@ -1203,7 +1203,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
             onTogglePanel={toggleChatPanel}
             access={
               active && !inGroup && botSpace ? (
-                <BotAccessButton key={active.id} bot={active} space={botSpace} />
+                <BotAccessButton key={active.id} bot={active} space={botSpace} compactOnPhone />
               ) : undefined
             }
             modelPicker={
