@@ -47,15 +47,31 @@ export async function resolveVoiceKey(
   if (!isModelConnectionVoiceSecret(plaintext) || !voiceCatalogEntry(provider)?.modelConnection) {
     return plaintext;
   }
+  return resolveModelConnectionBearer(
+    deps,
+    scope,
+    provider,
+    voiceCatalogEntry(provider)?.name ?? provider,
+    signal,
+  );
+}
+
+/**
+ * The current bearer of the account's model connection to `provider`, for audio requests that
+ * borrow it. `name` is how the Models settings call the provider.
+ */
+export async function resolveModelConnectionBearer(
+  deps: VoiceKeyDeps,
+  scope: { userId: string; spaceId: string },
+  provider: string,
+  name: string,
+  signal?: AbortSignal,
+): Promise<string> {
   // A model connection the deployment's allowlist refuses is not borrowed for voice either.
   if (!modelProviderAllowed(modelProviderAllowlist(), provider)) {
     throw new VoiceAccountError(undefined, MODEL_PROVIDER_NOT_ALLOWED_ERROR);
   }
-  const missing = () =>
-    new VoiceAccountError(
-      undefined,
-      `Connect ${voiceCatalogEntry(provider)?.name ?? provider} in Models settings.`,
-    );
+  const missing = () => new VoiceAccountError(undefined, `Connect ${name} in Models settings.`);
   const credential = await findModelCredential(deps.prisma, { userId: scope.userId }, provider);
   if (!credential) throw missing();
   return withModelCredentialLock(credential.secretId, async () => {

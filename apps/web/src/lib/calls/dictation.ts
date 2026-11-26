@@ -220,6 +220,8 @@ export class Dictation {
   private silenceTimer: ReturnType<typeof setTimeout> | undefined;
   private restartTimer: ReturnType<typeof setTimeout> | undefined;
   private requestCallId: string | undefined;
+  /** The bot's voice language for this recording; unset follows the app's language. */
+  private language: string | undefined;
   private transcribeAbort: AbortController | null = null;
   private audioContext: AudioContext | null = null;
   private vadTimer: ReturnType<typeof setInterval> | undefined;
@@ -295,10 +297,13 @@ export class Dictation {
     callId?: string;
     transcribe?: boolean;
     endpointMs?: number;
+    /** BCP-47 tag the speech is in, from the bot's voice settings. */
+    language?: string;
     onFinal: (text: string) => void;
   }): Promise<void> {
     this.stop("replace");
     this.requestCallId = opts.callId;
+    this.language = opts.language;
     const mine = this.token;
     const spaceId = selectedSpaceId();
     this.onFinal = opts.onFinal;
@@ -341,7 +346,7 @@ export class Dictation {
     let live = true;
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = recognitionLanguage();
+    rec.lang = this.language ?? recognitionLanguage();
     // Chrome numbers results per session, so a restart starts over: keep the earlier text.
     let carried = "";
     let sessionStartedAt = Date.now();
@@ -624,6 +629,7 @@ export class Dictation {
 
   private async transcribeChunks(mine: number, spaceId: string | null) {
     const requestCallId = this.requestCallId;
+    const language = this.language ?? transcriptionLanguage();
     if (this.token !== mine) return;
     // Whisper-style models invent text for silence, so a recording that never rose above
     // the speech threshold is not sent. Require multiple running-context readings so
@@ -665,7 +671,7 @@ export class Dictation {
           body: JSON.stringify({
             audioBase64,
             mimeType: blob.type,
-            language: transcriptionLanguage(),
+            language,
             callId: requestCallId,
           }),
           signal: abort.signal,

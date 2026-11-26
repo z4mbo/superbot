@@ -1,12 +1,17 @@
 import { useLingui } from "@lingui/react/macro";
 import { useNow } from "@rakazo/chat-ui/hooks";
-import { BotAvatar, Button, cn } from "@rakazo/ui-web";
+import type { VoiceTurnMode } from "@rakazo/contracts";
+import { BotAvatar, Button, cn, ToggleGroup, ToggleGroupItem } from "@rakazo/ui-web";
 import { Captions, ChevronDown, Mic, MicOff, PhoneOff, Settings } from "lucide-react";
+import type { MouseEvent, PointerEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { CallState } from "../../lib/calls/call-session";
 import {
   endCall,
+  pressToTalk,
+  releaseToTalk,
   setCallMinimized,
+  setTurnMode,
   toggleMute,
   toggleTranscript,
   useCallSession,
@@ -38,12 +43,29 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
   const { botId } = useParams();
   const onCall = Boolean(call);
   useEventListener(onCall ? window : null, "keydown", (event) => {
-    if (event.key !== "Escape" || event.defaultPrevented) return;
+    if (event.defaultPrevented) return;
     const target = event.target as HTMLElement | null;
+    // A key pressed in a field types there, Space included.
     if (target?.isContentEditable || EDITABLE.test(target?.tagName ?? "")) return;
-    endCall();
+    if (event.key === "Escape") {
+      endCall();
+      return;
+    }
+    if (!holdsSpace(event) || call?.turnMode !== "push-to-talk" || call.minimized) return;
+    // Space would also press the focused button; here it only talks.
+    event.preventDefault();
+    if (!event.repeat) pressToTalk();
   });
+  useEventListener(onCall ? window : null, "keyup", (event) => {
+    if (event.code !== "Space" && event.key !== " ") return;
+    if (!call?.talking) return;
+    event.preventDefault();
+    releaseToTalk();
+  });
+  // Letting go anywhere, even outside the window, ends a held turn.
+  useEventListener(call?.talking ? window : null, "blur", releaseToTalk);
   if (!call || call.minimized) return null;
+  const pushToTalk = call.turnMode === "push-to-talk";
   const onBotScreen = botId === call.botId;
   const ringing = call.phase === "ringing";
   const activity =
@@ -53,7 +75,9 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
         ? t`Thinking`
         : call.muted
           ? t`Muted`
-          : t`Listening`;
+          : pushToTalk && !call.talking
+            ? t`Hold to talk`
+            : t`Listening`;
   return (
     <CallWindow
       data-testid="call-view"
@@ -166,16 +190,43 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
         </p>
       ) : null}
 
+      {call.turnModes.length > 1 ? (
+        <TurnModeToggle
+          value={call.turnMode}
+          modes={call.turnModes}
+          disabled={ringing}
+          onChange={setTurnMode}
+        />
+      ) : null}
       <div className="flex items-center justify-center gap-3">
+        {/* One microphone control: held to talk in push to talk, a mute switch otherwise. */}
         <Button
-          variant={call.muted ? "default" : "secondary"}
+          variant={(pushToTalk ? call.talking : call.muted) ? "default" : "secondary"}
           size="icon-lg"
-          className="size-14 rounded-full md:size-12"
-          aria-label={call.muted ? t`Unmute` : t`Mute`}
-          aria-pressed={call.muted}
-          onClick={toggleMute}
+          className="size-14 touch-none select-none rounded-full md:size-12 [-webkit-touch-callout:none]"
+          {...(pushToTalk
+            ? {
+                "aria-label": t`Hold to talk`,
+                "aria-pressed": call.talking,
+                title: t`Hold to talk, or hold Space`,
+                disabled: ringing,
+                "data-testid": "call-talk",
+                onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+                  if (event.button !== 0) return;
+                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                  pressToTalk();
+                },
+                onPointerUp: releaseToTalk,
+                onPointerCancel: releaseToTalk,
+                onContextMenu: (event: MouseEvent) => event.preventDefault(),
+              }
+            : {
+                "aria-label": call.muted ? t`Unmute` : t`Mute`,
+                "aria-pressed": call.muted,
+                onClick: toggleMute,
+              })}
         >
-          {call.muted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
+          {!pushToTalk && call.muted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
         </Button>
         <Button
           variant="destructive"
@@ -188,6 +239,59 @@ export function CallCard({ onSettings }: { onSettings: () => void }) {
         </Button>
       </div>
     </CallWindow>
+  );
+}
+
+function holdsSpace(event: KeyboardEvent): boolean {
+  return (
+    (event.code === "Space" || event.key === " ") &&
+    !event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey
+  );
+}
+
+/** Holding to talk or an open microphone, shown when the voice supports both. */
+function TurnModeToggle({
+  value,
+  modes,
+  disabled,
+  onChange,
+}: {
+  value: VoiceTurnMode;
+  modes: VoiceTurnMode[];
+  disabled: boolean;
+  onChange: (mode: VoiceTurnMode) => void;
+}) {
+  const { t } = useLingui();
+  const labels: Record<VoiceTurnMode, string> = {
+    "push-to-talk": t`Push to talk`,
+    "open-mic": t`Open mic`,
+  };
+  return (
+    <ToggleGroup
+      aria-label={t`Taking turns`}
+      value={[value]}
+      onValueChange={([next]) => {
+        if (next) onChange(next as VoiceTurnMode);
+      }}
+      disabled={disabled}
+      size="sm"
+      spacing={1}
+      data-testid="call-turn-mode"
+      className="mx-auto mb-4 rounded-full bg-muted p-0.5"
+    >
+      {modes.map((mode) => (
+        <ToggleGroupItem
+          key={mode}
+          value={mode}
+          className="rounded-full px-3 text-muted-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
+        >
+          {labels[mode]}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   );
 }
 

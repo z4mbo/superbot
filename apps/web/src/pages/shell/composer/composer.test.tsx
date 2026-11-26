@@ -99,6 +99,8 @@ function renderComposer(
     enterToSend: true,
     mentionTargets: [bob],
     agentSkills: [summarize],
+    // A provider that transcribes is connected unless a test says otherwise.
+    dictation: true,
     ...overrides,
   };
   rerenderComposer({});
@@ -2386,6 +2388,62 @@ it.each([false, true])(
 it("hides call dictation until the server enables it", () => {
   renderComposer(vi.fn().mockResolvedValue(true));
   expect(container?.querySelector('button[aria-label="Hold to talk"]')).toBeNull();
+});
+
+describe("voice controls follow what is connected", () => {
+  const mic = () => container?.querySelector('button[aria-label="Hold to talk"]');
+  const voiceChat = () => container?.querySelector('button[aria-label="Start voice chat"]');
+  const send = () => container?.querySelector<HTMLButtonElement>('button[aria-label="Send"]');
+  const voice = { phoneCallsEnabled: true, onVoiceChat: vi.fn() };
+
+  it("shows neither while the voice status loads", () => {
+    renderComposer(vi.fn(), { ...voice, dictation: undefined, liveVoice: undefined });
+    expect(mic()).toBeNull();
+    expect(voiceChat()).toBeNull();
+  });
+
+  it("shows a disabled Send and no voice controls when nothing is connected", () => {
+    renderComposer(vi.fn(), { ...voice, dictation: false, liveVoice: false });
+    expect(mic()).toBeNull();
+    expect(voiceChat()).toBeNull();
+    expect(send()?.disabled).toBe(true);
+  });
+
+  it("shows only the mic when the provider transcribes but cannot hold a voice chat", () => {
+    renderComposer(vi.fn(), { ...voice, dictation: true, liveVoice: false });
+    expect(mic()).not.toBeNull();
+    expect(voiceChat()).toBeNull();
+    expect(send()).not.toBeNull();
+  });
+
+  it("shows only the voice chat when voice is live but nothing transcribes into the draft", () => {
+    renderComposer(vi.fn(), { ...voice, dictation: false, liveVoice: true });
+    expect(mic()).toBeNull();
+    expect(voiceChat()).not.toBeNull();
+    expect(send()).toBeNull();
+  });
+
+  it("puts the voice chat in Send's place until there is a draft, and Enter still sends", async () => {
+    const onSend = vi.fn().mockResolvedValue(true);
+    const textarea = renderComposer(onSend, { ...voice, dictation: true, liveVoice: true });
+    expect(mic()).not.toBeNull();
+    expect(voiceChat()).not.toBeNull();
+    expect(send()).toBeNull();
+    act(() => (voiceChat() as HTMLButtonElement).click());
+    expect(voice.onVoiceChat).toHaveBeenCalledTimes(1);
+
+    type(textarea, "hello");
+    expect(voiceChat()).toBeNull();
+    expect(mic()).toBeNull();
+    expect(send()?.disabled).toBe(false);
+    await act(async () => pressEnter(textarea));
+    expect(onSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no voice chat in a group or thread, which has no handler for it", () => {
+    renderComposer(vi.fn(), { phoneCallsEnabled: true, dictation: true, liveVoice: true });
+    expect(voiceChat()).toBeNull();
+  });
 });
 
 it("shows file confirmation only for a recognized server response", () => {

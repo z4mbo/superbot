@@ -31,6 +31,7 @@ import { sidePanelHeaderStyle } from "../resizable-side-panel";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
 import { BotPanelActivity } from "./bot-panel-activity";
 import { BotPanelLibrary } from "./bot-panel-library";
+import { BotPanelVoiceChat } from "./bot-panel-voice-chat";
 import {
   DescriptionGroup,
   ModelRow,
@@ -581,6 +582,7 @@ export function BotSettings({
               onOpenRoutines={() => onViewChange?.("routines")}
               computer={computer}
             >
+              <BotPanelVoiceChat bot={bot} voiceId={voiceId} onVoiceIdChange={setVoiceId} />
               <ErrorBoundary fallback={<SectionLoadFailed />}>
                 <Suspense fallback={null}>
                   <ScratchpadSection botId={bot.id} />

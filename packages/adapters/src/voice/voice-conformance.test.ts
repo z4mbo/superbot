@@ -13,11 +13,14 @@ import {
   serializeOpenAiCompatibleVoiceSecret,
 } from "../providers/voice/openai-compatible/openai-compatible-voice.js";
 import { OpenRouterVoiceProvider } from "../providers/voice/openrouter/openrouter-voice.js";
+import { ScriptedRealtimeVoiceProvider } from "../providers/voice/scripted/scripted-realtime-voice.js";
 import {
   SCRIPTED_TRANSCRIPT,
   ScriptedVoiceProvider,
 } from "../providers/voice/scripted/scripted-voice.js";
 import { XaiVoiceProvider } from "../providers/voice/xai/xai-voice.js";
+import { realtimeVoiceConnectSources } from "./realtime-voice-sources.js";
+import type { VoiceProviderDefinition } from "./voice-provider-descriptor.js";
 import type { VoiceProviderId } from "./voice-providers.js";
 import { voiceProviders } from "./voice-providers.js";
 
@@ -118,6 +121,7 @@ const fakeSay: SayRunner = async (args) => {
 const fixtures: Record<VoiceProviderId, VoiceConformanceFixture> = {
   macos: { provider: () => new MacOsVoiceProvider(fakeSay, {}), apiKey: "macos" },
   scripted: { provider: () => new ScriptedVoiceProvider(), apiKey: TEST_KEY },
+  "scripted-realtime": { provider: () => new ScriptedRealtimeVoiceProvider(), apiKey: TEST_KEY },
   elevenlabs: {
     provider: () => new ElevenLabsVoiceProvider(),
     apiKey: TEST_KEY,
@@ -190,6 +194,10 @@ const fixtures: Record<VoiceProviderId, VoiceConformanceFixture> = {
         Response.json({ voices: [{ voice_id: "voice-1", name: "Eve" }] }),
       "POST https://api.x.ai/v1/tts": { answer: audio, json: ["text", "voice_id"] },
       "POST https://api.x.ai/v1/stt": { answer: transcript, form: ["file"] },
+      "POST https://api.x.ai/v1/realtime/client_secrets": {
+        answer: () => Response.json({ value: "client-secret-1", expires_at: 1_900_000_000 }),
+        json: ["expires_after"],
+      },
     },
   },
   openrouter: {
@@ -353,7 +361,7 @@ describe.each(kinds)("%s voice conformance", (kind) => {
       { apiKey, audio: MPEG, mimeType: "audio/mpeg", language: "en-US" },
       ctx,
     );
-    expect(result.text).toBe(kind === "scripted" ? SCRIPTED_TRANSCRIPT : TRANSCRIPT);
+    expect(result.text).toBe(kind.startsWith("scripted") ? SCRIPTED_TRANSCRIPT : TRANSCRIPT);
   });
 
   it.runIf(fixtures[kind].routes)(
@@ -375,5 +383,47 @@ describe.each(kinds)("%s voice conformance", (kind) => {
 
   it("is what the factory builds for its id", () => {
     expect(definition.create({}).describe().id).toBe(kind);
+  });
+
+  it("declares a realtime conversation exactly when it can hold one", () => {
+    const provider = setUp(kind);
+    const declared = (definition as VoiceProviderDefinition).realtime;
+    expect(Boolean(provider.describe().capabilities.realtime)).toBe(Boolean(declared));
+    expect(provider.realtime?.turnModes).toEqual(declared?.turnModes);
+    // The app's CSP lets the page reach every origin a realtime provider declares.
+    for (const source of declared?.connectSources ?? [])
+      expect(realtimeVoiceConnectSources).toContain(source);
+  });
+
+  it.runIf((definition as VoiceProviderDefinition).realtime)(
+    "opens realtime sessions for both turn modes without handing over the key",
+    async () => {
+      const provider = setUp(kind);
+      for (const turnMode of provider.realtime!.turnModes) {
+        const session = await provider.realtime!.createSession(
+          { apiKey, instructions: "Be brief.", voiceId: "voice-1", turnMode },
+          ctx,
+        );
+        expect(session.transport).toBe("websocket");
+        expect(new URL(session.url).protocol).toBe("wss:");
+        expect(session.protocols.length).toBeGreaterThan(0);
+        expect(session.expiresAt.getTime()).toBeGreaterThan(0);
+        expect(session.audio.encoding).toBe("pcm16");
+        expect(session.setup[0]).toMatchObject({ type: "session.update" });
+        const turns = (session.setup[0] as { session: { turn_detection: unknown } }).session
+          .turn_detection;
+        expect(turns).toEqual(turnMode === "open-mic" ? { type: "server_vad" } : null);
+        expect(JSON.stringify(session)).not.toContain(apiKey);
+      }
+    },
+  );
+});
+
+describe("realtime voice sources", () => {
+  it("lists exactly the origins realtime providers declare", () => {
+    const declared = Object.values(voiceProviders).flatMap(
+      (definition) => (definition as VoiceProviderDefinition).realtime?.connectSources ?? [],
+    );
+    expect([...realtimeVoiceConnectSources].sort()).toEqual([...new Set(declared)].sort());
   });
 });

@@ -201,6 +201,7 @@ export function ComposerActions({
   talk,
   running,
   showTalk,
+  showVoiceChat,
   talkDisabled,
   sendDisabled,
   stopDisabled,
@@ -214,8 +215,10 @@ export function ComposerActions({
   expanded: boolean;
   talk: ReturnType<typeof useHoldToTalk>;
   running: boolean;
-  /** Hold-to-talk shows beside Send while the draft is empty. */
+  /** Hold-to-talk shows beside Send while the draft is empty and dictation is connected. */
   showTalk: boolean;
+  /** The voice chat button takes Send's place while the draft is empty and voice is connected. */
+  showVoiceChat: boolean;
   talkDisabled: boolean;
   sendDisabled: boolean | undefined;
   stopDisabled: boolean;
@@ -223,7 +226,7 @@ export function ComposerActions({
   sendColors?: { background: string; foreground: string };
   /** Starts a voice chat with the bot; while the draft is empty it takes Send's place. */
   onVoiceChat?: () => void;
-  /** False while the voice status loads or no voice is connected. */
+  /** False while the voice status loads or no voice can speak. */
   voiceReady?: boolean;
   onSend: () => void;
   onStop: () => void;
@@ -241,7 +244,7 @@ export function ComposerActions({
   // Enter sends; the visible Send only appears once there is something to send, and until then
   // the filled button starts a voice chat.
   const voiceChat =
-    onVoiceChat && showTalk ? (
+    onVoiceChat && showVoiceChat ? (
       <IconTooltip label={t`Start voice chat`}>
         <Button
           size="icon-sm"

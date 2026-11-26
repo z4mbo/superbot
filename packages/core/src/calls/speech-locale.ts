@@ -81,3 +81,31 @@ export function supportedSpeechTag(wanted: string, supported: readonly string[])
     wanted
   );
 }
+
+/**
+ * Languages a bot's voice chat can be set to, as BCP-47 tags. Spanish and Portuguese carry their
+ * region, which recognizers need to tell the variants apart.
+ */
+export const VOICE_LANGUAGE_TAGS = [
+  "ar",
+  "de",
+  "en",
+  "es-ES",
+  "es-MX",
+  "fr",
+  "he",
+  "hi",
+  "it",
+  "ja",
+  "ko",
+  "nl",
+  "pl",
+  "pt-BR",
+  "pt-PT",
+  "ru",
+  "sv",
+  "th",
+  "tr",
+  "uk",
+  "zh",
+] as const;

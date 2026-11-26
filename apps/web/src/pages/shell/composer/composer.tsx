@@ -96,7 +96,9 @@ const ComposerBody = memo(function Composer({
   phoneCallsEnabled,
   onVoiceChat,
   voiceReady,
-  dictationTranscribe,
+  dictation,
+  dictationLanguage,
+  liveVoice,
   replyTarget,
   replyQuote,
   replyTargetName,
@@ -140,8 +142,15 @@ const ComposerBody = memo(function Composer({
   /** Starts a voice chat with the open bot; absent in groups and threads. */
   onVoiceChat?: () => void;
   voiceReady?: boolean;
-  /** Hold-to-talk falls back to the voice provider's transcription; undefined while unknown. */
-  dictationTranscribe?: boolean;
+  /**
+   * A connected provider transcribes speech into the draft, so the mic shows. Undefined while the
+   * voice status loads, which shows nothing rather than a control that may vanish.
+   */
+  dictation?: boolean;
+  /** The open bot's voice language, which dictation listens for. */
+  dictationLanguage?: string;
+  /** The account can start a voice chat, so the filled voice button replaces an idle Send. */
+  liveVoice?: boolean;
   artifactTarget: ArtifactTarget;
   replyTarget?: ThreadMessage | null;
   replyQuote?: string | null;
@@ -245,9 +254,11 @@ const ComposerBody = memo(function Composer({
     onSlashAction,
   });
   const onCall = useCallSession() !== null;
+  const canDictate = Boolean(phoneCallsEnabled) && dictation === true;
   const talk = useHoldToTalk({
-    transcribe: dictationTranscribe,
-    disabled: disabled || onCall || !phoneCallsEnabled,
+    transcribe: dictation,
+    language: dictationLanguage,
+    disabled: disabled || onCall || !canDictate,
     onText: (text) => {
       // Dictation rides the typed-message path: the words land in the draft and
       // the normal send carries them, with its nonce, edit guards and recovery.
@@ -351,7 +362,7 @@ const ComposerBody = memo(function Composer({
   const dictateKey = useRef({ talk, available: false });
   dictateKey.current = {
     talk,
-    available: Boolean(phoneCallsEnabled) && !disabled && !onCall && draft.trim().length === 0,
+    available: canDictate && !disabled && !onCall && draft.trim().length === 0,
   };
   useEventListener(window, "keydown", (event) => {
     if (event.repeat || event.altKey || event.shiftKey || event.key?.toLowerCase() !== "d") return;
@@ -916,7 +927,10 @@ const ComposerBody = memo(function Composer({
           expanded={expanded}
           talk={talk}
           running={running}
-          showTalk={Boolean(phoneCallsEnabled) && draft.trim().length === 0}
+          showTalk={canDictate && draft.trim().length === 0}
+          showVoiceChat={
+            Boolean(phoneCallsEnabled) && liveVoice === true && draft.trim().length === 0
+          }
           talkDisabled={disabled || onCall}
           sendDisabled={sending || !canSend || disabled}
           stopDisabled={sending}

@@ -423,14 +423,14 @@ test("sign-in, spawn, and stop work in the shell", async ({ page }, testInfo) =>
     timeout: 30_000,
   });
   await expect(composer).toHaveAttribute("placeholder", "Message Superbot");
-  // An empty draft offers a voice chat; Send takes its place once there is text.
-  await expect(page.getByRole("button", { name: "Start voice chat", exact: true })).toBeVisible();
-  const holdToTalk = page
-    .getByTestId("composer-bar")
-    .getByRole("button", { name: "Hold to talk", exact: true });
-  await expect(holdToTalk).toBeVisible();
+  // Nothing voice-capable is connected, so the composer offers no mic or voice chat: an empty
+  // draft keeps a disabled Send, enabled once there is text.
+  await expect(page.getByRole("button", { name: "Start voice chat", exact: true })).toHaveCount(0);
+  await expect(
+    page.getByTestId("composer-bar").getByRole("button", { name: "Hold to talk", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
   await composer.fill("Use the newer report and keep the answer short.");
-  await expect(holdToTalk).toHaveCount(0);
   // Stop can arrive over the live stream before the first send returns; Send stays disabled
   // until then, and Tab would skip it.
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
@@ -443,7 +443,7 @@ test("sign-in, spawn, and stop work in the shell", async ({ page }, testInfo) =>
   await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "14-active-bot-work");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("button", { name: "Start voice chat", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
   await expect(composer).toHaveAttribute("placeholder", "Message Superbot");
   await captureScreenshot(page, testInfo, "14-active-bot-work-mobile");
@@ -464,14 +464,13 @@ test("sign-in, spawn, and stop work in the shell", async ({ page }, testInfo) =>
   });
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await stopRequestStarted;
-  await expect(page.getByRole("button", { name: "Start voice chat", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeDisabled();
   releaseStopRequest();
-  // An empty draft shows voice chat rather than Send; wait for Stop to leave instead.
   await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0, {
     timeout: 30_000,
   });
-  await expect(page.getByRole("button", { name: "Start voice chat", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
 
   await page.context().clearCookies();
   await page.goto("/sign-in");

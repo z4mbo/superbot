@@ -48,7 +48,9 @@ import type { DeploymentVoice } from "../voice/deployment-config.js";
 import { hasDeploymentVoiceConsent } from "../voice/deployment-consent.js";
 import { voiceHttpError } from "../voice/http-errors.js";
 import { withSpeechCost } from "../voice/operator-cost.js";
+import { liveVoiceFor } from "./live-voice-status.js";
 import type { SpeechSummarizer } from "./speech-summary.js";
+import { decodeAudioBase64, optionalString, parseVoiceRequestBody } from "./voice-request-body.js";
 
 export interface VoiceDeps {
   prisma: PrismaClient;
@@ -106,14 +108,18 @@ export function catalogEntry(provider: string) {
   return voiceCatalogEntry(provider);
 }
 
+/** The default connection's own capabilities; `effectiveVoiceStatus` adds what the account can start. */
 export function toVoiceStatus(cred: { provider: string; voiceId: string } | null): VoiceStatus {
   const entry = cred ? catalogEntry(cred.provider) : undefined;
+  const transcribe = Boolean(entry?.transcribe && cred);
   return {
     configured: Boolean(cred),
     ready: Boolean(cred?.voiceId),
-    transcribe: Boolean(entry?.transcribe && cred),
+    transcribe,
     provider: cred?.provider ?? null,
     voiceId: cred?.voiceId ?? "",
+    dictation: transcribe,
+    live: null,
   };
 }
 
@@ -279,8 +285,24 @@ export async function includedVoice(
   };
 }
 
-/** Status must not decrypt a user's saved connection just to advertise capabilities. */
-export async function effectiveVoiceStatus(deps: VoiceDeps, actor: Actor, scope?: SettingsScope) {
+/**
+ * Status must not decrypt a user's saved connection just to advertise capabilities. `dictation`
+ * and `live` are what the composer offers: speech into the draft, and a full voice mode.
+ */
+export async function effectiveVoiceStatus(
+  deps: VoiceDeps,
+  actor: Actor,
+  scope?: SettingsScope,
+): Promise<VoiceStatus> {
+  const status = await defaultVoiceStatus(deps, actor, scope);
+  return {
+    ...status,
+    dictation: status.transcribe,
+    live: await liveVoiceFor(deps, actor, status, scope),
+  };
+}
+
+async function defaultVoiceStatus(deps: VoiceDeps, actor: Actor, scope?: SettingsScope) {
   const cred = await findDefaultVoiceCredential(deps.prisma, actor, scope);
   if (cred) return toVoiceStatus(cred);
   const included = await includedVoice(deps, actor, scope);
@@ -965,25 +987,4 @@ export function mountVoiceHttpRoutes(
       return voiceHttpError(c, error);
     }
   });
-}
-
-function parseVoiceRequestBody(raw: string): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function decodeAudioBase64(value: string): Uint8Array {
-  if (!value.trim()) throw new ORPCError("BAD_REQUEST", { message: "Recording is empty." });
-  // Decoding skips what is not base64 rather than failing; an empty result is refused later.
-  return new Uint8Array(Buffer.from(value, "base64"));
 }

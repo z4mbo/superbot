@@ -1,5 +1,5 @@
 import type { VoiceProvider, VoiceUsage } from "@rakazo/adapter-kit";
-import type { VoiceCatalogEntry } from "@rakazo/contracts";
+import type { VoiceCatalogEntry, VoiceTurnMode } from "@rakazo/contracts";
 
 export interface VoiceProviderOptions {
   /** The caller's decision that this connection may reach a private address. */
@@ -37,5 +37,14 @@ export interface VoiceProviderDefinition {
     operation: "synthesize" | "transcribe",
     model: string,
   ): VoiceUsage["unit"] | undefined;
+  /**
+   * The provider holds realtime speech-to-speech conversations (its `VoiceProvider.realtime`).
+   * Declared here so status can offer it without opening a connection.
+   */
+  realtime?: {
+    turnModes: readonly VoiceTurnMode[];
+    /** Origins the browser connects to, which the app's Content-Security-Policy allows. */
+    connectSources: readonly string[];
+  };
   create(options: VoiceProviderOptions): VoiceProvider;
 }

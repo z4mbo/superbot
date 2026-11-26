@@ -1,10 +1,15 @@
 import path from "node:path";
+import { realtimeVoiceConnectSources } from "@rakazo/adapters/realtime-voice-sources";
 import { wuyingScreenPolicy } from "@rakazo/adapters/wuying-screen-policy";
 import {
+  appContentSecurityPolicy,
   COMPUTER_SCREEN_RUNTIME_PATH,
   CSP_REPORTING_ENDPOINTS,
   contentSecurityPolicyFor,
 } from "@rakazo/contracts/content-security-policy";
+
+/** The web server's policy: realtime voice chats connect from the page to the provider. */
+const APP_POLICY = appContentSecurityPolicy({ connectSrc: realtimeVoiceConnectSources });
 
 const PASSTHROUGH_PATHS = ["/api", "/rpc", "/novnc"];
 
@@ -70,7 +75,7 @@ export function bundledRendererHeaders(file: string, requestUrl: string): Header
     headers.set("x-frame-options", "SAMEORIGIN");
   const policy = contentSecurityPolicyFor(
     new URL(requestUrl).pathname,
-    undefined,
+    APP_POLICY,
     wuyingScreenPolicy,
   );
   if (policy) {
