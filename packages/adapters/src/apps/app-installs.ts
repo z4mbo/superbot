@@ -62,6 +62,15 @@ function releaseManifest(row: { id: string; manifest: unknown }): AppManifest {
   );
 }
 
+/** What an app reaches beyond its page, as the consent screen and the installed app name it. */
+export function appAccess(manifest: Pick<AppManifest, "network" | "data" | "server">) {
+  return {
+    hosts: [...(manifest.network?.hosts ?? [])],
+    collections: Object.keys(manifest.data?.collections ?? {}),
+    server: manifest.server !== undefined,
+  };
+}
+
 /** Whether everything in `granted` is something `requested` asks for. */
 export function grantWithin(
   granted: readonly AppPermission[],
@@ -90,12 +99,20 @@ export async function listInstalledApps(prisma: PrismaClient, scope: Scope): Pro
   }
   const releases = await prisma.appRelease.findMany({
     where: { id: { in: installs.map(({ config }) => config.releaseId) } },
-    select: { id: true, name: true, description: true, icon: true },
+    select: { id: true, name: true, description: true, icon: true, manifest: true },
   });
   const byId = new Map(releases.map((release) => [release.id, release]));
   return installs.flatMap(({ row, config }) => {
     const release = byId.get(config.releaseId);
     if (!release) return [];
+    let manifest: AppManifest;
+    try {
+      manifest = releaseManifest(release);
+    } catch (error) {
+      if (!(error instanceof JsonColumnMismatchError)) throw error;
+      reportJsonColumnOnce("App install left out of the list", error.row);
+      return [];
+    }
     return [
       {
         id: row.id,
@@ -107,6 +124,7 @@ export async function listInstalledApps(prisma: PrismaClient, scope: Scope): Pro
         icon: release.icon,
         granted: config.granted,
         createdAt: row.createdAt.toISOString(),
+        ...appAccess(manifest),
       },
     ];
   });
@@ -123,7 +141,7 @@ export async function readAppLaunch(
   prisma: PrismaClient,
   scope: Scope,
   installId: string,
-): Promise<AppLaunch & { manifest: AppManifest; source: string }> {
+): Promise<AppLaunch & { manifest: AppManifest; source: string; server: string | null }> {
   const install = await prisma.capabilityInstall.findFirst({
     where: { ...availableInSpace(scope), id: installId, kind: APP_INSTALL_KIND },
   });
@@ -160,5 +178,6 @@ export async function readAppLaunch(
     granted: config.granted,
     manifest,
     source: release.source,
+    server: release.server,
   };
 }

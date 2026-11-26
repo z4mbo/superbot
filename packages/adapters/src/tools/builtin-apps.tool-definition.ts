@@ -13,14 +13,14 @@ export const appTools: ConnectorTool[] = [
   {
     name: READ_APP_STATE,
     description:
-      "Read an app's current state and the actions you can run on it. An app is a page saved with an app manifest (pass its pageId) or an app the user installed (pass its app_id). Works only when the app lets bots read it.",
+      "Read an app: its current state, the actions you can run on it (read-only ones marked readOnly) and its cards. An app is a page saved with an app manifest (pass its pageId) or an app the user installed (pass its app_id). Works only when the app lets bots read it.",
     inputSchema: { type: "object", properties: appRef },
     readOnly: true,
   },
   {
     name: RUN_APP_ACTION,
     description:
-      "Run one of an app's declared actions, exactly as the person's controls do, and get the new state back. Read the app first for its action names and inputs. Works only when the app lets bots run its actions.",
+      "Run one of an app's declared actions, exactly as the person's controls do. An action that changes state returns the new state; an action that runs one of an installed app's functions returns what the function answered. Read the app first for its action names and inputs. Read-only actions need only that the app lets bots read it; others need that it lets bots run its actions.",
     inputSchema: {
       type: "object",
       properties: {

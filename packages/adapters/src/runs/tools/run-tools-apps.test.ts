@@ -27,6 +27,14 @@ const app = (permissions: AppManifestInput["permissions"]): AppManifestInput => 
       effects: [{ op: "increment", path: "count", from: "by", by: 1 }],
     },
   ],
+  cards: [
+    {
+      name: "summary",
+      title: "Summary",
+      description: "The count so far.",
+      input: { label: { type: "string", maxLength: 20 } },
+    },
+  ],
 });
 
 type Row = { app: unknown; appState: unknown; appRevision: number } | null;
@@ -76,6 +84,14 @@ describe("read_app_state", () => {
           name: "bump",
           description: "Add some.",
           input: { by: { type: "number", integer: true, min: 1, max: 5 } },
+        },
+      ],
+      cards: [
+        {
+          name: "summary",
+          title: "Summary",
+          description: "The count so far.",
+          input: { label: { type: "string", maxLength: 20 } },
         },
       ],
     });
@@ -281,6 +297,7 @@ describe("installed apps by app_id", () => {
       },
       bot: { id: "bot-1" },
       thread: { groupId: null },
+      context: { signal: new AbortController().signal },
     } as never;
     return { ctx, prisma, installs, release, pages, publishSpaceChange };
   }
@@ -303,6 +320,14 @@ describe("installed apps by app_id", () => {
           name: "bump",
           description: "Add some.",
           input: { by: { type: "number", integer: true, min: 1, max: 5 } },
+        },
+      ],
+      cards: [
+        {
+          name: "summary",
+          title: "Summary",
+          description: "The count so far.",
+          input: { label: { type: "string", maxLength: 20 } },
         },
       ],
     });
@@ -461,6 +486,31 @@ describe("installed apps by app_id", () => {
     });
   });
 
+  it("shows one of the app's cards with its checked input, as data on the page block", async () => {
+    const { ctx } = installed();
+    expect(
+      await appTools.open_app!(
+        ctx,
+        call({ app_id: "counter", card: "summary", input: { label: "Today" } }),
+      ),
+    ).toMatchObject({ opened: true, card: "summary" });
+    expect(publishMessage).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), "bot", [
+      expect.objectContaining({
+        kind: "page",
+        card: { name: "summary", input: { label: "Today" } },
+      }),
+    ]);
+    publishMessage.mockClear();
+    for (const args of [
+      { app_id: "counter", card: "weekly" },
+      { app_id: "counter", card: "summary", input: { label: "x".repeat(21) } },
+      { app_id: "counter", card: "summary", input: { owner: "someone" } },
+      { app_id: "counter", input: { label: "Today" } },
+    ])
+      expect(await appTools.open_app!(ctx, call(args))).toHaveProperty("error");
+    expect(publishMessage).not.toHaveBeenCalled();
+  });
+
   it("says when there is no chat to open the app in", async () => {
     const { ctx } = installed({ run: { trigger: "subagent" } });
     publishMessage.mockResolvedValue(null);
@@ -474,7 +524,9 @@ describe("installed apps by app_id", () => {
     expect(
       await appTools.read_app_state!(ctx, call({ pageId: "page-1", app_id: "counter" })),
     ).toEqual({ error: "Pass pageId or app_id, not both." });
-    expect(await appTools.open_app!(ctx, call({}))).toEqual({ error: "app_id is required." });
+    expect(await appTools.open_app!(ctx, call({}))).toEqual({
+      error: "app_id is required; card is a card name and input an object.",
+    });
   });
 
   it("keeps the engine to the grant it is given on the stored manifest", async () => {
