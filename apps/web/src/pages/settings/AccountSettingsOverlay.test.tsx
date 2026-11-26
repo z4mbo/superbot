@@ -118,6 +118,9 @@ vi.mock("../../components/settings/ApprovalRulesSettings", () => ({
 vi.mock("../../components/settings/TrustedLinkSitesSettings", () => ({
   TrustedLinkSitesSettings: () => null,
 }));
+vi.mock("../../components/settings/ResearchKeySettings", () => ({
+  ResearchKeySettings: () => null,
+}));
 vi.mock("../../components/ai/primitives", () => ({ SuccessPop: () => null }));
 vi.mock("../../components/computers/ComputersUnavailableHint", () => ({
   ComputersUnavailableHint: () => null,
