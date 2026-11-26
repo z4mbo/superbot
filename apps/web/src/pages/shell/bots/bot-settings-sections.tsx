@@ -51,7 +51,7 @@ export function PanelSection({
   return (
     <section>
       <SectionHeading
-        variant="label"
+        variant="panel"
         className="mb-2 flex min-h-6 items-center justify-between px-3"
       >
         {label}

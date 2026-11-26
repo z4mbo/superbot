@@ -1,9 +1,11 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { PageIcon } from "@rakazo/chat-ui/web";
-import type { Bot, PageSummary } from "@rakazo/contracts";
+import type { Bot, PageSummary, SearchHit } from "@rakazo/contracts";
+import { searchHitListKey } from "@rakazo/core";
 import {
   BotAvatar,
+  Button,
   Command,
   CommandDialog,
   CommandEmpty,
@@ -14,7 +16,7 @@ import {
   CommandShortcut,
   Kbd,
 } from "@rakazo/ui-web";
-import { Check } from "lucide-react";
+import { Check, MessageSquare } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { formatRelativeTime } from "../../lib/locale/relative-time";
@@ -24,12 +26,25 @@ import { isApplePlatform } from "./shell-shortcuts";
 /** Pages listed before anything is typed. */
 const RECENT_PAGES = 5;
 
+/** Group headings line up with the rows' avatars, at regular weight as in the reference. */
+const GROUP = "**:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-heading]]:font-normal";
+const ROW = "items-center gap-3 rounded-xl! px-3 py-2";
+
 export type CommandPaletteAction = {
   id: string;
   label: string;
   icon: ComponentType<{ size?: number; strokeWidth?: number; "aria-hidden"?: boolean }>;
   checked?: boolean;
   onSelect: () => void;
+};
+
+/** What the Space search found for the typed text: messages, files and group chats. */
+export type CommandPaletteChats = {
+  hits: SearchHit[];
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onSelect: (hit: SearchHit) => void;
 };
 
 function botSearchText(bot: Bot) {
@@ -49,6 +64,7 @@ export function CommandPalette({
   pages = [],
   onSelectPage,
   onSearchChange,
+  chats,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,6 +76,8 @@ export function CommandPalette({
   onSelectPage?: (page: PageSummary) => void;
   /** The typed search, so pages beyond the first loaded can be asked for. */
   onSearchChange?: (search: string) => void;
+  /** The Space search for the typed text; bots it finds are already listed above it. */
+  chats?: CommandPaletteChats;
 }) {
   const [search, setSearch] = useState("");
   useEffect(() => onSearchChange?.(search), [search, onSearchChange]);
@@ -99,7 +117,7 @@ export function CommandPalette({
     needle !== "" && filteredPages.some((page) => page.title.toLowerCase().startsWith(needle));
   const pagesGroup =
     filteredPages.length > 0 && onSelectPage ? (
-      <CommandGroup heading={t`Pages`}>
+      <CommandGroup heading={t`Pages`} className={GROUP}>
         {filteredPages.map((page) => (
           <CommandItem
             key={page.id}
@@ -108,7 +126,7 @@ export function CommandPalette({
               onOpenChange(false);
               onSelectPage(page);
             }}
-            className="items-center gap-3 rounded-xl! px-3 py-2"
+            className={ROW}
           >
             <span className="flex size-7 shrink-0 items-center justify-center rounded-sm bg-muted">
               <PageIcon className="h-[17px] w-[13px]" />
@@ -123,6 +141,59 @@ export function CommandPalette({
             </span>
           </CommandItem>
         ))}
+      </CommandGroup>
+    ) : null;
+  // A bot's own chat is the bot row above, so only what lies inside chats is listed here.
+  const chatHits =
+    needle && chats
+      ? chats.hits.filter((hit) => !(hit.kind === "conversation" && !hit.groupId))
+      : [];
+  const chatsGroup =
+    needle && chats && (chatHits.length > 0 || chats.error) ? (
+      <CommandGroup heading={t`Chats`} className={GROUP}>
+        {chats.error ? (
+          <div className="flex items-center justify-between gap-3 px-3 py-2">
+            <p role="alert" className="min-w-0 text-body text-destructive">
+              {chats.error}
+            </p>
+            <Button type="button" variant="secondary" size="sm" onClick={chats.onRetry}>
+              <Trans>Try again</Trans>
+            </Button>
+          </div>
+        ) : (
+          chatHits.map((hit) => {
+            const key = searchHitListKey(hit);
+            return (
+              <CommandItem
+                key={key}
+                value={`chat:${key}`}
+                onSelect={() => {
+                  onOpenChange(false);
+                  chats.onSelect(hit);
+                }}
+                className={ROW}
+              >
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <MessageSquare size={16} strokeWidth={1.8} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-foreground" dir="auto">
+                    {hit.title}
+                  </span>
+                  <span
+                    className="mt-0.5 flex min-w-0 gap-2 text-body-sm text-muted-foreground"
+                    dir="auto"
+                  >
+                    <span className="max-w-[40%] shrink-0 truncate text-foreground/75">
+                      {hit.groupName ?? hit.botName}
+                    </span>
+                    <span className="truncate">{hit.snippet}</span>
+                  </span>
+                </span>
+              </CommandItem>
+            );
+          })
+        )}
       </CommandGroup>
     ) : null;
   useEventListener(open ? window : null, "keydown", (event) => {
@@ -153,61 +224,67 @@ export function CommandPalette({
         <CommandInput
           value={search}
           onValueChange={setSearch}
-          placeholder={t`Search`}
+          placeholder={t`Search Bots, Chats, Settings…`}
           size="xl"
           // off-scale: the palette's search is its title line, larger than any field (reference 20px).
           className="text-[20px]/7"
           data-testid="command-palette-search"
         />
         <CommandList className="max-h-[488px] px-1 pb-1" data-testid="command-palette-list">
-          <CommandEmpty>
-            <Trans>No results</Trans>
-          </CommandEmpty>
+          {/* Nothing found yet is not "No results" while chats are still being searched or failed. */}
+          {needle && (chats?.loading || chats?.error) ? null : (
+            <CommandEmpty>
+              <Trans>No results</Trans>
+            </CommandEmpty>
+          )}
           {pagesFirst ? pagesGroup : null}
-          <CommandGroup>
-            {filteredBots.map((bot, index) => {
-              const subtitle = botSubtitle(bot);
-              const shortcut = index < 9 ? `${modKey}${index + 1}` : null;
-              return (
-                <CommandItem
-                  key={bot.id}
-                  value={bot.id}
-                  data-testid={`command-palette-bot-${bot.id}`}
-                  onSelect={() => {
-                    onSelectBot(bot.id);
-                    onOpenChange(false);
-                  }}
-                  className="items-center gap-3 rounded-xl! px-3 py-2"
-                >
-                  <BotAvatar
-                    avatarSet={bot.avatarSet}
-                    color={bot.color}
-                    identity={bot.id}
-                    size={28}
-                    status={bot.status}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-foreground" dir="auto">
-                      {bot.name}
-                    </div>
-                    {subtitle ? (
-                      <div
-                        className="mt-0.5 truncate text-body-sm text-muted-foreground"
-                        dir="auto"
-                      >
-                        {subtitle}
+          {filteredBots.length > 0 ? (
+            <CommandGroup heading={t`Bots`} className={GROUP}>
+              {filteredBots.map((bot, index) => {
+                const subtitle = botSubtitle(bot);
+                const shortcut = index < 9 ? `${modKey}${index + 1}` : null;
+                return (
+                  <CommandItem
+                    key={bot.id}
+                    value={bot.id}
+                    data-testid={`command-palette-bot-${bot.id}`}
+                    onSelect={() => {
+                      onSelectBot(bot.id);
+                      onOpenChange(false);
+                    }}
+                    className={ROW}
+                  >
+                    <BotAvatar
+                      avatarSet={bot.avatarSet}
+                      color={bot.color}
+                      identity={bot.id}
+                      size={28}
+                      status={bot.status}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-foreground" dir="auto">
+                        {bot.name}
                       </div>
+                      {subtitle ? (
+                        <div
+                          className="mt-0.5 truncate text-body-sm text-muted-foreground"
+                          dir="auto"
+                        >
+                          {subtitle}
+                        </div>
+                      ) : null}
+                    </div>
+                    {shortcut ? (
+                      <CommandShortcut className="tracking-normal">
+                        <Kbd>{shortcut}</Kbd>
+                      </CommandShortcut>
                     ) : null}
-                  </div>
-                  {shortcut ? (
-                    <CommandShortcut className="tracking-normal">
-                      <Kbd>{shortcut}</Kbd>
-                    </CommandShortcut>
-                  ) : null}
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          ) : null}
+          {chatsGroup}
           {pagesFirst ? null : pagesGroup}
           {filteredActions.length > 0 ? (
             <CommandGroup>
@@ -221,7 +298,7 @@ export function CommandPalette({
                     onOpenChange(false);
                     action.onSelect();
                   }}
-                  className="items-center gap-3 rounded-xl! px-3 py-2"
+                  className={ROW}
                 >
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                     <action.icon size={16} strokeWidth={1.8} aria-hidden />

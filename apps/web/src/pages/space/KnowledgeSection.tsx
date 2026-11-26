@@ -191,7 +191,7 @@ function MemoryDocumentList({
   return (
     <section className={compact ? "mt-6" : undefined}>
       {compact ? (
-        <SectionHeading variant="label" className="mb-2">
+        <SectionHeading variant="panel" className="mb-2">
           <Trans>Memory</Trans>
         </SectionHeading>
       ) : null}

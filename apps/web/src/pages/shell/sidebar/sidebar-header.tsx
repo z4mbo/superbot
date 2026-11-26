@@ -14,7 +14,6 @@ const STROKE = 1.75;
 export function SidebarHeader({
   createMenuOpen,
   setCreateMenuOpen,
-  searchOpen = false,
   onSearch,
   bots,
   setMobileSidebarOpen,
@@ -25,7 +24,7 @@ export function SidebarHeader({
 }: {
   createMenuOpen: boolean;
   setCreateMenuOpen: (open: boolean) => void;
-  searchOpen?: boolean;
+  /** Opens the command palette. */
   onSearch?: () => void;
   bots: Bot[];
   setMobileSidebarOpen: (open: boolean) => void;
@@ -46,7 +45,7 @@ export function SidebarHeader({
               variant="floating"
               size="icon-lg"
               aria-label={t`Search`}
-              aria-pressed={searchOpen}
+              aria-haspopup="dialog"
               data-testid="sidebar-search-trigger"
               onClick={onSearch}
               className="app-no-drag"

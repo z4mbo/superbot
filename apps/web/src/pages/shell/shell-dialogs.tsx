@@ -28,6 +28,7 @@ import {
   RenameBotSectionDialog,
 } from "./create-delete-dialogs";
 import type { Panel } from "./right-panel-state";
+import { useSidebarSearch } from "./sidebar/use-sidebar-search";
 
 // Mounted only while someone shares a bot, so its form stays out of the startup bundle.
 const ShareTemplateDialog = lazyComponent(() =>
@@ -180,6 +181,21 @@ export function ShellDialogs({
     enabled: commandPaletteOpen,
     placeholderData: keepPreviousData,
   });
+  const chatSearch = useSidebarSearch({
+    rpc,
+    navigate: ({ pathname, search }) => {
+      closeMobileSidebar();
+      navigate(`${pathname}${search ?? ""}`);
+    },
+  });
+  const { setQuery: setChatQuery } = chatSearch;
+  const searchChange = useCallback(
+    (search: string) => {
+      setPageSearch(search);
+      setChatQuery(search);
+    },
+    [setChatQuery],
+  );
   return (
     <>
       {spaceMenu ? (
@@ -340,7 +356,14 @@ export function ShellDialogs({
           navigate(`/app/${id}`);
         }}
         pages={pages.data?.items.filter((page) => page.groupId || page.botId)}
-        onSearchChange={setPageSearch}
+        onSearchChange={searchChange}
+        chats={{
+          hits: chatSearch.searchHits,
+          loading: chatSearch.searchLoading,
+          error: chatSearch.searchError,
+          onRetry: chatSearch.retrySearch,
+          onSelect: chatSearch.jumpToSearchHit,
+        }}
         onSelectPage={(page) => {
           closeMobileSidebar();
           const chat = page.groupId ? `/app/g/${page.groupId}` : `/app/${page.botId}`;

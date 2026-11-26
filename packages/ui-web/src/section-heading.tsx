@@ -9,6 +9,7 @@ const sectionHeadingVariants = cva("", {
     variant: {
       heading: "text-heading3 font-medium text-foreground",
       title: "text-body-lg font-medium text-foreground",
+      panel: "text-body-sm text-muted-foreground",
       label: "text-label text-muted-foreground",
     },
   },
@@ -16,8 +17,9 @@ const sectionHeadingVariants = cva("", {
 });
 
 /**
- * Names a section within a page or panel; `heading` is the larger tier for settings sections and
- * `label` the quieter tier for side-panel groups.
+ * Names a section within a page or panel; `heading` is the larger tier for settings sections,
+ * `panel` the quieter tier for side-panel and sidebar groups (13/18, as the reference sets them)
+ * and `label` the smallest, for groups inside settings.
  */
 function SectionHeading({
   as: Tag = "h3",

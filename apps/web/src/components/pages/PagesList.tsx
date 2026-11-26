@@ -327,7 +327,7 @@ function OwnerPages({
       ) : null}
       {pinned.length ? (
         <section>
-          <SectionHeading variant="label" className="mb-1 px-2">
+          <SectionHeading variant="panel" className="mb-1 px-2">
             <Trans>Pinned</Trans>
           </SectionHeading>
           <ul className="flex flex-col">{pinned.map(row)}</ul>

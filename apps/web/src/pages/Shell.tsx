@@ -1081,6 +1081,7 @@ function SpaceShell({ threadId }: { threadId?: string }) {
         createMenuOpen={createMenuOpen}
         setCreateMenuOpen={setCreateMenuOpen}
         search={search}
+        onSearch={() => dialogs.setCommandPaletteOpen(true)}
         bots={bots}
         setPanel={setPanel}
         navigate={navigate}
