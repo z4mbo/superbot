@@ -8,3 +8,11 @@ export function isRetiredImportSetup(block: MessageBlock): boolean {
 export function isToolActivityBlock(block: MessageBlock): boolean {
   return block.kind === "steps" || (block.kind === "progress" && block.activity === true);
 }
+
+/**
+ * A video's progress card. No client draws it yet, so it stays out of the thread instead of
+ * leaving an empty bubble; the video itself arrives as its own message.
+ */
+export function isUndrawnMediaCard(block: MessageBlock): boolean {
+  return block.kind === "media_generation";
+}

@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { isRetiredImportSetup, isToolActivityBlock } from "@rakazo/core";
+import { isRetiredImportSetup, isToolActivityBlock, isUndrawnMediaCard } from "@rakazo/core";
 import { MAX_QUOTABLE_SOURCE_LENGTH, visibleTextFromMarkdown } from "@rakazo/core/message-quote";
 
 export function isCenteredAgentEvent(blocks: readonly MessageBlock[]): boolean {
@@ -100,7 +100,10 @@ export function hasSenderLabelContent(message: { blocks: MessageBlock[] }): bool
 export function hasVisibleMessagePresentation(blocks: readonly MessageBlock[]): boolean {
   return blocks.some(
     (block) =>
-      !isToolActivityBlock(block) && !isDismissedChoice(block) && !isRetiredImportSetup(block),
+      !isToolActivityBlock(block) &&
+      !isDismissedChoice(block) &&
+      !isRetiredImportSetup(block) &&
+      !isUndrawnMediaCard(block),
   );
 }
 

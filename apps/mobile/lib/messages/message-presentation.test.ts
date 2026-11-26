@@ -212,6 +212,16 @@ describe("mobile message presentation", () => {
     expect(hasVisibleMessagePresentation([{ ...checklist, undone: true }])).toBe(false);
     expect(hasVisibleMessagePresentation([{ kind: "import_setup", items: [] }])).toBe(false);
   });
+
+  it("leaves a video's progress card out, so its message shows no empty bubble", () => {
+    const card: MessageBlock = {
+      kind: "media_generation",
+      jobId: "job-1",
+      status: "pending",
+      media: { kind: "video", prompt: "a lighthouse", provider: "p", providerName: "Provider" },
+    };
+    expect(hasVisibleMessagePresentation([card])).toBe(false);
+  });
 });
 
 describe("quotableMessageSegments", () => {
