@@ -15,6 +15,8 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "browser_navigate",
   "browser_snapshot",
   "browser_act",
+  "browser_cdp",
+  "browser_dialog",
   "list_files",
   "user_computer_list",
   "read_file",
@@ -25,6 +27,7 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "search_files",
   "glob",
   "shell",
+  "execute_code",
   "process_manage",
   "open_path",
   "launch_app",
@@ -460,11 +463,13 @@ function actionsOf(args: Record<string, unknown>): Record<string, unknown>[] {
 
 /**
  * Whether a call on the bot's own computer could send something off it, and so goes to the approval
- * model in Auto once outside text entered the run (see isRunTainted): a shell command, which can
- * reach anything; a page opened, or typed or uploaded into, on a site the run was not given
- * (`pageSiteGiven`, see outboundSiteGate); desktop typing or key presses (which can paste), or an
- * app opened with a URI. Page clicks, pointer moves, scrolling and opening a file or app send
- * nothing the bot chose. Like every taint check it only informs the review; Ask and Never ask treat
+ * model in Auto once outside text entered the run (see isRunTainted): a shell command or a code
+ * snippet, which can reach anything; a page opened, or typed or uploaded into, on a site the run was not given
+ * (`pageSiteGiven`, see outboundSiteGate), text typed into a page's prompt dialog included; desktop
+ * typing or key presses (which can paste), or an app opened with a URI. Page clicks, a dialog
+ * accepted or dismissed, pointer moves, scrolling and opening a file or app send nothing the bot
+ * chose. A browser_cdp command that can act on the page asks a person every time instead (see
+ * prepareBrowserControlRequest). Like every taint check it only informs the review; Ask and Never ask treat
  * the call as they treat any other. The predicates are only checked for calls that could send
  * something.
  */
@@ -484,7 +489,9 @@ function whatCouldSend(
   args: Record<string, unknown>,
 ): "page" | "other" | undefined {
   switch (toolName) {
+    // Code runs on the computer and can reach anything a shell command can.
     case "shell":
+    case "execute_code":
       return "other";
     // Only start runs a command; list, check and kill touch processes already started.
     case "process_manage":
@@ -498,6 +505,9 @@ function whatCouldSend(
       return actionsOf(args).some((action) => PAGE_TYPING_KINDS.has(String(action.kind)))
         ? "page"
         : undefined;
+    // Accepting a dialog is a click on the page; text typed into a prompt goes to its site.
+    case "browser_dialog":
+      return args.action === "accept" && argumentGiven(args.prompt_text) ? "page" : undefined;
     case "computer_act":
       // Keys can paste or spell out text as well as typing can; only the pointer sends nothing.
       return actionsOf(args).some(

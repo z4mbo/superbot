@@ -76,6 +76,7 @@ import { fleetPrepareDeps } from "../turn/run-model.js";
 import { refusal } from "../turn/tool-refusal.js";
 import { BUILTIN_AGENT_TOOL_NAMES, FLEET_WRITE_TOOL_NAMES_SET } from "./run-tool-selection.js";
 import { disabledBuiltinToolUnavailableReason } from "./run-tool-selection.prompt.js";
+import { prepareBrowserControlRequest } from "./run-tools-browser-control.js";
 import { holdSharedPageSave } from "./run-tools-pages.js";
 import { scheduleCreateRefusal } from "./run-tools-tasks.js";
 import { USER_COMPUTER_TOOLS } from "./run-tools-user-computer.js";
@@ -102,6 +103,12 @@ export interface ToolRequest {
   settingsChange: boolean;
   /** Outside text may have asked for it, so a saved Always allow rule does not skip its approval. */
   ignoresAllowRules: boolean;
+  /**
+   * A person approves this call each time: no Always allow rule or Auto Review passes it, and
+   * Never ask refuses it. A raw protocol command that can act on the page, or accepting a confirm
+   * or prompt dialog.
+   */
+  personEveryTime: boolean;
   /** This page tool call completes a purchase, which a person approves each time. */
   purchase: PurchaseApproval | undefined;
   /** This page tool call types a saved card into a checkout, which a person approves each time. */
@@ -335,6 +342,7 @@ export async function resolveToolRequest(
     heldForApproval: false,
     settingsChange: false,
     ignoresAllowRules: false,
+    personEveryTime: false,
     purchase: undefined,
     cardUse: undefined,
     loginUse: undefined,
@@ -543,6 +551,11 @@ export async function prepareToolRequest(
   // Stopping a background process asks, as starting one is gated as shell is. An approved
   // replay stays held so it claims the approval it was given.
   if (builtinCallRequiresApproval(name, args)) request.heldForApproval = true;
+  if (name === "browser_cdp" || name === "browser_dialog") {
+    const refused = await prepareBrowserControlRequest(ctx, request);
+    if (refused) return refused;
+    args = request.args;
+  }
   if (name === "save_page") {
     const refused = await holdSharedPageSave(ctx, request);
     if (refused) return refused;

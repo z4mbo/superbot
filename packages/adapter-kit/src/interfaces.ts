@@ -25,6 +25,10 @@ import type {
   BrowserActRequest,
   BrowserActResult,
   BrowserCapabilities,
+  BrowserCdpRequest,
+  BrowserCdpResult,
+  BrowserDialogRequest,
+  BrowserDialogResult,
   BrowserNavigateRequest,
   BrowserNavigateResult,
   BrowserPurchaseCheckRequest,
@@ -832,6 +836,24 @@ export interface BrowserProvider {
   ): Promise<unknown>;
   /** Whether `computer`'s browser has the extension `signInFill` needs. Absent means it has. */
   canSignInFill?(computer: ComputerRef): boolean;
+  /**
+   * Read or answer the JavaScript dialog open on the page. A browser that cannot reach the page's
+   * dialogs has none.
+   */
+  dialog?(
+    computer: ComputerRef,
+    request: BrowserDialogRequest,
+    context: AdapterContext,
+  ): Promise<BrowserDialogResult>;
+  /**
+   * Send one DevTools protocol command to the page's own tab. The caller decides which methods may
+   * run and redacts what comes back; a browser without the protocol has none.
+   */
+  cdp?(
+    computer: ComputerRef,
+    request: BrowserCdpRequest,
+    context: AdapterContext,
+  ): Promise<BrowserCdpResult>;
 }
 
 /**

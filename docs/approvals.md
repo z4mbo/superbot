@@ -59,12 +59,18 @@ In **Auto** and **Ask**, these always show a card, and **Always allow** doesn't 
 - Changing a bot's instructions, and accepting another owner's bot connection.
 - A routine that watches a command or a site.
 - A payment, and a saved login or card the bot fills in.
+- Accepting a confirm or prompt dialog on a page, and a raw page command that runs script, types,
+  clicks or changes the page (`browser_cdp`).
 - The first use of your own computer in a space, and of each app on it.
 - A [check-in](./routines.md) a bot offers.
 
-**Never ask** runs all of them, with two exceptions. It refuses accepting another owner's bot
-connection when someone else started the run or outside content entered it. And only you can accept
-a check-in offer, so there the bot asks in words instead.
+**Never ask** runs all of them, with three exceptions. It refuses accepting another owner's bot
+connection when someone else started the run or outside content entered it. It refuses accepting a
+page's confirm or prompt dialog and a raw page command that acts on the page, since nobody would see
+them. And only you can accept a check-in offer, so there the bot asks in words instead.
+
+Some raw page commands are refused in every mode, whatever a rule says: navigation, cookies and
+storage, network data, other tabs and the browser itself.
 
 ## Spending limit
 

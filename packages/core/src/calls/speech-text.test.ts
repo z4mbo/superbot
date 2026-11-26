@@ -386,11 +386,14 @@ describe("narrateTool", () => {
     expect(narrateTool("vision_analyze")).toBe("looking at an image");
     expect(narrateTool("video_analyze")).toBe("watching a video");
     expect(narrateTool("browser_snapshot")).toBe("using the page");
+    expect(narrateTool("browser_cdp")).toBe("using the page");
+    expect(narrateTool("browser_dialog")).toBe("using the page");
     expect(narrateTool("write_file")).toBe("writing a file");
     expect(narrateTool("edit_file")).toBe("editing a file");
     expect(narrateTool("search_files")).toBe("searching");
     expect(narrateTool("glob")).toBe("searching");
     expect(narrateTool("process_manage")).toBe("running a command");
+    expect(narrateTool("execute_code")).toBe("running code");
     expect(narrateTool("run_subagent")).toBe("starting a subagent");
     expect(narrateTool("delegate")).toBe("starting a task");
     expect(narrateTool("follow_up")).toBe("following up on a task");

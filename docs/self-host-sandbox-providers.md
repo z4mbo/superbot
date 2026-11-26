@@ -528,6 +528,17 @@ WHERE r."endedAt" IS NULL
 ORDER BY r."startedAt";
 ```
 
+### Running code (`execute_code`)
+
+`execute_code` runs through the provider's ordinary command execution, inside the same boundary as
+`shell`: nothing runs in the API or worker. The computer must supply `bash`, `python3` and a writable
+`TMPDIR` (or `/tmp`); both supplied images have them. Without `python3` the tool answers that it is
+missing and runs nothing. The snippet runs in its own process group, which is stopped when its
+time is up, and under `ulimit -v` of 2 GB. Linux computers (Docker, Kubernetes, Incus, local VM and
+the remote providers) get that memory limit; a macOS computer reached through the desktop app does
+not, since macOS ignores it, and Windows computers are refused. A process the snippet moves into a
+session of its own escapes the group and is left to the provider's own command limit.
+
 ### Linux background-work inspection
 
 The fallback background-work probe and cancellation commands require Bash,

@@ -59,11 +59,13 @@ export type BrowserActInput =
   | CodeFillStep;
 /**
  * desktopTools: the run also has computer_act, so a page-tool failure can fall back to it.
+ * dialogTool: the run also has browser_dialog, which answers a dialog the page opened.
  * downloads: the folder in the computer's home that the page's file downloads are saved to, and the
  * path the bot's own tools use for a file there.
  */
 export type PageToolOptions = {
   desktopTools?: boolean;
+  dialogTool?: boolean;
   downloads?: { folder: string; botPath: (path: string) => string };
 };
 /**
@@ -560,11 +562,18 @@ function withBotPaths<T extends { downloads?: BrowserDownload[] }>(
   };
 }
 
-function formatBrowserResult<
+export function formatBrowserResult<
   T extends { fallback?: "computer_act"; error?: string; dialog?: string },
->(result: T, { desktopTools = true }: PageToolOptions) {
+>(result: T, { desktopTools = true, dialogTool = false }: PageToolOptions) {
   if (result.fallback !== "computer_act") return result;
-  // A confirm, prompt or "Leave site?" dialog asks something; page tools never answer it.
+  // A confirm, prompt or "Leave site?" dialog asks something; only browser_dialog answers it.
+  if (result.dialog && dialogTool) {
+    const { fallback: _fallback, ...rest } = result;
+    return {
+      ...rest,
+      note: "Answer it with browser_dialog, or request_takeover if the user should decide. Do not repeat the step that opened it.",
+    };
+  }
   if (result.dialog) {
     if (desktopTools) {
       return {

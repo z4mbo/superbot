@@ -1,6 +1,17 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { PURCHASE_CARD_FIELDS } from "@rakazo/contracts";
+import {
+  BROWSER_DIALOG_ACTIONS,
+  DIALOG_PROMPT_TEXT_MAX_CHARS,
+} from "../browser/browser-control-tools.js";
 import { BROWSER_ACT_KINDS } from "../browser/browser-tools.js";
+import {
+  EXECUTE_CODE_DEFAULT_TIMEOUT_SECONDS,
+  EXECUTE_CODE_LANGUAGES,
+  EXECUTE_CODE_MAX_CHARS,
+  EXECUTE_CODE_MAX_TIMEOUT_SECONDS,
+  EXECUTE_CODE_OUTPUT_MAX_CHARS,
+} from "./workspace/execute-code.js";
 
 export const READ_FILE_MAX_BYTES = 250_000;
 export const READ_FILE_MAX_KB = READ_FILE_MAX_BYTES / 1000;
@@ -154,6 +165,39 @@ export const computerTools: ConnectorTool[] = [
     },
   },
   {
+    name: "browser_dialog",
+    description:
+      'Accept or dismiss the JavaScript dialog (alert, confirm, prompt or "Leave site?") the page has open, which page tools report as dialog. Accepting a confirm or prompt asks the user first, showing its message; prompt_text is typed into a prompt. If no dialog is open, nothing happens.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: [...BROWSER_DIALOG_ACTIONS] },
+        prompt_text: {
+          type: "string",
+          maxLength: DIALOG_PROMPT_TEXT_MAX_CHARS,
+          description: "For accept on a prompt dialog.",
+        },
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "browser_cdp",
+    description:
+      "Send one Chrome DevTools Protocol command to the page browser's open tab, after browser_navigate opened a page. Only when browser_snapshot and browser_act cannot do it. Reads of the page's structure (DOM.getDocument, Accessibility.getFullAXTree, Page.getLayoutMetrics) run at once; commands that act on the page (Runtime.evaluate, Input.*, CSS, Emulation) ask the user each time. Navigation, cookies, storage, network data, other tabs and the browser itself are refused: use browser_navigate to open pages. Each command runs in a fresh session, so node ids and enabled domains do not carry over; use backendNodeId. Credentials in the result are redacted, and it is off on a page holding a password or a saved login or card.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        method: {
+          type: "string",
+          description: "A protocol method, such as DOM.getDocument.",
+        },
+        params: { type: "object", description: "The method's parameters." },
+      },
+      required: ["method"],
+    },
+  },
+  {
     name: "list_files",
     description:
       "List files and directories in this bot's home. On a Team Computer, relative paths use the bot folder; use shared/... for shared work or bots/... to inspect the Team root.",
@@ -260,6 +304,23 @@ export const computerTools: ConnectorTool[] = [
         cwd: { type: "string" },
       },
       required: ["command"],
+    },
+  },
+  {
+    name: "execute_code",
+    description: `Run a short Python snippet on this bot's computer and get its stdout, stderr, exit code, whether it timed out, and result: the value of its last line when that is an expression, as in a notebook cell. It runs as python3 with the bot's folder as working directory and the same files, packages and command variables as shell. It is stopped after timeout_seconds (default ${EXECUTE_CODE_DEFAULT_TIMEOUT_SECONDS}, at most ${EXECUTE_CODE_MAX_TIMEOUT_SECONDS}); output past ${EXECUTE_CODE_OUTPUT_MAX_CHARS} characters per stream is cut. The code cannot call your other tools. For longer jobs or other languages, use shell.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        code: { type: "string", maxLength: EXECUTE_CODE_MAX_CHARS },
+        language: { type: "string", enum: [...EXECUTE_CODE_LANGUAGES] },
+        timeout_seconds: {
+          type: "number",
+          minimum: 1,
+          maximum: EXECUTE_CODE_MAX_TIMEOUT_SECONDS,
+        },
+      },
+      required: ["code"],
     },
   },
   {

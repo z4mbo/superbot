@@ -100,6 +100,9 @@ describe("logo avatar activity from public events", () => {
       );
     expect(activity("edit_file")).toBe("writing");
     expect(activity("process_manage")).toBe("computer");
+    expect(activity("execute_code")).toBe("computer");
+    expect(activity("browser_cdp")).toBe("computer");
+    expect(activity("browser_dialog")).toBe("computer");
     // Handing work to a task thread, or checking on one, is plain work, like run_subagent.
     for (const name of ["delegate", "follow_up", "stop_task", "link_to_thread", "offer_check_in"]) {
       expect(activity(name)).toBe("working");

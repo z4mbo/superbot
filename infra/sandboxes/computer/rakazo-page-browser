@@ -2584,6 +2584,164 @@ def validate_actions(actions: Any) -> None:
         if step.get("origin") and not step.get("field"):
             raise RuntimeError("A saved login fill needs its field")
 
+# browser_cdp and browser_dialog: one protocol command, or one answer to a dialog, on the tab already in
+# front. Neither ever starts a browser or opens a tab: with no site open there is nothing to send to.
+NO_PAGE = "No page is open in the browser. Open one with browser_navigate first."
+NO_DIALOG = "No dialog is open on the page."
+DIALOG_CHANGED = "The dialog on the page is not the one the user approved, so it was left open."
+DIALOG_TYPES = ("alert", "confirm", "prompt", "beforeunload")
+DIALOG_MESSAGE_CHARS = 300
+DIALOG_TEXT_CHARS = 2000
+# An answer that gets no reply by then is reported as maybe sent, never waited on longer.
+DIALOG_SECONDS = 5.0
+CDP_METHOD = re.compile(r"[A-Z][A-Za-z]{0,39}\.[a-z][A-Za-z]{0,79}")
+# The server decides which methods may run (browser-cdp-policy.ts). These never do, whatever it sent:
+# they reach past this tab (other tabs, the browser, its files) or answer a dialog unchecked.
+CDP_REFUSED_DOMAINS = frozenset({"Browser", "Target", "SystemInfo", "Storage", "Fetch", "IO", "Tracing",
+                                 "Extensions", "PWA", "DeviceAccess"})
+CDP_REFUSED_METHODS = frozenset({"Page.navigate", "Page.handleJavaScriptDialog", "Page.close", "Page.crash",
+                                 "Network.getCookies", "Network.getAllCookies", "Network.setCookie",
+                                 "Network.setCookies"})
+CDP_SECONDS = 8.0
+SECRET_ON_PAGE = ("This page holds a password or a saved login, card or code, so browser_cdp is off here. "
+                  "Use browser_snapshot or browser_act.")
+# Whether the page holds a secret value: a typed password, a field drawn as dots, or a field a saved login,
+# card or code was filled into, in the page, its shadow roots and its same-site frames. A command could carry
+# such a value off in a form no redaction recognizes, so none runs while one is there.
+HOLDS_SECRET = r"""(() => {
+  const holds = (root) => {
+    for (const el of root.querySelectorAll("input, textarea, select")) {
+      if (el.hasAttribute("data-rakazo-filled")) return true;
+      if (el.value && (el.type === "password" || getComputedStyle(el).webkitTextSecurity !== "none")) return true;
+    }
+    for (const el of root.querySelectorAll("*")) if (el.shadowRoot && holds(el.shadowRoot)) return true;
+    for (const frame of root.querySelectorAll("iframe, frame")) {
+      let inner = null;
+      try { inner = frame.contentDocument; } catch { inner = null; }
+      if (inner && holds(inner)) return true;
+    }
+    return false;
+  };
+  return holds(document);
+})()"""
+# Larger results are sent as the start of their JSON text, marked as cut.
+CDP_RESULT_CHARS = 200_000
+
+
+def tab_page(port: int, target: str) -> dict[str, str]:
+    """The tab's address and title as Chromium lists them, which a dialog blocking the page cannot hold up."""
+    with contextlib.suppress(Exception):
+        for tab in page_tabs(port):
+            if tab.get("id") == target:
+                return {"url": str(tab.get("url") or ""), "title": str(tab.get("title") or "")[:200]}
+    return {"url": "", "title": ""}
+
+
+def cdp_refusal(args: dict[str, Any]) -> str | None:
+    method, params = args.get("method"), args.get("params")
+    if not isinstance(method, str) or not CDP_METHOD.fullmatch(method):
+        return "method must be a DevTools protocol method such as DOM.getDocument"
+    if method.split(".", 1)[0] in CDP_REFUSED_DOMAINS or method in CDP_REFUSED_METHODS:
+        return f"{method} is not allowed here."
+    if params is not None and not isinstance(params, dict):
+        return "params must be an object"
+    return None
+
+
+def run_cdp(port: int, target: str, args: dict[str, Any], sent: list[bool]) -> dict[str, Any]:
+    """One protocol command in a session of its own on this tab. Its events and any domain it enables end with
+    that session, so nothing it turns on keeps reporting."""
+    client = page_secrets.CdpClient(discover_ws_url(port))
+    client.connect()
+    try:
+        session = client.call("Target.attachToTarget", {"targetId": target, "flatten": True})["sessionId"]
+        try:
+            held = client.call("Runtime.evaluate", {"expression": HOLDS_SECRET, "returnByValue": True},
+                               session_id=session, timeout_s=3.0)
+            # Anything but a clear no, an unreadable page included, refuses the command.
+            if (held.get("result") or {}).get("value") is not False:
+                return {"ok": False, "uncertain": False, "secretOnPage": True, "error": SECRET_ON_PAGE}
+            sent[0] = True
+            result = client.call(str(args["method"]), args.get("params") or {}, session_id=session, timeout_s=CDP_SECONDS)
+        finally:
+            with contextlib.suppress(Exception):
+                client.call("Target.detachFromTarget", {"sessionId": session}, timeout_s=2.0)
+    finally:
+        client.close()
+    text = json.dumps(result, ensure_ascii=False)
+    if len(text) > CDP_RESULT_CHARS:
+        return {"ok": True, "result": text[:CDP_RESULT_CHARS], "truncated": True}
+    return {"ok": True, "result": result}
+
+
+def answer_dialog(page: PageBrowser, args: dict[str, Any], where: dict[str, str], sent: list[bool]) -> dict[str, Any]:
+    """Read the dialog the page has open, or accept or dismiss it. A confirm or prompt is accepted only when
+    it is the one the user approved (expect), or one of the types the caller may accept unasked (only)."""
+    action = args.get("action")
+    status = page.dialog()
+    if not status:
+        return {"ok": True, **where} if action == "status" else {"ok": False, "uncertain": False, "error": NO_DIALOG, **where}
+    kind = str(status.get("type") or "")
+    shown = {"dialog": kind, "message": str(status.get("message") or "")[:DIALOG_MESSAGE_CHARS]}
+    if action == "status":
+        return {"ok": True, **where, **shown}
+    if action == "accept":
+        expect, only = args.get("expect"), args.get("only")
+        if isinstance(expect, dict):
+            if expect.get("type") != kind or expect.get("message") != shown["message"]:
+                return {"ok": False, "uncertain": False, "error": DIALOG_CHANGED, **where, **shown}
+        elif not isinstance(only, list) or kind not in only:
+            return {"ok": False, "uncertain": False, "error": f"Accepting a {kind} dialog needs the user's approval, so it was left open.", **where, **shown}
+    text = args.get("text")
+    command = (["dialog", "accept", text[:DIALOG_TEXT_CHARS]] if action == "accept" and kind == "prompt" and isinstance(text, str)
+               else ["dialog", "accept" if action == "accept" else "dismiss"])
+    sent[0] = True
+    page.ab.batch([command], timeout=DIALOG_SECONDS)
+    try:
+        after = page.snapshot(ACTION_WAIT_SECONDS)
+    except Exception:  # noqa: BLE001
+        after = {**where, "note": "The dialog was answered; take a snapshot to read the page."}
+    return {**after, "ok": True, "answered": True, **shown}
+
+
+def run_page_control(command: str, args: dict[str, Any]) -> dict[str, Any]:
+    """browser_cdp (`cdp`) and browser_dialog (`dialog`) on the tab in front, or why nothing was sent."""
+    no_page = {"ok": False, "uncertain": False, "noPage": True, "error": NO_PAGE}
+    if command == "cdp":
+        refused = cdp_refusal(args)
+        if refused:
+            return {"ok": False, "uncertain": False, "error": refused}
+    elif args.get("action") not in ("status", "accept", "dismiss"):
+        return {"ok": False, "uncertain": False, "error": "action must be status, accept or dismiss"}
+    port = cdp_port()
+    sent = [False]
+    page: PageBrowser | None = None
+    try:
+        if browser_closed(port):
+            return no_page
+        wait_for_cdp(port)
+        try:
+            target, address = front_tab(port)
+        except RuntimeError as error:
+            if str(error) != NO_TAB:
+                raise
+            return no_page
+        if not address or address == "about:blank" or internal(address):
+            return no_page
+        if command == "cdp":
+            result = run_cdp(port, target, args, sent)
+            # Where the tab is after the command, which may have moved it.
+            return {**result, **tab_page(port, target)}
+        browser = AgentBrowser(port)
+        browser.use_tab(target)
+        page = PageBrowser(port, target, browser)
+        return answer_dialog(page, args, tab_page(port, target), sent)
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "uncertain": sent[0], "error": str(exc)[:500]}
+    finally:
+        if page:
+            page.close()
+
 
 def exit_when_stdin_closes() -> None:
     """The supervisor owns this pipe; losing it cancels this helper, not Chromium."""
@@ -2618,11 +2776,14 @@ def run(argv: list[str]) -> int:
                           "fallback": "computer_act"}))
         return 2
     command = argv[1]
-    if command not in ("navigate", "snapshot", "act", "finish", "purchase_check"):
+    if command not in ("navigate", "snapshot", "act", "finish", "purchase_check", "dialog", "cdp"):
         print(json.dumps({"ok": False, "error": f"unknown command: {command}", "fallback": "computer_act"}))
         return 2
     raw_args = stdin_args if stdin_args is not None else (argv[2] if len(argv) >= 3 else "")
     args: dict[str, Any] = json.loads(raw_args) if raw_args.strip() else {}
+    if command in ("dialog", "cdp"):
+        print(json.dumps(run_page_control(command, args)))
+        return 0
     if command == "finish":
         try:
             finish_later(args.get("downloads") or [])

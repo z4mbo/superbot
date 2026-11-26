@@ -78,6 +78,16 @@ describe("describeToolActivity", () => {
     expect(describeToolActivity("process_manage", { action: "kill", id: "abc" })).toBe(
       "Stopping a background process",
     );
+    expect(describeToolActivity("browser_cdp", { method: "DOM.getDocument" })).toBe(
+      "Inspecting the page: DOM.getDocument",
+    );
+    expect(describeToolActivity("browser_dialog", { action: "accept" })).toBe(
+      "Accepting a page dialog",
+    );
+    expect(describeToolActivity("browser_dialog", { action: "dismiss" })).toBe(
+      "Dismissing a page dialog",
+    );
+    expect(describeToolActivity("execute_code", { code: "print(1)" })).toBe("Running code");
     expect(describeToolActivity("list_fleet", {})).toBe("Checking your bots");
     expect(describeToolActivity("delegate", { brief: "Shortlist venues\nfor 40" })).toBe(
       "Starting a task: Shortlist venues",
