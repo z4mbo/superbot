@@ -34,9 +34,9 @@ An `app` part describes a form and its saved records. The registry owns the reco
   "kind": "app",
   "id": "meals",
   "fields": [
-    { "id": "date", "label": "Date", "type": "date", "required": true },
-    { "id": "meal", "label": "Meal", "type": "text", "required": true },
-    { "id": "kcal", "label": "Calories (kcal)", "type": "number", "required": true }
+    {"id": "date", "label": "Date", "type": "date", "required": true},
+    {"id": "meal", "label": "Meal", "type": "text", "required": true},
+    {"id": "kcal", "label": "Calories (kcal)", "type": "number", "required": true}
   ],
   "summaryField": "kcal"
 }
@@ -46,21 +46,21 @@ Each part has 1–16 uniquely named fields. Field IDs use the same syntax as par
 
 ## Procedures
 
-| Procedure         | Input                                                      | Result                                             |
-| ----------------- | ---------------------------------------------------------- | -------------------------------------------------- |
-| `submit`          | `{slug, version, manifest}`                                | Version with status `pending`                      |
-| `mine`            | `{after?, limit?}`                                         | Publisher's versions, including review status      |
-| `submissions`     | `{status?, after?, limit?}`                                | Deployment admin review queue, defaults to pending |
-| `review`          | `{versionId, decision: "approved" \| "rejected", reason?}` | Decided version                                    |
-| `discover`        | `{slug?, query?, after?, limit?}`                          | Approved versions only                             |
-| `install`         | `{versionId}`                                              | Installation with exact version and current grants |
-| `installations`   | `{after?, limit?}`                                         | Actor's installations in the selected Space        |
-| `setGrants`       | `{installationId, botId, partIds}`                         | Installation with current grants                   |
-| `switchVersion`   | `{installationId, expectedVersionId, versionId}`           | Installation pinned to the requested version       |
-| `uninstall`       | `{installationId}`                                         | `{ok: true}`                                       |
-| `appRecords`      | `{installationId, partId, after?, limit?, date?}`          | `{items, nextAfter, total}`                        |
-| `addAppRecord`    | `{installationId, partId, operationId, values}`            | `{id, values, createdAt}`                          |
-| `removeAppRecord` | `{installationId, partId, recordId}`                       | `{ok: true}`                                       |
+| Procedure       | Input                                                      | Result                                             |
+| --------------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| `submit`        | `{slug, version, manifest}`                                | Version with status `pending`                      |
+| `mine`          | `{after?, limit?}`                                         | Publisher's versions, including review status      |
+| `submissions`   | `{status?, after?, limit?}`                                | Deployment admin review queue, defaults to pending |
+| `review`        | `{versionId, decision: "approved" \| "rejected", reason?}` | Decided version                                    |
+| `discover`      | `{slug?, query?, after?, limit?}`                          | Approved versions only                             |
+| `install`       | `{versionId}`                                              | Installation with exact version and current grants |
+| `installations` | `{after?, limit?}`                                         | Actor's installations in the selected Space        |
+| `setGrants`     | `{installationId, botId, partIds}`                         | Installation with current grants                   |
+| `switchVersion` | `{installationId, expectedVersionId, versionId}`           | Installation pinned to the requested version       |
+| `uninstall`     | `{installationId}`                                         | `{ok: true}`                                       |
+| `appRecords`    | `{installationId, partId, after?, limit?, date?}`          | `{items, nextAfter, total}`                        |
+| `addAppRecord`  | `{installationId, partId, operationId, values}`            | `{id, values, createdAt}`                          |
+| `removeAppRecord` | `{installationId, partId, recordId}`                     | `{ok: true}`                                       |
 
 Lists return `{items, nextAfter}` using opaque string cursors. The default limit is 20 and the maximum is 50. Rejection requires a reason. Installation changes emit the `pluginRegistry` Space change frame on `notifications.subscribe`. A version contains `id, slug, version, manifest, status, reason, createdAt, reviewedAt`. An installation contains `id, plugin, grants, createdAt`, where `plugin` is the full approved version and each grant is `{botId, partId}`.
 
