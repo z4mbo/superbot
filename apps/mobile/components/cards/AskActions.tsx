@@ -38,6 +38,7 @@ export function AskActions({
   actions,
   site,
   approval,
+  checkInOffer,
   instructions,
   disabled,
   selectedAnswer,
@@ -48,6 +49,8 @@ export function AskActions({
   actions: AskAction[];
   site?: string;
   approval: boolean;
+  /** An offered check-in, answered set it up or no thanks. */
+  checkInOffer?: boolean;
   instructions?: string;
   disabled?: boolean;
   selectedAnswer?: string;
@@ -133,7 +136,7 @@ export function AskActions({
                 }
               />
             );
-          const label = askActionLabel(action, { approval, site });
+          const label = askActionLabel(action, { approval, site, checkInOffer });
           if (approval)
             return (
               <NativeActionButton

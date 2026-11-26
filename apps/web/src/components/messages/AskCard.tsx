@@ -79,15 +79,13 @@ export function AskReceiptView({ receipt }: { receipt: AskReceipt }) {
 function formatAnsweredState(
   answer: string | undefined,
   approval: boolean,
-  outcome?: NonNullable<AskBlock["actions"]>[number]["outcome"],
+  outcome?: "created" | "cancelled",
   actions?: AskBlock["actions"],
 ): string {
   if (!answer) return t`Answered`;
   if (!approval) return answer === "approved" ? t`Sent` : selectedAskActionLabel(answer, actions);
   if (outcome === "created") return t`Created`;
   if (outcome === "cancelled") return t`Cancelled`;
-  if (outcome === "scheduled") return t`Set up`;
-  if (outcome === "dismissed") return t`Dismissed`;
   if (answer === "allow") return allowsSpace(actions) ? t`Allowed in this space` : t`Allowed once`;
   if (answer === "always") return t`Always allowed`;
   if (answer === "deny") return t`Denied`;
@@ -107,13 +105,11 @@ function allowsSpace(actions: AskBlock["actions"]): boolean {
 function approvalActionLabel(
   id: string,
   fallback: string,
-  outcome?: NonNullable<AskBlock["actions"]>[number]["outcome"],
+  outcome?: "created" | "cancelled",
   site?: string,
 ): string {
   if (outcome === "created") return t`Create space`;
   if (outcome === "cancelled") return t`Cancel`;
-  if (outcome === "scheduled") return t`Set it up`;
-  if (outcome === "dismissed") return t`No thanks`;
   if (id === "allow") return ALLOW_IN_SPACE.has(fallback) ? t`Allow in this space` : t`Allow once`;
   if (id === "always") return site ? t`Always allow ${site}` : t`Always allow this tool`;
   if (id === "deny") return t`Deny`;
@@ -343,12 +339,16 @@ function PromptAskCard({
               ? displayedAnswer === "deny"
                 ? t`Dismissed`
                 : t`Allowed once`
-              : formatAnsweredState(
-                  displayedAnswer,
-                  Boolean(approvalActions),
-                  approvalActions?.find((action) => action.id === displayedAnswer)?.outcome,
-                  askActions,
-                )}
+              : block.checkInOffer
+                ? displayedAnswer === "deny"
+                  ? t`Dismissed`
+                  : t`Set up`
+                : formatAnsweredState(
+                    displayedAnswer,
+                    Boolean(approvalActions),
+                    approvalActions?.find((action) => action.id === displayedAnswer)?.outcome,
+                    askActions,
+                  )}
         </div>
       ) : !canAnswer ? (
         <div className="mt-3.5 text-body font-medium text-muted-foreground">
@@ -378,6 +378,12 @@ function PromptAskCard({
                   t`Apply`
                 ) : (
                   t`Dismiss`
+                )
+              ) : block.checkInOffer ? (
+                action.id === "allow" ? (
+                  t`Set it up`
+                ) : (
+                  t`No thanks`
                 )
               ) : (
                 approvalActionLabel(action.id, action.label, action.outcome, block.site)

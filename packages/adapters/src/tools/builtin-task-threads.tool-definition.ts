@@ -62,14 +62,17 @@ export const taskThreadTools: ConnectorTool[] = [
   {
     name: "follow_up",
     description:
-      "Change or add to the work of a task this conversation started with delegate, once its last run has finished; the result comes back here. A new piece of work is a new delegate, not a follow-up.",
+      "Read where a task this conversation started with delegate stands (its status and latest report), or, with message, change or add to its work once its last run has finished; that result comes back here. A new piece of work is a new delegate, not a follow-up.",
     inputSchema: {
       type: "object",
       properties: {
         threadId: taskThreadId,
-        message: { type: "string", minLength: 1, description: "What the task should do now." },
+        message: {
+          type: "string",
+          description: "What the task should do now. Leave it out to only read where it stands.",
+        },
       },
-      required: ["threadId", "message"],
+      required: ["threadId"],
       additionalProperties: false,
     },
   },

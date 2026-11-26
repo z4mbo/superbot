@@ -50,6 +50,16 @@ describe("askActionLabel", () => {
     },
   );
 
+  it("labels a check-in offer's answers by what they do", () => {
+    const offer = { approval: true, checkInOffer: true };
+    expect(askActionLabel({ id: "allow", label: "Server label" }, offer)).toBe("Set it up");
+    expect(askActionLabel({ id: "deny", label: "Server label" }, offer)).toBe("No thanks");
+    // Without the marker, an older card reads as a plain approval.
+    expect(askActionLabel({ id: "allow", label: "Set it up" }, { approval: true })).toBe(
+      "Allow once",
+    );
+  });
+
   it("uses the real mobile translator with site interpolation", () => {
     resetI18nForTests("de");
     expect(

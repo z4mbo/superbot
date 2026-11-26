@@ -83,8 +83,6 @@ function formatApprovalAnswer(
   const outcome = selectedAction?.outcome;
   if (approval && outcome === "created") return t`Created`;
   if (approval && outcome === "cancelled") return t`Cancelled`;
-  if (approval && outcome === "scheduled") return t`Set up`;
-  if (approval && outcome === "dismissed") return t`Dismissed`;
   if (approval && answer === "allow")
     return allowsSpace(actions) ? t`Allowed in this space` : t`Allowed once`;
   if (approval && answer === "always") return t`Always allowed`;
@@ -549,17 +547,22 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
                       ? askBlock.answer === "deny"
                         ? t`Dismissed`
                         : t`Allowed once`
-                      : formatApprovalAnswer(
-                          askBlock.answer,
-                          askBlock.actions,
-                          isApprovalAskBlock(askBlock),
-                        )}
+                      : askBlock.checkInOffer
+                        ? askBlock.answer === "deny"
+                          ? t`Dismissed`
+                          : t`Set up`
+                        : formatApprovalAnswer(
+                            askBlock.answer,
+                            askBlock.actions,
+                            isApprovalAskBlock(askBlock),
+                          )}
                 </Text>
               ) : question && canAnswer ? null : canAnswer && onAnswer ? (
                 <AskActions
                   actions={askBlock.actions}
                   site={askBlock.site}
                   approval={isApprovalAskBlock(askBlock)}
+                  checkInOffer={askBlock.checkInOffer}
                   instructions={askBlock.instructionUpdate?.after}
                   accessibilityActions={actionProps.accessibilityActions}
                   onAccessibilityAction={actionProps.onAccessibilityAction}

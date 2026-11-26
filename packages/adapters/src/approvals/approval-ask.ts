@@ -167,10 +167,7 @@ export function buildApprovalAskBlock(
     const subject = String(args.subject ?? "")
       .replace(/\s+/g, " ")
       .trim()
-      .replace(
-        new RegExp(CARD_TITLE_ESCAPED_CHARACTERS, "g"),
-        "\\  // Only an instruction change held for approval carries the text it replaces.",
-      );
+      .replace(new RegExp(CARD_TITLE_ESCAPED_CHARACTERS, "g"), "\\$&");
     const prompt = String(args.prompt ?? "").trim();
     return {
       kind: "ask",
@@ -185,10 +182,11 @@ export function buildApprovalAskBlock(
             detailFormat: "text" as const,
           }
         : {}),
+      checkInOffer: true,
       status: "pending",
       actions: [
-        { id: "allow", label: "Set it up", outcome: "scheduled" },
-        { id: "deny", label: "No thanks", outcome: "dismissed" },
+        { id: "allow", label: "Set it up" },
+        { id: "deny", label: "No thanks" },
       ],
     };
   }

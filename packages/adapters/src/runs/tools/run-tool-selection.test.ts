@@ -196,10 +196,26 @@ describe("task thread selection", () => {
     ["a webhook", { trigger: "webhook" }],
     ["a group", { groupId: "group" }],
     ["a chat app's conversation", { externalConversation: true }],
+    ["a task thread, so delegation stays one level deep", { taskThread: true }],
     ["another person's chat-app message", { trigger: "messaging", messagingChannelRun: true }],
   ])("hides the task thread tools in %s", (_where, options) => {
     const offered = names(options);
     for (const name of TASK_TOOLS) expect(offered).not.toContain(name);
+  });
+
+  it("turns the tools that act on task threads off with delegate", () => {
+    const offered = names({ disabledBuiltinTools: ["delegate"] });
+    for (const name of TASK_TOOLS) expect(offered).not.toContain(name);
+    expect(offered).toContain("run_subagent");
+    const reasons = unavailableBuiltinToolReasons(
+      { groupId: null, trigger: "user", disabledBuiltinTools: ["delegate"] },
+      offered.map((name) => ({ name })),
+    );
+    for (const name of TASK_TOOLS) expect(reasons[name]).toBeDefined();
+    // Each can also be turned off alone.
+    const withoutStop = names({ disabledBuiltinTools: ["stop_task"] });
+    expect(withoutStop).toContain("delegate");
+    expect(withoutStop).not.toContain("stop_task");
   });
 
   it("hides delegation where run_subagent is hidden", () => {

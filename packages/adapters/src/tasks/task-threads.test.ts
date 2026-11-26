@@ -4,16 +4,21 @@ import { createThreadMessageInTransaction } from "@rakazo/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunContext } from "../runs/assembly/run-context.js";
 import { cancelThreadRuns, finishThreadStop } from "../runs/lifecycle/thread-stop.js";
-import { TASK_THREAD_NOT_FOUND, TASK_THREAD_STILL_WORKING } from "./task-threads.prompt.js";
 import {
   delegateTask,
   followUpTask,
   listTaskThreads,
   stopTask,
+  stopTaskSummary,
   taskThreadLink,
   taskThreadStatus,
   taskThreadTitle,
 } from "./task-threads.js";
+import {
+  TASK_THREAD_NESTED,
+  TASK_THREAD_NOT_FOUND,
+  TASK_THREAD_STILL_WORKING,
+} from "./task-threads.prompt.js";
 
 vi.mock("@rakazo/db", async (original) => ({
   ...(await original<typeof Db>()),
@@ -68,9 +73,22 @@ function harness() {
     },
     { id: "task-1", conversationTitle: "Venue shortlist", runs: [{ status: "cancelled" }] },
   ]);
+  const latestRun = vi.fn(
+    async (_args: unknown): Promise<{ status: string } | null> => ({
+      status: "completed",
+    }),
+  );
+  const latestReply = vi.fn(
+    async (_args: unknown): Promise<{ id: string; blocks: unknown } | null> => ({
+      id: "reply",
+      blocks: [{ kind: "text", text: "Three venues: A, B and C." }],
+    }),
+  );
   const prisma = {
     $transaction: vi.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
     thread: { findFirst: ownedThread, findMany },
+    run: { findFirst: latestRun },
+    message: { findFirst: latestReply },
   };
   const enqueue = vi.fn(async () => undefined);
   const ctx = {
@@ -81,7 +99,19 @@ function harness() {
     thread: { id: "chat", botId: "bot" },
     secrets: [],
   } as unknown as RunContext;
-  return { ctx, prisma, tx, createRun, createThread, ownedThread, activeRun, findMany, enqueue };
+  return {
+    ctx,
+    prisma,
+    tx,
+    createRun,
+    createThread,
+    ownedThread,
+    activeRun,
+    findMany,
+    enqueue,
+    latestRun,
+    latestReply,
+  };
 }
 
 const CALL = { executionId: "call-1", effectKey: "effect-1" };
@@ -148,6 +178,16 @@ describe("delegate", () => {
     expect(h.createThread).not.toHaveBeenCalled();
   });
 
+  it("starts no task thread from a task thread, so delegation stays one level deep", async () => {
+    const h = harness();
+    (h.ctx.thread as { parentThreadId?: string }).parentThreadId = "chat-before";
+    await expect(
+      delegateTask(h.ctx, { ...CALL, brief: "Research it", title: "" }),
+    ).resolves.toEqual({ error: TASK_THREAD_NESTED });
+    expect(h.createThread).not.toHaveBeenCalled();
+    expect(h.createRun).not.toHaveBeenCalled();
+  });
+
   it("titles a thread from the brief when given none", () => {
     expect(taskThreadTitle("", "Compare the plans\nwith every detail")).toBe("Compare the plans");
     expect(taskThreadTitle(" a\tb ", "x")).toBe("a b");
@@ -175,13 +215,41 @@ describe("follow_up", () => {
     );
   });
 
-  it("refuses a thread this conversation did not start", async () => {
+  it("reads where the task stands without a message, and sends nothing", async () => {
+    const h = harness();
+    await expect(
+      followUpTask(h.ctx, { ...CALL, threadId: "task-1", message: "" }),
+    ).resolves.toEqual({
+      ok: true,
+      threadId: "task-1",
+      title: "Venue shortlist",
+      status: "finished",
+      report: "Three venues: A, B and C.",
+      link: taskThreadLink("bot", "task-1"),
+    });
+    // The report is a run's reply, never the brief shown first in the thread.
+    expect(h.latestReply).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { threadId: "task-1", role: "bot", runId: { not: null } } }),
+    );
+    expect(h.createRun).not.toHaveBeenCalled();
+    h.latestRun.mockResolvedValueOnce({ status: "running" });
+    h.latestReply.mockResolvedValueOnce(null);
+    await expect(
+      followUpTask(h.ctx, { ...CALL, threadId: "task-1", message: "" }),
+    ).resolves.toMatchObject({ status: "running", report: "" });
+  });
+
+  it("refuses a thread this conversation did not start, to send or to read", async () => {
     const h = harness();
     h.ownedThread.mockResolvedValue(null);
     await expect(
       followUpTask(h.ctx, { ...CALL, threadId: "someone-elses", message: "Do more" }),
     ).resolves.toEqual({ error: TASK_THREAD_NOT_FOUND });
+    await expect(
+      followUpTask(h.ctx, { ...CALL, threadId: "someone-elses", message: "" }),
+    ).resolves.toEqual({ error: TASK_THREAD_NOT_FOUND });
     expect(h.createRun).not.toHaveBeenCalled();
+    expect(h.latestReply).not.toHaveBeenCalled();
   });
 
   it("sends nothing while the task is still working", async () => {
@@ -219,6 +287,22 @@ describe("stop_task", () => {
       error: TASK_THREAD_NOT_FOUND,
     });
     expect(cancelThreadRuns).not.toHaveBeenCalled();
+    // Only this conversation's own task threads, of this bot, person and Space.
+    expect(h.ownedThread).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { ...OWNED, id: "other" } }),
+    );
+  });
+
+  it("asks with a card that names the task, and shows none for another thread", async () => {
+    const h = harness();
+    h.ownedThread.mockResolvedValueOnce({ id: "task-1", conversationTitle: "Venue *shortlist*" });
+    await expect(stopTaskSummary(h.ctx, "task-1")).resolves.toEqual({
+      title: "Stop task “Venue \\*shortlist\\*”?",
+      lines: [],
+    });
+    h.ownedThread.mockResolvedValueOnce(null);
+    await expect(stopTaskSummary(h.ctx, "other")).resolves.toBeUndefined();
+    await expect(stopTaskSummary(h.ctx, "  ")).resolves.toBeUndefined();
   });
 });
 

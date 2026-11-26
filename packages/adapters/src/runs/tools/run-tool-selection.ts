@@ -198,6 +198,8 @@ export function selectBuiltinToolsForRun(options: {
   emailSend?: boolean;
   /** The chat is a chat app's conversation, reached from outside the app. */
   externalConversation?: boolean;
+  /** The chat is itself a task thread: delegation stays one level deep, as run_subagent's does. */
+  taskThread?: boolean;
 }) {
   const disabled = disabledBuiltinToolSet(options.disabledBuiltinTools);
   const ownerStartedRun = isOwnerStartedRun(
@@ -219,6 +221,7 @@ export function selectBuiltinToolsForRun(options: {
     isConversationalRun(options.trigger) &&
     !options.groupId &&
     !options.externalConversation &&
+    !options.taskThread &&
     !options.messagingChannelRun;
   const selected = selectCloudAgentTools(
     selectMemoryTools(
@@ -238,67 +241,71 @@ export function selectBuiltinToolsForRun(options: {
     ),
     Boolean(options.cloudAgentEnabled),
     Boolean(options.cloudAgentCleanupEnabled),
-  ).filter(
-    (tool) =>
-      !builtinToolDisabled(disabled, tool.name) &&
-      (options.trigger !== "created" || CREATED_RUN_TOOL_NAMES.has(tool.name)) &&
-      (options.trigger !== BACKGROUND_HELPER_TRIGGER || !SUBAGENT_HIDDEN_TOOLS.has(tool.name)) &&
-      (taskThreadsOffered || !TASK_THREAD_TOOL_NAMES.has(tool.name)) &&
-      (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
-        (Boolean(options.fleetManagement) && ownerStartedRun)) &&
-      (options.fleetManagement || tool.name !== "spawn_bot") &&
-      (ownerStartedRun || (tool.name !== "update_preferences" && tool.name !== "feedback")) &&
-      (options.paymentWalletEnabled || !PURCHASE_TOOL_NAMES.has(tool.name)) &&
-      // Signing in fills a login in the page browser, so it goes where that browser is offered.
-      (tool.name !== "sign_in" ||
-        (Boolean(options.signInSourceEnabled) &&
-          (options.pageBrowserAllowed ?? options.graphicalToolsAllowed))) &&
-      (options.mediaImagesEnabled || tool.name !== "generate_image") &&
-      (options.mediaImageEditEnabled || tool.name !== "edit_image") &&
-      (options.mediaVideoEnabled || tool.name !== "generate_video") &&
-      (options.paidServicesEnabled || !PAID_SERVICE_TOOL_NAMES.has(tool.name)) &&
-      // Alone in its Space a bot has nobody to message. A bot it creates gets its first task
-      // from spawn_bot, and its reply starts a run that offers message_bot.
-      (options.hasTeammates !== false || tool.name !== "message_bot") &&
-      (options.hasGroups === true || tool.name !== "post_to_group") &&
-      (options.ticketBoardEnabled ||
-        (tool.name !== "board_tickets" && !tool.name.startsWith("ticket_"))) &&
-      (!isBackgroundRunTrigger(options.trigger) || !BACKGROUND_DROPPED_TOOL_NAMES.has(tool.name)) &&
-      (options.voiceCall || tool.name !== "end_call") &&
-      (emailMailbox || !EMAIL_INBOX_TOOL_NAMES.has(tool.name)) &&
-      ((emailMailbox && options.emailSend) || tool.name !== "send_email") &&
-      (emailClaimOffered || tool.name !== "claim_email_address") &&
-      (options.userComputer || tool.name !== "user_computer_shell") &&
-      (options.userComputer || options.userComputerScreen || tool.name !== "user_computer_list") &&
-      (options.userComputerScreen || !USER_COMPUTER_SCREEN_TOOLS.has(tool.name)) &&
-      // Already on a call, or reached through a messaging channel that cannot ring.
-      ((options.phoneCallsEnabled &&
-        !options.groupId &&
-        !options.voiceCall &&
-        !options.messagingChannelRun &&
-        !isBackgroundRunTrigger(options.trigger)) ||
-        tool.name !== "call_user") &&
-      (options.historyRetrievalEnabled ||
-        !["search_history", "read_history"].includes(tool.name)) &&
-      (options.meetingTranscriptsAvailable || tool.name !== READ_MEETING_TRANSCRIPT) &&
-      (!options.messagingChannelRun ||
-        (!SCHEDULE_TOOL_NAMES.has(tool.name) &&
-          !SKILL_TOOL_NAMES.has(tool.name) &&
-          ![
-            "remember",
-            "save_shared_memory",
-            "delete_shared_memory",
-            "remove_mcp_server",
-            "save_memory",
-            "recall_memory",
-            "forget_memory",
-            "reflect_memory",
-            "task_catalog",
-            "board_tickets",
-          ].includes(tool.name) &&
-          !tool.name.startsWith("scratchpad_") &&
-          !tool.name.startsWith("ticket_"))),
   )
+    .filter(
+      (tool) =>
+        !builtinToolDisabled(disabled, tool.name) &&
+        (options.trigger !== "created" || CREATED_RUN_TOOL_NAMES.has(tool.name)) &&
+        (options.trigger !== BACKGROUND_HELPER_TRIGGER || !SUBAGENT_HIDDEN_TOOLS.has(tool.name)) &&
+        (taskThreadsOffered || !TASK_THREAD_TOOL_NAMES.has(tool.name)) &&
+        (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
+          (Boolean(options.fleetManagement) && ownerStartedRun)) &&
+        (options.fleetManagement || tool.name !== "spawn_bot") &&
+        (ownerStartedRun || (tool.name !== "update_preferences" && tool.name !== "feedback")) &&
+        (options.paymentWalletEnabled || !PURCHASE_TOOL_NAMES.has(tool.name)) &&
+        // Signing in fills a login in the page browser, so it goes where that browser is offered.
+        (tool.name !== "sign_in" ||
+          (Boolean(options.signInSourceEnabled) &&
+            (options.pageBrowserAllowed ?? options.graphicalToolsAllowed))) &&
+        (options.mediaImagesEnabled || tool.name !== "generate_image") &&
+        (options.mediaImageEditEnabled || tool.name !== "edit_image") &&
+        (options.mediaVideoEnabled || tool.name !== "generate_video") &&
+        (options.paidServicesEnabled || !PAID_SERVICE_TOOL_NAMES.has(tool.name)) &&
+        // Alone in its Space a bot has nobody to message. A bot it creates gets its first task
+        // from spawn_bot, and its reply starts a run that offers message_bot.
+        (options.hasTeammates !== false || tool.name !== "message_bot") &&
+        (options.hasGroups === true || tool.name !== "post_to_group") &&
+        (options.ticketBoardEnabled ||
+          (tool.name !== "board_tickets" && !tool.name.startsWith("ticket_"))) &&
+        (!isBackgroundRunTrigger(options.trigger) ||
+          !BACKGROUND_DROPPED_TOOL_NAMES.has(tool.name)) &&
+        (options.voiceCall || tool.name !== "end_call") &&
+        (emailMailbox || !EMAIL_INBOX_TOOL_NAMES.has(tool.name)) &&
+        ((emailMailbox && options.emailSend) || tool.name !== "send_email") &&
+        (emailClaimOffered || tool.name !== "claim_email_address") &&
+        (options.userComputer || tool.name !== "user_computer_shell") &&
+        (options.userComputer ||
+          options.userComputerScreen ||
+          tool.name !== "user_computer_list") &&
+        (options.userComputerScreen || !USER_COMPUTER_SCREEN_TOOLS.has(tool.name)) &&
+        // Already on a call, or reached through a messaging channel that cannot ring.
+        ((options.phoneCallsEnabled &&
+          !options.groupId &&
+          !options.voiceCall &&
+          !options.messagingChannelRun &&
+          !isBackgroundRunTrigger(options.trigger)) ||
+          tool.name !== "call_user") &&
+        (options.historyRetrievalEnabled ||
+          !["search_history", "read_history"].includes(tool.name)) &&
+        (options.meetingTranscriptsAvailable || tool.name !== READ_MEETING_TRANSCRIPT) &&
+        (!options.messagingChannelRun ||
+          (!SCHEDULE_TOOL_NAMES.has(tool.name) &&
+            !SKILL_TOOL_NAMES.has(tool.name) &&
+            ![
+              "remember",
+              "save_shared_memory",
+              "delete_shared_memory",
+              "remove_mcp_server",
+              "save_memory",
+              "recall_memory",
+              "forget_memory",
+              "reflect_memory",
+              "task_catalog",
+              "board_tickets",
+            ].includes(tool.name) &&
+            !tool.name.startsWith("scratchpad_") &&
+            !tool.name.startsWith("ticket_"))),
+    )
     .map((tool) => withMediaChoices(tool, options.mediaChoices?.[tool.name] ?? ""));
   // A check-in offer sets up a follow-up, so it goes only where the run may set its own.
   return selected.filter(

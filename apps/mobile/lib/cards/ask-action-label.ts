@@ -1,10 +1,6 @@
 import { t } from "@lingui/core/macro";
 
-export type AskAction = {
-  id: string;
-  label: string;
-  outcome?: "created" | "cancelled" | "scheduled" | "dismissed";
-};
+export type AskAction = { id: string; label: string; outcome?: "created" | "cancelled" };
 
 /**
  * The server's labels on the user's-computer approval, whose "allow" covers the whole space. Cards
@@ -18,13 +14,13 @@ export function allowsSpace(actions: AskAction[] | undefined): boolean {
 
 export function askActionLabel(
   action: AskAction,
-  { approval, site }: { approval: boolean; site?: string },
+  { approval, site, checkInOffer }: { approval: boolean; site?: string; checkInOffer?: boolean },
 ): string {
   if (!approval) return action.label;
+  if (checkInOffer && action.id === "allow") return t`Set it up`;
+  if (checkInOffer && action.id === "deny") return t`No thanks`;
   if (action.outcome === "created") return t`Create space`;
   if (action.outcome === "cancelled") return t`Cancel`;
-  if (action.outcome === "scheduled") return t`Set it up`;
-  if (action.outcome === "dismissed") return t`No thanks`;
   if (action.id === "allow")
     return ALLOW_IN_SPACE.has(action.label) ? t`Allow in this space` : t`Allow once`;
   if (action.id === "always") return site ? t`Always allow ${site}` : t`Always allow this tool`;

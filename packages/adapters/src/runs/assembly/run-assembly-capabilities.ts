@@ -761,6 +761,7 @@ export async function selectRunTools(
       emailClaimable: Boolean(deps.inboundEmailDomain) && !emailName && run.userId === bot.userId,
       emailSend: Boolean(deps.email),
       externalConversation: Boolean(conversationThread.externalConversationId),
+      taskThread: Boolean(conversationThread.parentThreadId),
     }).filter(
       (tool) => tool.name !== "run_subagent" || backgroundHelpersAllowed({ trigger: run.trigger }),
     ),

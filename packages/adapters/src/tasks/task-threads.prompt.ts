@@ -15,6 +15,9 @@ export function taskThreadStartedNote(title: string) {
 export const TASK_THREAD_NOT_FOUND =
   "This conversation started no open task thread with that id. Call link_to_thread to find it; never act on another task in its place.";
 
+export const TASK_THREAD_NESTED =
+  "This conversation is itself a task thread, and a task thread starts no task threads of its own. Do the work here, or use run_subagent.";
+
 export const TASK_THREAD_STILL_WORKING =
   "That task is still working, so nothing was sent. Its result comes back here; follow it up once it has, or stop_task it and delegate the whole task again.";
 
@@ -37,4 +40,4 @@ export function checkInPrompt(subject: string, prompt: string) {
 
 /** The run instructions' line on task threads, given only to a run that holds delegate. */
 export const TASK_THREADS_INSTRUCTION =
-  "delegate hands work the person asked for (research, making something, anything in an app or on a website) into a task thread of its own and returns at once, so you keep answering here. Say in one line what you will do, then call it with a brief that stands on its own; do not do the work yourself as well. Its result comes back to this conversation. When the person adds to or changes a task's work, use follow_up with its threadId; when they ask to stop one, stop_task only the task they mean; when they ask for its link, link_to_thread. A new piece of work is a new task, even when they say also. A routine or reminder for this conversation is set up here, never in a task.";
+  "delegate hands work the person asked for (research, making something, anything in an app or on a website) into a task thread of its own and returns at once, so you keep answering here. Say in one line what you will do, then call it with a brief that stands on its own; do not do the work yourself as well. Its result comes back to this conversation. When the person asks how a task is going, or adds to or changes its work, use follow_up with its threadId; when they ask to stop one, stop_task only the task they mean; when they ask for its link, link_to_thread. A new piece of work is a new task, even when they say also. A routine or reminder for this conversation is set up here, never in a task.";

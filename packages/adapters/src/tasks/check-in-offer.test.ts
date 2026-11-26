@@ -59,11 +59,34 @@ describe("offer_check_in", () => {
       approvalEffectId: "effect-1",
       text: expect.stringMatching(/^Check in on Launch brief in Notion .+\?$/),
       detail: OFFER.prompt,
+      checkInOffer: true,
       actions: [
-        { id: "allow", label: "Set it up", outcome: "scheduled" },
-        { id: "deny", label: "No thanks", outcome: "dismissed" },
+        { id: "allow", label: "Set it up" },
+        { id: "deny", label: "No thanks" },
       ],
     });
+  });
+
+  it("escapes what it names, so the card title shows it as written", () => {
+    const block = buildApprovalAskBlock(
+      "effect-1",
+      "offer_check_in",
+      { ...OFFER, subject: "the *launch* [brief]" },
+      [],
+    );
+    expect(block).toMatchObject({ text: expect.stringContaining("the \\*launch\\* \\[brief\\]") });
+  });
+
+  it("keeps an older reader's plain approval: its answers are the usual allow and deny", () => {
+    const block = buildApprovalAskBlock("effect-1", "offer_check_in", OFFER, []);
+    // A reader from before checkInOffer drops it and labels these as Allow once and Deny.
+    expect(block.kind === "ask" && block.actions?.map((action) => action.id)).toEqual([
+      "allow",
+      "deny",
+    ]);
+    expect(block.kind === "ask" && block.actions?.some((action) => "outcome" in action)).toBe(
+      false,
+    );
   });
 
   it("creates nothing until accepted, then the routine through schedule_create's save", async () => {
@@ -113,6 +136,8 @@ describe("offer_check_in", () => {
     await expect(checkInOfferRefusal(ctx, { ...OFFER, subject: "Inbox" })).resolves.toBeUndefined();
     const refused = harness([{ request: OFFER, result: { refused: "repeat" } }]);
     await expect(checkInOfferRefusal(refused.ctx, OFFER)).resolves.toBeUndefined();
+    // Turning it down never ran the call, so no routine was made.
+    expect(createScheduleFromTool).not.toHaveBeenCalled();
   });
 
   it("shows no card for a routine that could not be saved", async () => {

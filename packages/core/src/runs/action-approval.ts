@@ -29,10 +29,9 @@ const APPROVAL_EXEMPT_TOOLS = new Set([
   "request_secret",
   "generate_secret",
   "run_subagent",
-  // The bot's own work, started in this conversation and stopped with Stop in its thread too.
+  // The bot's own work in this conversation's task threads; stopping one asks (below).
   "delegate",
   "follow_up",
-  "stop_task",
   "link_to_thread",
   "spawn_bot",
   "schedule_create",
@@ -103,6 +102,8 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "cloud_agent_launch",
   "cloud_agent_reply",
   "cloud_agent_cancel",
+  // Ends work the person may still want; their own Stop in that thread never asks.
+  "stop_task",
   "user_computer_shell",
   "user_computer_observe",
   "user_computer_act",

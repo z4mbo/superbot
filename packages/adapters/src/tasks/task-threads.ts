@@ -1,11 +1,14 @@
-import { ACTIVE_RUN_STATUSES, redactSecrets } from "@rakazo/core";
-import { THREAD_LOCK_TRANSACTION_OPTIONS } from "@rakazo/db";
+import { ACTIVE_RUN_STATUSES, CARD_TITLE_ESCAPED_CHARACTERS, redactSecrets } from "@rakazo/core";
+import { storedMessageBlocks, THREAD_LOCK_TRANSACTION_OPTIONS } from "@rakazo/db";
+import type { FleetCardSummary } from "../approvals/approval-ask.js";
 import type { RunContext } from "../runs/assembly/run-context.js";
+import { messageBlocksText } from "../runs/assembly/run-replies.prompt.js";
 import { cancelThreadRuns, finishThreadStop } from "../runs/lifecycle/thread-stop.js";
 import { ownedTaskThreadWhere, startBackgroundHelper } from "./background-helpers.js";
 import {
   TASK_THREAD_FOLLOW_UP_INSTRUCTIONS,
   TASK_THREAD_INSTRUCTIONS,
+  TASK_THREAD_NESTED,
   TASK_THREAD_NOT_FOUND,
   taskThreadStoppedNote,
 } from "./task-threads.prompt.js";
@@ -14,6 +17,8 @@ import {
 const TITLE_MAX_LENGTH = 80;
 /** How many task threads link_to_thread answers with at most. */
 const LINK_LIMIT = 10;
+/** How much of a task's latest report follow_up reads back. */
+const REPORT_LIMIT = 4_000;
 
 export type TaskThreadStatus = "running" | "finished" | "stopped" | "failed";
 
@@ -55,6 +60,8 @@ export async function delegateTask(
   ctx: RunContext,
   input: { brief: string; title: string; executionId: string; effectKey: string },
 ) {
+  // One level deep, as run_subagent is: a task thread starts no task threads of its own.
+  if (ctx.thread.parentThreadId) return { error: TASK_THREAD_NESTED };
   const brief = redactSecrets(input.brief.trim(), ctx.secrets);
   if (!brief) return { error: "brief is required" };
   const title = taskThreadTitle(redactSecrets(input.title, ctx.secrets), brief);
@@ -88,16 +95,50 @@ async function findOwnedTaskThread(ctx: RunContext, threadId: string) {
   });
 }
 
-/** Send more for a task this conversation started; it runs once the task's last run has ended. */
+/** Where a task stands: its latest run's status and the latest report a run of it wrote. */
+async function taskThreadState(ctx: RunContext, threadId: string) {
+  const newest = [{ createdAt: "desc" as const }, { id: "desc" as const }];
+  const [run, reply] = await Promise.all([
+    ctx.deps.prisma.run.findFirst({
+      where: { threadId },
+      orderBy: newest,
+      select: { status: true },
+    }),
+    // A run's reply; the brief shown first in the thread has no run.
+    ctx.deps.prisma.message.findFirst({
+      where: { threadId, role: "bot", runId: { not: null } },
+      orderBy: { seq: "desc" },
+      select: { id: true, blocks: true },
+    }),
+  ]);
+  const report = reply ? messageBlocksText(storedMessageBlocks(reply)).trim() : "";
+  return {
+    status: taskThreadStatus(run?.status),
+    report: report.length > REPORT_LIMIT ? `${report.slice(0, REPORT_LIMIT - 1)}…` : report,
+  };
+}
+
+/**
+ * Read where a task this conversation started stands, or, with a message, send it more work,
+ * which runs once the task's last run has ended.
+ */
 export async function followUpTask(
   ctx: RunContext,
   input: { threadId: string; message: string; executionId: string; effectKey: string },
 ) {
-  const message = redactSecrets(input.message.trim(), ctx.secrets);
-  if (!message) return { error: "message is required" };
   const owned = await findOwnedTaskThread(ctx, input.threadId);
   if (!owned) return { error: TASK_THREAD_NOT_FOUND };
   const title = owned.conversationTitle || "Task";
+  const message = redactSecrets(input.message.trim(), ctx.secrets);
+  if (!message) {
+    return {
+      ok: true as const,
+      threadId: owned.id,
+      title,
+      ...(await taskThreadState(ctx, owned.id)),
+      link: taskThreadLink(ctx.bot.id, owned.id),
+    };
+  }
   const started = await startBackgroundHelper(ctx, {
     name: title,
     task: message,
@@ -113,9 +154,27 @@ export async function followUpTask(
     ok: true as const,
     threadId: owned.id,
     title,
+    status: "running" as const,
     link: taskThreadLink(ctx.bot.id, owned.id),
     note: started.note,
   };
+}
+
+/**
+ * stop_task's approval card, naming the task. Nothing for a thread this conversation did not
+ * start, so no card shows for it.
+ */
+export async function stopTaskSummary(
+  ctx: RunContext,
+  threadId: string,
+): Promise<FleetCardSummary | undefined> {
+  const owned = await findOwnedTaskThread(ctx, threadId);
+  if (!owned) return undefined;
+  const title = (owned.conversationTitle || "Task").replace(
+    new RegExp(CARD_TITLE_ESCAPED_CHARACTERS, "g"),
+    "\\$&",
+  );
+  return { title: `Stop task “${title}”?`, lines: [] };
 }
 
 /**

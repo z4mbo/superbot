@@ -388,6 +388,11 @@ describe("narrateTool", () => {
     expect(narrateTool("glob")).toBe("searching");
     expect(narrateTool("process_manage")).toBe("running a command");
     expect(narrateTool("run_subagent")).toBe("starting a subagent");
+    expect(narrateTool("delegate")).toBe("starting a task");
+    expect(narrateTool("follow_up")).toBe("following up on a task");
+    expect(narrateTool("stop_task")).toBe("stopping a task");
+    expect(narrateTool("link_to_thread")).toBe("finding a task");
+    expect(narrateTool("offer_check_in")).toBe("offering a check-in");
     expect(narrateTool("list_fleet")).toBe("checking your bots");
     expect(narrateTool("create_group")).toBe("creating a group");
     expect(narrateTool("update_group")).toBe("updating a group");

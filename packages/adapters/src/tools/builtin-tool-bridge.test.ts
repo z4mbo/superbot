@@ -69,8 +69,9 @@ describe("built-in tool bridge", () => {
     // today's daily note and save to the profile of the person the bot works for; the media area
     // names the two app tools. find_apps, open_app, remove_mcp_server and delete_shared_memory are
     // deferred and cost only their names in the find_tool index. edit_file, search_files and glob
-    // are listed beside the other file tools; process_manage is deferred.
-    expect(definitionBytes(listed)).toBeLessThanOrEqual(38_897);
+    // are listed beside the other file tools; process_manage is deferred. delegate is listed beside
+    // run_subagent; the tools that act on its task threads are deferred.
+    expect(definitionBytes(listed)).toBeLessThanOrEqual(39_648);
     expect(deferred.map((tool) => tool.name)).toEqual(
       expect.arrayContaining([
         "render_plot",

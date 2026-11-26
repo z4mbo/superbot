@@ -146,13 +146,18 @@ export function isBuiltinToolName(name: string): name is BuiltinToolName {
 
 /**
  * Built-ins that do part of another's job, so turning that one off turns them off too: a bot
- * without shell starts no background command, and one without write_file edits no file.
+ * without shell starts no background command, one without write_file edits no file, and one
+ * without delegate has no task threads to follow up, stop or link to.
  */
 const BUILTIN_TOOL_FOLLOWS: Readonly<Partial<Record<BuiltinToolName, BuiltinToolName>>> = {
   edit_file: "write_file",
   search_files: "read_file",
   glob: "list_files",
   process_manage: "shell",
+  follow_up: "delegate",
+  stop_task: "delegate",
+  link_to_thread: "delegate",
+  offer_check_in: "schedule_create",
 };
 
 /** Whether a built-in is off, by its own name or the tool it follows. */

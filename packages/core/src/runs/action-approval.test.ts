@@ -103,11 +103,14 @@ describe("toolRequiresApproval", () => {
     }
   });
 
-  it("treats task threads like subagents: the bot's own work, started and stopped without a card", () => {
-    for (const name of ["delegate", "follow_up", "stop_task", "link_to_thread"]) {
+  it("treats task threads like subagents, but asks before stopping one", () => {
+    for (const name of ["delegate", "follow_up", "link_to_thread"]) {
       expect(toolRequiresApproval(name, false)).toBe(false);
       expect(toolRequiresExplicitApproval(name)).toBe(false);
     }
+    // Gated like other actions that end work: a rule or Never ask may pass it.
+    expect(toolRequiresApproval("stop_task", false)).toBe(true);
+    expect(toolRequiresExplicitApproval("stop_task")).toBe(false);
     // Only listing them is free in a run outside text started; the rest are gated there.
     expect(outsideRunToolRequiresApproval("webhook", "link_to_thread")).toBe(false);
     for (const name of ["delegate", "follow_up", "stop_task"]) {

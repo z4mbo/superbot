@@ -1099,3 +1099,42 @@ it("leaves plain questions to the composer and dims the question after answering
   ).toBe(true);
   expect(container.textContent).not.toContain("Paris");
 });
+
+const checkInOffer: AskBlock = {
+  kind: "ask",
+  approvalEffectId: "effect-1",
+  text: "Check in on Launch brief in Notion every weekday at 9:00?",
+  detail: "Look for new comments and summarize them.",
+  detailFormat: "text",
+  checkInOffer: true,
+  status: "pending",
+  actions: [
+    { id: "allow", label: "Set it up" },
+    { id: "deny", label: "No thanks" },
+  ],
+};
+
+it("offers a check-in the person sets up or turns down", async () => {
+  const onAnswer = vi.fn(async () => undefined);
+  await render(checkInOffer, undefined, onAnswer);
+  expect(container.textContent).toContain("Check in on Launch brief in Notion");
+  expect([...container.querySelectorAll("button")].map((item) => item.textContent)).toEqual([
+    "Set it up",
+    "No thanks",
+  ]);
+  await act(async () => button("Set it up")!.click());
+  expect(onAnswer).toHaveBeenCalledWith("allow");
+
+  onAnswer.mockClear();
+  await render({ ...checkInOffer, approvalEffectId: "effect-2" }, undefined, onAnswer);
+  await act(async () => button("No thanks")!.click());
+  expect(onAnswer).toHaveBeenCalledWith("deny");
+});
+
+it("shows an answered check-in offer as set up or dismissed", async () => {
+  await render({ ...checkInOffer, status: "answered", answer: "allow" });
+  expect(container.textContent).toContain("Set up");
+  expect(container.querySelector("button")).toBeNull();
+  await render({ ...checkInOffer, status: "answered", answer: "deny" });
+  expect(container.textContent).toContain("Dismissed");
+});

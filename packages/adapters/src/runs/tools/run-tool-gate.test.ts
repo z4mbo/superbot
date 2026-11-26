@@ -31,6 +31,11 @@ vi.mock("../lifecycle/run-effects.js", async (importOriginal) => ({
     throw new Error("asks the user");
   }),
 }));
+// Whether a check-in offer can be shown is tested beside it; here every offer can.
+vi.mock("../../tasks/check-in-offer.js", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  checkInOfferRefusal: vi.fn(async () => undefined),
+}));
 
 const loginUse = {
   kind: "login" as const,
@@ -368,5 +373,103 @@ describe("gateToolCall: background processes", () => {
         await planFor("edit_file", { path: "a.txt", old_string: "a", new_string: "b" }, trigger),
       ).toEqual(await planFor("write_file", { path: "a.txt", content: "b" }, trigger));
     }
+  });
+});
+
+describe("gateToolCall: task threads", () => {
+  const run = async (
+    name: string,
+    args: Record<string, unknown>,
+    options: { owned?: boolean; neverAsk?: boolean } = {},
+  ) => {
+    plans.length = 0;
+    const executionId = JSON.stringify(["pi-tool", "main", "call-1"]);
+    const request = {
+      name,
+      args,
+      executionId,
+      connectorCall: { tool: name, args, executionId, route: undefined },
+      effectRequest: args,
+      replayEffectToolName: name,
+      heldForApproval: false,
+      settingsChange: false,
+      ignoresAllowRules: false,
+    } as unknown as ToolRequest;
+    const findFirst = vi.fn(async () =>
+      options.owned === false ? null : { id: "task-1", conversationTitle: "Venue shortlist" },
+    );
+    const ctx = {
+      deps: { prisma: { thread: { findFirst } } },
+      run: { id: "run-1", userId: "user-1", spaceId: "space-1", trigger: "user" },
+      runId: "run-1",
+      bot: { id: "bot-1", name: "Helper" },
+      thread: { id: "thread-1" },
+      context: { signal: new AbortController().signal },
+      source: { ownerStartedRun: true },
+      tools: { connector: new Map(), connectedPlugins: [] },
+      state: {
+        tainted: false,
+        effects: { consumedIds: new Set(), counts: new Map(), occurrences: [] },
+      },
+      trust: {
+        loadApprovalRules: async () => [],
+        loadAutoReviewPreference: async () => ({
+          enabled: false,
+          skipApprovals: Boolean(options.neverAsk),
+        }),
+      },
+    };
+    const prepared = await prepareToolRequest(ctx as never, request);
+    if (prepared) return { prepared, plans: [...plans], request, findFirst };
+    const outcome = await gateToolCall(ctx as never, request, undefined).catch(
+      (error: Error) => error.message,
+    );
+    return { outcome, plans: [...plans], request, findFirst };
+  };
+
+  it("asks before stopping a task, with a card that names it", async () => {
+    const stop = await run("stop_task", { threadId: "task-1" });
+    expect(stop.plans).toEqual(["ask"]);
+    expect(stop.outcome).toBe("asks the user");
+    expect(stop.request.fleetSummary).toEqual({ title: "Stop task “Venue shortlist”?", lines: [] });
+    expect(stop.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          spaceId: "space-1",
+          userId: "user-1",
+          conversationBotId: "bot-1",
+          parentThreadId: "thread-1",
+          id: "task-1",
+        },
+      }),
+    );
+  });
+
+  it("shows no card for a thread this conversation did not start", async () => {
+    const stop = await run("stop_task", { threadId: "elsewhere" }, { owned: false });
+    expect(stop.prepared).toMatchObject({ error: expect.stringContaining("started no open task") });
+    expect(stop.plans).toEqual([]);
+  });
+
+  it("starts, follows up and lists task threads without a card", async () => {
+    for (const [name, args] of [
+      ["delegate", { brief: "Shortlist venues" }],
+      ["follow_up", { threadId: "task-1", message: "Add parking" }],
+      ["link_to_thread", {}],
+    ] as const) {
+      const { plans: planned, prepared } = await run(name, args);
+      expect(prepared, name).toBeUndefined();
+      expect(planned, name).not.toContain("ask");
+    }
+  });
+
+  it("never accepts a check-in for the person in Never ask", async () => {
+    const offer = await run(
+      "offer_check_in",
+      { subject: "Launch brief", prompt: "Look for comments.", delayMinutes: 60 },
+      { neverAsk: true },
+    );
+    expect(offer.plans).toEqual(["deny"]);
+    expect(JSON.stringify(offer.outcome)).toContain("needs the person's answer");
   });
 });

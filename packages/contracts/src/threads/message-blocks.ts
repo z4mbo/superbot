@@ -164,6 +164,11 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     sharedBrowser: z.literal(true).optional(),
     /** On a fetch approval, the site an "always" answer allows. */
     site: z.string().optional(),
+    /**
+     * An offered check-in: allow sets it up and deny turns it down. Readers from before it drop
+     * the field and show the card as a plain approval with the same answers.
+     */
+    checkInOffer: z.literal(true).optional(),
     status: z.enum(["pending", "answered"]).optional(),
     answer: z.string().optional(),
     /** Composer message that durably records this answer; absent on older or card-only replies. */
@@ -179,8 +184,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
         z.object({
           id: z.string(),
           label: z.string(),
-          /** Labels the action by what it does: creates a space, or sets up a check-in. */
-          outcome: z.enum(["created", "cancelled", "scheduled", "dismissed"]).optional(),
+          outcome: z.enum(["created", "cancelled"]).optional(),
         }),
       )
       .optional(),
