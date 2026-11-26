@@ -48,6 +48,29 @@ A bot can leave a long-running command, such as a dev server or a file watcher, 
 computer, then check its output or stop it in a later message. It asks you before it stops one. A
 process stops when its computer goes to sleep or is rebuilt, and the bot sees that it stopped.
 
+## Running code
+
+A bot can run a short Python snippet on its computer and read what it printed, its exit code and
+the value of its last line, as in a notebook. It runs with the same files, packages and command
+variables as the bot's terminal, and asks you exactly when a terminal command would. A snippet stops
+after 30 seconds unless the bot asks for up to a minute, and everything it started stops with it;
+longer work goes in the terminal. The snippet cannot use the bot's other tools.
+
+## Page dialogs and the raw page protocol
+
+When a page opens a JavaScript dialog, the page tools report it instead of waiting on it, and the
+bot answers it with `browser_dialog`. It dismisses any dialog, and accepts an alert or "Leave
+site?", by itself. Accepting a confirm or a prompt can submit what the page asks about, so the bot
+asks you first and shows the dialog's message; it accepts only that same dialog. A dialog left open
+stays on the screen for you or the bot's next page step.
+
+For what the page tools cannot do, the bot can send one Chrome DevTools Protocol command to the tab
+it opened with `browser_cdp`. Reading the page's structure runs at once; running script, sending
+keys or clicks, and changing styles or the emulated device ask you every time. Navigation, cookies,
+storage, network data, other tabs and the browser itself are always refused, and nothing runs while
+the page holds a password or a login or card the bot filled in. Each command runs in a session of
+its own, so nothing it turns on keeps running after it.
+
 ## Fix a computer
 
 On web and desktop, open the bot's computer. If the screen cannot connect, try **Retry screen**.

@@ -20,6 +20,7 @@ const PAGE_STATE_TOOL_NAMES = new Set([
   "browser_navigate",
   "browser_snapshot",
   "browser_act",
+  "browser_dialog",
   "computer_observe",
   "computer_act",
 ]);

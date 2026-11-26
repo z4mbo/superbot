@@ -1,6 +1,17 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { PURCHASE_CARD_FIELDS } from "@rakazo/contracts";
+import {
+  BROWSER_DIALOG_ACTIONS,
+  DIALOG_PROMPT_TEXT_MAX_CHARS,
+} from "../browser/browser-control-tools.js";
 import { BROWSER_ACT_KINDS } from "../browser/browser-tools.js";
+import {
+  EXECUTE_CODE_DEFAULT_TIMEOUT_SECONDS,
+  EXECUTE_CODE_LANGUAGES,
+  EXECUTE_CODE_MAX_CHARS,
+  EXECUTE_CODE_MAX_TIMEOUT_SECONDS,
+  EXECUTE_CODE_OUTPUT_MAX_CHARS,
+} from "./workspace/execute-code.js";
 
 export const READ_FILE_MAX_BYTES = 250_000;
 export const READ_FILE_MAX_KB = READ_FILE_MAX_BYTES / 1000;
@@ -154,6 +165,39 @@ export const computerTools: ConnectorTool[] = [
     },
   },
   {
+    name: "browser_dialog",
+    description:
+      'Accept or dismiss the JavaScript dialog (alert, confirm, prompt or "Leave site?") the page has open, which page tools report as dialog. Accepting a confirm or prompt asks the user first, showing its message; prompt_text is typed into a prompt. If no dialog is open, nothing happens.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: [...BROWSER_DIALOG_ACTIONS] },
+        prompt_text: {
+          type: "string",
+          maxLength: DIALOG_PROMPT_TEXT_MAX_CHARS,
+          description: "For accept on a prompt dialog.",
+        },
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "browser_cdp",
+    description:
+      "Send one Chrome DevTools Protocol command to the page browser's open tab, after browser_navigate opened a page. Only when browser_snapshot and browser_act cannot do it. Reads of the page's structure (DOM.getDocument, Accessibility.getFullAXTree, Page.getLayoutMetrics) run at once; commands that act on the page (Runtime.evaluate, Input.*, CSS, Emulation) ask the user each time. Navigation, cookies, storage, network data, other tabs and the browser itself are refused: use browser_navigate to open pages. Each command runs in a fresh session, so node ids and enabled domains do not carry over; use backendNodeId. Credentials in the result are redacted, and it is off on a page holding a password or a saved login or card.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        method: {
+          type: "string",
+          description: "A protocol method, such as DOM.getDocument.",
+        },
+        params: { type: "object", description: "The method's parameters." },
+      },
+      required: ["method"],
+    },
+  },
+  {
     name: "list_files",
     description:
       "List files and directories in this bot's home. On a Team Computer, relative paths use the bot folder; use shared/... for shared work or bots/... to inspect the Team root.",
@@ -191,32 +235,29 @@ export const computerTools: ConnectorTool[] = [
   {
     name: "edit_file",
     description:
-      "Change part of a UTF-8 text file in this bot's home without rewriting it. Either replace old_string with new_string (old_string must match the file exactly and only once unless replace_all is set), or apply patch, a unified diff for this one file whose context lines must match. The file keeps its line endings. Paths resolve as for write_file.",
+      "Change part of a UTF-8 text file in this bot's home: replace old_string, which must match exactly and once unless replace_all, with new_string (empty deletes it); or apply patch, a unified diff of this file whose context must match. Line endings are kept. Paths resolve as for write_file.",
     inputSchema: {
       type: "object",
       properties: {
         path: { type: "string" },
-        old_string: { type: "string", description: "Exact text to replace, including whitespace." },
-        new_string: { type: "string", description: "Replacement text; empty deletes old_string." },
-        replace_all: { type: "boolean", description: "Replace every match of old_string." },
-        patch: {
-          type: "string",
-          description: "Unified diff with @@ hunks. Use instead of old_string and new_string.",
-        },
+        old_string: { type: "string", description: "Including whitespace." },
+        new_string: { type: "string" },
+        replace_all: { type: "boolean" },
+        patch: { type: "string", description: "With @@ hunks, instead of old_string." },
       },
       required: ["path"],
     },
   },
   {
     name: "search_files",
-    description: `Search file contents in this bot's home with a regular expression. Returns file, line number and the matching line, at most ${SEARCH_FILES_DEFAULT_MATCHES} matches unless max_matches is set (up to ${SEARCH_FILES_MAX_MATCHES}); truncated means there were more. Skips hidden files and node_modules. Paths resolve as for read_file.`,
+    description: `Search file contents in this bot's home by regular expression. Returns file, line number and line of each match, ${SEARCH_FILES_DEFAULT_MATCHES} unless max_matches (up to ${SEARCH_FILES_MAX_MATCHES}); truncated means more. Skips hidden files and node_modules. Paths resolve as for read_file.`,
     inputSchema: {
       type: "object",
       properties: {
-        pattern: { type: "string", description: "Regular expression to find." },
-        path: { type: "string", description: "Folder or file to search; defaults to your home." },
-        glob: { type: "string", description: "Only files whose name matches, such as *.ts." },
-        case_sensitive: { type: "boolean", description: "Defaults to true." },
+        pattern: { type: "string" },
+        path: { type: "string", description: "Folder or file; default your home." },
+        glob: { type: "string", description: "File name filter, e.g. *.ts." },
+        case_sensitive: { type: "boolean", description: "Default true." },
         max_matches: { type: "integer" },
       },
       required: ["pattern"],
@@ -224,12 +265,12 @@ export const computerTools: ConnectorTool[] = [
   },
   {
     name: "glob",
-    description: `Find files in this bot's home whose path under path matches a glob pattern, such as **/*.{ts,tsx} or src/*.md; ** matches any depth. Skips .git and node_modules. Returns at most ${GLOB_DEFAULT_RESULTS} paths unless max_results is set (up to ${GLOB_MAX_RESULTS}); truncated means there were more.`,
+    description: `Find files in this bot's home whose path under path matches a glob, e.g. **/*.{ts,tsx}; ** matches any depth. Skips .git and node_modules. Returns ${GLOB_DEFAULT_RESULTS} paths unless max_results (up to ${GLOB_MAX_RESULTS}); truncated means more.`,
     inputSchema: {
       type: "object",
       properties: {
         pattern: { type: "string" },
-        path: { type: "string", description: "Folder to search; defaults to your home." },
+        path: { type: "string", description: "Folder; default your home." },
         max_results: { type: "integer" },
       },
       required: ["pattern"],
@@ -252,7 +293,7 @@ export const computerTools: ConnectorTool[] = [
   {
     name: "shell",
     description:
-      "Run a command inside this bot's computer. cwd defaults to the bot's folder on a Team Computer and the workspace root on a Private Computer. Output can arrive while the command is still running; tell the user any one-time code or sign-in URL in that output. A command is stopped after a few minutes, so on Linux or macOS start longer work, such as a coding agent CLI, as its own statement `nohup <command> < /dev/null > <log> 2>&1 &`, never after `&&`, and read the log to follow it. For a server or watcher you will check on or stop later, use process_manage.",
+      "Run a command inside this bot's computer. cwd defaults to the bot's folder on a Team Computer and the workspace root on a Private Computer. Output can arrive while the command is still running; tell the user any one-time code or sign-in URL in that output. A command is stopped after a few minutes, so on Linux or macOS start longer work, such as a coding agent CLI, as its own statement `nohup <command> < /dev/null > <log> 2>&1 &`, never after `&&`, and read the log to follow it. Use process_manage for a server you will check or stop later.",
     inputSchema: {
       type: "object",
       properties: {
@@ -263,9 +304,26 @@ export const computerTools: ConnectorTool[] = [
     },
   },
   {
+    name: "execute_code",
+    description: `Run a short Python snippet as python3 in the bot's folder, with shell's files, packages and variables. Returns stdout, stderr, exit code, whether it timed out, and result: the last line's value if it is an expression, as in a notebook. Stopped after timeout_seconds (default ${EXECUTE_CODE_DEFAULT_TIMEOUT_SECONDS}, at most ${EXECUTE_CODE_MAX_TIMEOUT_SECONDS}); each stream is cut past ${EXECUTE_CODE_OUTPUT_MAX_CHARS} characters. It cannot call your other tools. For longer jobs or other languages, use shell.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        code: { type: "string", maxLength: EXECUTE_CODE_MAX_CHARS },
+        language: { type: "string", enum: [...EXECUTE_CODE_LANGUAGES] },
+        timeout_seconds: {
+          type: "number",
+          minimum: 1,
+          maximum: EXECUTE_CODE_MAX_TIMEOUT_SECONDS,
+        },
+      },
+      required: ["code"],
+    },
+  },
+  {
     name: "process_manage",
     description:
-      "Run a long-lived command, such as a dev server or file watcher, in the background on this bot's computer and manage it later, also from later runs. start returns an id; list shows the processes you started; check returns one's status, exit code and the end of its output; kill stops it and everything it started. Only processes started here can be checked or stopped. cwd works as for shell.",
+      "Run a long-lived command, such as a dev server or watcher, in the background on this bot's computer, and manage it from this or later runs. start returns an id; list shows yours; check gives status, exit code and output tail; kill stops it and everything it started. Only processes started here can be checked or stopped. cwd as for shell.",
     inputSchema: {
       type: "object",
       properties: {

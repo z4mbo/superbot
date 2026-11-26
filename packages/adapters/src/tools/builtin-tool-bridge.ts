@@ -16,7 +16,8 @@ const FIND_TOOL_LIMIT = 3;
 /**
  * Built-in tools the model always sees with full schemas: everyday work, and every tool the
  * runtime answers itself. Other built-ins offered to a run are reached through find_tool and
- * use_tool, so the listed tools stay small and never change mid-run.
+ * use_tool, so the listed tools stay small and never change mid-run. Adding a tool here or to
+ * the built-ins grows what a small model must fit: run models/model-context.test.ts too.
  */
 export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
   "shell",
@@ -25,8 +26,6 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
   "read_file",
   "write_file",
   "edit_file",
-  "search_files",
-  "glob",
   "list_files",
   "attach_file",
   "web_search",
@@ -46,7 +45,6 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
   "request_secret",
   "connect_app",
   "run_subagent",
-  "delegate",
   "message_bot",
   "skill_read",
   "update_bot",
@@ -67,8 +65,8 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
 
 const FLEET_NAMES: ReadonlySet<string> = new Set(FLEET_TOOL_NAMES);
 
-/** The deferred task-thread tools; delegate itself is always listed. */
 const TASK_THREAD_AREA: ReadonlySet<string> = new Set([
+  "delegate",
   "follow_up",
   "stop_task",
   "link_to_thread",
@@ -79,6 +77,8 @@ const AREAS: Array<[area: string, matches: (name: string) => boolean]> = [
   ["secrets", (name) => name.includes("secret")],
   ["bots", (name) => FLEET_NAMES.has(name) || name.endsWith("_bot") || name === "post_to_group"],
   ["task threads", (name) => TASK_THREAD_AREA.has(name)],
+  ["files", (name) => name === "search_files" || name === "glob"],
+  ["computer", (name) => name === "process_manage" || name === "execute_code"],
   [
     "tasks",
     (name) =>

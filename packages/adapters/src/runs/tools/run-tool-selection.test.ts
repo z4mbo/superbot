@@ -125,7 +125,7 @@ describe("unavailableBuiltinToolReasons", () => {
 });
 
 describe("workspace tool selection", () => {
-  const WORKSPACE_TOOLS = ["edit_file", "search_files", "glob", "process_manage"];
+  const WORKSPACE_TOOLS = ["edit_file", "search_files", "glob", "process_manage", "execute_code"];
   const names = (options: { trigger?: string; disabledBuiltinTools?: string[] } = {}) =>
     selectBuiltinToolsForRun({
       graphicalToolsAllowed: false,
@@ -153,7 +153,7 @@ describe("workspace tool selection", () => {
       ["write_file", ["edit_file"]],
       ["read_file", ["search_files"]],
       ["list_files", ["glob"]],
-      ["shell", ["process_manage"]],
+      ["shell", ["process_manage", "execute_code"]],
     ];
     for (const [parent, followers] of cases) {
       const offered = names({ disabledBuiltinTools: [parent] });
@@ -170,6 +170,45 @@ describe("workspace tool selection", () => {
     const offered = names({ disabledBuiltinTools: ["process_manage"] });
     expect(offered).toContain("shell");
     expect(offered).not.toContain("process_manage");
+  });
+});
+
+describe("page control tool selection", () => {
+  const CONTROL = ["browser_cdp", "browser_dialog"];
+  const names = (options: Partial<Parameters<typeof selectBuiltinToolsForRun>[0]> = {}) =>
+    selectBuiltinToolsForRun({
+      graphicalToolsAllowed: true,
+      groupId: null,
+      trigger: "user",
+      semanticMemoryEnabled: false,
+      messagingChannelRun: false,
+      ...options,
+    }).map((tool) => tool.name);
+
+  it("offers browser_cdp and browser_dialog exactly where the other page tools are", () => {
+    for (const pageBrowserAllowed of [true, false]) {
+      const offered = names({ pageBrowserAllowed });
+      for (const name of CONTROL)
+        expect(offered.includes(name), `${name} ${pageBrowserAllowed}`).toBe(
+          offered.includes("browser_act"),
+        );
+    }
+    expect(names({ graphicalToolsAllowed: false })).not.toContain("browser_cdp");
+  });
+
+  it("turns both off with browser_act, and each alone", () => {
+    const withoutAct = names({ disabledBuiltinTools: ["browser_act"] });
+    for (const name of CONTROL) expect(withoutAct).not.toContain(name);
+    expect(withoutAct).toContain("browser_snapshot");
+    const reasons = unavailableBuiltinToolReasons(
+      { groupId: null, trigger: "user", disabledBuiltinTools: ["browser_act"] },
+      withoutAct.map((name) => ({ name })),
+    );
+    for (const name of CONTROL) expect(reasons[name]).toBeDefined();
+    const withoutCdp = names({ disabledBuiltinTools: ["browser_cdp"] });
+    expect(withoutCdp).toContain("browser_dialog");
+    expect(withoutCdp).toContain("browser_act");
+    expect(withoutCdp).not.toContain("browser_cdp");
   });
 });
 

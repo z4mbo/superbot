@@ -1,4 +1,4 @@
-import { checkInSchedule } from "../../tasks/check-in-offer.js";
+import { checkInSchedule, checkInTimingError } from "../../tasks/check-in-offer.js";
 import { delegateTask, followUpTask, listTaskThreads, stopTask } from "../../tasks/task-threads.js";
 import { createScheduleFromTool } from "../../tools/schedule-tools.js";
 import type { ToolHandlers } from "./run-tool-gate.js";
@@ -39,6 +39,8 @@ export const taskThreadTools: ToolHandlers = {
   /** Runs only once the person accepted the offer's card: the same save schedule_create makes. */
   async offer_check_in(ctx, call) {
     const { deps, run, bot, thread } = ctx;
+    const timingError = checkInTimingError(call.args);
+    if (timingError) return call.finish({ error: timingError });
     return call.finish(
       await createScheduleFromTool(deps, {
         spaceId: run.spaceId,

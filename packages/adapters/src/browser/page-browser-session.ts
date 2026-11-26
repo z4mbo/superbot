@@ -1,6 +1,7 @@
 import type {
   BrowserActResult,
   BrowserActStep,
+  BrowserDialog,
   BrowserNavigateResult,
   BrowserSnapshotNode,
   BrowserSnapshotResult,
@@ -64,6 +65,11 @@ export class PageBrowserSession {
   /** Fields holding a saved login or card detail; snapshots never report their values. */
   private loginFilled = new WeakSet<DomElement>();
   private nextRef = 1;
+  /** A JavaScript dialog open on the page, as a test opens it: the page takes no input until it closes. */
+  dialog: BrowserDialog | undefined;
+  /** How each dialog was answered, oldest first. */
+  readonly dialogAnswers: Array<BrowserDialog & { action: "accept" | "dismiss"; text?: string }> =
+    [];
 
   constructor(
     url = "about:blank",
@@ -90,6 +96,19 @@ export class PageBrowserSession {
     this.dom = new JSDOM(html, { url, contentType: "text/html", pretendToBeVisual: true });
     this.refs.clear();
     return { url: this.url, title: this.title };
+  }
+
+  /**
+   * Whether the page holds a secret value: a password typed into a field, or a field a saved login,
+   * card or code was filled into. Raw protocol commands are refused on such a page.
+   */
+  holdsSecret(): boolean {
+    const win = this.dom.window;
+    return [...win.document.querySelectorAll("input, textarea, select")].some(
+      (field) =>
+        this.loginFilled.has(field) ||
+        (field instanceof win.HTMLInputElement && field.type === "password" && field.value !== ""),
+    );
   }
 
   snapshot(): BrowserSnapshotResult {
@@ -562,6 +581,11 @@ export class PageBrowserSessionStore {
       this.sessions.set(sessionKey, session);
     }
     return session;
+  }
+
+  /** The session already open under this key, without opening one. */
+  peek(sessionKey: string): PageBrowserSession | undefined {
+    return this.sessions.get(sessionKey);
   }
 
   clear(sessionKey?: string): void {

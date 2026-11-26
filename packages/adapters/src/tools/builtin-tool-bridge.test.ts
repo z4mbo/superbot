@@ -32,10 +32,8 @@ describe("built-in tool bridge", () => {
       "ask_user",
       "attach_file",
       "connect_app",
-      "delegate",
       "edit_file",
       "find_tool",
-      "glob",
       "list_files",
       "message_bot",
       "message_user",
@@ -47,7 +45,6 @@ describe("built-in tool bridge", () => {
       "run_subagent",
       "schedule_create",
       "schedule_list",
-      "search_files",
       "search_history",
       "shell",
       "skill_read",
@@ -68,10 +65,11 @@ describe("built-in tool bridge", () => {
     // remember can log to
     // today's daily note and save to the profile of the person the bot works for; the media area
     // names the two app tools. find_apps, open_app, remove_mcp_server and delete_shared_memory are
-    // deferred and cost only their names in the find_tool index. edit_file, search_files and glob
-    // are listed beside the other file tools; process_manage is deferred. delegate is listed beside
-    // run_subagent; the tools that act on its task threads are deferred.
-    expect(definitionBytes(listed)).toBeLessThanOrEqual(39_648);
+    // deferred and cost only their names in the find_tool index. edit_file is listed beside the
+    // other file tools; search_files, glob, process_manage and execute_code are deferred, as are
+    // delegate and the tools that act on its task threads. Listing more also has to fit a small
+    // model's window: models/model-context.test.ts counts every offered tool.
+    expect(definitionBytes(listed)).toBeLessThanOrEqual(37_570);
     expect(deferred.map((tool) => tool.name)).toEqual(
       expect.arrayContaining([
         "render_plot",
@@ -79,8 +77,15 @@ describe("built-in tool bridge", () => {
         "generate_secret",
         "scratchpad_add",
         "process_manage",
+        "execute_code",
+        "search_files",
+        "glob",
+        "delegate",
       ]),
     );
+    // Rarely needed: a page dialog or a raw protocol command is found when the page asks for it.
+    expect(listed.map((tool) => tool.name)).not.toEqual(expect.arrayContaining(["browser_cdp"]));
+    expect(listed.map((tool) => tool.name)).not.toEqual(expect.arrayContaining(["browser_dialog"]));
   });
 
   it("lists keyed research tools in full once a saved key offers them", () => {
@@ -117,12 +122,13 @@ describe("built-in tool bridge", () => {
     expect(listed.some((tool) => tool.name === USE_TOOL)).toBe(true);
   });
 
-  it("keeps delegate listed and the other task thread tools in their own area", () => {
+  it("names the task thread, file search and process tools in their own areas", () => {
     const { listed, deferred } = partitionTools(ownerChat);
-    expect(listed.map((tool) => tool.name)).toContain("delegate");
     const description = listed.find((tool) => tool.name === FIND_TOOL)!.description;
-    expect(description).toContain("task threads:");
-    for (const name of ["follow_up", "stop_task", "link_to_thread", "offer_check_in"]) {
+    expect(description).toContain("task threads:\n  delegate, follow_up");
+    expect(description).toContain("files:\n  glob, search_files");
+    expect(description).toContain("computer:\n  execute_code, process_manage");
+    for (const name of ["delegate", "follow_up", "stop_task", "link_to_thread", "offer_check_in"]) {
       expect(deferred.map((tool) => tool.name)).toContain(name);
     }
   });
@@ -142,6 +148,13 @@ describe("built-in tool bridge", () => {
     expect(names("generate password")[0]).toBe("generate_secret");
     expect(names("scratchpad add")[0]).toBe("scratchpad_add");
     expect(names("scratchpad").length).toBe(3);
+    expect(names("delegate")[0]).toBe("delegate");
+    expect(names("task thread")).toContain("delegate");
+    expect(names("search file contents")[0]).toBe("search_files");
+    expect(names("find files glob")[0]).toBe("glob");
+    expect(names("run python")[0]).toBe("execute_code");
+    expect(names("dev server background")[0]).toBe("process_manage");
+    expect(names("stop task")[0]).toBe("stop_task");
     expect(findTools(deferred, { query: "zzzz" })).toMatchObject({
       tools: [],
       hint: expect.any(String),

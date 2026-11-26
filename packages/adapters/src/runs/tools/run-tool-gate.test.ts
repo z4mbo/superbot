@@ -1,6 +1,7 @@
 import type * as Core from "@rakazo/core";
 import type * as Db from "@rakazo/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CHECK_IN_TIMING_REQUIRED, checkInOfferRefusal } from "../../tasks/check-in-offer.js";
 import { recordEffect } from "../lifecycle/run-effects.js";
 import { gateToolCall } from "./run-tool-gate.js";
 import type { ToolRequest } from "./run-tool-request.js";
@@ -69,6 +70,7 @@ function gate(options: {
     heldForApproval: false,
     settingsChange: false,
     ignoresAllowRules: false,
+    personEveryTime: false,
     purchase: undefined,
     cardUse: undefined,
     loginUse: options.asks === false ? undefined : loginUse,
@@ -152,6 +154,7 @@ describe("gateToolCall: typing into a page after outside content, in Auto", () =
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: { prisma: {}, autoReview: {} },
@@ -221,6 +224,7 @@ describe("gateToolCall: a nightly memory review", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: {
@@ -281,6 +285,7 @@ describe("gateToolCall: deleting saved state from chat", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: { prisma: {} },
@@ -324,6 +329,7 @@ describe("gateToolCall: background processes", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: { prisma: {} },
@@ -394,6 +400,7 @@ describe("gateToolCall: task threads", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const findFirst = vi.fn(async () =>
       options.owned === false ? null : { id: "task-1", conversationTitle: "Venue shortlist" },
@@ -463,6 +470,17 @@ describe("gateToolCall: task threads", () => {
     }
   });
 
+  it("shows no card for a check-in offer that is refused", async () => {
+    vi.mocked(checkInOfferRefusal).mockResolvedValueOnce({ error: CHECK_IN_TIMING_REQUIRED });
+    const offer = await run("offer_check_in", {
+      subject: "Launch brief",
+      prompt: "Look for comments.",
+    });
+    expect(offer.prepared).toMatchObject({ error: CHECK_IN_TIMING_REQUIRED });
+    expect(offer.plans).toEqual([]);
+    expect(offer.request.fleetSummary).toBeUndefined();
+  });
+
   it("never accepts a check-in for the person in Never ask", async () => {
     const offer = await run(
       "offer_check_in",
@@ -488,6 +506,7 @@ describe("gateToolCall: media understanding", () => {
       heldForApproval: false,
       settingsChange: false,
       ignoresAllowRules: false,
+      personEveryTime: false,
     } as unknown as ToolRequest;
     const ctx = {
       deps: { prisma: {} },

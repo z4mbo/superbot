@@ -276,7 +276,7 @@ export const conversationTools: ConnectorTool[] = [
   {
     name: "remove_mcp_server",
     description:
-      "Remove one of the user's remote MCP tool servers from this Space when they ask, along with its saved credentials. Only remove a server the user named. Local (stdio) servers are removed in Settings.",
+      "Remove a remote MCP tool server from this Space with its saved credentials, only one the user named. Local (stdio) servers are removed in Settings.",
     inputSchema: {
       type: "object",
       properties: {

@@ -116,7 +116,7 @@ class FakeAgentBrowser:
             return {"clicked": command[1], "dialogOpened": True}
         if command[:2] == ["dialog", "status"]:
             return {"hasDialog": True, "defaultPrompt": "", **self.dialog} if self.dialog else {"hasDialog": False}
-        if command[:2] == ["dialog", "dismiss"]:
+        if command[:2] in (["dialog", "dismiss"], ["dialog", "accept"]):
             self.dialog = None
             return {}
         if name == "snapshot":
@@ -2751,6 +2751,190 @@ class DownloadTest(unittest.TestCase):
             self.assertEqual(current.act([{"kind": "click", "ref": "e8"}])["completed"], 1)
         self.assertEqual(self.client.download_links, [1.0])
         self.assertIn(["click", "@e8"], browser.sent)
+
+
+class PageControlTest(unittest.TestCase):
+    """browser_dialog and browser_cdp on the tab in front: never a new browser or tab, never an unchecked answer."""
+
+    WHERE = {"url": "https://shop.example.test/cart", "title": "Cart"}
+    AFTER = {"url": "https://shop.example.test/done", "title": "Done", "tree": "Done", "elements": []}
+
+    def answer(self, args, dialog=None):
+        browser = FakeAgentBrowser()
+        browser.dialog = dialog
+        current = page(browser)
+        sent = [False]
+        with patch.object(current, "snapshot", return_value=dict(self.AFTER)):
+            result = helper.answer_dialog(current, args, dict(self.WHERE), sent)
+        return result, browser, sent[0]
+
+    def test_with_no_dialog_open_status_reads_the_page_and_an_answer_is_refused_unsent(self):
+        result, browser, sent = self.answer({"action": "status"})
+        self.assertEqual(result, {"ok": True, **self.WHERE})
+        result, browser, sent = self.answer({"action": "accept", "only": ["alert", "beforeunload"]})
+        self.assertEqual((result["ok"], result["uncertain"], result["error"]), (False, False, helper.NO_DIALOG))
+        self.assertFalse(sent)
+        self.assertEqual([c for c in browser.sent if c[:2] != ["dialog", "status"]], [])
+
+    def test_status_names_the_open_dialog_and_its_message(self):
+        result, _, sent = self.answer({"action": "status"}, {"type": "confirm", "message": "Place the order?"})
+        self.assertEqual((result["dialog"], result["message"], result["url"]), ("confirm", "Place the order?", self.WHERE["url"]))
+        self.assertFalse(sent)
+
+    def test_a_confirm_is_not_accepted_without_the_users_approval(self):
+        dialog = {"type": "confirm", "message": "Place the order?"}
+        result, browser, sent = self.answer({"action": "accept", "only": ["alert", "beforeunload"]}, dict(dialog))
+        self.assertFalse(result["ok"])
+        self.assertIn("needs the user", result["error"])
+        self.assertEqual(browser.dialog, dialog)
+        self.assertNotIn(["dialog", "accept"], browser.sent)
+        self.assertFalse(sent)
+        # Nothing to go by at all is not an approval either.
+        result, browser, _ = self.answer({"action": "accept"}, dict(dialog))
+        self.assertFalse(result["ok"])
+        self.assertEqual(browser.dialog, dialog)
+
+    def test_an_approved_confirm_is_accepted_only_while_it_is_the_same_dialog(self):
+        dialog = {"type": "confirm", "message": "Place the order?"}
+        result, browser, sent = self.answer({"action": "accept", "expect": {"type": "confirm", "message": "Delete everything?"}}, dict(dialog))
+        self.assertEqual(result["error"], helper.DIALOG_CHANGED)
+        self.assertEqual(browser.dialog, dialog)
+        result, browser, sent = self.answer({"action": "accept", "expect": dict(dialog)}, dict(dialog))
+        self.assertEqual((result["ok"], result["answered"], result["dialog"], result["url"]), (True, True, "confirm", self.AFTER["url"]))
+        self.assertIn(["dialog", "accept"], browser.sent)
+        self.assertIsNone(browser.dialog)
+        self.assertTrue(sent)
+
+    def test_an_alert_or_leave_site_dialog_is_accepted_unasked_and_any_dialog_can_be_dismissed(self):
+        for kind in ("alert", "beforeunload"):
+            result, browser, _ = self.answer({"action": "accept", "only": ["alert", "beforeunload"]}, {"type": kind, "message": ""})
+            self.assertTrue(result["answered"])
+            self.assertIn(["dialog", "accept"], browser.sent)
+        for kind in helper.DIALOG_TYPES:
+            result, browser, _ = self.answer({"action": "dismiss"}, {"type": kind, "message": "?"})
+            self.assertTrue(result["answered"])
+            self.assertIn(["dialog", "dismiss"], browser.sent)
+
+    def test_prompt_text_is_typed_only_into_a_prompt_and_capped(self):
+        dialog = {"type": "prompt", "message": "Your name?"}
+        result, browser, _ = self.answer({"action": "accept", "expect": dict(dialog), "text": "Ada"}, dict(dialog))
+        self.assertIn(["dialog", "accept", "Ada"], browser.sent)
+        _, browser, _ = self.answer({"action": "accept", "expect": dict(dialog), "text": "x" * 5000}, dict(dialog))
+        self.assertIn(["dialog", "accept", "x" * helper.DIALOG_TEXT_CHARS], browser.sent)
+        _, browser, _ = self.answer({"action": "accept", "only": ["alert"], "text": "Ada"}, {"type": "alert", "message": ""})
+        self.assertIn(["dialog", "accept"], browser.sent)
+
+    def test_a_long_message_is_cut_before_it_is_compared_or_shown(self):
+        long = "a" * 1000
+        result, _, _ = self.answer({"action": "status"}, {"type": "confirm", "message": long})
+        self.assertEqual(result["message"], "a" * helper.DIALOG_MESSAGE_CHARS)
+        result, _, _ = self.answer({"action": "accept", "expect": {"type": "confirm", "message": "a" * 300}}, {"type": "confirm", "message": long})
+        self.assertTrue(result["answered"])
+
+    def control(self, command, args, *, closed=False, tabs=None, ab=None, client=None):
+        tabs = [{"id": "tab-1", "type": "page", "url": "https://shop.example.test/cart", "title": "Cart"}] if tabs is None else tabs
+        browser = ab or FakeAgentBrowser()
+        with patch.object(helper, "browser_closed", return_value=closed), \
+                patch.object(helper, "wait_for_cdp", return_value={}), \
+                patch.object(helper, "page_tabs", return_value=tabs), \
+                patch.object(helper, "AgentBrowser", return_value=browser), \
+                patch.object(helper, "discover_ws_url", return_value="ws://127.0.0.1:9222/devtools/browser/x"), \
+                patch.object(helper.page_secrets, "CdpClient", return_value=client or FakeCdp()), \
+                patch.object(helper.PageBrowser, "snapshot", return_value=dict(self.AFTER)):
+            browser.use_tab = Mock()
+            return helper.run_page_control(command, args), browser
+
+    def test_no_browser_no_tab_or_no_site_open_sends_nothing(self):
+        for options in ({"closed": True}, {"tabs": []}, {"tabs": [{"id": "t", "type": "page", "url": "about:blank"}]},
+                        {"tabs": [{"id": "t", "type": "page", "url": "chrome://newtab/"}]}):
+            client = FakeCdp()
+            for command, args in (("cdp", {"method": "DOM.getDocument"}), ("dialog", {"action": "status"})):
+                result, browser = self.control(command, args, client=client, **options)
+                self.assertEqual((result["ok"], result.get("noPage"), result["uncertain"]), (False, True, False), options)
+                self.assertEqual(client.calls, [])
+                self.assertEqual(browser.sent, [])
+
+    def test_an_answer_with_no_reply_may_have_reached_the_dialog(self):
+        browser = FakeAgentBrowser()
+        browser.dialog = {"type": "alert", "message": "Hi"}
+        original = browser.answer
+
+        def answer(command):
+            if command[:2] == ["dialog", "accept"]:
+                raise RuntimeError(helper.NO_ANSWER)
+            return original(command)
+
+        browser.answer = answer
+        result, _ = self.control("dialog", {"action": "accept", "only": ["alert"]}, ab=browser)
+        self.assertEqual((result["ok"], result["uncertain"]), (False, True))
+        self.assertIn("did not answer", result["error"])
+
+    def test_cdp_refuses_malformed_methods_and_ones_that_leave_the_tab_before_connecting(self):
+        for args in ({"method": "dom.getDocument"}, {"method": "DOM.getDocument;Target.x"}, {"method": "Target.createTarget"},
+                     {"method": "Browser.close"}, {"method": "Page.navigate", "params": {"url": "file:///etc/passwd"}},
+                     {"method": "Network.getAllCookies"}, {"method": "DOM.getDocument", "params": [1]}, {}):
+            client = FakeCdp()
+            result, _ = self.control("cdp", args, client=client)
+            self.assertEqual((result["ok"], result["uncertain"]), (False, False), args)
+            self.assertEqual(client.calls, [])
+
+    def test_cdp_sends_one_command_in_a_session_of_its_own_on_the_front_tab(self):
+        client = FakeCdp({"Page.getLayoutMetrics": {"cssLayoutViewport": {"clientWidth": 1280}}})
+        result, _ = self.control("cdp", {"method": "Page.getLayoutMetrics", "params": {}}, client=client)
+        self.assertEqual(result, {"ok": True, "result": {"cssLayoutViewport": {"clientWidth": 1280}},
+                                  "url": "https://shop.example.test/cart", "title": "Cart"})
+        self.assertEqual([call[0] for call in client.calls],
+                         ["Target.attachToTarget", "Runtime.evaluate", "Page.getLayoutMetrics", "Target.detachFromTarget"])
+        self.assertEqual(client.calls[0][1], {"targetId": "tab-1", "flatten": True})
+        self.assertEqual(client.calls[2][2], "session-1")
+        self.assertTrue(client.closed)
+
+    def test_cdp_sends_nothing_while_the_page_holds_a_secret_or_cannot_say(self):
+        for holds in (True, None, "yes"):
+            client = FakeCdp({"Runtime.evaluate": {"result": {"value": 2}}}, holds=holds)
+            result, _ = self.control("cdp", {"method": "Runtime.evaluate", "params": {"expression": "1+1"}}, client=client)
+            self.assertEqual((result["ok"], result.get("secretOnPage"), result["uncertain"]), (False, True, False), holds)
+            sent = [call for call in client.calls if call[0] == "Runtime.evaluate" and call[1] != {"expression": helper.HOLDS_SECRET, "returnByValue": True}]
+            self.assertEqual(sent, [])
+            self.assertIn("Target.detachFromTarget", [call[0] for call in client.calls])
+
+    def test_cdp_cuts_a_large_result_and_reports_a_failed_command_as_maybe_run(self):
+        client = FakeCdp({"DOM.getOuterHTML": {"outerHTML": "x" * (helper.CDP_RESULT_CHARS + 10)}})
+        result, _ = self.control("cdp", {"method": "DOM.getOuterHTML"}, client=client)
+        self.assertTrue(result["truncated"])
+        self.assertEqual(len(result["result"]), helper.CDP_RESULT_CHARS)
+        client = FakeCdp()
+        result, _ = self.control("cdp", {"method": "Runtime.evaluate", "params": {"expression": "1"}}, client=client)
+        self.assertEqual((result["ok"], result["uncertain"]), (False, True))
+        self.assertIn("Target.detachFromTarget", [call[0] for call in client.calls])
+
+
+class FakeCdp:
+    """The browser-level protocol socket: answers from `results`, fails any other method."""
+
+    def __init__(self, results=None, holds=False):
+        self.results = results or {}
+        self.holds = holds
+        self.calls = []
+        self.closed = False
+
+    def connect(self):
+        pass
+
+    def close(self):
+        self.closed = True
+
+    def call(self, method, params=None, *, session_id=None, timeout_s=10.0):
+        self.calls.append((method, params, session_id))
+        if method == "Target.attachToTarget":
+            return {"sessionId": "session-1"}
+        if method == "Target.detachFromTarget":
+            return {}
+        if method == "Runtime.evaluate" and params.get("expression") == helper.HOLDS_SECRET:
+            return {"result": {"type": "boolean", "value": self.holds}}
+        if method in self.results:
+            return self.results[method]
+        raise RuntimeError(f"{method} failed: {{'message': 'not found'}}")
 
 
 if __name__ == "__main__":

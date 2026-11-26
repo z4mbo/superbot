@@ -43,6 +43,7 @@ import {
   resolveAutoReviewChecker,
 } from "../../approvals/auto-review.js";
 import { pagePaymentPrecheck, paysWithWallet } from "../../billing/spending-gate.js";
+import { classifyCdpMethod } from "../../browser/browser-cdp-policy.js";
 import { marketplaceAppRoute, marketplaceRoute } from "../../integrations/marketplace-runtime.js";
 import { reportBotMessageWait } from "../../messaging/bot-messages.js";
 import { findConnectedModelCredential } from "../../models/model-selection.js";
@@ -94,6 +95,12 @@ const URL_OPTIONAL_SITE_TOOLS: ReadonlySet<string> = new Set([
   "vision_analyze",
   "video_analyze",
 ]);
+
+/**
+ * Built-ins a saved rule for another tool also covers: code runs as a shell command does, so a
+ * space that blocks or always allows shell does the same for execute_code.
+ */
+const RULE_ALIASES: Readonly<Record<string, readonly string[]>> = { execute_code: ["shell"] };
 
 export type AppliedEffect = Awaited<ReturnType<typeof recordEffect>>;
 
@@ -332,10 +339,15 @@ export async function gateToolCall(
   const gated = requiresApprovalByDefault || reviewOnly;
   // In Ask and Auto these ask a person every time, whatever started the run.
   const mandatoryInAnyRun =
-    paying || unattendedWatch || marketplaceWrite || toolRequiresExplicitApproval(name);
+    paying ||
+    unattendedWatch ||
+    marketplaceWrite ||
+    request.personEveryTime ||
+    toolRequiresExplicitApproval(name);
   // Outside text may have asked for these, so an Always allow rule saved for calls the owner asked
   // for does not skip them; they still go through the approval mode.
-  const ignoresAllowRules = routineWrittenAfterOutside || request.ignoresAllowRules;
+  const ignoresAllowRules =
+    routineWrittenAfterOutside || request.ignoresAllowRules || request.personEveryTime;
   // No allow rule skips these, and without them the tool needs no approval, so "Always allow"
   // on their card would save a rule that never takes effect.
   const asksEveryTime =
@@ -347,7 +359,7 @@ export async function gateToolCall(
   const resolvedRules = resolveActionApprovalForTools({
     tools: approvalToolNames.map((toolName) => ({
       name: toolName,
-      aliases: toolName === approvalName && approvalName !== name ? [name] : undefined,
+      aliases: toolName === approvalName && approvalName !== name ? [name] : RULE_ALIASES[toolName],
       connectorKind:
         toolName === approvalName
           ? connectorKind
@@ -405,6 +417,8 @@ export async function gateToolCall(
         mandatory: mandatoryInAnyRun,
         steerable:
           marketplaceWrite ||
+          // Script, input or a confirm answered with nobody asked: Never ask refuses it.
+          request.personEveryTime ||
           // An offer is the person's to answer; Never ask would accept it for them.
           name === OFFER_CHECK_IN_TOOL ||
           (guardedInNeverAsk &&
@@ -692,13 +706,17 @@ export async function gateToolCall(
     const early = await call.claimOrReturn("intended");
     if (early !== undefined) return { result: early, replayed: true };
   }
-  // A desktop action or a command can change the page the page browser last reported.
+  // A desktop action, a command, a dialog's answer or a protocol command that acts on the page can
+  // change the page the page browser last reported.
   if (
     name === "open_path" ||
     name === "launch_app" ||
     name === "computer_act" ||
     name === "shell" ||
-    (name === "process_manage" && args.action === "start")
+    name === "execute_code" ||
+    (name === "process_manage" && args.action === "start") ||
+    name === "browser_dialog" ||
+    (name === "browser_cdp" && classifyCdpMethod(String(args.method ?? "")) !== "read")
   )
     ctx.state.pageUrlUncertain = true;
   // Past the gate: this destination is now one the run was given. A search result's exact

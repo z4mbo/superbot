@@ -152,28 +152,31 @@ export function scheduleCreateBranch(
   };
 }
 
-/**
- * One way to time a check-in offer: schedule_create's one-time and repeating timing, without
- * watches or events. The offer names what to check instead of a routine name.
- */
-export function checkInOfferBranch(
-  active: readonly ("cron" | "every" | "unit" | "runAt" | "delayMinutes")[],
-  properties: Record<string, unknown>,
-) {
-  const activeNames = new Set<string>(active);
-  const timing: Record<string, unknown> = { timezone: scheduleCreateProperties.timezone };
-  for (const name of SCHEDULE_TIMING_FIELDS) {
-    timing[name] = activeNames.has(name) ? scheduleTimingSpecs[name] : blankScheduleTiming;
-  }
-  const repeats = activeNames.has("cron") || activeNames.has("every");
-  timing.startAt = repeats ? startAtSpec : blankScheduleTiming;
-  return {
-    type: "object",
-    properties: { ...properties, ...timing },
-    required: ["subject", "prompt", ...active],
-    additionalProperties: false,
-  };
+/** A field's type and limits without its words, for a schema that refers to them elsewhere. */
+function undescribed({ description: _description, ...spec }: { description?: string }) {
+  return spec;
 }
+
+/** A field that may also come as a serializer's null or blank for "not given". */
+function orBlank(spec: Record<string, unknown>) {
+  return { anyOf: [spec, ...blankScheduleTiming.anyOf] };
+}
+
+/**
+ * The timing a check-in offer takes: schedule_create's one-time and repeating timing, without
+ * delaySeconds, watches or events. All optional, each defined once; the handler checks that
+ * exactly one method is given. Its description points at schedule_create, which is always
+ * offered beside it, so the fields carry no words of their own.
+ */
+export const checkInOfferTimingProperties = {
+  cron: { type: ["string", "null"] },
+  every: orBlank(undescribed(scheduleTimingSpecs.every)),
+  unit: orBlank(undescribed(scheduleTimingSpecs.unit)),
+  runAt: { type: ["string", "null"] },
+  delayMinutes: orBlank(undescribed(scheduleTimingSpecs.delayMinutes)),
+  startAt: { type: ["string", "null"] },
+  timezone: { type: ["string", "null"] },
+};
 
 /** Exactly one timing method. Null or blank leftovers stay valid so callers can ignore them. */
 const scheduleCreateInputSchema = {

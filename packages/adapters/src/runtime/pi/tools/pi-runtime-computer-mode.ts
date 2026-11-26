@@ -20,6 +20,8 @@ export const COMPUTER_MODE_TOOLS = new Set([
   "browser_navigate",
   "browser_snapshot",
   "browser_act",
+  "browser_cdp",
+  "browser_dialog",
   "open_path",
   "launch_app",
   "request_takeover",
