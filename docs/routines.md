@@ -13,6 +13,10 @@ The quickest way is to ask:
 
 The bot creates the routine and reports each run back in the same chat.
 
+A bot may also offer to check in on something you discussed. The offer is a card: **Set it up**
+creates the routine, and **No thanks** creates nothing and the bot doesn't offer it again in that
+chat.
+
 ## Create or edit one yourself
 
 On web or desktop, click the bot's name at the top of its chat to open the bot panel. In

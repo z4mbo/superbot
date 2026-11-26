@@ -75,6 +75,10 @@ without sending it again.
 When something is left open until a known time ("I'll send the contract on Friday"), the bot may
 set itself a follow-up for then. It stays quiet if the item is already done.
 
+For longer work, the bot may start a task in a thread of its own so the chat stays free. The
+task's result comes back to the chat. Ask the bot for a link to open the thread, how the task is
+going, to add to it, or to stop it; the bot asks before stopping one.
+
 When a bot needs something from you, it posts a card in the chat: a question, an
 [approval](./approvals.md), or a request to take over its screen. Cards never block the chat; you
 can answer later.

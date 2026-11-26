@@ -119,6 +119,10 @@ Built-in tools come from the catalog in `packages/contracts/src/bots/builtin-too
 | Tool | What it does |
 | --- | --- |
 | `run_subagent` | Hands a task to a helper whose result comes back later. |
+| `delegate` | Starts a task in a thread of its own the person can open, linked to the conversation that started it, and returns at once. The task's result comes back to that conversation. Only that conversation can follow the task up, stop it or list it, and a task thread starts no task threads of its own. |
+| `follow_up` | Reads where one of the conversation's tasks stands (its status and latest report), or sends it more work once its last run has ended. |
+| `stop_task` | Stops one of the conversation's tasks, as Stop in that thread does. Asks first. Named `stop_task` rather than `stop`, which reads as the chat's own Stop. |
+| `link_to_thread` | Lists the conversation's tasks with their status and a link that opens each thread. |
 | `message_bot` | Sends a message to another bot in the Space. |
 | `handoff_to_bot` | Passes the next stage of the work to another group member. |
 | `post_to_group` | Posts in one of the bot's groups without waking anyone. |
@@ -132,6 +136,7 @@ Built-in tools come from the catalog in `packages/contracts/src/bots/builtin-too
 | `schedule_list` | Lists the bot's routines. |
 | `schedule_update` | Changes one routine in place. |
 | `schedule_cancel` | Cancels a routine. |
+| `offer_check_in` | Offers the person a check-in as a card they set up or turn down. Nothing is scheduled unless they accept; accepting creates the routine as `schedule_create` does, and **Never ask** never accepts for them. |
 
 ### Other areas
 
