@@ -242,4 +242,3 @@ export const UpdateBotInput = z
     }
   });
 export type UpdateBotInput = z.infer<typeof UpdateBotInput>;
-
