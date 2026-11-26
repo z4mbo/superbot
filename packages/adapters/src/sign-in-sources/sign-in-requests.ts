@@ -6,7 +6,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { SignInSourceDisconnected } from "@rakazo/adapter-kit";
 import type { SignInBlock } from "@rakazo/contracts";
-import { abortableDelay, ClientError, pollUntil } from "@rakazo/core";
+import { abortableDelay, ClientError, deadlineSignal, pollUntil } from "@rakazo/core";
 import type { SignInRequest } from "@rakazo/db";
 import {
   SIGN_IN_DENIED,
@@ -276,7 +276,7 @@ async function awaitAnswer(
   const label = provider.displayName;
   const timing = run.timing ?? SIGN_IN_TIMING;
   if (!request.openedAt) {
-    const wait = AbortSignal.any([AbortSignal.timeout(timing.openWaitMs), run.context.signal]);
+    const wait = deadlineSignal(timing.openWaitMs, run.context.signal);
     const opened = request.messageId ? await run.waitForOpen(request.messageId, wait) : false;
     run.context.signal.throwIfAborted();
     if (!opened) {
