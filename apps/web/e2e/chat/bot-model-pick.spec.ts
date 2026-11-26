@@ -97,6 +97,8 @@ test("a model picked for a bot in chat is saved and runs its next turn", async (
     page.getByTestId("bot-settings").getByRole("button", { name: /^Model/ }),
   ).toContainText(PICKED_MODEL);
   await captureScreenshot(page, testInfo, "bot-settings-model");
+  // The profile takes the chat's place; closing it brings the composer back.
+  await page.getByRole("button", { name: "Close profile", exact: true }).click();
 
   // The scripted turn stops on a question, so the run stays readable with the model it started on.
   await page
