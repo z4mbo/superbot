@@ -51,6 +51,14 @@ test("shows the spending limit once a card is saved, sets a monthly limit, and l
   await expect(page.getByTestId("transcript").getByText(/Purchase \S+ is approved/)).toBeVisible({
     timeout: 60_000,
   });
+  // The purchase has its card in the chat, which followed it to approved and names no card number.
+  const purchaseCard = page.getByTestId("purchase-card");
+  await expect(purchaseCard).toContainText("Fixture Shop");
+  await expect(purchaseCard).toContainText("$23.40");
+  await expect(purchaseCard.getByTestId("purchase-state")).toHaveText("Approved");
+  await expect(purchaseCard).toContainText("Visa ·· 4242");
+  await expect(purchaseCard.getByRole("button")).toHaveCount(0);
+  await captureScreenshot(page, testInfo, "purchase-card-approved");
 
   const reopened = await openUserSettings(page);
   await reopened.getByTestId("settings-nav-confirmations").click();

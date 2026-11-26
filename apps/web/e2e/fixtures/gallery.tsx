@@ -317,11 +317,57 @@ const approvals: Scenario = {
           amount: "$17.40",
           amountSource: "page",
         },
+        // An order card: the saved card by its title, with Pay and Cancel and no Always allow.
+        payment: { merchant: "freshcart.test", method: "Visa ·· 4242" },
         status: "pending",
         actions: [
-          { id: "allow", label: "Allow once" },
-          { id: "deny", label: "Deny" },
+          { id: "allow", label: "Pay" },
+          { id: "deny", label: "Cancel" },
         ],
+      },
+    ]),
+    bot([
+      {
+        // The same order once its Pay press went through.
+        kind: "ask",
+        approvalEffectId: "effect-7",
+        text: "Pay on freshcart.test?",
+        receipt: {
+          button: "Place order",
+          items: [{ name: "Bananas × 6", amount: "$3.00" }],
+          amount: "$9.00",
+          amountSource: "page",
+        },
+        payment: { merchant: "freshcart.test", method: "Visa ·· 4242", outcome: "paid" },
+        status: "answered",
+        answer: "allow",
+        actions: [
+          { id: "allow", label: "Pay" },
+          { id: "deny", label: "Cancel" },
+        ],
+      },
+    ]),
+    bot([
+      {
+        // A wallet purchase: its owner approves it in the wallet, and can cancel it here.
+        kind: "purchase",
+        purchaseId: "purchase-1",
+        merchant: "Fixture Shop",
+        amount: "$23.40",
+        state: "pending",
+        wallet: "Fixture Wallet",
+        approveUrl: "https://wallet.example.test/approve/purchase-1",
+      },
+    ]),
+    bot([
+      {
+        kind: "purchase",
+        purchaseId: "purchase-2",
+        merchant: "Fixture Shop",
+        amount: "$23.40",
+        state: "paid",
+        wallet: "Fixture Wallet",
+        method: "Visa ·· 4242",
       },
     ]),
     bot([

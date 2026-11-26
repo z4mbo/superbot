@@ -37,7 +37,10 @@ const OUTCOME_ACTIONS: Partial<Record<PurchaseCardState, PurchaseAuditAction>> =
 
 /** A card the wallet issued, by reference only. */
 export function walletCardMethod(card: PurchaseCardSummary | undefined): string | undefined {
-  return card ? cardTitle(card) : undefined;
+  if (!card) return undefined;
+  // Wallets name a brand in lower case; the card reads as a saved card's title does.
+  const brand = card.brand.charAt(0).toUpperCase() + card.brand.slice(1);
+  return cardTitle({ brand, last4: card.last4 });
 }
 
 /** The chat card for a wallet purchase, from the stored purchase. */
