@@ -114,6 +114,7 @@ import {
 import type { ElectronAutoUpdater } from "./updates/auto-update.js";
 import { DesktopUpdateController } from "./updates/auto-update.js";
 import { verifyDownloadedLinuxUpdate } from "./updates/linux-update-signature.js";
+import { releasePageUrl } from "./updates/releases.js";
 import { applicationMenuInstaller, followUpdateState, installUpdate } from "./windows/app-menu.js";
 import { createAppOpener } from "./windows/app-opener.js";
 import {
@@ -160,6 +161,8 @@ const updaterEnvironment = {
   packaged: app.isPackaged && existsSync(path.join(process.resourcesPath, "app-update.yml")),
   version: app.getVersion(),
   disabled: brandEnv("DISABLE_AUTO_UPDATE", process.env) === "1",
+  // Only the AppImage replaces itself on Linux; a system package (deb) is updated by the user.
+  manualInstall: process.platform === "linux" && !process.env.APPIMAGE,
 };
 let requestingComputerAccess = false;
 let hostScreen: HostScreen | undefined;
@@ -590,7 +593,16 @@ app.whenReady().then(async () => {
     // Loaded only when a packaged build actually checks for updates.
     async () => {
       const module = await import("electron-updater");
-      return (module.default ?? module).autoUpdater as unknown as ElectronAutoUpdater;
+      const updaters = module.default ?? module;
+      if (process.platform !== "linux")
+        return updaters.autoUpdater as unknown as ElectronAutoUpdater;
+      // Chosen by how the app runs, not by the `package-type` file a deb build writes into the
+      // shared unpacked folder, which an AppImage built beside it can pick up. A manual install
+      // only reads the feed; it never downloads or installs through the updater.
+      const updater = updaterEnvironment.manualInstall
+        ? new updaters.DebUpdater()
+        : new updaters.AppImageUpdater();
+      return updater as unknown as ElectronAutoUpdater;
     },
     undefined,
     () => {
@@ -599,6 +611,11 @@ app.whenReady().then(async () => {
     process.platform === "linux"
       ? (update) => verifyDownloadedLinuxUpdate(update, (url, signal) => net.fetch(url, { signal }))
       : undefined,
+    (version) =>
+      void bestEffort(
+        "open the desktop release page",
+        Promise.resolve().then(() => shell.openExternal(releasePageUrl(version))),
+      ),
   );
   followUpdateState(() => installApplicationMenu());
   const screenDriver = screenDriverRelease(process.platform);

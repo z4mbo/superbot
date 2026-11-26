@@ -39,6 +39,8 @@ export const HE_MESSAGES: Record<string, string> = {
   "Downloading Update…": "מוריד עדכון…",
   "Restart to Update…": "הפעלה מחדש לעדכון…",
   "Downloading Superbot {version}…": "מוריד את Superbot {version}…",
+  "Superbot {version} is available.": "Superbot {version} זמין.",
+  Download: "הורדה",
   "Superbot {version} is ready to install.": "Superbot {version} מוכן להתקנה.",
   Restart: "הפעלה מחדש",
   Later: "אחר כך",

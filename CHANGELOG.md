@@ -1,6 +1,7 @@
 # Changelog
 
-Notable product changes in Rakazo. See GitHub Releases for tagged builds.
+Notable product changes in Superbot. See GitHub Releases for tagged builds. Sections dated before
+the first Superbot release describe Rakazo, which Superbot is based on.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 

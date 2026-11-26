@@ -11,6 +11,8 @@ const releaseScript = readFileSync(
   "utf8",
 );
 
+const desktopManifest = path.resolve(import.meta.dirname, "../../../package.json");
+
 const expression = (inner: string) => `\${{ ${inner} }}`;
 
 describe("desktop release workflow", () => {
@@ -101,6 +103,19 @@ describe("desktop release workflow", () => {
     expect(workflow).toContain("pnpm exec tsx apps/desktop/scripts/sign-linux-update.ts");
     expect(workflow).toContain("apps/desktop/out/*.AppImage.sig");
     expect(workflow).toContain('if [[ ! -s "$image.sig" ]]; then');
+  });
+
+  it("ships the Linux deb beside the self-updating AppImage", () => {
+    expect(workflow).toContain("Package x64 Linux AppImage and deb");
+    expect(workflow).toContain("debs=(apps/desktop/out/*.deb)");
+    expect(workflow).toContain("apps/desktop/out/*.deb");
+    expect(workflow).toContain("compgen -G 'release-artifacts/*.deb' >/dev/null");
+    // Provenance covers every uploaded asset, the deb included.
+    expect(workflow).toContain("subject-path: release-artifacts/*");
+    const linux = JSON.parse(readFileSync(desktopManifest, "utf8")).build.linux;
+    expect(linux.target).toEqual(["AppImage", "deb"]);
+    // A deb needs a maintainer; it stays a generic project address, never a person's.
+    expect(linux.maintainer).toMatch(/^Superbot <[^@\s]+@[^>\s]+>$/);
   });
 
   it("pins every platform update feed to the official GitHub owner and repo", () => {

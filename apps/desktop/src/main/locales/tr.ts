@@ -39,6 +39,8 @@ export const TR_MESSAGES: Record<string, string> = {
   "Downloading Update…": "Güncelleme İndiriliyor…",
   "Restart to Update…": "Güncellemek İçin Yeniden Başlat…",
   "Downloading Superbot {version}…": "Superbot {version} indiriliyor…",
+  "Superbot {version} is available.": "Superbot {version} kullanıma sunuldu.",
+  Download: "İndir",
   "Superbot {version} is ready to install.": "Superbot {version} yüklenmeye hazır.",
   Restart: "Yeniden Başlat",
   Later: "Daha Sonra",

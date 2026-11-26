@@ -39,6 +39,8 @@ export const TH_MESSAGES: Record<string, string> = {
   "Downloading Update…": "กำลังดาวน์โหลดการอัปเดต…",
   "Restart to Update…": "เริ่มใหม่เพื่ออัปเดต…",
   "Downloading Superbot {version}…": "กำลังดาวน์โหลด Superbot {version}…",
+  "Superbot {version} is available.": "Superbot {version} พร้อมให้ใช้งานแล้ว",
+  Download: "ดาวน์โหลด",
   "Superbot {version} is ready to install.": "Superbot {version} พร้อมติดตั้งแล้ว",
   Restart: "เริ่มใหม่",
   Later: "ภายหลัง",

@@ -39,6 +39,8 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Downloading Update…": "正在下載更新項目…",
   "Restart to Update…": "重新啟動以更新…",
   "Downloading Superbot {version}…": "正在下載 Superbot {version}…",
+  "Superbot {version} is available.": "Superbot {version} 現已推出。",
+  Download: "下載",
   "Superbot {version} is ready to install.": "Superbot {version} 已可安裝。",
   Restart: "重新啟動",
   Later: "稍後",

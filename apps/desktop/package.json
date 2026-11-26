@@ -2,6 +2,8 @@
   "name": "@rakazo/desktop",
   "productName": "Superbot",
   "version": "0.13.0",
+  "description": "Desktop app for Superbot agent workspaces.",
+  "homepage": "https://github.com/z4mbo/superbot",
   "author": {
     "name": "Superbot"
   },
@@ -135,9 +137,15 @@
     "linux": {
       "executableName": "superbot",
       "icon": "assets/icon.png",
+      "maintainer": "Superbot <noreply@superbot.invalid>",
+      "vendor": "Superbot",
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb"
       ]
+    },
+    "deb": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "publish": [
       {

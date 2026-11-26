@@ -3,6 +3,7 @@ import { createHash, createPublicKey, verify } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { rm } from "node:fs/promises";
 import path from "node:path";
+import { RELEASE_VERSION, RELEASES_URL } from "./releases.js";
 
 /** Public half of the key the release workflow signs Linux AppImages with. */
 export const LINUX_UPDATE_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
@@ -10,10 +11,8 @@ MCowBQYDK2VwAyEAklTbtzcfz7ZoFLioFRxwpa97Zs/N4/8oZNblx2Dfi/4=
 -----END PUBLIC KEY-----
 `;
 
-const RELEASES = "https://github.com/z4mbo/superbot/releases/download";
 const MAX_SIGNATURE_BYTES = 1_024;
 const UPDATE_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.AppImage$/;
-const VERSION = /^\d+\.\d+\.\d+$/;
 const SIGNATURE = /^[A-Za-z0-9+/]{86}==$/;
 
 /**
@@ -38,7 +37,7 @@ export async function verifyLinuxUpdate(
 ) {
   const fileName = path.basename(file);
   const encoded = signature.trim();
-  if (!VERSION.test(version) || !UPDATE_FILE.test(fileName) || !SIGNATURE.test(encoded))
+  if (!RELEASE_VERSION.test(version) || !UPDATE_FILE.test(fileName) || !SIGNATURE.test(encoded))
     return false;
   const key = typeof publicKey === "string" ? createPublicKey(publicKey) : publicKey;
   if (key.asymmetricKeyType !== "ed25519") return false;
@@ -66,13 +65,13 @@ export async function fetchLinuxUpdateSignature(
   fetchUrl: SignatureFetch,
   timeoutMs = 30_000,
 ) {
-  if (!VERSION.test(version) || !UPDATE_FILE.test(fileName)) {
+  if (!RELEASE_VERSION.test(version) || !UPDATE_FILE.test(fileName)) {
     throw new Error("Linux update signature cannot be located.");
   }
   const signal = AbortSignal.timeout(timeoutMs);
   let response: Response;
   try {
-    response = await fetchUrl(`${RELEASES}/v${version}/${fileName}.sig`, signal);
+    response = await fetchUrl(`${RELEASES_URL}/download/v${version}/${fileName}.sig`, signal);
   } catch (error) {
     throw new SignatureUnreachableError({ cause: error });
   }

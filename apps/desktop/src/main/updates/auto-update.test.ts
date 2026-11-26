@@ -156,10 +156,10 @@ describe("reduceUpdateState", () => {
   it("walks from a check to a downloaded release", () => {
     const state = apply([
       { type: "check-start" },
-      { type: "available", version: "0.2.0" },
+      { type: "available", version: "0.2.0", releaseNotes: null },
       { type: "download-start" },
       { type: "progress", percent: 42.6 },
-      { type: "downloaded", version: "0.2.0" },
+      { type: "downloaded", version: "0.2.0", releaseNotes: null },
     ]);
     expect(state).toMatchObject({
       phase: "ready",
@@ -169,16 +169,32 @@ describe("reduceUpdateState", () => {
     expect(state.message).toBeNull();
   });
 
+  it("keeps the offered release's notes until the offer goes away", () => {
+    const offered = apply([
+      { type: "check-start" },
+      { type: "available", version: "0.2.0", releaseNotes: "• Faster sync" },
+      { type: "download-start" },
+      { type: "downloaded", version: "0.2.0", releaseNotes: null },
+    ]);
+    expect(offered).toMatchObject({ phase: "ready", releaseNotes: "• Faster sync" });
+    const current = apply([
+      { type: "check-start" },
+      { type: "available", version: "0.2.0", releaseNotes: "• Faster sync" },
+      { type: "not-available" },
+    ]);
+    expect(current).toMatchObject({ phase: "idle", availableVersion: null, releaseNotes: null });
+  });
+
   it("clamps progress to a percentage while downloading", () => {
     expect(
       apply([
-        { type: "available", version: "0.2.0" },
+        { type: "available", version: "0.2.0", releaseNotes: null },
         { type: "progress", percent: -5 },
       ]).percent,
     ).toBe(0);
     expect(
       apply([
-        { type: "available", version: "0.2.0" },
+        { type: "available", version: "0.2.0", releaseNotes: null },
         { type: "download-start" },
         { type: "progress", percent: 250 },
       ]).percent,
@@ -201,7 +217,7 @@ describe("reduceUpdateState", () => {
 
   it("clears an offer when a completed check finds nothing", () => {
     const state = apply([
-      { type: "available", version: "0.2.0" },
+      { type: "available", version: "0.2.0", releaseNotes: null },
       { type: "check-start" },
       { type: "not-available" },
     ]);
@@ -221,7 +237,7 @@ describe("reduceUpdateState", () => {
 
   it("keeps a verified download when the updater emits a late failure", () => {
     const ready = apply([
-      { type: "downloaded", version: "0.2.0" },
+      { type: "downloaded", version: "0.2.0", releaseNotes: null },
       { type: "failed", error: new Error("socket hang up"), userInitiated: false },
     ]);
     expect(ready).toMatchObject({ phase: "ready", availableVersion: "0.2.0", percent: 100 });
@@ -229,7 +245,7 @@ describe("reduceUpdateState", () => {
 
   it("keeps a verified download ready after an install failure", () => {
     const failed = apply([
-      { type: "downloaded", version: "0.2.0" },
+      { type: "downloaded", version: "0.2.0", releaseNotes: null },
       {
         type: "failed",
         error: new Error("quitAndInstall failed"),
@@ -291,9 +307,9 @@ describe("shouldCheck", () => {
   it("does not replace work, an available update, or a downloaded update", () => {
     for (const state of [
       apply([{ type: "check-start" }]),
-      apply([{ type: "available", version: "0.2.0" }]),
+      apply([{ type: "available", version: "0.2.0", releaseNotes: null }]),
       apply([{ type: "download-start" }]),
-      apply([{ type: "downloaded", version: "0.2.0" }]),
+      apply([{ type: "downloaded", version: "0.2.0", releaseNotes: null }]),
     ]) {
       expect(shouldCheck(state, 10_000_000, 0)).toBe(false);
     }
@@ -369,6 +385,80 @@ describe("DesktopUpdateController", () => {
       availableVersion: "0.2.0",
       percent: 100,
     });
+  });
+
+  it("carries the release notes from the feed as bounded plain text", async () => {
+    let fake: ReturnType<typeof fakeUpdater>;
+    fake = fakeUpdater({
+      checkForUpdates: vi.fn(async () => {
+        fake.emit("update-available", {
+          version: "0.2.0",
+          releaseNotes:
+            '<h2>Fixes</h2><ul><li>Sync &amp; <a href="https://x.test">search</a></li></ul><img src=x onerror=alert(1)>&lt;script&gt;',
+        });
+      }),
+      downloadUpdate: vi.fn(async () => fake.emit("update-downloaded", { version: "0.2.0" })),
+    });
+    const controller = new DesktopUpdateController(packaged, async () => fake.updater, clock);
+
+    await controller.check(false);
+    await vi.waitFor(() => expect(controller.state().phase).toBe("ready"));
+    expect(controller.state().releaseNotes).toBe("Fixes\n\n• Sync & search\n<script>");
+    expect(controller.state().manualInstall).toBe(false);
+  });
+
+  it("offers a system package's update without downloading or installing it", async () => {
+    let fake: ReturnType<typeof fakeUpdater>;
+    fake = fakeUpdater({
+      checkForUpdates: vi.fn(async () => {
+        fake.emit("checking-for-update");
+        fake.emit("update-available", { version: "0.2.0", releaseNotes: "Faster sync" });
+      }),
+    });
+    const openRelease = vi.fn();
+    const controller = new DesktopUpdateController(
+      { ...packaged, manualInstall: true },
+      async () => fake.updater,
+      clock,
+      undefined,
+      async () => undefined,
+      openRelease,
+    );
+
+    expect(controller.state().manualInstall).toBe(true);
+    expect(openRelease).not.toHaveBeenCalled();
+    await controller.check(true);
+    expect(controller.state()).toMatchObject({
+      phase: "available",
+      availableVersion: "0.2.0",
+      releaseNotes: "Faster sync",
+      manualInstall: true,
+    });
+
+    expect(await controller.download()).toMatchObject({ phase: "available" });
+    expect(openRelease).toHaveBeenCalledExactlyOnceWith("0.2.0");
+    await controller.install();
+    controller.installOnQuit();
+    expect(fake.updater.downloadUpdate).not.toHaveBeenCalled();
+    expect(fake.updater.quitAndInstall).not.toHaveBeenCalled();
+    // The offer stays put, and a later check does not replace it.
+    await controller.check(true);
+    expect(fake.updater.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens no release page for a manual install with nothing offered", async () => {
+    const fake = fakeUpdater();
+    const openRelease = vi.fn();
+    const controller = new DesktopUpdateController(
+      { ...packaged, manualInstall: true },
+      async () => fake.updater,
+      clock,
+      undefined,
+      undefined,
+      openRelease,
+    );
+    await controller.download();
+    expect(openRelease).not.toHaveBeenCalled();
   });
 
   it("tells subscribers about each step so the menu can show progress", async () => {

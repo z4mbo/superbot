@@ -39,6 +39,8 @@ export const JA_MESSAGES: Record<string, string> = {
   "Downloading Update…": "アップデートをダウンロード中…",
   "Restart to Update…": "再起動してアップデート…",
   "Downloading Superbot {version}…": "Superbot {version}をダウンロード中…",
+  "Superbot {version} is available.": "Superbot {version}が利用可能です。",
+  Download: "ダウンロード",
   "Superbot {version} is ready to install.":
     "Superbot {version}をインストールする準備ができました。",
   Restart: "再起動",

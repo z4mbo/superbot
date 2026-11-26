@@ -1,26 +1,30 @@
 # Desktop app
 
-The desktop app for Mac, Windows and Linux runs the same Rakazo as the web, and can also run
+The desktop app for Mac, Windows and Linux runs the same Superbot as the web, and can also run
 everything on your own computer.
 
 ## Install
 
-Download it from [rakazo.com](https://rakazo.com). The Linux AppImage needs FUSE 2.
+Download it from [GitHub Releases](https://github.com/z4mbo/superbot/releases):
+
+- **Windows**: `Superbot-Setup-<version>.exe`.
+- **macOS**: the `.dmg`, a universal app for Apple silicon and Intel Macs.
+- **Linux**: the `.AppImage`, which needs FUSE 2, or the `.deb` for Debian and Ubuntu
+  (`sudo apt install ./Superbot-<version>-amd64.deb`).
 
 ## Choose a server
 
 The first time it opens, the app asks which server to use:
 
-- **Rakazo Cloud**: sign in to your rakazo.com account.
-- **This computer**: run your own Rakazo locally in Docker. If Docker isn't installed, the app offers
+- **This computer**: run your own Superbot locally in Docker. If Docker isn't installed, the app offers
   the Docker Desktop download (Docker Engine on Linux) and carries on by itself once Docker is
   installed and open; if Docker is installed but stopped, the app opens it. Everything, including
   your bots' computers, then
   runs on your machine. It is yours alone: once you create your account, it accepts no other.
-- **Existing instance**: connect to a Rakazo server you or your team already run. Enter its
+- **Superbot server**: connect to a server you or your team already run. Enter its
   **Server address** and choose **Check connection**.
 
-To switch later, use **Change Rakazo Server…** in the app menu (Cmd+Shift+K, or Ctrl+Shift+K on
+To switch later, use **Change Superbot Server…** in the app menu (Cmd+Shift+K, or Ctrl+Shift+K on
 Windows and Linux).
 
 > [!NOTE]
@@ -51,14 +55,19 @@ Either way, the app asks **Allow bots to use this computer?** before access is g
 
 ## Updates
 
-The app checks for updates and downloads them in the background. When one is ready, an
-**Install update** button appears at the bottom of the sidebar, or choose **Restart** when asked.
-**Check for Updates…** in the app menu checks now.
+The app checks for updates and downloads them in the background. While one is on its way, an
+**Update available** button at the bottom of the sidebar shows what changed in it. Once it is
+downloaded, choose **Restart to update** there or when asked. **Check for Updates…** in the app
+menu checks now.
+
+The `.deb` does not update itself: when a new version is out, the app shows the same notice and
+**Download** opens its release page, where you get the new `.deb`. Updating the app does not
+update your server.
 
 ## Dictation
 
 On a Mac, dictation uses the Mac's own speech recognition, so it works without a
-[voice provider](./voice-and-calls.md). If you declined the permission prompt, allow Rakazo under
+[voice provider](./voice-and-calls.md). If you declined the permission prompt, allow Superbot under
 **Speech Recognition** and **Microphone** in System Settings.
 
 ## Shortcuts

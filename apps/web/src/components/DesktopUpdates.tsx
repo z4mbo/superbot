@@ -1,7 +1,17 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useTimeout } from "@rakazo/chat-ui/hooks";
 import type { DesktopUpdateState } from "@rakazo/contracts";
-import { Button, SectionHeading, toast } from "@rakazo/ui-web";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  SectionHeading,
+  toast,
+} from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { desktopBridge } from "../lib/platform/desktop";
@@ -44,7 +54,7 @@ function useDesktopUpdates() {
   }, [bridge]);
   useTimeout(() => void refresh(), bridge && nextRefresh ? 2_000 : null, nextRefresh);
 
-  async function act(action: "check" | "install") {
+  async function act(action: "check" | "download" | "install") {
     if (!bridge || pending.current) return;
     pending.current = true;
     revision.current++;
@@ -76,20 +86,38 @@ function useDesktopUpdates() {
   return { state, busy, error, act, confirmedCheck };
 }
 
-const UpdatesContext = createContext<ReturnType<typeof useDesktopUpdates> | null>(null);
+/** A newer release the user can act on: being fetched, ready to install, or to download. */
+function offered(state: DesktopUpdateState | null): state is DesktopUpdateState & {
+  availableVersion: string;
+} {
+  return (
+    state?.availableVersion != null &&
+    (state.phase === "available" || state.phase === "downloading" || state.phase === "ready")
+  );
+}
+
+type DesktopUpdates = ReturnType<typeof useDesktopUpdates> & {
+  /** Shows the offered release's notes and its install action. */
+  openRelease: () => void;
+};
+
+const UpdatesContext = createContext<DesktopUpdates | null>(null);
 
 const DESKTOP_UPDATE_TOAST = "desktop-update";
 
 export function DesktopUpdatesProvider({ children }: { children: ReactNode }) {
   const updates = useDesktopUpdates();
   const [dismissed, setDismissed] = useState<string | null>(null);
+  const [releaseOpen, setReleaseOpen] = useState(false);
   const { state, error } = updates;
   useEffect(() => {
     if (error) setDismissed(null);
   }, [error]);
+  // A system package never reaches `ready`, so its offer prompts as soon as it is found.
+  const manualOffer = offered(state) && state.phase === "available" && state.manualInstall === true;
   const prompt = Boolean(
     state &&
-      (state.phase === "ready" || (error && state.availableVersion)) &&
+      (state.phase === "ready" || manualOffer || (error && state.availableVersion)) &&
       dismissed !== state.availableVersion,
   );
   // Keep the toast up while a retry runs, so a quick failure reuses it instead of racing
@@ -111,14 +139,94 @@ export function DesktopUpdatesProvider({ children }: { children: ReactNode }) {
       toast.dismiss(DESKTOP_UPDATE_TOAST);
     };
   }, [visible]);
-  return <UpdatesContext.Provider value={updates}>{children}</UpdatesContext.Provider>;
+  return (
+    <UpdatesContext.Provider value={{ ...updates, openRelease: () => setReleaseOpen(true) }}>
+      {children}
+      {offered(state) ? (
+        <DesktopReleaseDialog
+          open={releaseOpen}
+          onOpenChange={setReleaseOpen}
+          onLater={() => {
+            setReleaseOpen(false);
+            setDismissed(state.availableVersion);
+          }}
+        />
+      ) : null}
+    </UpdatesContext.Provider>
+  );
+}
+
+function DesktopReleaseDialog({
+  open,
+  onOpenChange,
+  onLater,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onLater: () => void;
+}) {
+  const updates = useContext(UpdatesContext);
+  if (!updates || !offered(updates.state)) return null;
+  const { state, busy, error, act } = updates;
+  const ready = state.phase === "ready";
+  const manual = state.manualInstall === true && !ready;
+  const downloading = !ready && !manual;
+  const status =
+    error ?? state.message ?? (downloading && state.percent !== null ? `${state.percent}%` : null);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton={false} className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            <Trans>Update available</Trans>
+          </DialogTitle>
+          <DialogDescription>v{state.availableVersion}</DialogDescription>
+        </DialogHeader>
+        {state.releaseNotes ? (
+          // Untrusted text from the release host: shown as text, never parsed as markup.
+          <div
+            data-testid="desktop-release-notes"
+            className="max-h-80 overflow-y-auto text-body break-words whitespace-pre-line"
+          >
+            {state.releaseNotes}
+          </div>
+        ) : null}
+        {status ? (
+          <p role="status" className="text-body text-muted-foreground">
+            {status}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onLater}>
+            <Trans>Later</Trans>
+          </Button>
+          <Button
+            disabled={busy || downloading}
+            onClick={() => {
+              if (manual) onLater();
+              void act(ready ? "install" : "download");
+            }}
+          >
+            {ready ? (
+              <Trans>Restart to update</Trans>
+            ) : manual ? (
+              <Trans>Download</Trans>
+            ) : (
+              <Trans>Downloading…</Trans>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function DesktopUpdatePrompt({ onLater }: { onLater: (version: string | null) => void }) {
   const { t } = useLingui();
   const updates = useContext(UpdatesContext);
   if (!updates?.state) return null;
-  const { state, busy, error, act } = updates;
+  const { state, busy, error, act, openRelease } = updates;
+  const manualOffer = state.phase === "available" && state.manualInstall === true;
   return (
     <aside
       aria-label={t`Desktop update`}
@@ -127,10 +235,15 @@ function DesktopUpdatePrompt({ onLater }: { onLater: (version: string | null) =>
       <div className="flex items-center gap-2">
         <Button
           disabled={busy}
-          onClick={() => void act(state.phase === "ready" ? "install" : "check")}
+          onClick={() => {
+            if (manualOffer) openRelease();
+            else void act(state.phase === "ready" ? "install" : "check");
+          }}
         >
           {state.phase === "ready" ? (
             <Trans>Restart to update</Trans>
+          ) : manualOffer ? (
+            <Trans>Update available</Trans>
           ) : (
             <Trans>Check for updates</Trans>
           )}
@@ -151,11 +264,8 @@ function DesktopUpdatePrompt({ onLater }: { onLater: (version: string | null) =>
 export function useSidebarUpdate() {
   const updates = useContext(UpdatesContext);
   return {
-    available: updates?.state?.phase === "ready",
-    busy: updates?.busy ?? false,
-    install: () => {
-      void updates?.act("install");
-    },
+    available: offered(updates?.state ?? null),
+    open: () => updates?.openRelease(),
   };
 }
 
@@ -164,7 +274,9 @@ export function DesktopUpdateSection() {
   if (!updates?.state) return null;
   const { state, busy, error, act, confirmedCheck } = updates;
   const ready = state.phase === "ready";
-  const downloading = state.phase === "available" || state.phase === "downloading";
+  const manualOffer = state.phase === "available" && state.manualInstall === true;
+  const downloading =
+    !manualOffer && (state.phase === "available" || state.phase === "downloading");
   return (
     <section
       data-testid="desktop-update-settings"
@@ -178,10 +290,12 @@ export function DesktopUpdateSection() {
         <Button
           variant="outline"
           disabled={busy || downloading || state.phase === "checking"}
-          onClick={() => void act(ready ? "install" : "check")}
+          onClick={() => void act(ready ? "install" : manualOffer ? "download" : "check")}
         >
           {ready ? (
             <Trans>Restart to update</Trans>
+          ) : manualOffer ? (
+            <Trans>Download</Trans>
           ) : downloading ? (
             <Trans>Downloading…</Trans>
           ) : busy || state.phase === "checking" ? (
