@@ -360,6 +360,13 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     pageId: Id,
     version: z.number().int().positive(),
     title: z.string().max(PAGE_TITLE_MAX_LENGTH),
+    /** For an installed app: the card it opened on, and that card's input. */
+    card: z
+      .object({
+        name: z.string().max(40),
+        input: z.record(z.string(), z.json()).default({}),
+      })
+      .optional(),
   }),
   z.object({
     kind: z.literal("handoff"),

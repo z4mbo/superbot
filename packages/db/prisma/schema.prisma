@@ -639,8 +639,11 @@ model AppRelease {
   /// The manifest id, stable across versions; the first author to publish it owns it.
   appId        String
   version      String
-  authorUserId String
-  author       User               @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  /// Null for a first-party app the deployment ships, listed without a submission.
+  authorUserId String?
+  author       User?              @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  /// Bundled with the deployment and listed by it; never one a person submitted.
+  firstParty   Boolean            @default(false)
   name         String
   description  String
   manifest     Json
@@ -649,7 +652,9 @@ model AppRelease {
   code         String
   /// The icon as a data URL, checked when it was published.
   icon         String?
-  /// sha256 over the manifest, source and icon; an install that names another digest is refused.
+  /// The app's server functions as published, run only in the function sandbox.
+  server       String?
+  /// sha256 over the manifest, source, server and icon; an install that names another digest is refused.
   digest       String
   createdAt    DateTime           @default(now())
   submissions  PluginSubmission[]
@@ -695,6 +700,41 @@ model CommunityTemplateVersion {
   @@index([status, createdAt])
   @@index([reviewerId])
   @@map("community_template_versions")
+}
+
+/// One record an installed app keeps in one of its collections, in one Space. Records belong to
+/// the install's person in that Space: nothing else reads them, and they go with the app.
+model AppRecord {
+  installId  String
+  install    CapabilityInstall @relation(fields: [installId], references: [id], onDelete: Cascade)
+  spaceId    String
+  space      Space             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  collection String
+  id         String
+  /// The record's declared fields, checked against the installed manifest on every write.
+  fields     Json
+  /// UTF-8 bytes of the fields as JSON, summed for the install's quota.
+  bytes      Int
+  /// The collection's indexed fields in declared order: text and booleans in s*, numbers in n*.
+  s0         String?
+  s1         String?
+  s2         String?
+  n0         Float?
+  n1         Float?
+  n2         Float?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @default(now())
+
+  @@id([installId, spaceId, collection, id])
+  @@index([spaceId])
+  @@index([installId, spaceId, collection, createdAt])
+  @@index([installId, spaceId, collection, s0])
+  @@index([installId, spaceId, collection, s1])
+  @@index([installId, spaceId, collection, s2])
+  @@index([installId, spaceId, collection, n0])
+  @@index([installId, spaceId, collection, n1])
+  @@index([installId, spaceId, collection, n2])
+  @@map("app_records")
 }
 
 model ActionApprovalRule {
@@ -745,6 +785,7 @@ model Member {
 }
 
 model Space {
+  appRecords      AppRecord[]
   meetingSessions MeetingSession[]
   meetingAllowanceUses MeetingAllowanceUse[]
   aiDataConsents              AiDataConsent[]
@@ -1973,6 +2014,7 @@ model CapabilityInstall {
   mcpServers  McpServer[]
   availableIn CapabilityInstallSpace[]
   appPages    Page[]
+  appRecords  AppRecord[]
 
   @@index([spaceId, userId])
   @@map("capability_installs")

@@ -9,6 +9,8 @@ export * from "./account/security-events.js";
 export * from "./account/signup-attribution.js";
 export * from "./account/space-availability.js";
 export * from "./account/user-devices.js";
+export * from "./apps/app-data.js";
+export * from "./apps/app-fields.js";
 export * from "./apps/app-manifest.js";
 export * from "./apps/app-store.js";
 export * from "./apps/app-store-rpc.js";
