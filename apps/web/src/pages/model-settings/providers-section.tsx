@@ -32,6 +32,7 @@ export function ProvidersSection({
   disabled,
   onAdd,
   onOpen,
+  detail,
   panel,
 }: {
   credentials: ModelCredential[];
@@ -43,6 +44,8 @@ export function ProvidersSection({
   onAdd: (provider: ConnectableProvider) => void;
   /** Opens a connection's page. */
   onOpen: (credential: ModelCredential) => void;
+  /** A short note at the end of a connection's row. */
+  detail?: (credential: ModelCredential) => ReactNode;
   /** The form for a new connection, shown after the list. */
   panel?: ReactNode;
 }) {
@@ -67,7 +70,9 @@ export function ProvidersSection({
                   <span className="shrink-0 text-body-sm text-warning">
                     <Trans>Sign in again</Trans>
                   </span>
-                ) : null}
+                ) : (
+                  detail?.(credential)
+                )}
               </SettingsListRow>
             </li>
           ))}
@@ -154,7 +159,8 @@ export function ConnectionNameField({
   );
 }
 
-function AddProvider({
+/** The list's last row: picks a provider to connect. */
+export function AddProvider({
   providers,
   disabled,
   onPick,

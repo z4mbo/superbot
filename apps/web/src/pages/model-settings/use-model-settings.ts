@@ -168,6 +168,8 @@ export function useModelSettings(onClose: () => void, scope: SettingsScope) {
   } = {}) {
     const refreshRevision = ++refreshRevisionRef.current;
     const selectionRevision = keepForm ? -1 : selectionRevisionRef.current;
+    // What a model connection lends to images and video changes with it.
+    void queryClient.invalidateQueries({ queryKey: queries.media.catalog.key() });
     const [nextCatalog, nextCredentials, nextMe] = await Promise.all([
       fetchFresh(queryClient, catalogQuery, { reuse }),
       fetchFresh(queryClient, credentialsQuery, { reuse }),
