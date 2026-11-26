@@ -71,8 +71,13 @@ export function usePageDocument(
   reply = false,
   /** Pixels a composer docked over the page's bottom covers. */
   bottomInset = 0,
-  /** An app's stored state when the page opened; the host runs its actions. */
-  app?: { state: Record<string, unknown>; revision: number },
+  /** An app's stored state when the page opened; the host runs its actions and queries. */
+  app?: {
+    state: Record<string, unknown>;
+    revision: number;
+    /** The card a bot opened the app on. */
+    card?: { name: string; input: Record<string, unknown> };
+  },
 ): { document: string | null; failed: boolean; retry: () => void } {
   const { t, i18n } = useLingui();
   const theme = useAppTheme();
@@ -96,7 +101,14 @@ export function usePageDocument(
             reply,
             bottomInset,
             lang: i18n.locale,
-            ...(app ? { appState: app, appActions: true } : {}),
+            ...(app
+              ? {
+                  appState: { state: app.state, revision: app.revision },
+                  appActions: true,
+                  appQueries: true,
+                  ...(app.card ? { appCard: app.card } : {}),
+                }
+              : {}),
           }),
     [runtime.data, code, theme, errorTitle, surface, touch, reply, bottomInset, i18n.locale, app],
   );

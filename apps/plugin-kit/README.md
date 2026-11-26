@@ -1,7 +1,8 @@
 # superbot-plugin
 
 `superbot-plugin` creates, validates and publishes plugins for the Superbot registry, and installs
-and grants approved versions in a Space. It is a single bundled JavaScript file that runs under
+and grants approved versions in a Space. It also creates, checks and submits apps built with the
+[Apps SDK](../../docs/plugin-sdk.md). It is a single bundled JavaScript file that runs under
 Node.js 24 or later on Linux, macOS and Windows.
 
 ## Install from the monorepo
@@ -54,6 +55,9 @@ cursor when there is another page; pass it as `--after` with the same scope and 
 | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `init SLUG [--name NAME] [--manifest PATH] [--template skill\|mcp-app\|kcal-diary]` | Creates a starter skill (default), TypeScript MCP app, or record app. Alias: `scaffold`. The manifest defaults to `plugin.json`; the MCP app also writes `server.ts`, `temperature.html` and `README.md` beside it. Existing files are never overwritten.                           |
 | `validate [MANIFEST]`                                                               | Checks a manifest against the registry's rules locally. Defaults to `plugin.json`.                                                                                                                                                                                                  |
+| `app-init FOLDER [--name NAME]` | Creates an app folder (`app.json`, `app.jsx`, `server.js`) from the Food Diary starter: hosted records, server functions and a card. The folder's name becomes the app id. Existing files are never overwritten. |
+| `app-check [FOLDER]` | Checks an app folder the way the server does before it takes it: the manifest, the entry, and the server file. Defaults to the current folder. |
+| `app-publish [FOLDER]` | Checks an app folder and submits its version for review. Once a deployment admin approves it, it is listed in the Store's Apps section. |
 | `publish SLUG VERSION [--manifest PATH]`                                            | Submits a version (1 to 2147483647) for review. Alias: `submit`.                                                                                                                                                                                                                    |
 | `list [discover\|mine\|installations\|submissions]`                                 | Lists approved versions (default), your submissions, the Space's installations, or the reviewer queue. Takes `--after CURSOR` and `--limit 1..50` (default 20). `discover` also takes `--slug SLUG` and `--query TEXT`; `submissions` takes `--status pending\|approved\|rejected`. |
 | `status VERSION_ID`                                                                 | Shows one of your submitted versions, with its review status and any rejection reason.                                                                                                                                                                                              |

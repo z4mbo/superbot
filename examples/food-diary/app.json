@@ -1,0 +1,96 @@
+{
+  "id": "food-diary",
+  "name": "Food Diary",
+  "version": "1.0.0",
+  "description": "Log what you eat with grams, calories and macros, and see each day's totals by meal.",
+  "entry": "app.jsx",
+  "server": "server.js",
+  "permissions": ["data", "agent:read", "agent:actions"],
+  "data": {
+    "collections": {
+      "entries": {
+        "fields": {
+          "date": { "type": "string", "required": true, "maxLength": 10 },
+          "meal": {
+            "type": "string",
+            "required": true,
+            "enum": ["breakfast", "lunch", "dinner", "snack"]
+          },
+          "food": { "type": "string", "required": true, "maxLength": 120 },
+          "grams": { "type": "number", "required": true, "min": 0, "max": 5000 },
+          "kcal": { "type": "number", "min": 0, "max": 20000 },
+          "protein": { "type": "number", "min": 0, "max": 5000 },
+          "carbs": { "type": "number", "min": 0, "max": 5000 },
+          "fat": { "type": "number", "min": 0, "max": 5000 }
+        },
+        "index": ["date"]
+      }
+    }
+  },
+  "actions": [
+    {
+      "name": "day",
+      "description": "Read one day: every entry by meal, with the day's totals of calories, protein, carbs and fat.",
+      "input": {
+        "date": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "The day as YYYY-MM-DD; today when left out"
+        }
+      },
+      "run": "day",
+      "readOnly": true
+    },
+    {
+      "name": "addEntry",
+      "description": "Log one food: what it is and how many grams, with the meal, the day and its calories and macros when known. Returns the entry and the day's new totals.",
+      "input": {
+        "food": { "type": "string", "required": true, "maxLength": 120, "description": "Food" },
+        "grams": {
+          "type": "number",
+          "required": true,
+          "min": 0,
+          "max": 5000,
+          "description": "Grams"
+        },
+        "meal": {
+          "type": "string",
+          "enum": ["breakfast", "lunch", "dinner", "snack"],
+          "description": "Meal"
+        },
+        "date": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "Day (YYYY-MM-DD)"
+        },
+        "kcal": { "type": "number", "min": 0, "max": 20000, "description": "Calories (kcal)" },
+        "protein": { "type": "number", "min": 0, "max": 5000, "description": "Protein (g)" },
+        "carbs": { "type": "number", "min": 0, "max": 5000, "description": "Carbs (g)" },
+        "fat": { "type": "number", "min": 0, "max": 5000, "description": "Fat (g)" }
+      },
+      "run": "addEntry"
+    },
+    {
+      "name": "removeEntry",
+      "description": "Remove one logged entry by the id the day lists it with.",
+      "input": {
+        "id": { "type": "string", "required": true, "maxLength": 64, "description": "Entry id" }
+      },
+      "run": "removeEntry"
+    }
+  ],
+  "cards": [
+    {
+      "name": "day",
+      "title": "Day summary",
+      "description": "One day's totals and entries by meal. Show it after logging food or when the user asks how their day looks.",
+      "input": {
+        "date": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "The day as YYYY-MM-DD; today when left out"
+        }
+      }
+    }
+  ]
+}

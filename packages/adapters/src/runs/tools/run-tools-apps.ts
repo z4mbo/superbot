@@ -1,4 +1,6 @@
 import type { MessageBlock } from "@rakazo/contracts";
+import { parseFields } from "@rakazo/plugin-sdk";
+import type { InstalledFunctionRun } from "../../apps/app-install-pages.js";
 import {
   installedAppLaunch,
   installedAppPage,
@@ -82,10 +84,16 @@ export const appTools: ToolHandlers = {
     if ("error" in ref) return call.finish(ref);
     if (typeof action !== "string" || !action) return call.finish({ error: "action is required." });
     const request = { by: "agent" as const, action, input };
-    let run: AppActionRun;
+    let run: AppActionRun | InstalledFunctionRun;
     if ("appId" in ref) {
       const installed = await onInstalledApp(() =>
-        runInstalledAppAction(ctx.deps.prisma, runScope(ctx), ref.appId, request),
+        runInstalledAppAction(
+          { prisma: ctx.deps.prisma },
+          runScope(ctx),
+          ref.appId,
+          request,
+          ctx.context.signal,
+        ),
       );
       if (!installed.ok) return call.finish({ error: installed.error });
       run = installed.value;
@@ -98,6 +106,11 @@ export const appTools: ToolHandlers = {
           ? { error: "appId" in ref ? APP_NOT_INSTALLED : PAGE_NOT_FOUND }
           : { error: run.error, unchanged: true },
       );
+    }
+    if ("result" in run) {
+      // A function's answer; open views read again only when its records changed.
+      if (run.changed) await ctx.deps.events.publishSpaceChange?.(run.spaceId, "apps");
+      return call.finish({ ...("appId" in ref ? { app_id: ref.appId } : {}), result: run.result });
     }
     await ctx.deps.events.publishSpaceChange?.(run.spaceId, "apps");
     return call.finish({
@@ -115,20 +128,44 @@ export const appTools: ToolHandlers = {
   },
   async [OPEN_APP](ctx, call) {
     const input = openAppArgs.safeParse(call.args);
-    if (!input.success) return call.finish({ error: "app_id is required." });
+    if (!input.success)
+      return call.finish({ error: "app_id is required; card is a card name and input an object." });
     const scope = runScope(ctx);
-    const page = await onInstalledApp(async () =>
-      installedAppPage(
-        ctx.deps.prisma,
-        scope,
-        await installedAppLaunch(ctx.deps.prisma, scope, input.data.app_id),
-      ),
-    );
-    if (!page.ok) return call.finish({ error: page.error });
+    const { app_id: appId, card: cardName } = input.data;
+    const opened = await onInstalledApp(async () => {
+      const launch = await installedAppLaunch(ctx.deps.prisma, scope, appId);
+      return { launch, page: await installedAppPage(ctx.deps.prisma, scope, launch) };
+    });
+    if (!opened.ok) return call.finish({ error: opened.error });
+    const { launch, page } = opened.value;
+    let card: { name: string; input: Record<string, string | number | boolean> } | undefined;
+    if (cardName !== undefined) {
+      const declared = launch.manifest.cards?.find((entry) => entry.name === cardName);
+      if (!declared) {
+        const names = (launch.manifest.cards ?? []).map((entry) => entry.name);
+        return call.finish({
+          error: names.length
+            ? `${launch.name} has no card ${cardName}; it has: ${names.join(", ")}.`
+            : `${launch.name} has no cards; open it without card.`,
+        });
+      }
+      const fields = parseFields(declared.input ?? {}, input.data.input, {
+        owner: `The ${cardName} card`,
+      });
+      if (!fields.ok) return call.finish({ error: fields.error });
+      card = { name: cardName, input: fields.input };
+    } else if (input.data.input !== undefined) {
+      return call.finish({ error: "input goes with a card; name the card too." });
+    }
     // The same card a saved page posts: it opens where pages open, with the app's stored state.
-    const block: MessageBlock = { kind: "page", ...page.value };
+    const block: MessageBlock = { kind: "page", ...page, ...(card ? { card } : {}) };
     const posted = await publishMessage(ctx.deps, ctx.run, "bot", [block]);
     if (!posted) return call.finish({ error: "Apps open only in a chat with the user." });
-    return call.finish({ app_id: input.data.app_id, title: page.value.title, opened: true });
+    return call.finish({
+      app_id: appId,
+      title: page.title,
+      opened: true,
+      ...(card ? { card: card.name } : {}),
+    });
   },
 };

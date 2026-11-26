@@ -18,6 +18,9 @@ export type Decision = (typeof DECISIONS)[number];
 export type Command =
   | { kind: "init"; slug: string; name?: string; manifest: string; template: Template }
   | { kind: "validate"; manifest: string }
+  | { kind: "app-init"; folder: string; name?: string }
+  | { kind: "app-check"; folder: string }
+  | { kind: "app-publish"; folder: string }
   | { kind: "publish"; slug: string; version: number; manifest: string }
   | {
       kind: "list";
@@ -150,6 +153,38 @@ export const COMMANDS: CommandSpec[] = [
       version: Number(text(values, "version")),
       manifest: text(values, "manifest"),
     }),
+  },
+  {
+    name: "app-init",
+    about: "Create an app folder with hosted records, server functions and a card",
+    positionals: [
+      {
+        id: "folder",
+        value: "FOLDER",
+        required: true,
+        help: "The new folder; its name becomes the app id",
+      },
+    ],
+    options: [{ id: "name", long: "name", value: "NAME" }],
+    build: (values) => ({
+      kind: "app-init",
+      folder: text(values, "folder"),
+      name: optional(values, "name"),
+    }),
+  },
+  {
+    name: "app-check",
+    about: "Check an app folder as the server will",
+    positionals: [{ id: "folder", value: "FOLDER", default: "." }],
+    options: [],
+    build: (values) => ({ kind: "app-check", folder: text(values, "folder") }),
+  },
+  {
+    name: "app-publish",
+    about: "Submit an app folder's version for review",
+    positionals: [{ id: "folder", value: "FOLDER", default: "." }],
+    options: [],
+    build: (values) => ({ kind: "app-publish", folder: text(values, "folder") }),
   },
   {
     name: "list",

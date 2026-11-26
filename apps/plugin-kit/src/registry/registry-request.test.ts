@@ -30,7 +30,13 @@ async function execute(client: Client, args: string[], cwd = process.cwd()): Pro
   const parsed = parseCommandLine(args, {});
   if ("code" in parsed) throw new Error(parsed.stderr);
   const { command } = parsed;
-  if (command.kind === "init" || command.kind === "validate") throw new Error("a local command");
+  if (
+    command.kind === "init" ||
+    command.kind === "validate" ||
+    command.kind === "app-init" ||
+    command.kind === "app-check"
+  )
+    throw new Error("a local command");
   return (await registryRequest(command, cwd))(client, "fixture-space");
 }
 

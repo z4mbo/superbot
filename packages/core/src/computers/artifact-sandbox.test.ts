@@ -100,6 +100,21 @@ describe("pageViewerDocument", () => {
     expect(injected).not.toContain("<style>");
     expect(injected).not.toContain("x()");
   });
+
+  it("hands an app its card and input as inert JSON, and marks what the host answers", () => {
+    const input = { date: "</script><script>steal()</script>", note: " " };
+    const html = pageViewerDocument({
+      ...base,
+      appActions: true,
+      appQueries: true,
+      appCard: { name: "day", input },
+    });
+    expect(html).toContain("<html data-app-actions data-app-queries><head>");
+    expect(html).not.toContain("steal()</script>");
+    const card = html.match(/globalThis\.__rakazoAppCard=(.*?)<\/script>/)![1]!;
+    expect(JSON.parse(card)).toEqual({ name: "day", input });
+    expect(pageViewerDocument(base)).not.toContain("__rakazoAppCard");
+  });
 });
 
 describe("pageReplyText", () => {

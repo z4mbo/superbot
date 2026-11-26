@@ -47,21 +47,29 @@ function fieldProblem(name: string, field: AppActionInput, value: unknown): stri
 }
 
 /**
- * The input an action was sent, checked against what it declares: only declared fields, each of
- * its type, every required one present. A person's control and a bot's tool call go through here.
+ * Values checked against the fields they are for: only declared fields, each of its type, every
+ * required one present unless `partial` (a change to a record that already has them). An
+ * action's input, a card's input and a stored record are all checked here.
  */
-export function parseActionInput(action: AppAction, value: unknown): InputParse {
+export function parseFields(
+  fields: Record<string, AppActionInput>,
+  value: unknown,
+  options: { owner: string; takes?: string; partial?: boolean },
+): InputParse {
   const given = value === undefined || value === null ? {} : value;
   if (!isPlainObject(given)) return { ok: false, error: "The input must be an object." };
   const input: Record<string, string | number | boolean> = {};
   for (const key of Object.keys(given)) {
-    if (!Object.hasOwn(action.input, key))
-      return { ok: false, error: `${action.name} takes no input named ${key}.` };
+    if (!Object.hasOwn(fields, key))
+      return {
+        ok: false,
+        error: `${options.owner} ${options.takes ?? "takes no input"} named ${key}.`,
+      };
   }
-  for (const [name, field] of Object.entries(action.input)) {
+  for (const [name, field] of Object.entries(fields)) {
     const present = Object.hasOwn(given, name) && given[name] !== undefined && given[name] !== null;
     if (!present) {
-      if (field.required) return { ok: false, error: `${name} is required.` };
+      if (field.required && !options.partial) return { ok: false, error: `${name} is required.` };
       continue;
     }
     const problem = fieldProblem(name, field, given[name]);
@@ -69,6 +77,14 @@ export function parseActionInput(action: AppAction, value: unknown): InputParse 
     input[name] = given[name] as string | number | boolean;
   }
   return { ok: true, input };
+}
+
+/**
+ * The input an action was sent, checked against what it declares. A person's control, a bot's
+ * tool call and a server function's caller all go through here.
+ */
+export function parseActionInput(action: AppAction, value: unknown): InputParse {
+  return parseFields(action.input, value, { owner: action.name });
 }
 
 class EffectError extends Error {}
@@ -214,12 +230,18 @@ export function applyAppAction(
     return { ok: false, error: "This app keeps no state." };
   const action = findAction(manifest, name);
   if (!action) return { ok: false, error: `This app has no action named ${String(name)}.` };
+  if (!action.effects)
+    return {
+      ok: false,
+      error: `${action.name} runs a server function, which only an installed app has.`,
+    };
+  const effects = action.effects;
   const parsed = parseActionInput(action, value);
   if (!parsed.ok) return parsed;
   // A fresh copy through JSON: what the effects build shares nothing with the stored state.
   const next = JSON.parse(JSON.stringify(state)) as AppState;
   try {
-    for (const effect of action.effects) applyEffect(next, effect, parsed.input, options.newId);
+    for (const effect of effects) applyEffect(next, effect, parsed.input, options.newId);
   } catch (error) {
     if (error instanceof EffectError) return { ok: false, error: error.message };
     throw error;
@@ -239,7 +261,7 @@ export function actionEffectProblems(action: AppAction): string[] {
     else if (type && input.type !== type)
       problems.push(`${action.name}: ${label} ${field} must be a ${type} input.`);
   };
-  for (const effect of action.effects) {
+  for (const effect of action.effects ?? []) {
     if (effect.op === "set" || effect.op === "append") named(effect.from, `${effect.op} from`);
     if (effect.op === "increment") named(effect.from, "increment from", "number");
     if (effect.op === "update" || effect.op === "remove" || effect.op === "toggle") {

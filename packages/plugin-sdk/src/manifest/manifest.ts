@@ -1,4 +1,4 @@
-import type { AppAction, AppManifest, AppPermission } from "@rakazo/contracts";
+import type { AppAction, AppCard, AppManifest, AppPermission } from "@rakazo/contracts";
 import { APP_MANIFEST_FILE, appManifestSchema } from "@rakazo/contracts";
 
 export type ManifestParse = { ok: true; manifest: AppManifest } | { ok: false; errors: string[] };
@@ -73,20 +73,53 @@ export function actionInputJsonSchema(action: AppAction): Record<string, unknown
   };
 }
 
+/** One action as the viewer and a bot see it. `server` and `readOnly` appear only when set. */
+export type AppSurfaceAction = {
+  name: string;
+  description: string;
+  input: AppAction["input"];
+  /** The action runs a server function rather than effects. */
+  server?: true;
+  /** The action only reads: a query, which runs without a click. */
+  readOnly?: true;
+};
+
 /**
- * What the viewer and a bot are told about an app: its permissions and its actions with their
- * inputs. Effects stay on the server, where they run.
+ * What the viewer and a bot are told about an app: its permissions, its actions with their
+ * inputs and its cards. Effects and server code stay on the server, where they run. Keys an app
+ * does not use are left out, so an app written before them compiles to the same code.
  */
 export type AppSurface = {
   permissions: AppPermission[];
-  actions: { name: string; description: string; input: AppAction["input"] }[];
+  actions: AppSurfaceAction[];
   initialState: Record<string, unknown>;
+  cards?: { name: string; title: string; input: NonNullable<AppCard["input"]> }[];
 };
 
 export function appSurface(manifest: AppManifest): AppSurface {
   return {
     permissions: [...manifest.permissions],
-    actions: manifest.actions.map(({ name, description, input }) => ({ name, description, input })),
+    actions: manifest.actions.map(({ name, description, input, run, readOnly }) => ({
+      name,
+      description,
+      input,
+      ...(run !== undefined ? { server: true as const } : {}),
+      ...(readOnly ? { readOnly: true as const } : {}),
+    })),
     initialState: manifest.initialState,
+    ...(manifest.cards?.length
+      ? {
+          cards: manifest.cards.map(({ name, title, input }) => ({
+            name,
+            title,
+            input: input ?? {},
+          })),
+        }
+      : {}),
   };
+}
+
+/** Whether the named action is a read-only server function: a query anyone it is granted to may run. */
+export function isQueryAction(action: { run?: unknown; server?: unknown; readOnly?: unknown }) {
+  return (action.run !== undefined || action.server === true) && action.readOnly === true;
 }

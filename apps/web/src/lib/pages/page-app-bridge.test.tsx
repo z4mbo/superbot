@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import type { AppView } from "@rakazo/contracts";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -13,8 +14,30 @@ const save = vi.hoisted(() => ({
   options: undefined as { onSaved: (saved: unknown, input: { id: string }) => void } | undefined,
 }));
 
+const answers = vi.hoisted(() => ({
+  read: vi.fn(async (input: { action: string; input: Record<string, unknown> }) => ({
+    result: { action: input.action, input: input.input },
+  })),
+}));
+
 vi.mock("../query/query", () => ({
-  useSpaceQueries: () => ({ pages: { appState: { key: () => ["app"] } } }),
+  useSpaceQueries: () => ({
+    pages: {
+      appState: { key: () => ["app"] },
+      appQuery: {
+        key: () => ["appQuery"],
+        queryOptions: ({
+          input,
+        }: {
+          input: { action: string; input: Record<string, unknown> };
+        }) => ({
+          queryKey: ["appQuery", input],
+          queryFn: () => answers.read(input),
+          retry: false,
+        }),
+      },
+    },
+  }),
   useSave: (options: typeof save.options) => {
     save.options = options;
     return { run: save.run, pending: save.pending, error: null };
@@ -31,9 +54,17 @@ const view: AppView = {
 };
 
 let bridge: PageAppBridge | undefined;
-function Host({ shown }: { shown: AppView | null }) {
+function Bridge({ shown }: { shown: AppView | null }) {
   bridge = usePageAppBridge("page-1", shown);
   return null;
+}
+let client = new QueryClient();
+function Host({ shown }: { shown: AppView | null }) {
+  return (
+    <QueryClientProvider client={client}>
+      <Bridge shown={shown} />
+    </QueryClientProvider>
+  );
 }
 
 async function render(shown: AppView | null) {
@@ -52,6 +83,8 @@ const action = (name: string, input: unknown = {}) => ({
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  client = new QueryClient();
+  answers.read.mockClear();
   save.run.mockReset();
   save.pending = false;
 });
@@ -144,4 +177,74 @@ it("lets an app reply, open links and copy only when it declares them", async ()
   await render({ ...view, permissions: ["state", "links"] });
   expect(appAllows(bridge, "links")).toBe(true);
   expect(appAllows(bridge, "clipboard")).toBe(false);
+});
+
+const diary: AppView = {
+  name: "Diary",
+  permissions: ["data"],
+  actions: ["day", "addEntry"],
+  functions: ["day", "addEntry"],
+  queries: ["day"],
+  state: {},
+  revision: 0,
+};
+
+it("runs a function action without the state permission and hands back its answer", async () => {
+  await render(diary);
+  const answer = vi.fn();
+  bridge!.receive(action("addEntry", { food: "Rice" }), answer, fresh());
+  expect(save.run).toHaveBeenCalledWith({ id: "a1", name: "addEntry", input: { food: "Rice" } });
+  save.options!.onSaved({ state: {}, revision: 0, result: { saved: true } }, { id: "a1" });
+  expect(answer).toHaveBeenLastCalledWith({
+    type: "rakazo-app:result",
+    id: "a1",
+    ok: true,
+    result: { saved: true },
+  });
+});
+
+const query = (name: string, input: unknown = {}) => ({
+  type: "rakazo-app:query",
+  key: JSON.stringify([name, input]),
+  name,
+  input,
+});
+
+it("answers a read-only query without a click and keeps following it", async () => {
+  await render(diary);
+  const answer = vi.fn();
+  const ask = query("day", { date: "2026-11-26" });
+  expect(bridge!.receive({ type: "rakazo-app:ready" }, answer, fresh())).toBe(true);
+  await act(async () => {
+    bridge!.receive(ask, answer, { fresh: false, use: vi.fn() });
+  });
+  await vi.waitFor(() =>
+    expect(answer).toHaveBeenLastCalledWith({
+      type: "rakazo-app:answer",
+      key: ask.key,
+      status: "ok",
+      data: { action: "day", input: { date: "2026-11-26" } },
+    }),
+  );
+  expect(answers.read).toHaveBeenCalledTimes(1);
+  // The server's signal (or an action here) marks app queries stale, and the answer is read again.
+  await act(() => client.invalidateQueries({ queryKey: ["appQuery"] }));
+  await vi.waitFor(() => expect(answers.read).toHaveBeenCalledTimes(2));
+  bridge!.receive({ type: "rakazo-app:unquery", key: ask.key }, answer, fresh());
+  await act(() => client.invalidateQueries({ queryKey: ["appQuery"] }));
+  expect(answers.read).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ["an action that changes data", query("addEntry")],
+  ["an undeclared action", query("wipe")],
+  ["an input that is not an object", query("day", ["x"])],
+])("refuses a query for %s without reading anything", async (_label, ask) => {
+  await render(diary);
+  const answer = vi.fn();
+  expect(bridge!.receive(ask, answer, fresh())).toBe(true);
+  expect(answer).toHaveBeenCalledWith(
+    expect.objectContaining({ type: "rakazo-app:answer", key: ask.key, status: "error" }),
+  );
+  expect(answers.read).not.toHaveBeenCalled();
 });

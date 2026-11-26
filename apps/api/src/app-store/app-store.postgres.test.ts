@@ -356,7 +356,10 @@ describe.skipIf(!enabled)("app store lifecycle (PostgreSQL)", () => {
         revision: 0,
       });
       expect(
-        await runInstalledAppAction(prisma, other(), appId, { action: "bump", input: { by: 2 } }),
+        await runInstalledAppAction({ prisma }, other(), appId, {
+          action: "bump",
+          input: { by: 2 },
+        }),
       ).toMatchObject({ ok: true, state: { count: 2 }, revision: 1 });
       const launch = await installedAppLaunch(prisma, other(), appId);
       pageId = (await installedAppPage(prisma, other(), launch)).pageId;
@@ -396,7 +399,10 @@ describe.skipIf(!enabled)("app store lifecycle (PostgreSQL)", () => {
     });
     await runAsTenant(other(), async () => {
       expect(
-        await runInstalledAppAction(prisma, other(), appId, { action: "bump", input: { by: 1 } }),
+        await runInstalledAppAction({ prisma }, other(), appId, {
+          action: "bump",
+          input: { by: 1 },
+        }),
       ).toMatchObject({ ok: false, reason: "forbidden" });
       // Removing the app removes the page that kept its state.
       await client(other()).apps.uninstall({ id: install.id });
@@ -423,9 +429,66 @@ describe.skipIf(!enabled)("app store lifecycle (PostgreSQL)", () => {
         AppChangedError,
       );
       await expect(
-        runInstalledAppAction(prisma, other(), listing.appId, { action: "bump", input: {} }),
+        runInstalledAppAction({ prisma }, other(), listing.appId, { action: "bump", input: {} }),
       ).rejects.toBeInstanceOf(AppChangedError);
       expect(await prisma.page.count({ where: { appInstallId: install.id } })).toBe(0);
     });
+  });
+
+  it("lists Food Diary without a review and keeps its records to the person who installed it", async () => {
+    const [listing] = await runAsTenant(other(), () =>
+      client(other()).apps.catalog({ query: "food diary" }),
+    );
+    expect(listing).toMatchObject({ appId: "food-diary", name: "Food Diary", server: true });
+    expect(listing!.collections).toEqual(["entries"]);
+    const install = await runAsTenant(other(), () =>
+      client(other()).apps.install({ ...listing!, grant: listing!.permissions }),
+    );
+    const entry = { food: "Rice", grams: 180, meal: "lunch", date: "2026-11-26", kcal: 234 };
+    await runAsTenant(other(), async () => {
+      expect(
+        await runInstalledAppAction({ prisma }, other(), "food-diary", {
+          action: "addEntry",
+          input: entry,
+        }),
+      ).toMatchObject({ ok: true, changed: true, result: { totals: { kcal: 234 } } });
+      expect(
+        await runInstalledAppAction({ prisma }, other(), "food-diary", {
+          action: "day",
+          input: { date: "2026-11-26" },
+        }),
+      ).toMatchObject({ ok: true, changed: false, result: { count: 1 } });
+      // A bad input is refused before anything runs, and nothing is stored.
+      expect(
+        await runInstalledAppAction({ prisma }, other(), "food-diary", {
+          action: "addEntry",
+          input: { ...entry, meal: "brunch" },
+        }),
+      ).toMatchObject({ ok: false, reason: "invalid" });
+      expect(await prisma.appRecord.count()).toBe(1);
+    });
+    // Row security: nobody else reads the records, not even the same person in another Space.
+    for (const scope of [author(), { ...author(), userId: other().userId }])
+      expect(await runAsTenant(scope, () => prisma.appRecord.count())).toBe(0);
+    await expect(
+      runAsTenant(author(), () =>
+        prisma.appRecord.create({
+          data: {
+            installId: install.id,
+            spaceId: other().spaceId,
+            collection: "entries",
+            id: "planted",
+            fields: entry,
+            bytes: 10,
+          },
+        }),
+      ),
+    ).rejects.toThrow();
+    // Removing the app removes its records.
+    await runAsTenant(other(), () => client(other()).apps.uninstall({ id: install.id }));
+    const left = await runAsSystem("count the removed app's records", () =>
+      prisma.appRecord.count({ where: { installId: install.id } }),
+    );
+    expect(left).toBe(0);
   });
 });
