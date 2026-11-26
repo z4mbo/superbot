@@ -7,6 +7,7 @@ import {
   mapScratchpadItem,
   memoryProviderDescriptors,
   readAgentMemory,
+  SKILL_LIBRARY,
 } from "@rakazo/adapters";
 import { isDeletableMemoryDocument } from "@rakazo/contracts";
 import { ClientError } from "@rakazo/core";
@@ -258,6 +259,7 @@ export function memoryRoutes(ctx: RouterContext) {
     },
     agentSkills: {
       list: authed.agentSkills.list.handler(async ({ context }) => agentSkills.list(context.actor)),
+      library: authed.agentSkills.library.handler(async () => SKILL_LIBRARY),
       get: authed.agentSkills.get.handler(async ({ context, input }) =>
         agentSkills.get(context.actor, input),
       ),

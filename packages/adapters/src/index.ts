@@ -318,6 +318,7 @@ export * from "./tools/builtin-skills.prompt.js";
 export * from "./tools/builtin-tool-bridge.js";
 export * from "./tools/fleet-tools.js";
 export * from "./tools/schedule-tools.js";
+export * from "./tools/skill-library/skill-library.js";
 export * from "./tools/skill-tools.js";
 export * from "./voice/voice-factory.js";
 export { VoiceProviderUnavailableError } from "./voice/voice-http.js";
