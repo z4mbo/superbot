@@ -1,6 +1,10 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { PAID_REQUEST_METHODS } from "@rakazo/contracts";
-import { MAX_WEB_FETCH_OFFSET } from "../web/web-limits.js";
+import {
+  DEFAULT_WEB_FETCH_MAX_CHARS,
+  MAX_WEB_FETCH_MAX_CHARS,
+  MAX_WEB_FETCH_OFFSET,
+} from "../web/web-limits.js";
 
 /** Web, paid service, cloud agent and purchase tools. */
 export const serviceTools: ConnectorTool[] = [
@@ -38,6 +42,72 @@ export const serviceTools: ConnectorTool[] = [
           minimum: 0,
           maximum: MAX_WEB_FETCH_OFFSET,
           description: `Characters to skip, to read on after a truncated fetch (default 0, at most ${MAX_WEB_FETCH_OFFSET}).`,
+        },
+      },
+      required: ["url"],
+    },
+    readOnly: true,
+  },
+  {
+    name: "exa_search",
+    description:
+      "Search the web with the search service the person saved their own key for. Returns titles, URLs, published dates and excerpts. Prefer it over web_search for research that needs fresher or more relevant results, domain or date filters, or page text in the same call.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "What to search for, in natural language." },
+        maxResults: {
+          type: "number",
+          description: "Max results to return (default 5, max 10).",
+        },
+        includeDomains: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: 20,
+          description: "Only return results from these domains, e.g. arxiv.org.",
+        },
+        excludeDomains: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: 20,
+          description: "Never return results from these domains.",
+        },
+        publishedAfter: {
+          type: "string",
+          description: "Only pages published after this date (ISO 8601, e.g. 2026-01-31).",
+        },
+        contents: {
+          type: "string",
+          enum: ["highlights", "text"],
+          description:
+            "highlights (default): short relevant excerpts. text: up to 4000 characters of each page.",
+        },
+      },
+      required: ["query"],
+    },
+    readOnly: true,
+  },
+  {
+    name: "firecrawl_scrape",
+    description:
+      "Read one public http(s) page as markdown with the page reading service the person saved their own key for. Renders JavaScript, so prefer it over web_fetch for pages web_fetch cannot read.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "Page URL (http or https)." },
+        maxChars: {
+          type: "number",
+          description: `Max characters of markdown (default ${DEFAULT_WEB_FETCH_MAX_CHARS}, at most ${MAX_WEB_FETCH_MAX_CHARS}).`,
+        },
+        offset: {
+          type: "number",
+          minimum: 0,
+          maximum: MAX_WEB_FETCH_OFFSET,
+          description: `Characters to skip, to read on after a truncated result (default 0, at most ${MAX_WEB_FETCH_OFFSET}).`,
+        },
+        onlyMainContent: {
+          type: "boolean",
+          description: "Leave out navigation, headers and footers (default true).",
         },
       },
       required: ["url"],

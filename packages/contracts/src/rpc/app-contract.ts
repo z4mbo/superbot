@@ -14,6 +14,7 @@ import { computersRpc } from "../computers/computers-rpc.js";
 import { integrationsRpc } from "../integrations/integrations-rpc.js";
 import { localAppRecordsRpc } from "../integrations/local-app-records.js";
 import { pluginRegistryRpc } from "../integrations/plugin-registry.js";
+import { researchKeysRpc } from "../integrations/research-keys.js";
 import { signInSourceRpc } from "../integrations/sign-in-sources.js";
 import { meetingCalendarRpc } from "../meetings/calendar.js";
 import { meetingsRpc } from "../meetings/meetings.js";
@@ -43,6 +44,7 @@ export const appContract = {
   ...skillsRpc,
   ...integrationsRpc,
   ...pluginRegistryRpc,
+  ...researchKeysRpc,
   ...localAppRecordsRpc,
   ...signInSourceRpc,
   ...appStoreRpc,

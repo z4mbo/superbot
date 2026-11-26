@@ -79,6 +79,8 @@ export const AUDITED_PROCEDURES: Record<string, AuditedProcedure> = {
     kind: "computer_provider",
     fields: ["provider"],
   },
+  "researchKeys.save": { type: "credential.changed", kind: "research_key", fields: ["provider"] },
+  "researchKeys.remove": { type: "credential.deleted", kind: "research_key", fields: ["provider"] },
   "mcp.assignments.approve": {
     type: "approval.decided",
     kind: "mcp",

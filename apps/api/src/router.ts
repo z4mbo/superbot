@@ -70,6 +70,7 @@ import { onboardingRoutes } from "./routes/onboarding.js";
 import { organizationsRoutes } from "./routes/organizations.js";
 import { pagesRoutes } from "./routes/pages.js";
 import { paymentWalletRoutes } from "./routes/payment-wallet.js";
+import { researchKeysRoutes } from "./routes/research-keys.js";
 import { routinesRoutes } from "./routes/routines.js";
 import { signInSourceRoutes } from "./routes/sign-in-source.js";
 import { spacesRoutes } from "./routes/spaces.js";
@@ -210,6 +211,7 @@ export function createRouter(deps: RouterDeps) {
     ...threadsRoutes(ctx),
     ...computerRoutes(ctx),
     ...computerProviderRoutes(ctx),
+    ...researchKeysRoutes(ctx),
     ...memoryRoutes(ctx),
     ...routinesRoutes(ctx),
     ...boardsRoutes(ctx),

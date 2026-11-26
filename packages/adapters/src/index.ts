@@ -350,6 +350,7 @@ export { VoiceProviderUnavailableError } from "./voice/voice-http.js";
 export * from "./voice/voice-model-connection.js";
 export * from "./voice/voice-providers.js";
 export * from "./web/favicon.js";
+export * from "./web/research/research-keys.js";
 export * from "./web/web-limits.js";
 export * from "./web/web-provider-factory.js";
 export * from "./web/web-ssrf.js";
