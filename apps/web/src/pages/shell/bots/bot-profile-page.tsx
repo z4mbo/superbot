@@ -101,7 +101,7 @@ export function BotProfilePage({
         <Tabs
           value={tab}
           onValueChange={(value) => setTab(value as ProfileTab)}
-          className="mt-6 gap-0"
+          className="mt-4 gap-0"
         >
           <TabsList className="mb-8 gap-1 bg-transparent p-0 group-data-horizontal/tabs:h-auto">
             <TabsTrigger value="general" className={profileTabClass}>
