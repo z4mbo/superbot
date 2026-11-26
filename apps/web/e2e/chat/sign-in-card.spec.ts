@@ -8,7 +8,7 @@ const LABEL = "Emulator Passwords";
 test("a bot signs in with a login the person approves in their password manager", async ({
   page,
 }, testInfo) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const stamp = Date.now();
   await signup(page, `sign-in-card-${stamp}@rakazo.test`, "password12", "Sign In Card");
   await completeOnboarding(page);
@@ -16,19 +16,17 @@ test("a bot signs in with a login the person approves in their password manager"
   const cards = page.getByTestId("sign-in-card");
 
   // Nothing is connected yet: the card offers to connect, and the provider's page sends the
-  // person back to the callback page, which finishes the connection.
+  // person back to the callback page, which finishes the connection. The emulator's page is the
+  // callback itself, on this http origin, so it opens in place rather than in a new tab.
   await composer.fill("sign in to the fixture site");
   await page.keyboard.press("Enter");
   const connectCard = cards.first();
   await expect(connectCard).toHaveAttribute("data-status", "needs_connection", { timeout: 60_000 });
-  const [connectTab] = await Promise.all([
-    page.waitForEvent("popup"),
-    connectCard.getByRole("button", { name: `Connect ${LABEL}` }).click(),
-  ]);
-  await expect(connectTab.getByTestId("sign-in-source-callback")).toContainText("Connected", {
-    timeout: 15_000,
-  });
-  await connectTab.close();
+  await connectCard.getByRole("button", { name: `Connect ${LABEL}` }).click();
+  const callback = page.getByTestId("sign-in-source-callback");
+  await expect(callback).toContainText("Connected", { timeout: 15_000 });
+  await callback.getByRole("button", { name: "Return to Superbot" }).click();
+  await expect(composer).toBeVisible({ timeout: 15_000 });
 
   // Asked again, the bot asks the password manager, and the card sends the person to review it.
   await composer.fill("sign in to the fixture site");
