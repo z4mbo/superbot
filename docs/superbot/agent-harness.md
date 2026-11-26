@@ -72,6 +72,8 @@ Built-in tools come from the catalog in `packages/contracts/src/bots/builtin-too
 | `browser_navigate` | Opens a URL in the page browser on the bot's computer. |
 | `browser_snapshot` | Reads the current page as numbered elements. |
 | `browser_act` | Clicks or fills page elements from a snapshot. |
+| `browser_dialog` | Accepts or dismisses the JavaScript dialog (alert, confirm, prompt or "Leave site?") the open page shows, with optional text for a prompt. Accepting a confirm or prompt asks first, every time, showing its message; **Never ask** refuses it. Dismissing, or accepting an alert or "Leave site?", runs at once. Turns off with `browser_act`. |
+| `browser_cdp` | Sends one Chrome DevTools Protocol command to the tab the page browser already has open; with no page open it sends nothing. Reads of the page's structure (such as `DOM.getDocument`, `Accessibility.getFullAXTree`, `Page.getLayoutMetrics`) run at once. Commands that act on the page (`Runtime.evaluate`, `Input.*`, `CSS`, `Emulation` and the rest of the domains it allows) ask first, every time; **Never ask** refuses them. Always refused: navigation (use `browser_navigate`), cookies and site storage, all network data and headers, other tabs and the browser itself, downloads, files from the computer, the debugger and heap, and any domain not reviewed. Nothing runs on a page holding a password or a saved login, card or code. Credentials and the run's secrets are redacted from results. Turns off with `browser_act`. |
 | `computer_observe` | Captures the bot computer's screen. |
 | `computer_act` | Runs a short batch of mouse and keyboard actions on the bot's computer. |
 | `sign_in` | Fills a login in the page browser from the person's password manager, which approves each login itself. |
