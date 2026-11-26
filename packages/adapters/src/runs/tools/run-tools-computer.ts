@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { BrowserProvider, SandboxProvider } from "@rakazo/adapter-kit";
 import type { ComputerCommand } from "@rakazo/contracts";
-import { COMPUTER_COMMAND_OUTPUT_MAX_CHARS } from "@rakazo/contracts";
+import { builtinToolDisabled, COMPUTER_COMMAND_OUTPUT_MAX_CHARS } from "@rakazo/contracts";
 import { redactSecrets } from "@rakazo/core";
 import { sandboxCommandTimeoutMs } from "@rakazo/core/node/sandbox-command";
 import { RunHistoryWriteError, releasePayment } from "@rakazo/db";
@@ -235,6 +235,8 @@ export async function pageBrowserTool(ctx: RunContext, call: ToolCall) {
   const redactions = () => [...ctx.secrets];
   const desktopTools =
     ctx.computer.graphicalToolsAllowed && builtinOffered(ctx.tools.disabled, "computer_act");
+  // A dialog the page opened is answered with browser_dialog, where the run has it.
+  const dialogTool = !builtinToolDisabled(ctx.tools.disabled, "browser_dialog");
   // A file the page downloads goes to the bot's own Downloads folder. Its name is redacted like any
   // page text, so one that echoes a secret is listed under another name than it has on disk.
   const downloads = {
@@ -276,6 +278,7 @@ export async function pageBrowserTool(ctx: RunContext, call: ToolCall) {
       ? redactBrowserResult(
           await tool(pageUrlTrackingBrowser, await ctx.computer.get("tool", name), context, args, {
             desktopTools,
+            dialogTool,
             downloads,
           }),
           redactions(),
@@ -287,6 +290,7 @@ export async function pageBrowserTool(ctx: RunContext, call: ToolCall) {
           args,
           {
             desktopTools,
+            dialogTool,
             downloads,
             redactions,
             approvedPurchase: paying,

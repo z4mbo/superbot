@@ -1,5 +1,6 @@
 import type { AdapterContext, BrowserProvider, ComputerRef } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
+import { ComputerBrowserProvider } from "../computers/screens/computer-browser.js";
 import { EmulatorBrowserProvider } from "./browser-emulator.js";
 import { FakeBrowserProvider } from "./fake-browser.js";
 
@@ -82,7 +83,44 @@ async function assertBrowserConformance(provider: BrowserProvider) {
   expect(filled.fallback).toBeUndefined();
 }
 
+/**
+ * browser_cdp and browser_dialog: a provider either leaves out `cdp` and `dialog` (the tools then
+ * say so), or answers them as every other provider does. Neither ever opens a page of its own.
+ */
+async function assertPageControlConformance(provider: BrowserProvider) {
+  if (!provider.cdp && !provider.dialog) return;
+  // Both or neither: browser_dialog answers what browser_cdp refuses to.
+  expect(Boolean(provider.cdp)).toBe(Boolean(provider.dialog));
+  const cold = await provider.cdp!(computer, { method: "Page.getFrameTree" }, context);
+  expect(cold).toMatchObject({ ok: false, noPage: true, uncertain: false });
+  expect(await provider.dialog!(computer, { action: "status" }, context)).toMatchObject({
+    ok: false,
+    noPage: true,
+  });
+  await provider.navigate(computer, { url: "https://example.test/form" }, context);
+  const status = await provider.dialog!(computer, { action: "status" }, context);
+  expect(status).toMatchObject({ ok: true, url: "https://example.test/form" });
+  expect(status.dialog).toBeUndefined();
+  expect(
+    await provider.dialog!(computer, { action: "accept", only: ["alert"] }, context),
+  ).toMatchObject({
+    ok: false,
+    uncertain: false,
+  });
+  const read = await provider.cdp!(computer, { method: "Page.getLayoutMetrics" }, context);
+  expect(read).toMatchObject({ ok: true, url: "https://example.test/form" });
+  expect(read.result).toBeDefined();
+}
+
 describe("browser provider conformance", () => {
+  it.each([
+    ["fake", () => new FakeBrowserProvider({ pages: seededPages })],
+    ["emulator", () => new EmulatorBrowserProvider({ pages: seededPages })],
+    ["computer (in process)", () => new ComputerBrowserProvider({ pages: seededPages })],
+  ] as const)("answers browser_cdp and browser_dialog alike: %s", async (_name, make) => {
+    await assertPageControlConformance(make());
+  });
+
   it("holds for fake (offline)", async () => {
     await assertBrowserConformance(new FakeBrowserProvider({ pages: seededPages }));
   });

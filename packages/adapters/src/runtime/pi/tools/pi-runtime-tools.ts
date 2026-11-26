@@ -101,6 +101,8 @@ const PAGE_CHANGING_TOOL_NAMES = new Set([
   "launch_app",
   "browser_navigate",
   "browser_act",
+  "browser_cdp",
+  "browser_dialog",
 ]);
 
 /**
@@ -288,6 +290,9 @@ export function describeToolActivity(
     return `Opening page: ${detail(redactActivityUrl(record.url))}`;
   if (toolName === "browser_snapshot") return "Reading the page";
   if (toolName === "browser_act") return "Using the page";
+  if (toolName === "browser_cdp") return `Inspecting the page: ${detail(record.method)}`;
+  if (toolName === "browser_dialog")
+    return record.action === "accept" ? "Accepting a page dialog" : "Dismissing a page dialog";
   if (toolName === "computer_act") return "Operating the computer";
   if (toolName === "run_subagent") return `Delegating to helper: ${detail(record.name)}`;
   if (toolName === "delegate")

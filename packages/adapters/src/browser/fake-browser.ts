@@ -2,6 +2,11 @@ import type {
   AdapterContext,
   BrowserActRequest,
   BrowserActResult,
+  BrowserCdpRequest,
+  BrowserCdpResult,
+  BrowserDialog,
+  BrowserDialogRequest,
+  BrowserDialogResult,
   BrowserNavigateRequest,
   BrowserNavigateResult,
   BrowserProvider,
@@ -12,6 +17,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { emulatorExtensionFill } from "../sign-in-sources/sign-in-source-emulator.js";
 import { fetchSafeWebText } from "../web/web-ssrf.js";
+import type { PageBrowserSession } from "./page-browser-session.js";
 import { PageBrowserSessionStore, pageBrowserSessionKey } from "./page-browser-session.js";
 
 export interface FakeBrowserProviderOptions {
@@ -33,6 +39,14 @@ export class FakeBrowserProvider implements BrowserProvider {
   actError?: Error;
   /** When set, every method returns computer_act fallback (fallback-path tests). */
   forceFallback?: string;
+  /** The next act that completes opens this dialog, as a page's click handler would. */
+  nextActOpensDialog?: BrowserDialog;
+  /** What each DevTools protocol method answers; any other is unknown to the browser. */
+  readonly cdpResults = new Map<string, unknown>([
+    ["Page.getLayoutMetrics", { cssLayoutViewport: { clientWidth: 1280, clientHeight: 720 } }],
+  ]);
+  /** Every DevTools protocol command the browser received, oldest first. */
+  readonly cdpCalls: BrowserCdpRequest[] = [];
 
   constructor(options: FakeBrowserProviderOptions = {}) {
     this.pages = options.pages ?? {};
@@ -108,7 +122,10 @@ export class FakeBrowserProvider implements BrowserProvider {
       };
     }
     if (this.snapshotError) throw this.snapshotError;
-    return this.sessions.get(pageBrowserSessionKey(computer, context)).snapshot();
+    const session = this.sessions.get(pageBrowserSessionKey(computer, context));
+    const blocked = dialogBlocked(session);
+    if (blocked) return { url: "", title: "", tree: "", elements: [], ...blocked };
+    return session.snapshot();
   }
 
   async act(
@@ -137,7 +154,89 @@ export class FakeBrowserProvider implements BrowserProvider {
         fallback: "computer_act",
       };
     }
-    return this.sessions.get(pageBrowserSessionKey(computer, context)).act(request.actions);
+    const session = this.sessions.get(pageBrowserSessionKey(computer, context));
+    const blocked = dialogBlocked(session);
+    if (blocked)
+      return { ok: false, completed: 0, uncertain: false, url: "", title: "", ...blocked };
+    const result = session.act(request.actions);
+    const opens = this.nextActOpensDialog;
+    if (!result.ok || !opens) return result;
+    this.nextActOpensDialog = undefined;
+    session.dialog = opens;
+    const stops = dialogBlocked(session);
+    // An alert only informs: it is closed and its message noted, as the computer's helper does.
+    if (!stops)
+      return {
+        ...result,
+        note: `The page showed an alert, now closed${opens.message ? `: ${JSON.stringify(opens.message)}` : ""}.`,
+      };
+    const { tree: _tree, elements: _elements, ...page } = result;
+    return { ...page, ok: false, uncertain: false, ...stops };
+  }
+
+  /** The page this computer's browser has open, if browser_navigate opened one; never a new one. */
+  private openPage(computer: ComputerRef, context: AdapterContext): PageBrowserSession | undefined {
+    const session = this.sessions.peek(pageBrowserSessionKey(computer, context));
+    return session && session.url !== "about:blank" ? session : undefined;
+  }
+
+  /** Reads or answers the dialog a test opened, as the computer's helper does on a real page. */
+  async dialog(
+    computer: ComputerRef,
+    request: BrowserDialogRequest,
+    context: AdapterContext,
+  ): Promise<BrowserDialogResult> {
+    context.signal.throwIfAborted();
+    const session = this.openPage(computer, context);
+    if (!session) return { ok: false, uncertain: false, noPage: true, error: NO_PAGE_OPEN };
+    const open = session.dialog;
+    const page = { url: session.url, title: session.title };
+    if (request.action === "status")
+      return { ok: true, ...page, ...(open ? { dialog: open.type, message: open.message } : {}) };
+    if (!open) return { ok: false, uncertain: false, ...page, error: NO_DIALOG_OPEN };
+    const shown = { dialog: open.type, message: open.message };
+    if (
+      request.action === "accept" &&
+      (request.expect
+        ? request.expect.type !== open.type || request.expect.message !== open.message
+        : request.only && !request.only.includes(open.type))
+    ) {
+      return {
+        ok: false,
+        uncertain: false,
+        ...page,
+        ...shown,
+        error: request.expect ? DIALOG_CHANGED : dialogNeedsApproval(open.type),
+      };
+    }
+    session.dialog = undefined;
+    session.dialogAnswers.push({
+      ...open,
+      action: request.action,
+      ...(request.action === "accept" && open.type === "prompt" && request.text !== undefined
+        ? { text: request.text }
+        : {}),
+    });
+    return { ok: true, answered: true, ...shown, ...session.snapshot() };
+  }
+
+  /** Answers from `cdpResults`, and records each command. */
+  async cdp(
+    computer: ComputerRef,
+    request: BrowserCdpRequest,
+    context: AdapterContext,
+  ): Promise<BrowserCdpResult> {
+    context.signal.throwIfAborted();
+    const session = this.openPage(computer, context);
+    if (!session) return { ok: false, uncertain: false, noPage: true, error: NO_PAGE_OPEN };
+    const page = { url: session.url, title: session.title };
+    if (session.holdsSecret())
+      return { ok: false, uncertain: false, secretOnPage: true, ...page, error: SECRET_ON_PAGE };
+    const { signal: _signal, ...sent } = request;
+    this.cdpCalls.push(sent);
+    if (!this.cdpResults.has(request.method))
+      return { ok: false, uncertain: false, ...page, error: `'${request.method}' wasn't found` };
+    return { ok: true, ...page, result: this.cdpResults.get(request.method) };
   }
 
   /**
@@ -155,6 +254,39 @@ export class FakeBrowserProvider implements BrowserProvider {
     const session = this.sessions.get(pageBrowserSessionKey(computer, context));
     return { status: session.fillLogin(request.origin, answer.login) };
   }
+}
+
+const NO_DIALOG_OPEN = "No dialog is open on the page.";
+const NO_PAGE_OPEN = "No page is open in the browser.";
+const SECRET_ON_PAGE = "The page holds a password or a saved login or card detail.";
+const DIALOG_CHANGED =
+  "The dialog on the page is not the one the user approved, so it was left open.";
+
+function dialogNeedsApproval(type: string): string {
+  return `Accepting a ${type} dialog needs the user's approval, so it was left open.`;
+}
+
+/**
+ * What a page read or action reports while a dialog is open, as the computer's helper does: an
+ * alert is closed and its message noted, and any other dialog stops the page tools.
+ */
+function dialogBlocked(
+  session: PageBrowserSession,
+): { error: string; dialog: string; fallback: "computer_act" } | undefined {
+  const open = session.dialog;
+  if (!open) return undefined;
+  const quoted = open.message ? `: ${JSON.stringify(open.message)}` : "";
+  if (open.type === "alert") {
+    session.dialog = undefined;
+    session.dialogAnswers.push({ ...open, action: "accept" });
+    return undefined;
+  }
+  const name = open.type === "beforeunload" ? '"Leave site?"' : open.type;
+  return {
+    error: `A ${name} dialog is open on the screen${quoted}`,
+    dialog: open.type,
+    fallback: "computer_act",
+  };
 }
 
 function stripHash(url: string): string {

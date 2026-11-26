@@ -81,6 +81,9 @@ describe("built-in tool bridge", () => {
         "process_manage",
       ]),
     );
+    // Rarely needed: a page dialog or a raw protocol command is found when the page asks for it.
+    expect(listed.map((tool) => tool.name)).not.toEqual(expect.arrayContaining(["browser_cdp"]));
+    expect(listed.map((tool) => tool.name)).not.toEqual(expect.arrayContaining(["browser_dialog"]));
   });
 
   it("lists keyed research tools in full once a saved key offers them", () => {

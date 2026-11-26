@@ -386,6 +386,8 @@ describe("narrateTool", () => {
     expect(narrateTool("vision_analyze")).toBe("looking at an image");
     expect(narrateTool("video_analyze")).toBe("watching a video");
     expect(narrateTool("browser_snapshot")).toBe("using the page");
+    expect(narrateTool("browser_cdp")).toBe("using the page");
+    expect(narrateTool("browser_dialog")).toBe("using the page");
     expect(narrateTool("write_file")).toBe("writing a file");
     expect(narrateTool("edit_file")).toBe("editing a file");
     expect(narrateTool("search_files")).toBe("searching");

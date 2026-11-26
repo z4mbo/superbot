@@ -35,6 +35,8 @@ export const BUILTIN_TOOL_NAMES = [
   "browser_navigate",
   "browser_snapshot",
   "browser_act",
+  "browser_cdp",
+  "browser_dialog",
   "list_files",
   "read_file",
   "write_file",
@@ -158,14 +160,17 @@ export function isBuiltinToolName(name: string): name is BuiltinToolName {
 
 /**
  * Built-ins that do part of another's job, so turning that one off turns them off too: a bot
- * without shell starts no background command, one without write_file edits no file, and one
- * without delegate has no task threads to follow up, stop or link to.
+ * without shell starts no background command, one without write_file edits no file, one without
+ * browser_act answers no page dialog and sends no raw page command, and one without delegate has
+ * no task threads to follow up, stop or link to.
  */
 const BUILTIN_TOOL_FOLLOWS: Readonly<Partial<Record<BuiltinToolName, BuiltinToolName>>> = {
   edit_file: "write_file",
   search_files: "read_file",
   glob: "list_files",
   process_manage: "shell",
+  browser_cdp: "browser_act",
+  browser_dialog: "browser_act",
   follow_up: "delegate",
   stop_task: "delegate",
   link_to_thread: "delegate",

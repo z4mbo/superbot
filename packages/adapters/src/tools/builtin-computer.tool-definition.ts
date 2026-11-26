@@ -1,5 +1,9 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { PURCHASE_CARD_FIELDS } from "@rakazo/contracts";
+import {
+  BROWSER_DIALOG_ACTIONS,
+  DIALOG_PROMPT_TEXT_MAX_CHARS,
+} from "../browser/browser-control-tools.js";
 import { BROWSER_ACT_KINDS } from "../browser/browser-tools.js";
 
 export const READ_FILE_MAX_BYTES = 250_000;
@@ -151,6 +155,39 @@ export const computerTools: ConnectorTool[] = [
         },
       },
       required: ["actions"],
+    },
+  },
+  {
+    name: "browser_dialog",
+    description:
+      'Accept or dismiss the JavaScript dialog (alert, confirm, prompt or "Leave site?") the page has open, which page tools report as dialog. Accepting a confirm or prompt asks the user first, showing its message; prompt_text is typed into a prompt. If no dialog is open, nothing happens.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: [...BROWSER_DIALOG_ACTIONS] },
+        prompt_text: {
+          type: "string",
+          maxLength: DIALOG_PROMPT_TEXT_MAX_CHARS,
+          description: "For accept on a prompt dialog.",
+        },
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "browser_cdp",
+    description:
+      "Send one Chrome DevTools Protocol command to the page browser's open tab, after browser_navigate opened a page. Only when browser_snapshot and browser_act cannot do it. Reads of the page's structure (DOM.getDocument, Accessibility.getFullAXTree, Page.getLayoutMetrics) run at once; commands that act on the page (Runtime.evaluate, Input.*, CSS, Emulation) ask the user each time. Navigation, cookies, storage, network data, other tabs and the browser itself are refused: use browser_navigate to open pages. Each command runs in a fresh session, so node ids and enabled domains do not carry over; use backendNodeId. Credentials in the result are redacted, and it is off on a page holding a password or a saved login or card.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        method: {
+          type: "string",
+          description: "A protocol method, such as DOM.getDocument.",
+        },
+        params: { type: "object", description: "The method's parameters." },
+      },
+      required: ["method"],
     },
   },
   {
