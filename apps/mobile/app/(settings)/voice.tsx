@@ -429,12 +429,17 @@ export default function VoiceSettings() {
         current.some((entry) => entry.provider === connected.provider)
           ? current.map((entry) => (entry.provider === connected.provider ? connected : entry))
           : [...current, connected];
+      const transcribe = Boolean(selected.transcribe);
       const savedStatus: VoiceStatus = {
         configured: true,
         ready: Boolean(connected.voiceId),
-        transcribe: Boolean(selected.transcribe),
+        transcribe,
         provider: connected.provider,
         voiceId: connected.voiceId ?? "",
+        // As the server derives it: dictation follows the connection, and the voice mode it last
+        // chose stands until the next read.
+        dictation: transcribe,
+        live: status?.live ?? null,
       };
       setStatus(savedStatus);
       // A replacement server or model can have a different set of voices.
