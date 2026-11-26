@@ -192,8 +192,20 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     const reconcile = () => runAsSystem("reconcile", () => reconcileMediaVideos(process()));
     const job = (jobId: string) =>
       asSystem(prisma).externalEffect.findUniqueOrThrow({ where: { id: jobId } });
+    // Messages the bot posted, leaving out each video's pending card, which `cards` reads.
     const messages = (threadId = user.thread.id) =>
-      asSystem(prisma).message.findMany({ where: { threadId }, orderBy: { seq: "asc" } });
+      asSystem(prisma).message.findMany({
+        where: {
+          threadId,
+          OR: [{ clientNonce: null }, { NOT: { clientNonce: { startsWith: "media-card:" } } }],
+        },
+        orderBy: { seq: "asc" },
+      });
+    const cards = () =>
+      asSystem(prisma).message.findMany({
+        where: { threadId: user.thread.id, clientNonce: { startsWith: "media-card:" } },
+        orderBy: { seq: "asc" },
+      });
     const wakes = () =>
       asSystem(prisma).run.findMany({
         where: { threadId: user.thread.id, trigger: "media" },
@@ -228,6 +240,7 @@ describePostgres("background video delivery (PostgreSQL)", () => {
       reconcile,
       job,
       messages,
+      cards,
       wakes,
       tenant,
     };
@@ -238,6 +251,16 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     const other = await owner();
     const jobId = await h.submit();
     expect(h.media.submissions).toBe(1);
+    // The chat shows the video as pending from the moment the provider accepts it.
+    const media = {
+      kind: "video",
+      prompt: "a lighthouse at dusk",
+      provider: "server",
+      providerName: "Server default",
+    };
+    expect((await h.cards()).map((card) => card.blocks)).toEqual([
+      [{ kind: "media_generation", jobId, status: "pending", media }],
+    ]);
     // Restart: the scheduled poll is lost, and recovery finds the job from the database alone.
     await h.stall(jobId);
     h.enqueued.length = 0;
@@ -259,7 +282,14 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     const posted = await h.messages();
     expect(posted).toHaveLength(1);
     expect(posted[0]).toMatchObject({ role: "bot", botId: h.user.bot.id, runId: h.user.run.id });
-    expect(posted[0]!.blocks).toEqual([expect.objectContaining({ mimeType: "video/mp4" })]);
+    expect(posted[0]!.blocks).toEqual([
+      expect.objectContaining({ kind: "file", mimeType: "video/mp4", generated: media }),
+    ]);
+    const artifactId = (posted[0]!.blocks as Array<{ artifactId: string }>)[0]!.artifactId;
+    // The pending card is changed in place, once, to point at the delivered video.
+    expect((await h.cards()).map((card) => card.blocks)).toEqual([
+      [{ kind: "media_generation", jobId, status: "completed", media, artifactId }],
+    ]);
     expect(await h.messages(other.thread.id)).toHaveLength(0);
     const wakes = await h.wakes();
     expect(wakes).toHaveLength(1);
@@ -278,6 +308,9 @@ describePostgres("background video delivery (PostgreSQL)", () => {
     await h.poll(jobId);
     expect((await h.job(jobId)).status).toBe("media_failed");
     expect(await h.messages()).toHaveLength(0);
+    expect((await h.cards()).map((card) => card.blocks)).toEqual([
+      [expect.objectContaining({ kind: "media_generation", jobId, status: "failed" })],
+    ]);
     const wakes = await h.wakes();
     expect(wakes).toHaveLength(1);
     expect(wakes[0]!.task.prompt).toContain("failed");

@@ -31,10 +31,10 @@ ALTER TABLE "user_media_credentials" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY user_media_credentials_tenant ON "user_media_credentials"
   USING ("userId" = NULLIF(current_setting('app.user_id', true), ''));
 CREATE POLICY user_media_credentials_system ON "user_media_credentials"
-  USING (current_setting('app.rls_bypass', true) = 'on');
+  USING ((SELECT app_rls_bypass()));
 
 ALTER TABLE "user_media_preferences" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY user_media_preferences_tenant ON "user_media_preferences"
   USING ("userId" = NULLIF(current_setting('app.user_id', true), ''));
 CREATE POLICY user_media_preferences_system ON "user_media_preferences"
-  USING (current_setting('app.rls_bypass', true) = 'on');
+  USING ((SELECT app_rls_bypass()));
