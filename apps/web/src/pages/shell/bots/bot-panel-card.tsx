@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 /** A hairline card holding a section's rows. */
 export function PanelCard({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={cn("overflow-hidden rounded-xl border border-border bg-card", className)}>
+    <div className={cn("overflow-hidden rounded-lg border border-hairline bg-card", className)}>
       {children}
     </div>
   );

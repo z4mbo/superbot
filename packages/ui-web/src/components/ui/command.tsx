@@ -13,6 +13,7 @@ import { cn } from "@rakazo/ui-web/lib/utils";
 import { Command as CommandPrimitive } from "cmdk";
 import { CheckIcon, SearchIcon } from "lucide-react";
 import type * as React from "react";
+import type { FieldSize } from "../../lib/control-size.js";
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
@@ -44,7 +45,10 @@ function CommandDialog({
   return (
     <Dialog {...props}>
       <DialogContent
-        className={cn("top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl! p-0", className)}
+        className={cn(
+          "top-[15%] translate-y-0 gap-0 overflow-hidden rounded-[18px]! p-0",
+          className,
+        )}
         showCloseButton={showCloseButton}
       >
         <DialogHeader className="sr-only">
@@ -59,11 +63,19 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  size,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: Omit<React.ComponentProps<typeof CommandPrimitive.Input>, "size"> & { size?: FieldSize }) {
   return (
-    <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="rounded-lg! border-input/30! bg-input/30 shadow-none! ring-0! *:data-[slot=input-group-addon]:pl-2!">
+    // In a dialog the search is the dialog's first line, without a field around it.
+    <div
+      data-slot="command-input-wrapper"
+      className="p-1 pb-0 in-data-[slot=dialog-content]:px-2 in-data-[slot=dialog-content]:pt-2"
+    >
+      <InputGroup
+        size={size}
+        className="rounded-lg! border-input/30! bg-input/30 shadow-none! ring-0! *:data-[slot=input-group-addon]:pl-2! in-data-[slot=dialog-content]:border-transparent! in-data-[slot=dialog-content]:bg-transparent! *:data-[slot=input-group-addon]:in-data-[slot=dialog-content]:pl-3.5!"
+      >
         <CommandPrimitive.Input
           data-slot="input-group-control"
           className={cn(

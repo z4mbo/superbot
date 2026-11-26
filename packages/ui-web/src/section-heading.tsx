@@ -3,11 +3,12 @@ import { cva } from "class-variance-authority";
 import type { ComponentProps } from "react";
 import { cn } from "./lib/utils.js";
 
-const sectionHeadingVariants = cva("font-medium", {
+// Labels sit at regular weight, as the reference sets its group labels.
+const sectionHeadingVariants = cva("", {
   variants: {
     variant: {
-      heading: "text-heading3 text-foreground",
-      title: "text-body-lg text-foreground",
+      heading: "text-heading3 font-medium text-foreground",
+      title: "text-body-lg font-medium text-foreground",
       label: "text-label text-muted-foreground",
     },
   },

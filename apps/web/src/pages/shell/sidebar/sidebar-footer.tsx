@@ -111,11 +111,11 @@ export function SidebarFooter({
             side="top"
             sideOffset={8}
             align="start"
-            className="max-h-(--available-height) w-[295px] max-w-[calc(100vw-69px)] gap-0 overflow-y-auto p-1 *:shrink-0 data-closed:animate-none"
+            className="max-h-(--available-height) w-[240px] max-w-[calc(100vw-69px)] gap-0 overflow-y-auto p-1.5 *:shrink-0 data-closed:animate-none"
           >
             <div
               data-testid="account-menu-header"
-              className="mb-1 min-w-0 border-b border-border px-2.5 py-2.5"
+              className="mx-1.5 mb-1.5 min-w-0 border-b border-border px-0.5 pt-1.5 pb-2.5"
             >
               <p className="truncate text-body font-medium">{name}</p>
               {email && email !== name ? (
@@ -131,8 +131,8 @@ export function SidebarFooter({
             {onWorkspaces ? (
               <Button
                 variant="ghost"
-                size="lg"
-                className="w-full justify-start gap-2.5 font-normal"
+                size="default"
+                className="w-full justify-start gap-2 rounded-md px-2 font-normal"
                 onClick={onWorkspaces}
               >
                 <UserRound className="text-muted-foreground" strokeWidth={1.75} />
@@ -142,8 +142,8 @@ export function SidebarFooter({
             {usage ? (
               <Button
                 variant="ghost"
-                size="lg"
-                className="w-full justify-start gap-2.5 font-normal"
+                size="default"
+                className="w-full justify-start gap-2 rounded-md px-2 font-normal"
                 onClick={onUsage}
               >
                 <Gauge className="text-muted-foreground" strokeWidth={1.75} />
@@ -155,8 +155,8 @@ export function SidebarFooter({
             ) : null}
             <Button
               variant="ghost"
-              size="lg"
-              className="w-full justify-start gap-2.5 font-normal"
+              size="default"
+              className="w-full justify-start gap-2 rounded-md px-2 font-normal"
               aria-label={settingsLabel}
               onClick={onSettings}
             >
@@ -166,8 +166,8 @@ export function SidebarFooter({
 
             <Button
               variant="ghost"
-              size="lg"
-              className="w-full justify-start gap-2.5 font-normal"
+              size="default"
+              className="w-full justify-start gap-2 rounded-md px-2 font-normal"
               onClick={onSkills}
             >
               <ScrollText className="text-muted-foreground" strokeWidth={1.75} />
@@ -175,8 +175,8 @@ export function SidebarFooter({
             </Button>
             <Button
               variant="ghost"
-              size="lg"
-              className="w-full justify-start gap-2.5 font-normal"
+              size="default"
+              className="w-full justify-start gap-2 rounded-md px-2 font-normal"
               onClick={onArtifacts}
             >
               <FolderOpen className="text-muted-foreground" strokeWidth={1.75} />
@@ -186,8 +186,8 @@ export function SidebarFooter({
               <Button
                 key={link.id}
                 variant="ghost"
-                size="lg"
-                className="w-full justify-start gap-2.5 font-normal"
+                size="default"
+                className="w-full justify-start gap-2 rounded-md px-2 font-normal"
                 onClick={() => onLink?.(link)}
               >
                 <Link2 className="text-muted-foreground" strokeWidth={1.75} />
@@ -197,19 +197,19 @@ export function SidebarFooter({
             {onInvite ? (
               <Button
                 variant="ghost"
-                size="lg"
-                className="w-full justify-start gap-2.5 font-normal"
+                size="default"
+                className="w-full justify-start gap-2 rounded-md px-2 font-normal"
                 onClick={onInvite}
               >
                 <UserPlus className="text-muted-foreground" strokeWidth={1.75} />
                 <Trans>Invite friends</Trans>
               </Button>
             ) : null}
-            <div className="my-1 border-t border-border" />
+            <div className="mx-1.5 my-1.5 border-t border-border" />
             <Button
               variant="ghost"
-              size="lg"
-              className="w-full justify-start gap-2.5 font-normal"
+              size="default"
+              className="w-full justify-start gap-2 rounded-md px-2 font-normal"
               disabled={signingOut}
               onClick={onLogOut}
             >
@@ -269,8 +269,8 @@ function OrganizationRow({
           render={
             <Button
               variant="ghost"
-              size="lg"
-              className="w-full justify-start gap-2.5 font-normal"
+              size="default"
+              className="w-full justify-start gap-2 rounded-md px-2 font-normal"
             />
           }
         >
@@ -282,7 +282,7 @@ function OrganizationRow({
           side="right"
           align="start"
           sideOffset={4}
-          className="max-h-(--available-height) w-60 gap-0 overflow-y-auto p-1 *:shrink-0"
+          className="max-h-(--available-height) w-60 gap-0 overflow-y-auto p-1.5 *:shrink-0"
         >
           {organizations.map((organization) => {
             const current = organization.id === active.id;
@@ -291,8 +291,8 @@ function OrganizationRow({
                 key={organization.id}
                 variant="ghost"
                 aria-current={current ? "true" : undefined}
-                size="lg"
-                className="w-full justify-between gap-2.5 font-normal"
+                size="default"
+                className="w-full justify-between gap-2 rounded-md px-2 font-normal"
                 onClick={() => onSwitch?.(organization)}
               >
                 <span className="min-w-0 truncate">{organization.name}</span>
@@ -302,11 +302,11 @@ function OrganizationRow({
           })}
           {onCreate ? (
             <>
-              <div className="my-1 border-t border-border" />
+              <div className="mx-1.5 my-1.5 border-t border-border" />
               <Button
                 variant="ghost"
-                size="lg"
-                className="w-full justify-start gap-2.5 font-normal"
+                size="default"
+                className="w-full justify-start gap-2 rounded-md px-2 font-normal"
                 onClick={onCreate}
               >
                 <Plus className="text-muted-foreground" strokeWidth={1.75} />
@@ -316,7 +316,7 @@ function OrganizationRow({
           ) : null}
         </PopoverContent>
       </Popover>
-      <div className="my-1 border-t border-border" />
+      <div className="mx-1.5 my-1.5 border-t border-border" />
     </>
   );
 }

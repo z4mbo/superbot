@@ -77,7 +77,7 @@ export function ScratchpadSection({ botId }: { botId: string }) {
 
   return (
     <div className="mt-6" data-testid="bot-scratchpad">
-      <SectionHeading variant="label" className="mb-2 flex items-center justify-between pe-1">
+      <SectionHeading variant="label" className="mb-2 flex items-center justify-between ps-3 pe-1">
         <Trans>Open work</Trans>
         <Button
           variant="ghost"
@@ -89,7 +89,7 @@ export function ScratchpadSection({ botId }: { botId: string }) {
           <Plus className="size-4" />
         </Button>
       </SectionHeading>
-      <div className="rounded-xl bg-muted/50 p-4">
+      <div className="rounded-lg border border-hairline bg-card p-3">
         {(showAll ? items : items.slice(0, 5)).map((item) => (
           <div
             key={item.id}

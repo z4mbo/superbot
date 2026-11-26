@@ -50,7 +50,10 @@ export function PanelSection({
 }) {
   return (
     <section>
-      <SectionHeading variant="label" className="mb-2 flex min-h-6 items-center justify-between">
+      <SectionHeading
+        variant="label"
+        className="mb-2 flex min-h-6 items-center justify-between px-3"
+      >
         {label}
         {action}
       </SectionHeading>
@@ -61,7 +64,7 @@ export function PanelSection({
 
 /** Rows of one card. */
 export function SettingsCard({ children }: { children: ReactNode }) {
-  return <div className="rounded-xl bg-muted/50 px-4 py-1">{children}</div>;
+  return <div className="rounded-lg border border-hairline bg-card px-3 py-1">{children}</div>;
 }
 
 export function SwitchRow({

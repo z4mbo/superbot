@@ -14,13 +14,13 @@ test("computer rail resizes its preview and remembers width", async ({ page }, t
   const panel = page.getByTestId("side-panel");
   const separator = page.getByRole("separator", { name: "Resize panel" });
   await expect(separator).toBeVisible();
-  await expect(panel).toHaveCSS("width", "384px");
+  await expect(panel).toHaveCSS("width", "320px");
   const before = (await page.getByTestId("computer-preview").boundingBox())!;
   // Wait for the handle to settle and receive pointer events before dragging.
   await separator.hover({ position: { x: 3, y: 100 } });
   const handle = (await separator.boundingBox())!;
   await page.mouse.down();
-  await page.mouse.move(handle.x - 250, handle.y + 100, { steps: 12 });
+  await page.mouse.move(handle.x - 320, handle.y + 100, { steps: 12 });
   await page.mouse.up();
   await expect.poll(async () => (await panel.boundingBox())!.width).toBeGreaterThan(600);
   const after = (await page.getByTestId("computer-preview").boundingBox())!;
@@ -38,13 +38,13 @@ test("computer rail resizes its preview and remembers width", async ({ page }, t
     .poll(async () => Math.round((await panel.boundingBox())!.width))
     .toBe(preferredWidth);
   await page.setViewportSize({ width: 1000, height: 1000 });
-  await expect(separator).toHaveAttribute("aria-valuemax", "364");
-  await expect.poll(async () => Math.round((await panel.boundingBox())!.width)).toBe(364);
+  await expect(separator).toHaveAttribute("aria-valuemax", "400");
+  await expect.poll(async () => Math.round((await panel.boundingBox())!.width)).toBe(400);
   expect(await page.evaluate(() => localStorage.getItem("rakazo:right-panel-width"))).toBe(
     String(preferredWidth),
   );
   await page.setViewportSize({ width: 1500, height: 1000 });
-  await expect(separator).toHaveAttribute("aria-valuemax", "864");
+  await expect(separator).toHaveAttribute("aria-valuemax", "900");
   await expect
     .poll(async () => Math.round((await panel.boundingBox())!.width))
     .toBe(preferredWidth);

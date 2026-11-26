@@ -123,6 +123,7 @@ test("opens Artifacts from the account menu and lists created files", async ({
   await mobileSidebar.getByTestId("user-menu-trigger").click();
   const mobileArtifacts = accountMenu.getByRole("button", { name: "Artifacts", exact: true });
   await expect(mobileArtifacts).toBeVisible();
-  await expect(mobileSidebar.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  // Settings sits in the same menu; the sidebar footer keeps only the account and Store.
+  await expect(accountMenu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "account-menu-artifacts-mobile");
 });

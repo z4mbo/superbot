@@ -492,7 +492,7 @@ export function BotSettings({
   const closeButton = (
     <Button
       variant="floating"
-      size="icon"
+      size="icon-lg"
       className="text-muted-foreground"
       aria-label={t`Close panel`}
       onClick={onClose}
@@ -503,7 +503,7 @@ export function BotSettings({
   const backButton = (
     <Button
       variant="ghost"
-      size="icon"
+      size="icon-lg"
       className="text-muted-foreground"
       aria-label={t`Back`}
       onClick={() => onViewChange?.("settings")}
@@ -529,10 +529,10 @@ export function BotSettings({
       {view === "pages" ? <PagesList botId={bot.id} /> : null}
       {/* Both stay mounted so drafts and the open tab survive a visit to a whole list. */}
       <div hidden={view !== "settings"}>
-        <div className="mb-2 flex items-center justify-between" style={sidePanelHeaderStyle}>
+        <div className="mb-5 flex items-center justify-between" style={sidePanelHeaderStyle}>
           <Button
             variant="floating"
-            size="icon"
+            size="icon-lg"
             className="text-muted-foreground"
             aria-label={t`Bot settings`}
             data-testid="bot-settings-open"
@@ -610,7 +610,7 @@ export function BotSettings({
                 render={
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="icon-lg"
                     className="text-muted-foreground"
                     aria-label={t`More actions`}
                   />

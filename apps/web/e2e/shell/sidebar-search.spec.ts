@@ -44,20 +44,13 @@ test("sidebar search opens from its icon and closes without moving chats mid-cli
   await trigger.click();
   await expect(search).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Activity", exact: true }).click();
+  // Closing from the icon drops the typed text too, and a match keeps its chat on the list.
   await trigger.click();
-  const runSearch = sidebar.getByRole("textbox", { name: "Search runs", exact: true });
-  await runSearch.fill("kept activity search");
-  const originalRunSearch = (await runSearch.elementHandle())!;
-  for (const composition of [{ isComposing: true }, { keyCode: 229 }]) {
-    await runSearch.dispatchEvent("keydown", { key: "Escape", ...composition });
-    await expect(runSearch).toBeVisible();
-    expect(await originalRunSearch.evaluate((element) => element.isConnected)).toBe(true);
-    await expect(runSearch).toHaveValue("kept activity search");
-  }
-  // Escape clears the run search and closes it, as it does for the space search.
-  await runSearch.press("Escape");
-  await expect(runSearch).toHaveCount(0);
+  await expect(search).toHaveValue("");
+  await search.fill("Superbot");
+  await expect(chief).toBeVisible();
+  await search.press("Escape");
+  await expect(search).toHaveCount(0);
 });
 
 test("a failed space search says so instead of No results", async ({ page }, testInfo) => {

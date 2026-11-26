@@ -121,7 +121,7 @@ html[data-platform="darwin"] .titlebar {
 
 .choice:has(input:focus-visible) {
   outline: 2px solid var(--ring);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 .choice input {
@@ -329,11 +329,12 @@ html[data-platform="darwin"] .titlebar {
   margin-top: 18px;
 }
 
+/* Pills, as the reference welcome draws its Sign in. */
 .button {
   font: inherit;
-  font-weight: 600;
-  padding: 9px 18px;
-  border-radius: calc(var(--radius) - 3px);
+  font-weight: 500;
+  padding: 9px 20px;
+  border-radius: 9999px;
   cursor: pointer;
   border: 1px solid transparent;
 }
@@ -345,7 +346,7 @@ html[data-platform="darwin"] .titlebar {
 
 .button:focus-visible {
   outline: 2px solid var(--ring);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 .button-primary {
@@ -354,7 +355,7 @@ html[data-platform="darwin"] .titlebar {
 }
 
 .button-primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary) 88%, var(--foreground));
+  background: var(--primary-hover);
 }
 
 .button-secondary {
