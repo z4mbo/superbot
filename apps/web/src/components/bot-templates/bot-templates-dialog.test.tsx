@@ -59,14 +59,6 @@ vi.mock("@rakazo/ui-web", () => {
     DialogContent: Box,
     DialogHeader: Box,
     DialogTitle: Box,
-    DropdownMenu: Box,
-    DropdownMenuContent: Box,
-    DropdownMenuItem: Box,
-    DropdownMenuTrigger: Box,
-    Input: ({
-      size: _size,
-      ...props
-    }: Omit<ComponentProps<"input">, "size"> & { size?: string }) => <input {...props} />,
     SectionHeading: Box,
     Spinner: () => <span role="status" />,
   };

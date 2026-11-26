@@ -1,9 +1,5 @@
 import { expect, test } from "@playwright/test";
-import type {
-  Bot,
-  CommunityTemplateListing,
-  CommunityTemplateSubmission,
-} from "@rakazo/contracts";
+import type { Bot, CommunityTemplateListing, CommunityTemplateSubmission } from "@rakazo/contracts";
 import { captureScreenshot, completeOnboarding, makeAdmin, rpc, signup } from "../helpers/helpers";
 
 const INSTRUCTIONS = "You write a weekly digest of what changed. Never send email for the user.";
@@ -52,11 +48,7 @@ test("a bot is shared as a template, approved, listed under Community and made i
   await submit.click();
   await expect(share).toHaveCount(0);
 
-  const [submitted] = await rpc<CommunityTemplateSubmission[]>(
-    page,
-    "communityTemplates/mine",
-    {},
-  );
+  const [submitted] = await rpc<CommunityTemplateSubmission[]>(page, "communityTemplates/mine", {});
   expect(submitted).toMatchObject({ status: "pending", author: "Community Author" });
   expect(submitted!.recipe.instructions).toBe(INSTRUCTIONS);
 
