@@ -21,6 +21,10 @@ describe("releaseNotesText", () => {
     expect(releaseNotesText("&#0;&#xD800;&#x1F680;&bogus;\u0007")).toBe("🚀&bogus;");
   });
 
+  it("leaves no tag behind when tags are nested inside each other", () => {
+    expect(releaseNotesText("<scr<script>ipt>alert(1)</scr</script>ipt>")).toBe("ipt>alert(1)ipt>");
+  });
+
   it("passes plain notes through and treats empty notes as none", () => {
     expect(releaseNotesText("- Faster sync\r\n- Fewer prompts")).toBe(
       "- Faster sync\n- Fewer prompts",

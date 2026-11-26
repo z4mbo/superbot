@@ -39,13 +39,24 @@ export function releaseNotesText(source: string): string | null {
   return bounded(plainText(source));
 }
 
+/** Drops tags until none is left, so removing one can never splice another together. */
+function withoutTags(text: string) {
+  let previous: string;
+  let next = text;
+  do {
+    previous = next;
+    next = previous.replace(TAG, "");
+  } while (next !== previous);
+  return next;
+}
+
 function plainText(source: string) {
-  return source
+  const lines = source
     .slice(0, MAX_SOURCE_LENGTH)
     .replace(/\r\n?/g, "\n")
     .replace(LIST_ITEM, "\n• ")
-    .replace(LINE_BREAK, "\n")
-    .replace(TAG, "")
+    .replace(LINE_BREAK, "\n");
+  return withoutTags(lines)
     .replace(ENTITY, decodeEntity)
     .replace(CONTROL, "")
     .split("\n")
