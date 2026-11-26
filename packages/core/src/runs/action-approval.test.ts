@@ -66,6 +66,9 @@ describe("toolRequiresApproval", () => {
     expect(toolRequiresApproval("secret_request", false)).toBe(true);
     expect(toolRequiresApproval("forget_secret", false)).toBe(true);
     expect(toolRequiresApproval("forget_memory", false)).toBe(true);
+    // Deleting saved shared memory or a server with its credential cannot be undone from chat.
+    expect(toolRequiresApproval("delete_shared_memory", false)).toBe(true);
+    expect(toolRequiresApproval("remove_mcp_server", false)).toBe(true);
     expect(toolRequiresApproval("list_secrets", false)).toBe(false);
     // A random value the bot cannot read exposes nothing, and never replaces a saved credential.
     expect(toolRequiresApproval("generate_secret", false)).toBe(false);
@@ -256,6 +259,8 @@ it("gates built-ins that change something only in runs outside text started", ()
   }
   expect(outsideRunToolRequiresApproval("webhook", "save_shared_memory")).toBe(true);
   expect(outsideRunToolRequiresApproval("webhook", "add_mcp_server")).toBe(true);
+  expect(outsideRunToolRequiresApproval("webhook", "delete_shared_memory")).toBe(true);
+  expect(outsideRunToolRequiresApproval("webhook", "remove_mcp_server")).toBe(true);
   for (const name of ["read_file", "computer_observe", "message_user", "ask_user"]) {
     expect(outsideRunToolRequiresApproval("webhook", name)).toBe(false);
   }

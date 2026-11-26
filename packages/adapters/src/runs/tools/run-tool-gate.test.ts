@@ -260,3 +260,46 @@ describe("gateToolCall: a nightly memory review", () => {
     expect(ctx.state.approval.pausePending).toBe(false);
   });
 });
+
+describe("gateToolCall: deleting saved state from chat", () => {
+  const planFor = async (name: string, args: Record<string, unknown>) => {
+    plans.length = 0;
+    const executionId = JSON.stringify(["pi-tool", "main", "call-1"]);
+    const request = {
+      name,
+      args,
+      executionId,
+      connectorCall: { tool: name, args, executionId, route: undefined },
+      effectRequest: args,
+      replayEffectToolName: name,
+      heldForApproval: false,
+      settingsChange: false,
+      ignoresAllowRules: false,
+    } as unknown as ToolRequest;
+    const ctx = {
+      deps: { prisma: {} },
+      run: { id: "run-1", userId: "user-1", spaceId: "space-1", trigger: "user" },
+      runId: "run-1",
+      bot: { id: "bot-1", name: "Helper" },
+      thread: { id: "thread-1" },
+      context: { signal: new AbortController().signal },
+      source: { ownerStartedRun: true },
+      tools: { connector: new Map(), connectedPlugins: [] },
+      state: {
+        tainted: false,
+        effects: { consumedIds: new Set(), counts: new Map(), occurrences: [] },
+      },
+      trust: {
+        loadApprovalRules: async () => [],
+        loadAutoReviewPreference: async () => ({ enabled: false, skipApprovals: false }),
+      },
+    };
+    await gateToolCall(ctx as never, request, undefined).catch(() => undefined);
+    return plans;
+  };
+
+  it("asks before deleting a shared memory document or removing an MCP server", async () => {
+    expect(await planFor("delete_shared_memory", { path: "team.md" })).toEqual(["ask"]);
+    expect(await planFor("remove_mcp_server", { name: "Linear" })).toEqual(["ask"]);
+  });
+});

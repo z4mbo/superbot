@@ -287,15 +287,11 @@ test("changes and recovers an email password", async ({ page }, testInfo) => {
   await completeOnboarding(page);
   await page.waitForURL(/\/app\/[^/]+$/);
 
+  // Password managers leave the search alone: it opens the command palette, whose field opts out.
   await page.getByTestId("sidebar-search-trigger").click();
-  await expect(page.getByTestId("sidebar-search").locator("input")).toHaveAttribute(
-    "autocomplete",
-    "off",
-  );
-  await expect(page.getByTestId("sidebar-search").locator("input")).toHaveAttribute(
-    "name",
-    "sidebar-search",
-  );
+  await expect(page.getByTestId("command-palette-search")).toHaveAttribute("autocomplete", "off");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("command-palette")).toBeHidden();
 
   const settings = await openUserSettings(page);
   await expect(settings.getByLabel("Current password")).toHaveCount(0);
